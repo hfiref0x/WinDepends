@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Nov 2024
+*  DATE:        24 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -140,6 +140,8 @@ public static class CConsts
     public const string CoreServerAddress = "127.0.0.1";
     public const int CoreServerPort = 8209;
     public const int CoreServerChainSizeMax = 32762;
+
+    public const string HintFormLabelControl = "HintLabel";
 
     /// <summary>
     /// Msg: OK

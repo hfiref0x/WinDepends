@@ -248,6 +248,9 @@
             LVModules.ColumnClick += LVModulesColumnClick;
             LVModules.RetrieveVirtualItem += LVModulesRetrieveVirtualItem;
             LVModules.SearchForVirtualItem += LVModulesSearchForVirtualItem;
+            LVModules.Click += LVModules_Click;
+            LVModules.KeyPress += LVModules_KeyPress;
+            LVModules.Leave += LVModules_Leave;
             LVModules.MouseDown += LVModules_MouseDown;
             // 
             // chModuleImage
@@ -364,7 +367,10 @@
             reLog.Size = new Size(1008, 154);
             reLog.TabIndex = 0;
             reLog.Text = "";
+            reLog.SelectionChanged += RichEditLog_SelectionChanged;
             reLog.Click += RichEditLog_Click;
+            reLog.Enter += RichEditLog_Enter;
+            reLog.Leave += RichEditLog_Leave;
             reLog.MouseDown += RichEditLog_MouseDown;
             // 
             // ViewMenuItem
@@ -693,6 +699,9 @@
             LVImports.ColumnClick += LVImportsColumnClick;
             LVImports.RetrieveVirtualItem += LVImportsRetrieveVirtualItem;
             LVImports.SearchForVirtualItem += LVImportsSearchForVirtualItem;
+            LVImports.Click += LVFunctions_Click;
+            LVImports.KeyPress += LVFunctions_KeyPress;
+            LVImports.Leave += LVFunctions_Leave;
             LVImports.MouseDown += LVFunctions_MouseDown;
             // 
             // chImportsPI
@@ -738,6 +747,9 @@
             LVExports.ColumnClick += LVExportsColumnClick;
             LVExports.RetrieveVirtualItem += LVExportsRetrieveVirtualItem;
             LVExports.SearchForVirtualItem += LVExportsSearchForVirtualItem;
+            LVExports.Click += LVFunctions_Click;
+            LVExports.KeyPress += LVFunctions_KeyPress;
+            LVExports.Leave += LVFunctions_Leave;
             LVExports.MouseDown += LVFunctions_MouseDown;
             // 
             // chExportsE
@@ -1085,6 +1097,7 @@
             TVModules.Size = new Size(428, 364);
             TVModules.TabIndex = 0;
             TVModules.AfterSelect += TVModules_AfterSelect;
+            TVModules.Click += TVModules_Click;
             TVModules.MouseDown += TVModules_MouseDown;
             // 
             // moduleTreePopupMenu

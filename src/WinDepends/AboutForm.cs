@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Sep 2024
+*  DATE:        24 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,7 +20,7 @@ namespace WinDepends;
 
 public partial class AboutForm : Form
 {
-    bool escKeyEnabled;
+    readonly bool escKeyEnabled;
 
     public AboutForm(bool bEscKeyEnabled)
     {

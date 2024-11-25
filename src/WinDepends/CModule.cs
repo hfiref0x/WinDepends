@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Nov 2024
+*  DATE:        25 Nov 2024
 *  
 *  Implementation of base CModule class.
 *
@@ -400,10 +400,22 @@ public class CModule
 
         return null;
     }
-
     public void SetManifestData(string data)
     {
         ManifestData = data;
+    }
+
+    public CFunction ResolveFunctionForOrdinal(uint ordinal) 
+    {
+        foreach (var function in ModuleData.Exports)
+        {
+            if (function.Ordinal == ordinal && !function.SnapByOrdinal())
+            {
+                return function;
+            }
+        }
+
+        return null;
     }
 
 }

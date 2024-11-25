@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        16 Nov 2024
+*  DATE:        25 Nov 2024
 *  
 *  Codename:    VasilEk
 *
@@ -72,6 +72,12 @@ public partial class MainForm : Form
     //
     bool m_InstanceStopSearch;
     bool m_InstanceSelfFound;
+
+    private readonly Form m_FunctionsHintForm;
+    private readonly Form m_ModulesHintForm;
+
+    string m_FunctionLookupText = string.Empty;
+    string m_ModuleLookupText = string.Empty;
 
     string m_SearchFunctionName;
     UInt32 m_SearchOrdinal;
@@ -159,6 +165,31 @@ public partial class MainForm : Form
 
         LVModules.VirtualMode = true;
         LVModules.VirtualListSize = 0;
+
+        m_FunctionsHintForm = CreateHintForm(CConsts.HintFormLabelControl);
+        m_ModulesHintForm = CreateHintForm(CConsts.HintFormLabelControl);
+    }
+
+    static Form CreateHintForm(string LabelName)
+    {
+        var resultForm = new Form
+        {
+            FormBorderStyle = FormBorderStyle.None,
+            StartPosition = FormStartPosition.Manual,
+            ShowInTaskbar = false,
+            TopMost = true,
+            BackColor = Color.LightYellow
+        };
+
+        var resultFormLabel = new Label
+        {
+            AutoSize = true,
+            Location = new Point(5, 5),
+            Name = LabelName
+        };
+
+        resultForm.Controls.Add(resultFormLabel);
+        return resultForm;
     }
 
     /// <summary>
@@ -1239,16 +1270,15 @@ public partial class MainForm : Form
 
         switch (controlName)
         {
-            case CConsts.TVModulesName:
-                module = TVModules.SelectedNode?.Tag as CModule;
-                break;
-
             case CConsts.LVModulesName:
                 if (LVModules.SelectedIndices.Count > 0)
                 {
                     var selectedItemIndex = LVModules.SelectedIndices[0];
                     module = m_LoadedModulesList[selectedItemIndex];
                 }
+                break;
+            default:
+                module = TVModules.SelectedNode?.Tag as CModule;
                 break;
         }
 
@@ -2035,7 +2065,8 @@ public partial class MainForm : Form
         if (reLog.Focused)
         {
             MenuCopyItem.Text = "&Copy Text";
-            MenuCopyItem.Enabled = true;
+            MenuCopyItem.Enabled = (reLog.SelectionLength > 0);
+
             MenuSelectAllItem.Enabled = true;
             MenuFindtem.Enabled = true;
             MenuFindNextItem.Enabled = true;
@@ -2884,7 +2915,7 @@ public partial class MainForm : Form
     private ListViewItem LVCreateFunctionEntry(CFunction function, CModule module, List<CModule> modulesList)
     {
         ListViewItem lvItem = new();
-
+ 
         // Ordinal
         string ordinalValue = function.Ordinal == UInt32.MaxValue ? CConsts.NotAvailableMsg : $"{function.Ordinal} (0x{function.Ordinal:X4})";
         lvItem.SubItems.Add(ordinalValue);
@@ -2894,10 +2925,14 @@ public partial class MainForm : Form
         lvItem.SubItems.Add(hintValue);
 
         // FunctionName
-        string functionName;
+        string functionName = CConsts.NotAvailableMsg;
         if (function.SnapByOrdinal())
         {
-            functionName = CConsts.NotAvailableMsg;
+            var resolvedFunction = module?.ResolveFunctionForOrdinal(function.Ordinal);
+            if (resolvedFunction != null)
+            {
+                functionName = m_Configuration.ViewUndecorated && resolvedFunction.IsNameDecorated() ? resolvedFunction.UndecorateFunctionName() : resolvedFunction.RawName;
+            }
         }
         else
         {
@@ -3163,5 +3198,176 @@ public partial class MainForm : Form
             CloseInputFile();
             OpenInputFile(fName);
         }
+    }
+
+    private async void LVFunctions_KeyPress(object sender, KeyPressEventArgs e)
+    {
+        ListView lvDst = LVImports.Focused ? LVImports : LVExports;
+
+        if (!lvDst.Focused || lvDst.VirtualListSize <= 0)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (!char.IsLetterOrDigit(e.KeyChar))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        m_FunctionLookupText += char.ToLower(e.KeyChar);
+
+        var hintLabel = m_FunctionsHintForm.Controls[CConsts.HintFormLabelControl] as Label;
+
+        hintLabel.Text = "Search: " + m_FunctionLookupText;
+        hintLabel.Size = hintLabel.PreferredSize;
+
+        Point location = new(lvDst.Bounds.Left, lvDst.Bounds.Bottom);
+        location = lvDst.PointToScreen(location);
+
+        m_FunctionsHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
+        m_FunctionsHintForm.Location = new Point(location.X, location.Y);
+        m_FunctionsHintForm.Show();
+
+        List<CFunction> currentList = lvDst == LVImports ? m_CurrentImportsList : m_CurrentExportsList;
+
+        m_SearchOrdinal = UInt32.MaxValue;
+        m_SearchFunctionName = string.Empty;
+
+        var matchingItem = currentList.FirstOrDefault(item => item.RawName.StartsWith(m_FunctionLookupText, StringComparison.OrdinalIgnoreCase));
+        if (matchingItem != null)
+        {
+            m_SearchFunctionName = matchingItem.RawName;
+            m_SearchOrdinal = matchingItem.Ordinal;
+
+            lvDst.BeginUpdate();
+            lvDst.SelectedIndices.Clear();
+            ListViewItem lvResult = lvDst.FindItemWithText(null);
+
+            if (lvResult != null)
+            {
+                lvResult.Selected = true;
+                lvResult.EnsureVisible();
+                lvDst.Focus();
+            }
+
+            lvDst.EndUpdate();
+
+            await Task.Delay(2000);
+            m_FunctionsHintForm.Hide();
+            m_FunctionLookupText = "";
+        }
+    }
+
+    private async void LVModules_KeyPress(object sender, KeyPressEventArgs e)
+    {
+        if (!LVModules.Focused || LVModules.VirtualListSize <= 0)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (!char.IsLetterOrDigit(e.KeyChar))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        m_ModuleLookupText += char.ToLower(e.KeyChar);
+
+        var hintLabel = m_ModulesHintForm.Controls[CConsts.HintFormLabelControl] as Label;
+        hintLabel.Text = "Search: " + m_ModuleLookupText;
+        hintLabel.Size = hintLabel.PreferredSize;
+
+        Point location = new(LVModules.Bounds.Left, LVModules.Bounds.Bottom);
+        location = LVModules.PointToScreen(location);
+
+        m_ModulesHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
+        m_ModulesHintForm.Location = new Point(location.X, location.Y);
+        m_ModulesHintForm.Show();
+
+        CModule matchingModule = m_LoadedModulesList.FirstOrDefault(module =>
+        {
+            string moduleName = Path.GetFileName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets));
+            return moduleName.StartsWith(m_ModuleLookupText, StringComparison.OrdinalIgnoreCase);
+        });
+
+        if (matchingModule != null)
+        {
+            LVModules.BeginUpdate();
+            LVModules.SelectedIndices.Clear();
+            ListViewItem lvResult = LVModules.FindItemWithText(matchingModule.FileName);
+
+            if (lvResult != null)
+            {
+                lvResult.Selected = true;
+                lvResult.EnsureVisible();
+                LVModules.Focus();
+            }
+
+            LVModules.EndUpdate();
+
+            await Task.Delay(2000);
+            m_ModulesHintForm.Hide();
+            m_ModuleLookupText = "";
+        }
+    }
+
+    private void LVFunctions_Leave(object sender, EventArgs e)
+    {
+        m_FunctionsHintForm.Hide();
+        m_FunctionLookupText = "";
+    }
+
+    private void LVModules_Leave(object sender, EventArgs e)
+    {
+        m_ModulesHintForm.Hide();
+        m_ModuleLookupText = "";
+    }
+
+    private void RichEditEnableInterfaceButtons(bool enable)
+    {
+        ViewPropertiesItem.Enabled = enable;
+        PropertiesToolButton.Enabled = enable;
+        toolStripMenuItem13.Enabled = enable;
+        ContextPropertiesItem.Enabled = enable;
+    }
+
+    private void RichEditLog_Enter(object sender, EventArgs e)
+    {
+        RichEditEnableInterfaceButtons(false);
+    }
+
+    private void RichEditLog_Leave(object sender, EventArgs e)
+    {
+        RichEditEnableInterfaceButtons(true);
+    }
+
+    private void RichEditLog_SelectionChanged(object sender, EventArgs e)
+    {
+        CopyToolButton.Enabled = (reLog.SelectionLength > 0);
+    }
+
+    private void LVModules_Click(object sender, EventArgs e)
+    {
+        CopyToolButton.Enabled = LVModules.SelectedIndices.Count > 0;
+    }
+
+    private void LVFunctions_Click(object sender, EventArgs e)
+    {
+        if (LVExports.Focused)
+        {
+            CopyToolButton.Enabled = LVExports.SelectedIndices.Count > 0;
+        }
+        else
+        {
+            CopyToolButton.Enabled = LVImports.SelectedIndices.Count > 0;
+        }
+    }
+
+    private void TVModules_Click(object sender, EventArgs e)
+    {
+        CopyToolButton.Enabled = TVModules.SelectedNode != null;
     }
 }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Nov 2024
+*  DATE:        26 Nov 2024
 *  
 *  Implementation of CFunction related classes.
 *
@@ -150,7 +150,7 @@ public class CFunction
         return list.Exists(item => item.RawName.Equals(RawName, StringComparison.Ordinal));
     }
 
-    public FunctionKind ResolveFunctionKind(CModule module, List<CModule> modulesList)
+    public bool ResolveFunctionKind(CModule module, List<CModule> modulesList)
     {
         FunctionKind newKind;
         List<CFunction> functionList;
@@ -162,7 +162,7 @@ public class CFunction
         if (module == null)
         {
             Kind = FunctionKind.ImportUnresolvedFunction;
-            return Kind;
+            return false;
         }
 
         if (IsExportFunction)
@@ -238,7 +238,7 @@ public class CFunction
         }
 
         Kind = newKind;
-        return Kind;
+        return true;
     }
 
     public CFunction()

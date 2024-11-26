@@ -27,7 +27,7 @@ public class CActCtxHelper : IDisposable
     public IntPtr ActivationContext { get; set; } = new(-1);
     IntPtr contextCookie;
 #if DEBUG
-    string contextFileName;
+    readonly string contextFileName;
 #endif
     #region "P-Invoke"
     [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]

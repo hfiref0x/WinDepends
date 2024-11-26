@@ -454,13 +454,13 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
         return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, preProcessData);
     }
 
-/*
-    public CCoreDataDirectoryRoot GetModuleDataDirectories(CModule module)
-    {
-        //fixme
-        return (CCoreDataDirectoryRoot)GetModuleInformationByType(ModuleInformationType.DataDirectories);
-    }
-*/
+    /*
+        public CCoreDataDirectoryRoot GetModuleDataDirectories(CModule module)
+        {
+            //fixme
+            return (CCoreDataDirectoryRoot)GetModuleInformationByType(ModuleInformationType.DataDirectories);
+        }
+    */
     public CCoreDbgStats GetCoreDbgStats(bool resetStats)
     {
         string cmd;
@@ -744,7 +744,7 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
             foreach (Process process in processList)
             {
                 try
-                {   
+                {
                     var name = Path.GetFileName(process.MainModule.FileName);
                     if (Path.GetFileName(fileName).Equals(name))
                     {

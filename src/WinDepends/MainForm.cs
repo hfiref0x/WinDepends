@@ -1688,10 +1688,16 @@ public partial class MainForm : Form
         //
         ViewModuleSetMenuItems(false);
 
+        var sessionOpened = m_Depends != null;
+
         //
         // Enable/Disable refresh button.
         //
-        ViewRefreshItem.Enabled = m_Depends != null;
+        ViewRefreshItem.Enabled = sessionOpened;
+
+        // Enable/Disable tree view specific commands.
+        mainMenuExpandAllItem.Enabled = sessionOpened;
+        mainMenuCollapseAllItem.Enabled = sessionOpened;
     }
 
     private void LVModules_MouseDown(object sender, MouseEventArgs e)
@@ -2192,12 +2198,17 @@ public partial class MainForm : Form
 
     private void CollapseAllMenuItem_Click(object sender, EventArgs e)
     {
+        TVModules.BeginUpdate();
         TVModules.CollapseAll();
+        TVModules.EndUpdate();
     }
 
     private void ExpandAllMenuItem_Click(object sender, EventArgs e)
     {
+        TVModules.BeginUpdate();
         TVModules.ExpandAll();
+        TVModules.SelectedNode?.EnsureVisible();
+        TVModules.EndUpdate();
     }
 
     private void ShowSysInfoDialog(object sender, EventArgs e)
@@ -2263,6 +2274,10 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Invoked each time user selects a module. Builds parent import and export lists.
+    /// </summary>
+    /// <param name="module">Currently selected module.</param>
     private void BuildFunctionListForSelectedModule(CModule module)
     {
         ResetFunctionLists();
@@ -2288,6 +2303,12 @@ public partial class MainForm : Form
             m_CurrentExportsList = module.ModuleData.Exports;
         }
 
+        //
+        // Update function icons.
+        //
+        ResolveFunctionKindForList(m_CurrentImportsList, module, m_LoadedModulesList);
+        ResolveFunctionKindForList(m_CurrentExportsList, module, m_LoadedModulesList);
+
         UpdateListViewInternal(LVExports, m_CurrentExportsList, m_Configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
         UpdateListViewInternal(LVImports, m_CurrentImportsList, m_Configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
 
@@ -2297,6 +2318,14 @@ public partial class MainForm : Form
             if (listView.VirtualListSize > 0)
             {
                 LVFunctionsSort(listView, sortColumn, sortOrder, functionList, displayCacheType);
+            }
+        }
+
+        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList)
+        {
+            foreach (CFunction function in currentList)
+            {
+                function.ResolveFunctionKind(module, modulesList);
             }
         }
     }
@@ -2570,6 +2599,11 @@ public partial class MainForm : Form
         return tvNode;
     }
 
+    /// <summary>
+    /// Debug function, used only in debug builds.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void MenuSetTestData_Click(object sender, EventArgs e)
     {
 #if DEBUG
@@ -2607,7 +2641,6 @@ public partial class MainForm : Form
             TVModules.ExpandAll();
 #endif
     }
-
 
     private void MainMenu_FileDropDown(object sender, EventArgs e)
     {
@@ -2895,13 +2928,13 @@ public partial class MainForm : Form
             // Preferred base
             lvItem.SubItems.Add($"0x{moduleData.PreferredBase.ToString(hexFormat)}");
 
-            // Actual base
+            // Actual base (currently unused, profing artifact)
             value = (module.ModuleData.ActualBase == UIntPtr.Zero) ? "Unknown" : $"0x{moduleData.ActualBase.ToString(hexFormat)}";
-
             lvItem.SubItems.Add(value);
 
             lvItem.SubItems.Add($"0x{moduleData.VirtualSize:X8}");
-            lvItem.SubItems.Add(moduleData.LoadOrder.ToString());
+
+            lvItem.SubItems.Add(moduleData.LoadOrder.ToString()); //currently unused, profing artifact
 
             // Versions
             lvItem.SubItems.Add(moduleData.FileVersion);
@@ -2914,10 +2947,10 @@ public partial class MainForm : Form
         return lvItem;
     }
 
-    private ListViewItem LVCreateFunctionEntry(CFunction function, CModule module, List<CModule> modulesList)
+    private ListViewItem LVCreateFunctionEntry(CFunction function, CModule module)
     {
         ListViewItem lvItem = new();
- 
+
         // Ordinal
         string ordinalValue = function.Ordinal == UInt32.MaxValue ? CConsts.NotAvailableMsg : $"{function.Ordinal} (0x{function.Ordinal:X4})";
         lvItem.SubItems.Add(ordinalValue);
@@ -2954,8 +2987,8 @@ public partial class MainForm : Form
             entryPoint = function.Address == 0 ? CConsts.NotBoundMsg : $"0x{function.Address:X8}";
         }
         lvItem.SubItems.Add(entryPoint);
-        lvItem.ImageIndex = (int)function.ResolveFunctionKind(module, modulesList);
 
+        lvItem.ImageIndex = (int)function.Kind;
         return lvItem;
     }
 
@@ -2975,7 +3008,7 @@ public partial class MainForm : Form
         else
         {
             var selectedModule = TVModules.SelectedNode?.Tag as CModule;
-            e.Item = LVCreateFunctionEntry(m_CurrentExportsList[e.ItemIndex], selectedModule, m_LoadedModulesList);
+            e.Item = LVCreateFunctionEntry(m_CurrentExportsList[e.ItemIndex], selectedModule);
         }
     }
 
@@ -2995,7 +3028,7 @@ public partial class MainForm : Form
         else
         {
             var selectedModule = TVModules.SelectedNode?.Tag as CModule;
-            e.Item = LVCreateFunctionEntry(m_CurrentImportsList[e.ItemIndex], selectedModule, m_LoadedModulesList);
+            e.Item = LVCreateFunctionEntry(m_CurrentImportsList[e.ItemIndex], selectedModule);
         }
     }
 
@@ -3037,7 +3070,7 @@ public partial class MainForm : Form
 
         for (int i = 0, j = LVExportsFirstItem; i < length && j < m_CurrentExportsList.Count; i++, j++)
         {
-            LVExportsCache[i] = LVCreateFunctionEntry(m_CurrentExportsList[j], selectedModule, m_LoadedModulesList);
+            LVExportsCache[i] = LVCreateFunctionEntry(m_CurrentExportsList[j], selectedModule);
         }
     }
 
@@ -3060,7 +3093,7 @@ public partial class MainForm : Form
 
         for (int i = 0, j = LVImportsFirstItem; i < length && j < m_CurrentImportsList.Count; i++, j++)
         {
-            LVImportsCache[i] = LVCreateFunctionEntry(m_CurrentImportsList[j], selectedModule, m_LoadedModulesList);
+            LVImportsCache[i] = LVCreateFunctionEntry(m_CurrentImportsList[j], selectedModule);
         }
     }
 

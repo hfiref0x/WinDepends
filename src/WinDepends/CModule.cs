@@ -405,7 +405,7 @@ public class CModule
         ManifestData = data;
     }
 
-    public CFunction ResolveFunctionForOrdinal(uint ordinal) 
+    public CFunction ResolveFunctionForOrdinal(uint ordinal)
     {
         foreach (var function in ModuleData.Exports)
         {

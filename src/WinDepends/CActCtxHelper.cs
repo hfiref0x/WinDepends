@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Sep 2024
+*  DATE:        25 Nov 2024
 *  
 *  Activation context path resolution helper.
 *
@@ -18,17 +18,17 @@
 *******************************************************************************/
 
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace WinDepends;
 
 public class CActCtxHelper : IDisposable
 {
     readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
-    IntPtr activationContext = new(-1);
-    IntPtr activationContextCookie;
-    public int LastError { get; set; }
-
+    public IntPtr ActivationContext { get; set; } = new(-1);
+    IntPtr contextCookie;
+#if DEBUG
+    string contextFileName;
+#endif
     #region "P-Invoke"
     [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     static extern IntPtr CreateActCtx(ref ACTCTX actctx);
@@ -83,37 +83,24 @@ public class CActCtxHelper : IDisposable
             lpAssemblyDirectory = Path.GetDirectoryName(fileName),
             lpResourceName = CREATEPROCESS_MANIFEST_RESOURCE_ID
         };
-
-        activationContext = CreateActCtx(ref requestedActivationContext);
-        if (activationContext != INVALID_HANDLE_VALUE)
-        {
-            if (!ActivateActCtx(activationContext, out activationContextCookie))
-            {
-                LastError = Marshal.GetLastWin32Error();
-            }
-        }
-        else
-        {
-            LastError = Marshal.GetLastWin32Error();
-        }
+#if DEBUG
+        contextFileName = fileName;
+#endif
+        ActivationContext = CreateActCtx(ref requestedActivationContext);
     }
 
-    public static string ResolveFilePath(string fileName)
+    public bool ActivateContext()
     {
-        string result = string.Empty;
-        StringBuilder sbOut = new();
+        return ActivateActCtx(ActivationContext, out contextCookie);
+    }
 
-        UInt32 res = NativeMethods.SearchPath(null, fileName, null, 0, null, out _);
-        if (res != 0)
+    public bool DeactivateContext()
+    {
+        bool result = DeactivateActCtx(0, contextCookie);
+        if (result)
         {
-            sbOut.EnsureCapacity((int)res);
-            res = NativeMethods.SearchPath(null, fileName, null, (UInt32)sbOut.Capacity, sbOut, out _);
-            if (res != 0)
-            {
-                result = sbOut.ToString();
-            }
+            contextCookie = IntPtr.Zero;
         }
-
         return result;
     }
 
@@ -127,20 +114,16 @@ public class CActCtxHelper : IDisposable
     {
         if (disposing)
         {
-            if (activationContextCookie != IntPtr.Zero)
+            if (contextCookie != IntPtr.Zero)
             {
-                if (!DeactivateActCtx(dwFlags: 0, activationContextCookie))
-                {
-                    LastError = Marshal.GetLastWin32Error();
-                }
-
-                activationContextCookie = IntPtr.Zero;
+                DeactivateActCtx(0, contextCookie);
+                contextCookie = IntPtr.Zero;
             }
 
-            if (activationContext != INVALID_HANDLE_VALUE)
+            if (ActivationContext != INVALID_HANDLE_VALUE)
             {
-                ReleaseActCtx(activationContext);
-                activationContext = INVALID_HANDLE_VALUE;
+                ReleaseActCtx(ActivationContext);
+                ActivationContext = INVALID_HANDLE_VALUE;
             }
         }
     }

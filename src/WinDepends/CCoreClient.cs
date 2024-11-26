@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Nov 2024
+*  DATE:        26 Nov 2024
 *  
 *  Core Server communication class.
 *
@@ -454,12 +454,13 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
         return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, preProcessData);
     }
 
+/*
     public CCoreDataDirectoryRoot GetModuleDataDirectories(CModule module)
     {
         //fixme
         return (CCoreDataDirectoryRoot)GetModuleInformationByType(ModuleInformationType.DataDirectories);
     }
-
+*/
     public CCoreDbgStats GetCoreDbgStats(bool resetStats)
     {
         string cmd;

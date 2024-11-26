@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Oct 2024
+*  DATE:        26 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -16,6 +16,8 @@
 *******************************************************************************/
 
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace WinDepends;
 
@@ -39,6 +41,7 @@ public static class CPathResolver
     public static List<string> KnownDlls32 { get => knownDlls32; set => knownDlls32 = value; }
 
     static CSxsEntries ManifestSxsDependencies = [];
+    public static CActCtxHelper ActCtxHelper { get; set; }
     static bool AutoElevate { get; set; }
 
     public static void QueryFileInformation(CModule module)
@@ -63,7 +66,6 @@ public static class CPathResolver
             ManifestSxsDependencies = CSxsManifest.GetManifestInformation(module, CurrentDirectory, out bool bAutoElevate);
             AutoElevate = bAutoElevate;
         }
-
         Initialized = true;
     }
 
@@ -227,14 +229,30 @@ public static class CPathResolver
         return string.Empty;
     }
 
-    static internal string PathFromWinSXS(string applicationName, string fileName)
+    static internal string PathFromWinSXS(string fileName)
     {
         string result = string.Empty;
-
-        // Actctx
-        using (CActCtxHelper helper = new(applicationName))
+        if (ActCtxHelper.ActivateContext())
         {
-            result = CActCtxHelper.ResolveFilePath(fileName);
+            StringBuilder sbOut = new(2048);
+            uint res = NativeMethods.SearchPath(null, fileName, null, 2048, sbOut, out _);
+            if (res == 0)
+            {
+                if (Marshal.GetLastWin32Error() == 0x7A) // ERROR_INSUFFICIENT_BUFFER
+                {
+                    sbOut.Clear();
+                    sbOut.Capacity = (int)res;
+                    res = NativeMethods.SearchPath(null, fileName, null, (uint)sbOut.Capacity, sbOut, out _);
+                }
+            }
+
+            ActCtxHelper.DeactivateContext();
+
+            if (res != 0)
+            {
+                result = sbOut.ToString();
+            }
+
         }
 
         return result;
@@ -329,7 +347,7 @@ public static class CPathResolver
                             //
                             // Resolve path using activation context.
                             //
-                            result = PathFromWinSXS(MainModuleFileName, partiallyResolvedFileName);
+                            result = PathFromWinSXS(partiallyResolvedFileName);
                         }
                         resolvedBy = SearchOrderType.WinSXS;
                     }

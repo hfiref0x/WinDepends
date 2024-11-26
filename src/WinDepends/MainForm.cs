@@ -956,23 +956,25 @@ public partial class MainForm : Form
             };
 
             CPathResolver.Initialized = false;
-
-            if (m_Depends.RootModule != null)
+            using (CActCtxHelper sxsHelper = new(fileName))
             {
-                PopulateObjectToLists(m_Depends.RootModule, false);
+                if (m_Depends.RootModule != null)
+                {
+                    CPathResolver.ActCtxHelper = sxsHelper;
+                    PopulateObjectToLists(m_Depends.RootModule, false);
 
-                m_CoreClient?.GetCoreDbgStats(false);
+                    m_CoreClient?.GetCoreDbgStats(false);
 
-                LVModules.BeginUpdate();
+                    LVModules.BeginUpdate();
 
-                LVModulesSort(LVModules, m_Configuration.SortColumnModules,
-                   LVModulesSortOrder, m_LoadedModulesList, DisplayCacheType.Modules);
+                    LVModulesSort(LVModules, m_Configuration.SortColumnModules,
+                       LVModulesSortOrder, m_LoadedModulesList, DisplayCacheType.Modules);
 
-                LVModules.EndUpdate();
+                    LVModules.EndUpdate();
 
-                bResult = true;
+                    bResult = true;
+                }
             }
-
         }
 
         if (bResult)
@@ -3084,30 +3086,58 @@ public partial class MainForm : Form
         }
     }
 
-    private void LVImportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
+    private void LVFunctionsSearchForVirtualItem(List<CFunction> itemList, SearchForVirtualItemEventArgs e)
     {
-        foreach (var import in m_CurrentImportsList)
+        // Search by ordinal.
+        if (string.IsNullOrEmpty(m_SearchFunctionName))
         {
-            if (import.RawName.Equals(m_SearchFunctionName, StringComparison.OrdinalIgnoreCase) ||
-                (m_SearchOrdinal != UInt32.MaxValue && import.Ordinal == m_SearchOrdinal))
+            if (m_SearchOrdinal != UInt32.MaxValue)
             {
-                e.Index = m_CurrentImportsList.IndexOf(import);
-                return;
+                foreach (var entry in itemList)
+                {
+                    if (entry.Ordinal == m_SearchOrdinal)
+                    {
+                        e.Index = itemList.IndexOf(entry);
+                        return;
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Search by name.
+            foreach (var entry in itemList)
+            {
+                if (entry.RawName.Equals(m_SearchFunctionName, StringComparison.OrdinalIgnoreCase))
+                {
+                    e.Index = itemList.IndexOf(entry);
+                    return;
+                }
+            }
+
+            // If item is not found, search by ordinal if possible.
+            if (m_SearchOrdinal != UInt32.MaxValue)
+            {
+                foreach (var entry in itemList)
+                {
+                    if (entry.Ordinal == m_SearchOrdinal)
+                    {
+                        e.Index = itemList.IndexOf(entry);
+                        return;
+                    }
+                }
             }
         }
     }
 
+    private void LVImportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
+    {
+        LVFunctionsSearchForVirtualItem(m_CurrentImportsList, e);
+    }
+
     private void LVExportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
-        foreach (var export in m_CurrentExportsList)
-        {
-            if (export.RawName.Equals(m_SearchFunctionName, StringComparison.OrdinalIgnoreCase) ||
-                (m_SearchOrdinal != UInt32.MaxValue && export.Ordinal == m_SearchOrdinal))
-            {
-                e.Index = m_CurrentExportsList.IndexOf(export);
-                return;
-            }
-        }
+        LVFunctionsSearchForVirtualItem(m_CurrentExportsList, e);
     }
 
     private void LVModulesSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)

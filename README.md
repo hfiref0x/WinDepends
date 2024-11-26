@@ -4,12 +4,15 @@
 #### System Requirements
 
 + Windows 10/11
+
+(reportedly working on Windows 8.1, but we do not officially support it, and ApiSet resolving will be unavailable)
+
 + [.NET Desktop Runtime 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 + Administrative privilege is not required
 
 # Overview
 
-WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.com/) utility which for a long time was a "must have" tool when it comes to Windows PE files analysis and building hierarchical tree diagram of all dependent modules. Unfortunately development of this tool stopped around Windows Vista release and since that time Microsoft introduced a lot of new features "under the hood" of loader that eventually broke DependencyWalker and made it use painful, especially on a newest Windows versions with tons of artifactial dlls a.k.a. ApiSet contracts. Unfortunatelly none of the existing "replacements" are even slightly comparable to original in terms of implementation or features, that's why this project was born, it was on the mind for many years but has never got enough time or will to be implemented, until these days.
+WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.com/) utility which for a long time was a "must-have" tool when it comes to Windows PE files analysis and building a hierarchical tree diagram of all dependent modules. Unfortunately, development of this tool stopped around the Windows Vista release, and since that time, Microsoft introduced a lot of new features "under the hood" of the loader that eventually broke Dependency Walker and made its use painful, especially on the newest Windows versions with tons of artificial DLLs, a.k.a. ApiSet contracts. Unfortunately, none of the existing "replacements" are even slightly comparable to the original in terms of implementation or features. That's why this project was born. It was in the mind for many years but has never had enough time or will to be implemented, until these days.
 
 <img src="https://raw.githubusercontent.com/hfiref0x/WinDepends.Docs/master/help/img/MainWindowConsent.png" width="1010" />
 
@@ -54,7 +57,7 @@ There are no specific installation requirements, just copy this folder somewhere
 + Server is written in C, with no special headers or SDK used.
 + Source code also include server test application (WinDepends.Core.Tests) and simple fuzzer (WinDepends.Core.Fuzz).
 
-We are not chasing the latest versions of frameworks, SDKs or language standards, so for example, if the .NET platform is updated, it will happen in the next LTS release (NET 10)."
+We are not chasing the latest versions of frameworks, SDKs or language standards, so for example, if the .NET platform is updated, it will happen in the next LTS release (NET 10).
 
 # License
 

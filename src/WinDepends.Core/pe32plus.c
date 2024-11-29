@@ -3,11 +3,11 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Nov 15, 2024
+*  Modified on: Nov 26, 2024
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #include "core.h"
@@ -990,7 +990,7 @@ LPBYTE pe32open(
         */
         sections = (PIMAGE_SECTION_HEADER)((PBYTE)opt_file_hdr.opt_file_hdr64 + nt_file_hdr.SizeOfOptionalHeader);
 
-        context->is_32bit = (opt_file_hdr.opt_file_hdr64->Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC);
+        context->moduleMagic = opt_file_hdr.opt_file_hdr64->Magic;
 
         switch (opt_file_hdr.opt_file_hdr64->Magic)
         {

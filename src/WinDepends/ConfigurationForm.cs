@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Oct 2024
+*  DATE:        28 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,26 +20,31 @@ namespace WinDepends;
 
 public partial class ConfigurationForm : Form
 {
+    private readonly CCoreClient m_CoreClient;
     private readonly string m_CurrentFileName = string.Empty;
     private readonly bool m_Is64bitFile;
     private bool m_SearchOrderExpand = true;
+    private bool m_SearchOrderDriversExpand = true;
     private readonly CConfiguration m_CurrentConfiguration;
+    private TreeNode m_UserDefinedDirectoryNodeUM;
+    private TreeNode m_UserDefinedDirectoryNodeKM;
 
-    public ConfigurationForm(string currentFileName, bool is64bitFile, CConfiguration currentConfiguration)
+    public ConfigurationForm(string currentFileName, bool is64bitFile, CConfiguration currentConfiguration, CCoreClient coreClient)
     {
         InitializeComponent();
         m_CurrentFileName = currentFileName;
         m_Is64bitFile = is64bitFile;
         m_CurrentConfiguration = currentConfiguration;
+        m_CoreClient = coreClient;
     }
 
-    private void FillSearchOrderCategoryWithItems(TreeNode rootNode, SearchOrderType searchOrder)
+    private void FillSearchOrderCategoryWithItems(TreeNode rootNode, SearchOrderType soType)
     {
         int imageIndex = (int)SearchOderIconType.Module;
         string nodeName = "Cannot query content";
         TreeNode node;
 
-        switch (searchOrder)
+        switch (soType)
         {
             case SearchOrderType.KnownDlls:
 
@@ -107,6 +112,12 @@ public partial class ConfigurationForm : Form
                 imageIndex = (int)SearchOderIconType.Directory;
                 nodeName = m_CurrentFileName;
                 break;
+
+            case SearchOrderType.SystemDriversDirectory:
+                imageIndex = (int)SearchOderIconType.Directory;
+                nodeName = CPathResolver.SystemDriversDirectory;
+                break;
+
         }
 
         node = new TreeNode()
@@ -133,6 +144,103 @@ public partial class ConfigurationForm : Form
         return false;
     }
 
+    private void CreateSearchOrderView(TreeView view,
+                                       List<SearchOrderType> soList,
+                                       List<string> soDirList,
+                                       ref TreeNode userNode)
+    {
+        TreeNode tvNode;
+        view.ImageList = CUtils.CreateImageList(Properties.Resources.SearchOrderIcons,
+                                                CConsts.SearchOrderIconsWidth,
+                                                CConsts.SearchOrderIconsHeigth,
+                                                Color.Magenta);
+
+        foreach (var sol in soList)
+        {
+            if (sol != SearchOrderType.UserDefinedDirectory)
+            {
+                tvNode = new(sol.ToDescription())
+                {
+                    Tag = sol
+                };
+                view.Nodes.Add(tvNode);
+                FillSearchOrderCategoryWithItems(tvNode, sol);
+            }
+            else
+            {
+                //
+                // User defined directory.
+                //
+                userNode = new(CConsts.CategoryUserDefinedDirectory)
+                {
+                    Tag = SearchOrderType.UserDefinedDirectory
+                };
+                view.Nodes.Add(userNode);
+
+                foreach (var entry in soDirList)
+                {
+                    var imageIndex = Directory.Exists(entry) ? (int)SearchOderIconType.Directory : (int)SearchOderIconType.DirectoryBad;
+
+                    var subNode = new TreeNode()
+                    {
+                        ImageIndex = imageIndex,
+                        SelectedImageIndex = imageIndex,
+                        Text = entry,
+                        Tag = CConsts.SearchOrderUserValue
+                    };
+                    userNode.Nodes.Add(subNode);
+                }
+            }
+        }
+
+        view.ExpandAll();
+    }
+
+    private void ShowServerStatusAndSetControls()
+    {
+        labelServerStatus.Font = new Font(labelServerStatus.Font, FontStyle.Bold);
+
+        if (m_CoreClient == null || m_CoreClient.ClientConnection == null || !m_CoreClient.ClientConnection.Connected)
+        {
+            labelServerStatus.Text = "Connection Error";
+            labelServerStatus.ForeColor = Color.Red;
+            labelSrvPid.Text = "-";
+            buttonServerConnect.Text = "Connect";
+            return;
+        }
+
+        var pid = m_CoreClient.ServerProcessId;
+        labelSrvPid.Text = (pid < 0) ? "-" : pid.ToString();
+
+        labelServerStatus.Text = "Connected";
+        labelServerStatus.ForeColor = Color.Green;
+        buttonServerConnect.Text = "Reconnect";
+
+        CCoreServStats srvStats = m_CoreClient.GetCoreServStats();
+        if (srvStats != null)
+        {
+            labelSrvTotalSocketsCreated.Text = srvStats.SocketsCreated.ToString();
+            labelSrvTotalSocketsClosed.Text = srvStats.SocketsClosed.ToString();
+            labelSrvTotalThreads.Text = srvStats.ThreadsCount.ToString();
+        }
+    }
+
+    private void CheckServerFileState(string fileName)
+    {
+        ServerFileState.Font = new Font(ServerFileState.Font, FontStyle.Bold);
+
+        if (File.Exists(fileName))
+        {
+            ServerFileState.Text = "File is OK";
+            ServerFileState.ForeColor = Color.Green;
+        }
+        else
+        {
+            ServerFileState.Text = "File not found!";
+            ServerFileState.ForeColor = Color.Red;
+        }
+    }
+
     private void ConfigurationForm_Load(object sender, EventArgs e)
     {
         TVSettings.ExpandAll();
@@ -143,6 +251,23 @@ public partial class ConfigurationForm : Form
         foreach (Control ctrl in tabShellIntegrationPage.Controls)
         {
             ctrl.Enabled = CUtils.IsAdministrator;
+        }
+
+        //
+        // Add button tooltips.
+        //
+        TooltipInfo[] tooltips =
+        [
+            new TooltipInfo(DeleteUserDirectoryButton, "Delete user directory"),
+            new TooltipInfo(DeleteUserDirectoryDriversButton, "Delete user directory"),
+            new TooltipInfo(AddUserDirectoryButton, "Browse and add user directory"),
+            new TooltipInfo(AddUserDirectoryDriversButton, "Browse and add user directory")
+        ];
+
+        foreach (var tooltipInfo in tooltips)
+        {
+            ToolTip tooltip = new();
+            tooltip.SetToolTip(tooltipInfo.Control, tooltipInfo.AssociatedText);
         }
 
         shellIntegrationWarningLabel.Enabled = !CUtils.IsAdministrator;
@@ -178,23 +303,17 @@ public partial class ConfigurationForm : Form
         NativeMethods.AddShieldToButton(buttonElevate);
 
         //
-        // Search order levels.
+        // Search order UM/KM.
         //
+        CreateSearchOrderView(TVSearchOrder,
+            m_CurrentConfiguration.SearchOrderListUM,
+            m_CurrentConfiguration.UserSearchOrderDirectoriesUM,
+            ref m_UserDefinedDirectoryNodeUM);
 
-        TVSearchOrder.ImageList = CUtils.CreateImageList(Properties.Resources.SearchOrderIcons,
-            CConsts.SearchOrderIconsWidth, CConsts.SearchOrderIconsHeigth, Color.Magenta);
-
-        foreach (var sol in m_CurrentConfiguration.SearchOrderList)
-        {
-            TreeNode tvNode = new(sol.ToDescription())
-            {
-                Tag = sol
-            };
-            TVSearchOrder.Nodes.Add(tvNode);
-            FillSearchOrderCategoryWithItems(tvNode, sol);
-        }
-
-        TVSearchOrder.ExpandAll();
+        CreateSearchOrderView(TVSearchOrderDrivers,
+            m_CurrentConfiguration.SearchOrderListKM,
+            m_CurrentConfiguration.UserSearchOrderDirectoriesKM,
+            ref m_UserDefinedDirectoryNodeKM);
 
         //
         // Handled file extensions.
@@ -233,6 +352,9 @@ public partial class ConfigurationForm : Form
         }
 
         labelAllocGran.Text = $"0x{CUtils.AllocationGranularity:X}";
+
+        CheckServerFileState(m_CurrentConfiguration.CoreServerAppLocation);
+        ShowServerStatusAndSetControls();
     }
 
     private void ConfigurationForm_KeyDown(object sender, KeyEventArgs e)
@@ -321,6 +443,26 @@ public partial class ConfigurationForm : Form
 
     }
 
+    private static void SetSearchOrderList(TreeView view,
+                                    List<SearchOrderType> soElements,
+                                    List<string> soDirs,
+                                    TreeNode directoryNode)
+    {
+        soElements.Clear();
+        foreach (TreeNode node in view.Nodes)
+        {
+            var entry = (SearchOrderType)node.Tag;
+            soElements.Add(entry);
+        }
+
+        soDirs.Clear();
+        foreach (TreeNode node in directoryNode.Nodes)
+        {
+            soDirs.Add(node.Text);
+        }
+
+    }
+
     private void ConfigOK_Click(object sender, EventArgs e)
     {
         //
@@ -342,11 +484,15 @@ public partial class ConfigurationForm : Form
         m_CurrentConfiguration.ExternalFunctionHelpURL = searchOnlineTextBox.Text;
         m_CurrentConfiguration.CoreServerAppLocation = serverAppLocationTextBox.Text;
 
-        m_CurrentConfiguration.SearchOrderList.Clear();
-        foreach (TreeNode node in TVSearchOrder.Nodes)
-        {
-            m_CurrentConfiguration.SearchOrderList.Add((SearchOrderType)node.Tag);
-        }
+        SetSearchOrderList(TVSearchOrder,
+            m_CurrentConfiguration.SearchOrderListUM,
+            m_CurrentConfiguration.UserSearchOrderDirectoriesUM,
+            m_UserDefinedDirectoryNodeUM);
+
+        SetSearchOrderList(TVSearchOrderDrivers,
+            m_CurrentConfiguration.SearchOrderListKM,
+            m_CurrentConfiguration.UserSearchOrderDirectoriesKM,
+            m_UserDefinedDirectoryNodeKM);
 
         if (m_CurrentConfiguration.UseRelocForImages && cbMinAppAddress.SelectedItem != null)
         {
@@ -439,10 +585,35 @@ public partial class ConfigurationForm : Form
         }
     }
 
+    private TreeView GetCurrentTVSearchOrder()
+    {
+        TreeView searchOrderView;
+
+        if (settingsTabControl.SelectedTab == tabSearchOrder)
+        {
+            searchOrderView = TVSearchOrder;
+        }
+        else if (settingsTabControl.SelectedTab == tabSearchOrderDrivers)
+        {
+            searchOrderView = TVSearchOrderDrivers;
+        }
+        else
+        {
+            return null;
+        }
+
+        return searchOrderView;
+    }
+
     private void TVSearchOderMoveUp(object sender, EventArgs e)
     {
-        var node = TVSearchOrder.SelectedNode;
-        TreeView view = node.TreeView;
+        TreeView view = GetCurrentTVSearchOrder();
+        if (view == null)
+        {
+            return;
+        }
+
+        var node = view.SelectedNode;
 
         if (node.Parent != null) node = node.Parent;
 
@@ -457,13 +628,18 @@ public partial class ConfigurationForm : Form
             }
         }
 
-        TVSearchOrder.Focus();
+        view.Focus();
     }
 
     private void TVSearchOderMoveDown(object sender, EventArgs e)
     {
-        var node = TVSearchOrder.SelectedNode;
-        TreeView view = node.TreeView;
+        TreeView view = GetCurrentTVSearchOrder();
+        if (view == null)
+        {
+            return;
+        }
+
+        var node = view.SelectedNode;
 
         if (node.Parent != null) node = node.Parent;
 
@@ -478,30 +654,75 @@ public partial class ConfigurationForm : Form
             }
         }
 
-        TVSearchOrder.Focus();
+        view.Focus();
     }
 
     private void TVSearchOrderAfterSelect(object sender, TreeViewEventArgs e)
     {
-        var bEnabled = TVSearchOrder.SelectedNode != null;
-        MoveUpButton.Enabled = bEnabled;
-        MoveDownButton.Enabled = bEnabled;
+        if (sender is not TreeView view) return;
+
+        var bMoveButtonsEnabled = view?.SelectedNode != null;
+        bool bEnableDelButton = false;
+
+        //
+        // If the selected item is user defined directory then enable del button.
+        //
+        if (view?.SelectedNode?.Tag is string text &&
+            text.Equals(CConsts.SearchOrderUserValue, StringComparison.OrdinalIgnoreCase))
+        {
+            bEnableDelButton = true;
+        }
+
+        if (view == TVSearchOrder)
+        {
+            MoveUpButton.Enabled = bMoveButtonsEnabled;
+            MoveDownButton.Enabled = bMoveButtonsEnabled;
+            DeleteUserDirectoryButton.Enabled = bEnableDelButton;
+        }
+        else
+        {
+            MoveUpButtonDrivers.Enabled = bMoveButtonsEnabled;
+            MoveDownButtonDrivers.Enabled = bMoveButtonsEnabled;
+            DeleteUserDirectoryDriversButton.Enabled = bEnableDelButton;
+        }
     }
 
     private void ExpandSearchOrderButton_Click(object sender, EventArgs e)
     {
-        m_SearchOrderExpand = !m_SearchOrderExpand;
-        if (m_SearchOrderExpand)
+        var view = TVSearchOrder;
+
+        if (settingsTabControl.SelectedTab == tabSearchOrder)
         {
-            ExpandSearchOrderButton.Text = "Collapse View";
-            TVSearchOrder.ExpandAll();
+            m_SearchOrderExpand = !m_SearchOrderExpand;
+            if (m_SearchOrderExpand)
+            {
+                ExpandSearchOrderButton.Text = "Collapse All";
+                view.ExpandAll();
+            }
+            else
+            {
+                ExpandSearchOrderButton.Text = "Expand All";
+                view.CollapseAll();
+            }
         }
         else
         {
-            ExpandSearchOrderButton.Text = "Expand View";
-            TVSearchOrder.CollapseAll();
+            view = TVSearchOrderDrivers;
+            m_SearchOrderDriversExpand = !m_SearchOrderDriversExpand;
+            if (m_SearchOrderDriversExpand)
+            {
+                ExpandSearchOrderDrivers.Text = "Collapse All";
+                view.ExpandAll();
+            }
+            else
+            {
+                ExpandSearchOrderDrivers.Text = "Expand All";
+                view.CollapseAll();
+            }
         }
 
+        view.SelectedNode?.EnsureVisible();
+        view.Select();
     }
 
     private void BrowseForServerAppClick(object sender, EventArgs e)
@@ -510,6 +731,8 @@ public partial class ConfigurationForm : Form
         if (browseFileDialog.ShowDialog() == DialogResult.OK)
         {
             serverAppLocationTextBox.Text = browseFileDialog.FileName;
+            m_CoreClient?.SetServerApplication(browseFileDialog.FileName);
+            CheckServerFileState(browseFileDialog.FileName);
         }
     }
 
@@ -544,4 +767,58 @@ public partial class ConfigurationForm : Form
         }
     }
 
+    private void AddUserDirectoryButtonClick(object sender, EventArgs e)
+    {
+        TreeView view;
+        TreeNode rootNode;
+        if (settingsTabControl.SelectedTab == tabSearchOrder)
+        {
+            view = TVSearchOrder;
+            rootNode = m_UserDefinedDirectoryNodeUM;
+        }
+        else
+        {
+            view = TVSearchOrderDrivers;
+            rootNode = m_UserDefinedDirectoryNodeKM;
+        }
+
+        if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+        {
+            TreeNode subNode = new(folderBrowserDialog.SelectedPath)
+            {
+                ImageIndex = (int)SearchOderIconType.Directory,
+                SelectedImageIndex = (int)SearchOderIconType.Directory,
+                Tag = CConsts.SearchOrderUserValue
+            };
+            rootNode.Nodes.Add(subNode);
+            rootNode.Expand();
+        }
+    }
+
+    private void DeleteUserDirectoryButtonClick(object sender, EventArgs e)
+    {
+        TreeView view = GetCurrentTVSearchOrder();
+        if (view?.SelectedNode?.Tag is string text &&
+            text.Equals(CConsts.SearchOrderUserValue, StringComparison.OrdinalIgnoreCase))
+        {
+            view?.Nodes.Remove(view.SelectedNode);
+        }
+    }
+
+    private void ConnectServerButtonClick(object sender, EventArgs e)
+    {
+        if (m_CoreClient != null)
+        {
+            if (m_CoreClient.ClientConnection != null)
+            {
+                if (m_CoreClient.ClientConnection.Connected)
+                {
+                    m_CoreClient.DisconnectClient();
+                }
+            }
+
+            m_CoreClient.ConnectClient();
+            ShowServerStatusAndSetControls();
+        }
+    }
 }

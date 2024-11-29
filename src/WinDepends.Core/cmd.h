@@ -3,11 +3,11 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Nov 04, 2024
+*  Modified on: Nov 27, 2024
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #pragma once
@@ -28,7 +28,8 @@ typedef enum {
     ce_apisetresolve,
     ce_apisetmapsrc,
     ce_usereloc,
-    ce_dbgstats,
+    ce_callstats,
+    ce_servstats,
     ce_unknown = 0xffff
 } cmd_entry_type;
 
@@ -61,9 +62,16 @@ void cmd_usereloc(
     _In_opt_ LPCWSTR params
 );
 
-void cmd_dbgstats(
+void cmd_callstats(
     _In_ SOCKET s,
     _In_opt_ LPCWSTR params
+);
+
+void cmd_servstats(
+    _In_ SOCKET s,
+    _In_ long long threadsCount,
+    _In_ long long socketsCreated,
+    _In_ long long socketsClosed
 );
 
 void cmd_close(

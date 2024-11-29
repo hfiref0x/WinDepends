@@ -3,19 +3,16 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Nov 09, 2024
+*  Modified on: Nov 27, 2024
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #include "core.h"
 
-#define _USE_DEBUG_SEND
-
 SUP_CONTEXT gsup;
-GLOBAL_STATS gstats;
 
 typedef BOOL(WINAPI* pfnMiniDumpWriteDump)(
     _In_ HANDLE hProcess,
@@ -122,35 +119,37 @@ BOOL heap_free(_In_opt_ HANDLE heap, _In_ LPVOID memory)
 
 void calculatePerformanceStats(DWORD64 bytesSent, LONG64 timeTaken)
 {
-    InterlockedAdd64((PLONG64)&gstats.totalBytesSent, bytesSent);
-    InterlockedIncrement64((PLONG64)&gstats.totalSendCalls);
-    InterlockedAdd64((PLONG64)&gstats.totalTimeSpent, timeTaken);
+    InterlockedAdd64((PLONG64)&gsup.CallStats.totalBytesSent, bytesSent);
+    InterlockedIncrement64((PLONG64)&gsup.CallStats.totalSendCalls);
+    InterlockedAdd64((PLONG64)&gsup.CallStats.totalTimeSpent, timeTaken);
 }
 
-int sendstring_plaintext_nodbg(SOCKET s, const wchar_t* Buffer)
+int sendstring_plaintext_no_track(SOCKET s, const wchar_t* Buffer)
 {
     return (send(s, (const char*)Buffer, (int)wcslen(Buffer) * sizeof(wchar_t), 0) >= 0);
 }
 
 int sendstring_plaintext(SOCKET s, const wchar_t* Buffer)
 {
-#ifdef _USE_DEBUG_SEND
     int result;
     LARGE_INTEGER endCount;
     LONG64 timeTaken;
 
-    QueryPerformanceCounter(&gstats.startCount);
+    int bufferLength = (int)wcslen(Buffer) * sizeof(wchar_t);
 
-    result = send(s, (const char*)Buffer, (int)wcslen(Buffer) * sizeof(wchar_t), 0);
-    if (result != SOCKET_ERROR) {
+    if (gsup.EnableCallStats) {
+        QueryPerformanceCounter(&gsup.CallStats.startCount);
+    }
+
+    result = send(s, (const char*)Buffer, bufferLength, 0);
+
+    if (gsup.EnableCallStats && result != SOCKET_ERROR) {
         QueryPerformanceCounter(&endCount);
-        timeTaken = (LONG64)((endCount.QuadPart - gstats.startCount.QuadPart) * 1000000 / gstats.frequency.QuadPart);
+        timeTaken = (LONG64)((endCount.QuadPart - gsup.CallStats.startCount.QuadPart) * 1000000 / gsup.CallStats.frequency.QuadPart);
         calculatePerformanceStats(result, timeTaken);
     }
-    return result;
-#else
-    return (send(s, (const char*)Buffer, (int)wcslen(Buffer) * sizeof(wchar_t), 0) >= 0);
-#endif
+
+    return (result >= 0);
 }
 
 __forceinline wchar_t locase_w(wchar_t c)
@@ -542,8 +541,7 @@ VOID resolve_apiset_namespace()
 void utils_init()
 {
     RtlSecureZeroMemory(&gsup, sizeof(SUP_CONTEXT));
-    RtlSecureZeroMemory(&gstats, sizeof(GLOBAL_STATS));
-    QueryPerformanceFrequency(&gstats.frequency);
+    QueryPerformanceFrequency(&gsup.CallStats.frequency);
 
     HMODULE hNtdll = GetModuleHandle(L"ntdll.dll");
     if (hNtdll == NULL) {

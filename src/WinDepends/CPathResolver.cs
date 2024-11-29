@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Nov 2024
+*  DATE:        28 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -32,13 +32,14 @@ public static class CPathResolver
     public static string SystemDriversDirectory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DriversDir);
     public static string SysWowDirectory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
 
-    private static List<string> knownDlls = [];
-    private static List<string> knownDlls32 = [];
+    public static List<string> UserDirectoriesUM { get; set; } = [];
+    public static List<string> UserDirectoriesKM { get; set; } = [];
+
     public static string KnownDllsPath { get; set; }
     public static string KnownDllsPath32 { get; set; }
     public static string[] PathEnvironment { get; } = Environment.GetEnvironmentVariable("PATH").Split(";", StringSplitOptions.RemoveEmptyEntries);
-    public static List<string> KnownDlls { get => knownDlls; set => knownDlls = value; }
-    public static List<string> KnownDlls32 { get => knownDlls32; set => knownDlls32 = value; }
+    public static List<string> KnownDlls { get; set; } = [];
+    public static List<string> KnownDlls32 { get; set; } = [];
 
     static CSxsEntries ManifestSxsDependencies = [];
     public static CActCtxHelper ActCtxHelper { get; set; }
@@ -127,6 +128,21 @@ public static class CPathResolver
     {
         string result = Path.Combine(SystemDriversDirectory, fileName);
         return File.Exists(result) ? result : string.Empty;
+    }
+
+    static internal string PathFromUserDirectory(string fileName, List<string> userDirectories)
+    {
+        string result;
+        foreach (var entry in userDirectories)
+        {
+            result = Path.Combine(entry, fileName);
+            if (File.Exists(result))
+            {
+                return result;
+            }
+        }
+
+        return string.Empty;
     }
 
     static internal string PathFromSystemDirectory(string fileName, bool Is64bitFile = true)
@@ -252,7 +268,6 @@ public static class CPathResolver
             {
                 result = sbOut.ToString();
             }
-
         }
 
         return result;
@@ -260,7 +275,8 @@ public static class CPathResolver
 
     static internal string ResolvePathForModule(string partiallyResolvedFileName,
                                                 CModule module,
-                                                List<SearchOrderType> searchOrderList,
+                                                List<SearchOrderType> searchOrderUM,
+                                                List<SearchOrderType> searchOrderKM,
                                                 out SearchOrderType resolver)
     {
         string result;
@@ -278,16 +294,10 @@ public static class CPathResolver
             _ => false,
         };
 
-        // KM module resolving (special case).
+        // KM module resolving (special case), fixme.
         if (needRedirection == false && module.IsKernelModule)
         {
-            List<SearchOrderType> searchOrderListDrv = [
-                SearchOrderType.System32Directory,
-                SearchOrderType.SystemDriversDirectory,
-                SearchOrderType.ApplicationDirectory,
-            ];
-
-            foreach (var entry in searchOrderListDrv)
+            foreach (var entry in searchOrderKM)
             {
                 result = string.Empty;
                 switch (entry)
@@ -306,6 +316,10 @@ public static class CPathResolver
                         result = PathFromApplicationDirectory(partiallyResolvedFileName, CurrentDirectory);
                         resolvedBy = SearchOrderType.ApplicationDirectory;
                         break;
+                    case SearchOrderType.UserDefinedDirectory:
+                        result = PathFromUserDirectory(partiallyResolvedFileName, UserDirectoriesKM);
+                        resolvedBy = SearchOrderType.UserDefinedDirectory;
+                        break;
                 }
 
                 if (!string.IsNullOrEmpty(result))
@@ -320,7 +334,7 @@ public static class CPathResolver
         }
 
         // UM module resolving.
-        foreach (var entry in searchOrderList)
+        foreach (var entry in searchOrderUM)
         {
             result = string.Empty;
 
@@ -381,6 +395,11 @@ public static class CPathResolver
                 case SearchOrderType.KnownDlls:
                     result = PathFromKnownDlls(partiallyResolvedFileName, is64bitMachine);
                     resolvedBy = SearchOrderType.KnownDlls;
+                    break;
+
+                case SearchOrderType.UserDefinedDirectory:
+                    result = PathFromUserDirectory(partiallyResolvedFileName, UserDirectoriesUM);
+                    resolvedBy = SearchOrderType.UserDefinedDirectory;
                     break;
 
             }

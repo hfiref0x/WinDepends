@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Nov 19, 2024
+*  Modified on: Nov 27, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -195,8 +195,15 @@ DWORD WINAPI client_thread(
                 cmd_usereloc(s, params);
                 break;
 
-            case ce_dbgstats:
-                cmd_dbgstats(s, params);
+            case ce_callstats:
+                cmd_callstats(s, params);
+                break;
+
+            case ce_servstats:
+                cmd_servstats(s,
+                    InterlockedCompareExchange(&g_threads, 0, 0),
+                    InterlockedCompareExchange64(&g_client_sockets_created, 0, 0),
+                    InterlockedCompareExchange64(&g_client_sockets_closed, 0, 0));
                 break;
 
             case ce_unknown:

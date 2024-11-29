@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2024
+*  DATE:        28 Nov 2024
 *  
 *  Activation context path resolution helper.
 *
@@ -70,6 +70,14 @@ public class CActCtxHelper : IDisposable
 
     public CActCtxHelper(string fileName)
     {
+        nint resourceId = CREATEPROCESS_MANIFEST_RESOURCE_ID;
+        string extension = Path.GetExtension(fileName);
+        if (!string.IsNullOrEmpty(extension) &&
+            extension.Equals(CConsts.DllFileExt, StringComparison.OrdinalIgnoreCase))
+        {
+            resourceId = ISOLATIONAWARE_MANIFEST_RESOURCE_ID;
+        }
+
         var requestedActivationContext = new ACTCTX
         {
             cbSize = Marshal.SizeOf<ACTCTX>(),
@@ -81,7 +89,7 @@ public class CActCtxHelper : IDisposable
             lpSource = fileName,
             lpApplicationName = fileName,
             lpAssemblyDirectory = Path.GetDirectoryName(fileName),
-            lpResourceName = CREATEPROCESS_MANIFEST_RESOURCE_ID
+            lpResourceName = resourceId
         };
 #if DEBUG
         contextFileName = fileName;
@@ -91,15 +99,28 @@ public class CActCtxHelper : IDisposable
 
     public bool ActivateContext()
     {
-        return ActivateActCtx(ActivationContext, out contextCookie);
+        if (ActivationContext != INVALID_HANDLE_VALUE)
+        {
+            return ActivateActCtx(ActivationContext, out contextCookie);
+        }
+        return false;
+    }
+
+    public bool ActivateContextOverride()
+    {
+        return ActivateActCtx(0, out contextCookie);
     }
 
     public bool DeactivateContext()
     {
-        bool result = DeactivateActCtx(0, contextCookie);
-        if (result)
+        bool result = false;
+        if (contextCookie != IntPtr.Zero)
         {
-            contextCookie = IntPtr.Zero;
+            result = DeactivateActCtx(0, contextCookie);
+            if (result)
+            {
+                contextCookie = IntPtr.Zero;
+            }
         }
         return result;
     }

@@ -46,6 +46,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="CTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="res\1.ico" />
   </ItemGroup>
 

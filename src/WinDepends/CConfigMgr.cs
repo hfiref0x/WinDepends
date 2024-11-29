@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Oct 2024
+*  DATE:        28 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -52,7 +52,10 @@ public class CConfiguration
 
     public uint MinAppAddress { get; set; }
 
-    public List<SearchOrderType> SearchOrderList { get; set; }
+    public List<SearchOrderType> SearchOrderListUM { get; set; }
+    public List<SearchOrderType> SearchOrderListKM { get; set; }
+    public List<string> UserSearchOrderDirectoriesUM { get; set; }
+    public List<string> UserSearchOrderDirectoriesKM { get; set; }
 
     public List<string> MRUList { get; set; }
 
@@ -80,7 +83,7 @@ public class CConfiguration
             string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
             CoreServerAppLocation = $"{Path.GetDirectoryName(Application.ExecutablePath)}\\{CConsts.WinDependsCoreApp}.{cpuArch}.exe";
 
-            SearchOrderList =
+            SearchOrderListUM =
             [
                 SearchOrderType.WinSXS,
                 SearchOrderType.KnownDlls,
@@ -88,8 +91,21 @@ public class CConfiguration
                 SearchOrderType.System32Directory,
                 SearchOrderType.SystemDirectory,
                 SearchOrderType.WindowsDirectory,
-                SearchOrderType.EnvironmentPathDirectories
+                SearchOrderType.EnvironmentPathDirectories,
+                SearchOrderType.UserDefinedDirectory
             ];
+
+            UserSearchOrderDirectoriesUM = [];
+
+            SearchOrderListKM =
+            [
+                SearchOrderType.System32Directory,
+                SearchOrderType.SystemDriversDirectory,
+                SearchOrderType.ApplicationDirectory,
+                SearchOrderType.UserDefinedDirectory
+            ];
+
+            UserSearchOrderDirectoriesKM = [];
         }
     }
 
@@ -109,7 +125,15 @@ static class CConfigManager
 
         try
         {
-            return (CConfiguration)CUtils.LoadPackedObjectFromFile(fileName, typeof(CConfiguration), null);
+            var result = (CConfiguration)CUtils.LoadPackedObjectFromFile(fileName, typeof(CConfiguration), null);
+            if (result == null)
+            {
+                return new CConfiguration(true);
+            }
+            else
+            {
+                return result;
+            }
         }
         catch
         {

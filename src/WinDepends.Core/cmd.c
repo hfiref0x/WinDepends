@@ -3,11 +3,11 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Nov 15, 2024
+*  Modified on: Nov 26, 2024
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #include "core.h"
@@ -31,7 +31,8 @@ cmd_entry cmds[] = {
     {L"apisetresolve", 13, ce_apisetresolve },
     {L"apisetmapsrc", 12, ce_apisetmapsrc },
     {L"usereloc", 8, ce_usereloc },
-    {L"dbgstats", 8, ce_dbgstats }
+    {L"callstats", 9, ce_callstats },
+    {L"servstats", 9, ce_servstats }
 };
 
 void cmd_init()
@@ -67,31 +68,86 @@ void cmd_unknown_command(
     sendstring_plaintext(s, WDEP_STATUS_405);
 }
 
-void cmd_dbgstats(
+/*
+* cmd_callstats
+*
+* Purpose:
+*
+* Global server call stats.
+*
+*/
+void cmd_callstats(
     _In_ SOCKET s,
     _In_opt_ LPCWSTR params
 )
 {
     WCHAR buffer[512];
 
-    StringCchPrintf(buffer, ARRAYSIZE(buffer),
-        L"%s{\"stats\":{"
-        L"\"totalBytesSent\":%llu,"
-        L"\"totalSendCalls\":%llu,"
-        L"\"totalTimeSpent\":%llu}}\r\n",
-        WDEP_STATUS_OK,
-        gstats.totalBytesSent,
-        gstats.totalSendCalls,
-        gstats.totalTimeSpent);
+    if (params != NULL) {
 
-    sendstring_plaintext_nodbg(s, buffer);
-
-    if ((params != NULL) && (wcsncmp(params, L"reset", 5) == 0))
-    {
-        InterlockedExchange64((PLONG64)&gstats.totalBytesSent, 0);
-        InterlockedExchange64((PLONG64)&gstats.totalSendCalls, 0);
-        InterlockedExchange64((PLONG64)&gstats.totalTimeSpent, 0);
+        if (wcsncmp(params, L"enable", 6) == 0)
+        {
+            gsup.EnableCallStats = TRUE;
+        }
+        else if (wcsncmp(params, L"disable", 7) == 0)
+        {
+            gsup.EnableCallStats = FALSE;
+        }
+        else if (wcsncmp(params, L"reset", 5) == 0)
+        {
+            InterlockedExchange64((PLONG64)&gsup.CallStats.totalBytesSent, 0);
+            InterlockedExchange64((PLONG64)&gsup.CallStats.totalSendCalls, 0);
+            InterlockedExchange64((PLONG64)&gsup.CallStats.totalTimeSpent, 0);
+        }
     }
+
+    if (gsup.EnableCallStats) {
+
+        StringCchPrintf(buffer, ARRAYSIZE(buffer),
+            L"%s{\"stats\":{"
+            L"\"totalBytesSent\":%llu,"
+            L"\"totalSendCalls\":%llu,"
+            L"\"totalTimeSpent\":%llu}}\r\n",
+            WDEP_STATUS_OK,
+            gsup.CallStats.totalBytesSent,
+            gsup.CallStats.totalSendCalls,
+            gsup.CallStats.totalTimeSpent);
+
+        sendstring_plaintext_no_track(s, buffer);
+    }
+    else {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
+    }
+}
+
+/*
+* cmd_servstats
+*
+* Purpose:
+*
+* Global server stats.
+*
+*/
+void cmd_servstats(
+    _In_ SOCKET s,
+    _In_ long long threadsCount,
+    _In_ long long socketsCreated,
+    _In_ long long socketsClosed
+)
+{
+    WCHAR buffer[512];
+
+    StringCchPrintf(buffer, ARRAYSIZE(buffer),
+        L"%s{\"servstats\":{"
+        L"\"threadsCount\":%I64d,"
+        L"\"socketsCreated\":%I64d,"
+        L"\"socketsClosed\":%I64d}}\r\n",
+        WDEP_STATUS_OK,
+        threadsCount,
+        socketsCreated,
+        socketsClosed);
+
+    sendstring_plaintext_no_track(s, buffer);
 }
 
 /*

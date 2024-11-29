@@ -130,7 +130,6 @@
             MenuClearLogItem = new ToolStripMenuItem();
             OptionsMenuItem = new ToolStripMenuItem();
             mainMenuConfigurationItem = new ToolStripMenuItem();
-            MenuSetTestDataItem = new ToolStripMenuItem();
             HelpMenuItem = new ToolStripMenuItem();
             MenuAboutItem = new ToolStripMenuItem();
             TVModules = new TreeView();
@@ -1044,7 +1043,7 @@
             // 
             // OptionsMenuItem
             // 
-            OptionsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mainMenuConfigurationItem, MenuSetTestDataItem });
+            OptionsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mainMenuConfigurationItem });
             OptionsMenuItem.Name = "OptionsMenuItem";
             OptionsMenuItem.Size = new Size(61, 20);
             OptionsMenuItem.Text = "&Options";
@@ -1053,22 +1052,11 @@
             // 
             mainMenuConfigurationItem.Name = "mainMenuConfigurationItem";
             mainMenuConfigurationItem.ShortcutKeys = Keys.F2;
-            mainMenuConfigurationItem.Size = new Size(167, 22);
+            mainMenuConfigurationItem.Size = new Size(180, 22);
             mainMenuConfigurationItem.Text = "&Configuration";
             mainMenuConfigurationItem.Click += ConfigureMenuItem_Click;
             mainMenuConfigurationItem.MouseEnter += MainMenu_MouseEnter;
             mainMenuConfigurationItem.MouseLeave += MainMenu_MouseLeave;
-            // 
-            // MenuSetTestDataItem
-            // 
-            MenuSetTestDataItem.Name = "MenuSetTestDataItem";
-            MenuSetTestDataItem.ShortcutKeys = Keys.F1;
-            MenuSetTestDataItem.Size = new Size(167, 22);
-            MenuSetTestDataItem.Text = "Set Test Data";
-            MenuSetTestDataItem.Visible = false;
-            MenuSetTestDataItem.Click += MenuSetTestData_Click;
-            MenuSetTestDataItem.MouseEnter += MainMenu_MouseEnter;
-            MenuSetTestDataItem.MouseLeave += MainMenu_MouseLeave;
             // 
             // HelpMenuItem
             // 
@@ -1683,7 +1671,6 @@
         private ToolStripMenuItem MenuClearLogItem;
         private ToolStripMenuItem mainMenuResolveApiSetsItem;
         private ToolStripMenuItem mainMenuConfigurationItem;
-        private ToolStripMenuItem MenuSetTestDataItem;
         private ContextMenuStrip moduleTreePopupMenu;
         private ToolStripMenuItem ContextViewHighlightMatchingItem;
         private ToolStripMenuItem ContextOriginalInstanceItem;

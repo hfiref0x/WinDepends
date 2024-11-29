@@ -126,6 +126,9 @@ public partial class MainForm : Form
         InitializeComponent();
 
         m_Configuration = CConfigManager.LoadConfiguration();
+        CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
+        CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
+
 
         //
         // Add welcome message to the log.
@@ -263,7 +266,10 @@ public partial class MainForm : Form
                         CPathResolver.QueryFileInformation(module);
                     }
 
-                    m_CoreClient.GetModuleImportExportInformation(module, m_Configuration.SearchOrderList);
+                    m_CoreClient.GetModuleImportExportInformation(module,
+                        m_Configuration.SearchOrderListUM,
+                        m_Configuration.SearchOrderListKM);
+
                     m_CoreClient.CloseModule();
 
                     if (module.ExportContainErrors)
@@ -963,8 +969,6 @@ public partial class MainForm : Form
                     CPathResolver.ActCtxHelper = sxsHelper;
                     PopulateObjectToLists(m_Depends.RootModule, false);
 
-                    m_CoreClient?.GetCoreDbgStats(false);
-
                     LVModules.BeginUpdate();
 
                     LVModulesSort(LVModules, m_Configuration.SortColumnModules,
@@ -1170,7 +1174,8 @@ public partial class MainForm : Form
 
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
-                                                  m_Configuration))
+                                                  m_Configuration,
+                                                  m_CoreClient))
         {
             if (configForm.ShowDialog() == DialogResult.OK)
             {
@@ -2535,113 +2540,7 @@ public partial class MainForm : Form
     {
         HighlightInstanceHandler(true);
     }
-
-    private TreeNode AddModuleEntryTest(CModule module, TreeNode parentNode = null)
-    {
-        CModule origInstance, parentModule;
-        int moduleImageIndex;
-        string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-        module.InstanceId = module.GetHashCode();
-
-        origInstance = CUtils.GetModuleByHash(module.FileName, m_LoadedModulesList);
-
-        if (origInstance != null)
-        {
-            module.OriginalInstanceId = origInstance.InstanceId;
-        }
-
-        if (!m_Configuration.FullPaths)
-        {
-            moduleDisplayName = Path.GetFileName(moduleDisplayName);
-        }
-
-        if (m_Configuration.UppperCaseModuleNames)
-        {
-            moduleDisplayName = moduleDisplayName.ToUpperInvariant();
-        }
-
-        //
-        // Add item to TreeView.
-        //
-        TreeNode tvNode = new(moduleDisplayName);
-
-        //
-        // Select module icon type.
-        //
-        moduleImageIndex = module.GetIconIndexForModule();
-
-        tvNode.Tag = module;
-        tvNode.ImageIndex = moduleImageIndex;
-        tvNode.SelectedImageIndex = moduleImageIndex;
-
-        if (parentNode != null)
-        {
-            parentModule = (CModule)parentNode.Tag;
-            parentModule.Dependents.Add(module);
-            module.Depth = parentModule.Depth + 1;
-            parentNode.Nodes.Add(tvNode);
-        }
-        else
-        {
-            TVModules.Nodes.Add(tvNode);
-        }
-
-        //
-        // Check if module is already added, if so skip gathering info.
-        //
-        if (origInstance != null)
-        {
-            return tvNode;
-        }
-
-        m_LoadedModulesList.Add(module);
-        LVModules.VirtualListSize = m_LoadedModulesList.Count;
-        return tvNode;
-    }
-
-    /// <summary>
-    /// Debug function, used only in debug builds.
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void MenuSetTestData_Click(object sender, EventArgs e)
-    {
-#if DEBUG
-        m_Depends = new("C:\\windows\\system32\\calc.exe");
-        m_RootNode = AddModuleEntryTest(m_Depends.RootModule);
-
-        TreeNode tvNode = CTests.AddTestModuleEntry(m_RootNode, ["ExitProcess", "CreateRemoteThread"], false,
-            false, ModuleTestType.Kernel32, AddModuleEntryTest);
-
-        tvNode = CTests.AddTestModuleEntry(tvNode, ["RegCloseKey"], false,
-            false, ModuleTestType.Advapi32, AddModuleEntryTest);
-
-        CTests.AddTestModuleEntry(tvNode, ["CloseHandle"], false,
-            false, ModuleTestType.Kernel32, AddModuleEntryTest);
-
-        CTests.AddTestModuleEntry(m_RootNode, ["ZwClose"], false,
-            false, ModuleTestType.Ntdll, AddModuleEntryTest);
-
-        tvNode = CTests.AddTestModuleEntry(m_RootNode, ["CreateWindowExW"], false,
-            false, ModuleTestType.User32, AddModuleEntryTest);
-
-        tvNode = CTests.AddTestModuleEntry(tvNode, ["CloseHandle"], false,
-            false, ModuleTestType.Kernel32, AddModuleEntryTest);
-
-        CTests.AddTestModuleEntry(tvNode, ["RegFunction"], false,
-            false, ModuleTestType.Advapi32, AddModuleEntryTest);
-
-        CTests.AddTestModuleEntry(tvNode, ["SendMessageW"], false,
-            false, ModuleTestType.User32, AddModuleEntryTest);
-
-        CTests.AddTestModuleEntry(tvNode, ["??0exception@@QEAA@AEBQEBD@Z", "??0exception@@QEAA@AEBV0@@Z"], false,
-            false, ModuleTestType.Msvcrt, AddModuleEntryTest);
-
-        if (m_Configuration.AutoExpands)
-            TVModules.ExpandAll();
-#endif
-    }
-
+ 
     private void MainMenu_FileDropDown(object sender, EventArgs e)
     {
         bool bSessionAllocated = m_Depends != null;

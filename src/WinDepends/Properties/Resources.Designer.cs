@@ -88,7 +88,7 @@ namespace WinDepends.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Fri 11/15/2024  7:47:41.13 
+        ///   Looks up a localized string similar to Thu 11/28/2024 16:13:37.40 
         ///.
         /// </summary>
         internal static string BuildDate {
@@ -431,15 +431,6 @@ namespace WinDepends.Properties {
         internal static string Select_All {
             get {
                 return ResourceManager.GetString("Select All", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Display test data, for debug only build.
-        /// </summary>
-        internal static string Set_Test_Data {
-            get {
-                return ResourceManager.GetString("Set Test Data", resourceCulture);
             }
         }
         

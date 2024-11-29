@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Nov 2024
+*  DATE:        28 Nov 2024
 *  
 *  Core Server communication class.
 *
@@ -23,7 +23,15 @@ using System.Text;
 
 namespace WinDepends;
 
-public delegate void LogEventCallback(string? eventName, LogEventType logEventType, string extraInformation = null);
+public delegate void LogEventCallback(string? EventName, LogEventType LogEventType, string ExtraInformation = null);
+
+public enum CallStatsInformationType
+{
+    Enable,
+    Disable,
+    Reset,
+    Receive
+}
 
 public enum ModuleInformationType
 {
@@ -83,40 +91,61 @@ public class CBufferChain
     }
 }
 
-public class CCoreClient(string serverApplication, string ipAddress, int portNumber, LogEventCallback logEventCallback) : IDisposable
+public class CCoreClient : IDisposable
 {
-    /// <summary>
-    /// WinDepends.Core instance.
-    /// </summary>
-    Process m_ServerProcess;
+    private bool IsDisposed;
+    private Process ServerProcess;     // WinDepends.Core instance.
+    public TcpClient ClientConnection;
+    private NetworkStream DataStream;
+    readonly LogEventCallback LogEvent;
+    private string serverApplication;
+    public string IPAddress { get; }
+    public int PortNumber { get; }
 
-    private bool isDisposed;
+    public int ServerProcessId
+    {
+        get
+        {
+            if (ServerProcess != null)
+            {
+                return ServerProcess.Id;
+            }
 
-    TcpClient m_TcpClient;
-    NetworkStream m_NetworkStream;
+            return -1;
+        }
+    }
 
-    readonly LogEventCallback LogEvent = logEventCallback;
+    public string GetServerApplication()
+    {
+        return serverApplication;
+    }
 
-    bool TransportError { get; set; }
+    public void SetServerApplication(string value)
+    {
+        serverApplication = value;
+    }
 
-    public string ServerApplication { get; } = serverApplication;
-    public string IPAddress { get; } = ipAddress;
-    public int PortNumber { get; } = portNumber;
+    public CCoreClient(string serverApplication, string ipAddress, int portNumber, LogEventCallback logEventCallback)
+    {
+        LogEvent = logEventCallback;
+        SetServerApplication(serverApplication);
+        IPAddress = ipAddress;
+        PortNumber = portNumber;
+    }
+
     protected virtual void Dispose(bool disposing)
     {
-        if (isDisposed) return;
-
+        if (IsDisposed)
+        {
+            return;
+        }
         if (disposing)
         {
             DisconnectClient();
-
-            m_NetworkStream?.Close();
-
-            m_TcpClient?.Close();
-            m_ServerProcess?.Dispose();
+            ServerProcess?.Dispose();
         }
 
-        isDisposed = true;
+        IsDisposed = true;
     }
 
     public void Dispose()
@@ -154,7 +183,7 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
     public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, bool preProcessData = false)
     {
         // Communication failure, server need restart.
-        if (TransportError)
+        if (ClientConnection == null || !ClientConnection.Connected)
         {
             return null;
         }
@@ -198,32 +227,30 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
     private RequestSendStatus SendRequest(string message)
     {
         // Communication failure, server need restart.
-        if (TransportError)
+        if (ClientConnection == null || !ClientConnection.Connected)
         {
             return RequestSendStatus.ErrorServerNeedRestart;
         }
 
-        if (m_NetworkStream == null)
+        if (DataStream == null)
         {
             return RequestSendStatus.ErrorNetworkStreamNotInitialized;
         }
 
         try
         {
-            using (BinaryWriter bw = new(m_NetworkStream, Encoding.Unicode, true))
+            using (BinaryWriter bw = new(DataStream, Encoding.Unicode, true))
             {
                 bw.Write(Encoding.Unicode.GetBytes(message));
             }
         }
         catch (IOException ex)
         {
-            TransportError = true;
             LogEvent(null, LogEventType.CoreServerSendError, ex.Message);
             return RequestSendStatus.ErrorSocketException;
         }
         catch (Exception ex)
         {
-            TransportError = true;
             LogEvent(null, LogEventType.CoreServerSendError, ex.Message);
             return RequestSendStatus.ErrorGeneralException;
         }
@@ -237,15 +264,14 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
     /// <returns></returns>
     private CBufferChain ReceiveReply()
     {
-        if (m_NetworkStream == null)
+        if (DataStream == null)
         {
-            TransportError = true;
             return null;
         }
 
         try
         {
-            using (BinaryReader br = new(m_NetworkStream, Encoding.Unicode, true))
+            using (BinaryReader br = new(DataStream, Encoding.Unicode, true))
             {
                 CBufferChain buf = new(), buf0;
                 char prev = '\0';
@@ -279,7 +305,6 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
         }
         catch (Exception ex)
         {
-            TransportError = true;
             LogEvent(null, LogEventType.CoreServerReceiveError, ex.Message);
         }
         return null;
@@ -461,22 +486,28 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
             return (CCoreDataDirectoryRoot)GetModuleInformationByType(ModuleInformationType.DataDirectories);
         }
     */
-    public CCoreDbgStats GetCoreDbgStats(bool resetStats)
+
+    public CCoreCallStats GetCoreCallStats(CallStatsInformationType informationType)
     {
-        string cmd;
-
-        if (resetStats)
+        string cmd = informationType switch
         {
-            cmd = "dbgstats reset\r\n";
-        }
-        else
-        {
-            cmd = "dbgstats\r\n";
-        }
-
-        var rootObject = (CCoreDbgStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreDbgStatsRoot));
+            CallStatsInformationType.Enable => "callstats enable\r\n",
+            CallStatsInformationType.Disable => "callstats disable\r\n",
+            CallStatsInformationType.Reset => "callstats reset\r\n",
+            _ => "callstats\r\n",
+        };
+        var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreCallStatsRoot));
         if (rootObject != null)
-            return rootObject.Stats;
+            return rootObject.CallStats;
+
+        return null;
+    }
+
+    public CCoreServStats GetCoreServStats()
+    {
+        var rootObject = (CCoreServStatsRoot)SendCommandAndReceiveReplyAsObjectJSON("servstats\r\n", typeof(CCoreServStatsRoot));
+        if (rootObject != null)
+            return rootObject.ServStats;
 
         return null;
     }
@@ -551,7 +582,9 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
         return true;
     }
 
-    public void GetModuleImportExportInformation(CModule module, List<SearchOrderType> searchOrderList)
+    public void GetModuleImportExportInformation(CModule module,
+                                                 List<SearchOrderType> searchOrderUM,
+                                                 List<SearchOrderType> searchOrderKM)
     {
         //
         // Process exports.
@@ -647,7 +680,11 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
 
                 }
 
-                var moduleFileName = CPathResolver.ResolvePathForModule(moduleName, module, searchOrderList, out SearchOrderType resolvedBy);
+                var moduleFileName = CPathResolver.ResolvePathForModule(moduleName,
+                                                                        module,
+                                                                        searchOrderUM,
+                                                                        searchOrderKM,
+                                                                        out SearchOrderType resolvedBy);
 
                 if (!string.IsNullOrEmpty(moduleFileName))
                 {
@@ -732,11 +769,11 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
         bool bFailure = false;
         string errMessage = string.Empty;
 
-        m_ServerProcess = null;
+        ServerProcess = null;
 
         try
         {
-            string fileName = ServerApplication;
+            string fileName = GetServerApplication();
             string processName = Path.GetFileNameWithoutExtension(fileName);
 
             Process[] processList = Process.GetProcessesByName(processName);
@@ -748,7 +785,7 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
                     var name = Path.GetFileName(process.MainModule.FileName);
                     if (Path.GetFileName(fileName).Equals(name))
                     {
-                        m_ServerProcess = process;
+                        ServerProcess = process;
                         break;
                     }
 
@@ -759,7 +796,7 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
 
             }
 
-            if (m_ServerProcess == null)
+            if (ServerProcess == null)
             {
                 if (!File.Exists(fileName))
                 {
@@ -771,18 +808,21 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
                     FileName = fileName,
                     UseShellExecute = false
                 };
-                m_ServerProcess = Process.Start(processInfo);
+                ServerProcess = Process.Start(processInfo);
             }
 
-            if (m_ServerProcess == null)
+            if (ServerProcess == null)
             {
                 throw new Exception("Core process start failure");
             }
             else
             {
-                m_TcpClient = new();
-                m_TcpClient.Connect(IPAddress, PortNumber);
-                m_NetworkStream = m_TcpClient.GetStream();
+                ClientConnection = new();
+                ClientConnection.Connect(IPAddress, PortNumber);
+                if (ClientConnection.Connected)
+                {
+                    DataStream = ClientConnection.GetStream();
+                }
             }
 
         }
@@ -795,7 +835,7 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
         {
             bFailure = true;
             errMessage = $"{ex.Message} was not found, make sure it exist or change path to it: " +
-                $"Main menu -> Options -> Configuration, 'Server Application Location' and then restart application.";
+                $"Main menu -> Options -> Configuration, select Server tab, specify server application location and then press Connect button.";
         }
         catch (Exception ex)
         {
@@ -805,10 +845,10 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
 
         if (bFailure)
         {
-            if (m_ServerProcess != null && !m_ServerProcess.HasExited)
+            if (ServerProcess != null && !ServerProcess.HasExited)
             {
-                m_ServerProcess.Kill();
-                m_ServerProcess = null;
+                ServerProcess.Kill();
+                ServerProcess = null;
             }
             LogEvent(null, LogEventType.CoreServerStartError, errMessage);
         }
@@ -824,17 +864,19 @@ public class CCoreClient(string serverApplication, string ipAddress, int portNum
                 LogEvent(null, LogEventType.CoreServerStartError, "Missing server HELLO");
             }
         }
-        return m_ServerProcess != null;
+        return ServerProcess != null;
     }
 
     public void DisconnectClient()
     {
-        if (m_ServerProcess == null || m_ServerProcess.HasExited)
+        if (ServerProcess == null || ServerProcess.HasExited)
         {
             return;
         }
 
         ExitRequest();
+
+        DataStream?.Close();
     }
 
 }

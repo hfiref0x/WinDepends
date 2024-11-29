@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Nov 2024
+*  DATE:        27 Nov 2024
 *  
 *  Core Server reply structures (JSON serialized).
 *
@@ -187,12 +187,38 @@ public class CCoreKnownDllsRoot
 }
 
 /*
- *  CCoreDbgStats.
+ *  CCoreServStats.
  * 
 */
 
 [DataContract]
-public class CCoreDbgStats
+public class CCoreServStats
+{
+
+    [DataMember(Name = "threadsCount")]
+    public UInt64 ThreadsCount { get; set; }
+
+    [DataMember(Name = "socketsCreated")]
+    public UInt64 SocketsCreated { get; set; }
+
+    [DataMember(Name = "socketsClosed")]
+    public UInt64 SocketsClosed { get; set; }
+}
+
+[DataContract]
+public class CCoreServStatsRoot
+{
+    [DataMember(Name = "servstats")]
+    public CCoreServStats ServStats { get; set; }
+}
+
+/*
+ *  CCoreCallStats.
+ * 
+*/
+
+[DataContract]
+public class CCoreCallStats
 {
 
     [DataMember(Name = "totalBytesSent")]
@@ -206,10 +232,10 @@ public class CCoreDbgStats
 }
 
 [DataContract]
-public class CCoreDbgStatsRoot
+public class CCoreCallStatsRoot
 {
     [DataMember(Name = "stats")]
-    public CCoreDbgStats Stats { get; set; }
+    public CCoreCallStats CallStats { get; set; }
 }
 
 

@@ -3,11 +3,11 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Sep 25, 2024
+*  Modified on: Nov 26, 2024
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #pragma once
@@ -49,6 +49,9 @@ typedef struct _SUP_CONTEXT {
 
     BOOL UseRelocation;
     ULONG MinAppAddress;
+
+    BOOL EnableCallStats;
+    GLOBAL_STATS CallStats;
 
     pfnNtOpenSymbolicLinkObject NtOpenSymbolicLinkObject;
     pfnNtOpenDirectoryObject NtOpenDirectoryObject;
@@ -99,12 +102,11 @@ InsertTailList(
 }
 
 extern SUP_CONTEXT gsup;
-extern GLOBAL_STATS gstats;
 
 void utils_init();
 
 int sendstring_plaintext(SOCKET s, const wchar_t* Buffer);
-int sendstring_plaintext_nodbg(SOCKET s, const wchar_t* Buffer);
+int sendstring_plaintext_no_track(SOCKET s, const wchar_t* Buffer);
 
 BOOL name_is_apiset(
     _In_ LPCWSTR set_name

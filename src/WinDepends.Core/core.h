@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Nov 19, 2024
+*  Modified on: Nov 27, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -24,7 +24,6 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <strsafe.h>
 #include <wincrypt.h>
 #include <DbgHelp.h>
@@ -47,7 +46,7 @@ typedef struct {
     wchar_t* filename;
     wchar_t* directory;
     LARGE_INTEGER file_size;
-    int is_32bit;
+    WORD moduleMagic;
 } module_ctx, * pmodule_ctx;
 
 #include "pe32plus.h"

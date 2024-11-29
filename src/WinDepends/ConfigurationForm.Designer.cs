@@ -34,8 +34,10 @@
             TreeNode treeNode4 = new TreeNode("External Module Viewer");
             TreeNode treeNode5 = new TreeNode("External Function Help");
             TreeNode treeNode6 = new TreeNode("Module Search Order");
-            TreeNode treeNode7 = new TreeNode("PE Loader");
-            TreeNode treeNode8 = new TreeNode("Shell Integration");
+            TreeNode treeNode7 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode8 = new TreeNode("PE Loader");
+            TreeNode treeNode9 = new TreeNode("Server");
+            TreeNode treeNode10 = new TreeNode("Shell Integration");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
@@ -45,10 +47,6 @@
             groupBox8 = new GroupBox();
             label12 = new Label();
             chBoxCompressSessionFiles = new CheckBox();
-            groupBox7 = new GroupBox();
-            label7 = new Label();
-            buttonBrowseServerApp = new Button();
-            serverAppLocationTextBox = new TextBox();
             groupBox3 = new GroupBox();
             chBoxClearLogOnFileOpen = new CheckBox();
             label11 = new Label();
@@ -93,6 +91,8 @@
             searchOnlineTextBox = new TextBox();
             label6 = new Label();
             tabSearchOrder = new TabPage();
+            DeleteUserDirectoryButton = new Button();
+            AddUserDirectoryButton = new Button();
             TVSearchOrder = new TreeView();
             ExpandSearchOrderButton = new Button();
             MoveUpButton = new Button();
@@ -109,9 +109,34 @@
             label13 = new Label();
             cbMinAppAddress = new ComboBox();
             chBoxUseReloc = new CheckBox();
+            tabSearchOrderDrivers = new TabPage();
+            DeleteUserDirectoryDriversButton = new Button();
+            AddUserDirectoryDriversButton = new Button();
+            TVSearchOrderDrivers = new TreeView();
+            ExpandSearchOrderDrivers = new Button();
+            MoveUpButtonDrivers = new Button();
+            MoveDownButtonDrivers = new Button();
+            tabServer = new TabPage();
+            groupBox7 = new GroupBox();
+            ServerFileState = new Label();
+            buttonBrowseServerApp = new Button();
+            serverAppLocationTextBox = new TextBox();
+            groupBox12 = new GroupBox();
+            labelSrvPid = new Label();
+            label7 = new Label();
+            label21 = new Label();
+            labelSrvTotalSocketsClosed = new Label();
+            label20 = new Label();
+            labelSrvTotalSocketsCreated = new Label();
+            labelSrvTotalThreads = new Label();
+            label16 = new Label();
+            buttonServerConnect = new Button();
+            labelServerStatus = new Label();
+            label15 = new Label();
             configCancel = new Button();
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
+            folderBrowserDialog = new FolderBrowserDialog();
             ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
             splitContainer2.Panel1.SuspendLayout();
             splitContainer2.Panel2.SuspendLayout();
@@ -123,7 +148,6 @@
             settingsTabControl.SuspendLayout();
             tabMainPage.SuspendLayout();
             groupBox8.SuspendLayout();
-            groupBox7.SuspendLayout();
             groupBox3.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nodeMaxDepthUpDown).BeginInit();
             groupBox2.SuspendLayout();
@@ -142,6 +166,10 @@
             groupBox9.SuspendLayout();
             tabPELoaderPage.SuspendLayout();
             groupBox11.SuspendLayout();
+            tabSearchOrderDrivers.SuspendLayout();
+            tabServer.SuspendLayout();
+            groupBox7.SuspendLayout();
+            groupBox12.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainer2
@@ -160,7 +188,7 @@
             // 
             splitContainer2.Panel2.Controls.Add(configCancel);
             splitContainer2.Panel2.Controls.Add(configOK);
-            splitContainer2.Size = new Size(646, 497);
+            splitContainer2.Size = new Size(693, 497);
             splitContainer2.SplitterDistance = 444;
             splitContainer2.TabIndex = 1;
             // 
@@ -178,8 +206,8 @@
             // splitContainer1.Panel2
             // 
             splitContainer1.Panel2.Controls.Add(settingsTabControl);
-            splitContainer1.Size = new Size(646, 444);
-            splitContainer1.SplitterDistance = 188;
+            splitContainer1.Size = new Size(693, 444);
+            splitContainer1.SplitterDistance = 201;
             splitContainer1.TabIndex = 1;
             // 
             // TVSettings
@@ -206,14 +234,20 @@
             treeNode6.Name = "SearchOrderNode";
             treeNode6.Tag = "50";
             treeNode6.Text = "Module Search Order";
-            treeNode7.Name = "PELoaderNode";
-            treeNode7.Tag = "70";
-            treeNode7.Text = "PE Loader";
-            treeNode8.Name = "ShellIntegrationNode";
-            treeNode8.Tag = "20";
-            treeNode8.Text = "Shell Integration";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8 });
-            TVSettings.Size = new Size(188, 444);
+            treeNode7.Name = "SearchOrderDriverNode";
+            treeNode7.Tag = "90";
+            treeNode7.Text = "Module Search Order (drivers)";
+            treeNode8.Name = "PELoaderNode";
+            treeNode8.Tag = "70";
+            treeNode8.Text = "PE Loader";
+            treeNode9.Name = "ServerNode";
+            treeNode9.Tag = "80";
+            treeNode9.Text = "Server";
+            treeNode10.Name = "ShellIntegrationNode";
+            treeNode10.Tag = "20";
+            treeNode10.Text = "Shell Integration";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8, treeNode9, treeNode10 });
+            TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
             // 
@@ -228,25 +262,26 @@
             settingsTabControl.Controls.Add(tabSearchOrder);
             settingsTabControl.Controls.Add(tabApiSetPage);
             settingsTabControl.Controls.Add(tabPELoaderPage);
+            settingsTabControl.Controls.Add(tabSearchOrderDrivers);
+            settingsTabControl.Controls.Add(tabServer);
             settingsTabControl.Dock = DockStyle.Fill;
             settingsTabControl.ItemSize = new Size(0, 1);
             settingsTabControl.Location = new Point(0, 0);
             settingsTabControl.Name = "settingsTabControl";
             settingsTabControl.SelectedIndex = 0;
-            settingsTabControl.Size = new Size(454, 444);
+            settingsTabControl.Size = new Size(488, 444);
             settingsTabControl.SizeMode = TabSizeMode.Fixed;
             settingsTabControl.TabIndex = 0;
             // 
             // tabMainPage
             // 
             tabMainPage.Controls.Add(groupBox8);
-            tabMainPage.Controls.Add(groupBox7);
             tabMainPage.Controls.Add(groupBox3);
             tabMainPage.Controls.Add(groupBox2);
             tabMainPage.Location = new Point(4, 5);
             tabMainPage.Name = "tabMainPage";
             tabMainPage.Padding = new Padding(3);
-            tabMainPage.Size = new Size(446, 435);
+            tabMainPage.Size = new Size(480, 435);
             tabMainPage.TabIndex = 0;
             tabMainPage.Tag = "10";
             tabMainPage.UseVisualStyleBackColor = true;
@@ -255,9 +290,9 @@
             // 
             groupBox8.Controls.Add(label12);
             groupBox8.Controls.Add(chBoxCompressSessionFiles);
-            groupBox8.Location = new Point(6, 349);
+            groupBox8.Location = new Point(6, 250);
             groupBox8.Name = "groupBox8";
-            groupBox8.Size = new Size(432, 76);
+            groupBox8.Size = new Size(468, 76);
             groupBox8.TabIndex = 10;
             groupBox8.TabStop = false;
             groupBox8.Text = "Session";
@@ -283,45 +318,6 @@
             chBoxCompressSessionFiles.UseVisualStyleBackColor = true;
             chBoxCompressSessionFiles.Click += ChBox_Click;
             // 
-            // groupBox7
-            // 
-            groupBox7.Controls.Add(label7);
-            groupBox7.Controls.Add(buttonBrowseServerApp);
-            groupBox7.Controls.Add(serverAppLocationTextBox);
-            groupBox7.Location = new Point(6, 251);
-            groupBox7.Name = "groupBox7";
-            groupBox7.Size = new Size(432, 92);
-            groupBox7.TabIndex = 9;
-            groupBox7.TabStop = false;
-            groupBox7.Text = "Server Application Location";
-            // 
-            // label7
-            // 
-            label7.AutoSize = true;
-            label7.Location = new Point(19, 66);
-            label7.Name = "label7";
-            label7.Size = new Size(350, 15);
-            label7.TabIndex = 11;
-            label7.Text = "Note: Changing this setting will take effect upon program restart.";
-            // 
-            // buttonBrowseServerApp
-            // 
-            buttonBrowseServerApp.Location = new Point(344, 28);
-            buttonBrowseServerApp.Name = "buttonBrowseServerApp";
-            buttonBrowseServerApp.Size = new Size(75, 23);
-            buttonBrowseServerApp.TabIndex = 10;
-            buttonBrowseServerApp.Text = "Browse ...";
-            buttonBrowseServerApp.UseVisualStyleBackColor = true;
-            buttonBrowseServerApp.Click += BrowseForServerAppClick;
-            // 
-            // serverAppLocationTextBox
-            // 
-            serverAppLocationTextBox.Location = new Point(19, 28);
-            serverAppLocationTextBox.Name = "serverAppLocationTextBox";
-            serverAppLocationTextBox.ReadOnly = true;
-            serverAppLocationTextBox.Size = new Size(317, 23);
-            serverAppLocationTextBox.TabIndex = 0;
-            // 
             // groupBox3
             // 
             groupBox3.Controls.Add(chBoxClearLogOnFileOpen);
@@ -337,7 +333,7 @@
             groupBox3.Controls.Add(chBoxAutoExpands);
             groupBox3.Location = new Point(6, 72);
             groupBox3.Name = "groupBox3";
-            groupBox3.Size = new Size(432, 175);
+            groupBox3.Size = new Size(468, 175);
             groupBox3.TabIndex = 8;
             groupBox3.TabStop = false;
             groupBox3.Text = "Appearance";
@@ -466,9 +462,9 @@
             // groupBox2
             // 
             groupBox2.Controls.Add(checkBox1);
-            groupBox2.Location = new Point(6, 7);
+            groupBox2.Location = new Point(6, 6);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(432, 61);
+            groupBox2.Size = new Size(468, 61);
             groupBox2.TabIndex = 1;
             groupBox2.TabStop = false;
             groupBox2.Text = "Windows";
@@ -478,10 +474,10 @@
             checkBox1.AutoSize = true;
             checkBox1.Location = new Point(19, 30);
             checkBox1.Name = "checkBox1";
-            checkBox1.Size = new Size(127, 19);
+            checkBox1.Size = new Size(178, 19);
             checkBox1.TabIndex = 1;
             checkBox1.Tag = "100";
-            checkBox1.Text = "Use ESC key to quit";
+            checkBox1.Text = "Use ESC key to close window";
             checkBox1.UseVisualStyleBackColor = true;
             checkBox1.Click += ChBox_Click;
             // 
@@ -491,7 +487,7 @@
             tabHistoryPage.Location = new Point(4, 5);
             tabHistoryPage.Name = "tabHistoryPage";
             tabHistoryPage.Padding = new Padding(3);
-            tabHistoryPage.Size = new Size(446, 435);
+            tabHistoryPage.Size = new Size(480, 435);
             tabHistoryPage.TabIndex = 2;
             tabHistoryPage.Tag = "11";
             tabHistoryPage.UseVisualStyleBackColor = true;
@@ -504,7 +500,7 @@
             groupBox6.Controls.Add(label1);
             groupBox6.Location = new Point(9, 6);
             groupBox6.Name = "groupBox6";
-            groupBox6.Size = new Size(429, 121);
+            groupBox6.Size = new Size(465, 121);
             groupBox6.TabIndex = 4;
             groupBox6.TabStop = false;
             groupBox6.Text = "Most Recently Used list";
@@ -558,14 +554,14 @@
             tabShellIntegrationPage.Location = new Point(4, 5);
             tabShellIntegrationPage.Name = "tabShellIntegrationPage";
             tabShellIntegrationPage.Padding = new Padding(3);
-            tabShellIntegrationPage.Size = new Size(446, 435);
+            tabShellIntegrationPage.Size = new Size(480, 435);
             tabShellIntegrationPage.TabIndex = 3;
             tabShellIntegrationPage.Tag = "20";
             tabShellIntegrationPage.UseVisualStyleBackColor = true;
             // 
             // buttonElevate
             // 
-            buttonElevate.Location = new Point(348, 408);
+            buttonElevate.Location = new Point(385, 407);
             buttonElevate.Name = "buttonElevate";
             buttonElevate.Size = new Size(89, 25);
             buttonElevate.TabIndex = 8;
@@ -581,7 +577,7 @@
             groupBox1.Controls.Add(buttonAssociate);
             groupBox1.Location = new Point(6, 340);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(323, 61);
+            groupBox1.Size = new Size(332, 61);
             groupBox1.TabIndex = 7;
             groupBox1.TabStop = false;
             // 
@@ -616,7 +612,7 @@
             // 
             // buttonSelectAll
             // 
-            buttonSelectAll.Location = new Point(348, 340);
+            buttonSelectAll.Location = new Point(385, 340);
             buttonSelectAll.Name = "buttonSelectAll";
             buttonSelectAll.Size = new Size(89, 25);
             buttonSelectAll.TabIndex = 6;
@@ -634,7 +630,7 @@
             LVFileExt.Location = new Point(6, 7);
             LVFileExt.MultiSelect = false;
             LVFileExt.Name = "LVFileExt";
-            LVFileExt.Size = new Size(431, 327);
+            LVFileExt.Size = new Size(468, 327);
             LVFileExt.TabIndex = 0;
             LVFileExt.UseCompatibleStateImageBehavior = false;
             LVFileExt.View = View.Details;
@@ -664,7 +660,7 @@
             tabExternalViewerPage.Controls.Add(groupBox4);
             tabExternalViewerPage.Location = new Point(4, 5);
             tabExternalViewerPage.Name = "tabExternalViewerPage";
-            tabExternalViewerPage.Size = new Size(446, 435);
+            tabExternalViewerPage.Size = new Size(480, 435);
             tabExternalViewerPage.TabIndex = 4;
             tabExternalViewerPage.Tag = "30";
             tabExternalViewerPage.Text = "tabPage1";
@@ -679,14 +675,14 @@
             groupBox4.Controls.Add(label3);
             groupBox4.Location = new Point(3, 7);
             groupBox4.Name = "groupBox4";
-            groupBox4.Size = new Size(434, 171);
+            groupBox4.Size = new Size(471, 171);
             groupBox4.TabIndex = 5;
             groupBox4.TabStop = false;
             groupBox4.Text = "External Module Viewer settings";
             // 
             // buttonBrowse
             // 
-            buttonBrowse.Location = new Point(331, 52);
+            buttonBrowse.Location = new Point(375, 52);
             buttonBrowse.Name = "buttonBrowse";
             buttonBrowse.Size = new Size(75, 23);
             buttonBrowse.TabIndex = 9;
@@ -699,7 +695,7 @@
             argumentsTextBox.Location = new Point(28, 113);
             argumentsTextBox.Name = "argumentsTextBox";
             argumentsTextBox.PlaceholderText = "\"%1\"";
-            argumentsTextBox.Size = new Size(297, 23);
+            argumentsTextBox.Size = new Size(341, 23);
             argumentsTextBox.TabIndex = 8;
             argumentsTextBox.Text = "\"%1\"";
             // 
@@ -716,7 +712,7 @@
             // 
             commandTextBox.Location = new Point(28, 52);
             commandTextBox.Name = "commandTextBox";
-            commandTextBox.Size = new Size(297, 23);
+            commandTextBox.Size = new Size(341, 23);
             commandTextBox.TabIndex = 6;
             // 
             // label3
@@ -733,7 +729,7 @@
             tabExternalFunctionHelp.Controls.Add(groupBox5);
             tabExternalFunctionHelp.Location = new Point(4, 5);
             tabExternalFunctionHelp.Name = "tabExternalFunctionHelp";
-            tabExternalFunctionHelp.Size = new Size(446, 435);
+            tabExternalFunctionHelp.Size = new Size(480, 435);
             tabExternalFunctionHelp.TabIndex = 5;
             tabExternalFunctionHelp.Tag = "40";
             tabExternalFunctionHelp.UseVisualStyleBackColor = true;
@@ -745,14 +741,14 @@
             groupBox5.Controls.Add(label6);
             groupBox5.Location = new Point(3, 7);
             groupBox5.Name = "groupBox5";
-            groupBox5.Size = new Size(434, 107);
+            groupBox5.Size = new Size(471, 107);
             groupBox5.TabIndex = 0;
             groupBox5.TabStop = false;
             groupBox5.Text = "External Function Help settings";
             // 
             // buttonDefaultURL
             // 
-            buttonDefaultURL.Location = new Point(335, 49);
+            buttonDefaultURL.Location = new Point(375, 48);
             buttonDefaultURL.Name = "buttonDefaultURL";
             buttonDefaultURL.Size = new Size(81, 23);
             buttonDefaultURL.TabIndex = 12;
@@ -765,7 +761,7 @@
             searchOnlineTextBox.Location = new Point(6, 49);
             searchOnlineTextBox.Name = "searchOnlineTextBox";
             searchOnlineTextBox.PlaceholderText = "https://learn.microsoft.com/en-us/search/?terms=%1";
-            searchOnlineTextBox.Size = new Size(323, 23);
+            searchOnlineTextBox.Size = new Size(363, 23);
             searchOnlineTextBox.TabIndex = 11;
             // 
             // label6
@@ -779,6 +775,8 @@
             // 
             // tabSearchOrder
             // 
+            tabSearchOrder.Controls.Add(DeleteUserDirectoryButton);
+            tabSearchOrder.Controls.Add(AddUserDirectoryButton);
             tabSearchOrder.Controls.Add(TVSearchOrder);
             tabSearchOrder.Controls.Add(ExpandSearchOrderButton);
             tabSearchOrder.Controls.Add(MoveUpButton);
@@ -786,9 +784,30 @@
             tabSearchOrder.Location = new Point(4, 5);
             tabSearchOrder.Name = "tabSearchOrder";
             tabSearchOrder.Padding = new Padding(3);
-            tabSearchOrder.Size = new Size(446, 435);
+            tabSearchOrder.Size = new Size(480, 435);
             tabSearchOrder.TabIndex = 6;
             tabSearchOrder.Tag = "50";
+            // 
+            // DeleteUserDirectoryButton
+            // 
+            DeleteUserDirectoryButton.Enabled = false;
+            DeleteUserDirectoryButton.Location = new Point(49, 403);
+            DeleteUserDirectoryButton.Name = "DeleteUserDirectoryButton";
+            DeleteUserDirectoryButton.Size = new Size(60, 23);
+            DeleteUserDirectoryButton.TabIndex = 6;
+            DeleteUserDirectoryButton.Text = "Delete";
+            DeleteUserDirectoryButton.UseVisualStyleBackColor = true;
+            DeleteUserDirectoryButton.Click += DeleteUserDirectoryButtonClick;
+            // 
+            // AddUserDirectoryButton
+            // 
+            AddUserDirectoryButton.Location = new Point(115, 403);
+            AddUserDirectoryButton.Name = "AddUserDirectoryButton";
+            AddUserDirectoryButton.Size = new Size(60, 23);
+            AddUserDirectoryButton.TabIndex = 5;
+            AddUserDirectoryButton.Text = "Add";
+            AddUserDirectoryButton.UseVisualStyleBackColor = true;
+            AddUserDirectoryButton.Click += AddUserDirectoryButtonClick;
             // 
             // TVSearchOrder
             // 
@@ -796,24 +815,24 @@
             TVSearchOrder.Location = new Point(6, 6);
             TVSearchOrder.Name = "TVSearchOrder";
             TVSearchOrder.ShowNodeToolTips = true;
-            TVSearchOrder.Size = new Size(431, 391);
+            TVSearchOrder.Size = new Size(468, 391);
             TVSearchOrder.TabIndex = 4;
             TVSearchOrder.AfterSelect += TVSearchOrderAfterSelect;
             // 
             // ExpandSearchOrderButton
             // 
-            ExpandSearchOrderButton.Location = new Point(144, 403);
+            ExpandSearchOrderButton.Location = new Point(181, 403);
             ExpandSearchOrderButton.Name = "ExpandSearchOrderButton";
             ExpandSearchOrderButton.Size = new Size(103, 23);
             ExpandSearchOrderButton.TabIndex = 3;
-            ExpandSearchOrderButton.Text = "Collapse View";
+            ExpandSearchOrderButton.Text = "Collapse All";
             ExpandSearchOrderButton.UseVisualStyleBackColor = true;
             ExpandSearchOrderButton.Click += ExpandSearchOrderButton_Click;
             // 
             // MoveUpButton
             // 
             MoveUpButton.Enabled = false;
-            MoveUpButton.Location = new Point(253, 403);
+            MoveUpButton.Location = new Point(290, 403);
             MoveUpButton.Name = "MoveUpButton";
             MoveUpButton.Size = new Size(89, 23);
             MoveUpButton.TabIndex = 2;
@@ -824,7 +843,7 @@
             // MoveDownButton
             // 
             MoveDownButton.Enabled = false;
-            MoveDownButton.Location = new Point(348, 403);
+            MoveDownButton.Location = new Point(385, 403);
             MoveDownButton.Name = "MoveDownButton";
             MoveDownButton.Size = new Size(89, 23);
             MoveDownButton.TabIndex = 1;
@@ -838,7 +857,7 @@
             tabApiSetPage.Controls.Add(groupBox9);
             tabApiSetPage.Location = new Point(4, 5);
             tabApiSetPage.Name = "tabApiSetPage";
-            tabApiSetPage.Size = new Size(446, 435);
+            tabApiSetPage.Size = new Size(480, 435);
             tabApiSetPage.TabIndex = 7;
             tabApiSetPage.Tag = "60";
             tabApiSetPage.UseVisualStyleBackColor = true;
@@ -848,7 +867,7 @@
             groupBox10.Controls.Add(chBoxHighlightApiSet);
             groupBox10.Location = new Point(9, 81);
             groupBox10.Name = "groupBox10";
-            groupBox10.Size = new Size(429, 69);
+            groupBox10.Size = new Size(465, 69);
             groupBox10.TabIndex = 6;
             groupBox10.TabStop = false;
             groupBox10.Text = "Appearance";
@@ -870,7 +889,7 @@
             groupBox9.Controls.Add(chBoxApiSetNamespace);
             groupBox9.Location = new Point(9, 6);
             groupBox9.Name = "groupBox9";
-            groupBox9.Size = new Size(429, 69);
+            groupBox9.Size = new Size(465, 69);
             groupBox9.TabIndex = 5;
             groupBox9.TabStop = false;
             groupBox9.Text = "Namespace";
@@ -892,7 +911,7 @@
             tabPELoaderPage.Controls.Add(groupBox11);
             tabPELoaderPage.Location = new Point(4, 5);
             tabPELoaderPage.Name = "tabPELoaderPage";
-            tabPELoaderPage.Size = new Size(446, 435);
+            tabPELoaderPage.Size = new Size(480, 435);
             tabPELoaderPage.TabIndex = 8;
             tabPELoaderPage.Tag = "70";
             tabPELoaderPage.UseVisualStyleBackColor = true;
@@ -906,7 +925,7 @@
             groupBox11.Controls.Add(chBoxUseReloc);
             groupBox11.Location = new Point(3, 3);
             groupBox11.Name = "groupBox11";
-            groupBox11.Size = new Size(440, 429);
+            groupBox11.Size = new Size(471, 429);
             groupBox11.TabIndex = 7;
             groupBox11.TabStop = false;
             groupBox11.Text = "Portable Executable Loader Settings";
@@ -960,10 +979,259 @@
             chBoxUseReloc.UseVisualStyleBackColor = true;
             chBoxUseReloc.Click += ChBox_Click;
             // 
+            // tabSearchOrderDrivers
+            // 
+            tabSearchOrderDrivers.Controls.Add(DeleteUserDirectoryDriversButton);
+            tabSearchOrderDrivers.Controls.Add(AddUserDirectoryDriversButton);
+            tabSearchOrderDrivers.Controls.Add(TVSearchOrderDrivers);
+            tabSearchOrderDrivers.Controls.Add(ExpandSearchOrderDrivers);
+            tabSearchOrderDrivers.Controls.Add(MoveUpButtonDrivers);
+            tabSearchOrderDrivers.Controls.Add(MoveDownButtonDrivers);
+            tabSearchOrderDrivers.Location = new Point(4, 5);
+            tabSearchOrderDrivers.Name = "tabSearchOrderDrivers";
+            tabSearchOrderDrivers.Size = new Size(480, 435);
+            tabSearchOrderDrivers.TabIndex = 9;
+            tabSearchOrderDrivers.Tag = "90";
+            tabSearchOrderDrivers.UseVisualStyleBackColor = true;
+            // 
+            // DeleteUserDirectoryDriversButton
+            // 
+            DeleteUserDirectoryDriversButton.Enabled = false;
+            DeleteUserDirectoryDriversButton.Location = new Point(47, 404);
+            DeleteUserDirectoryDriversButton.Name = "DeleteUserDirectoryDriversButton";
+            DeleteUserDirectoryDriversButton.Size = new Size(60, 23);
+            DeleteUserDirectoryDriversButton.TabIndex = 10;
+            DeleteUserDirectoryDriversButton.Text = "Delete";
+            DeleteUserDirectoryDriversButton.UseVisualStyleBackColor = true;
+            DeleteUserDirectoryDriversButton.Click += DeleteUserDirectoryButtonClick;
+            // 
+            // AddUserDirectoryDriversButton
+            // 
+            AddUserDirectoryDriversButton.Location = new Point(113, 404);
+            AddUserDirectoryDriversButton.Name = "AddUserDirectoryDriversButton";
+            AddUserDirectoryDriversButton.Size = new Size(60, 23);
+            AddUserDirectoryDriversButton.TabIndex = 9;
+            AddUserDirectoryDriversButton.Text = "Add";
+            AddUserDirectoryDriversButton.UseVisualStyleBackColor = true;
+            AddUserDirectoryDriversButton.Click += AddUserDirectoryButtonClick;
+            // 
+            // TVSearchOrderDrivers
+            // 
+            TVSearchOrderDrivers.HideSelection = false;
+            TVSearchOrderDrivers.Location = new Point(6, 6);
+            TVSearchOrderDrivers.Name = "TVSearchOrderDrivers";
+            TVSearchOrderDrivers.ShowNodeToolTips = true;
+            TVSearchOrderDrivers.Size = new Size(466, 391);
+            TVSearchOrderDrivers.TabIndex = 8;
+            TVSearchOrderDrivers.AfterSelect += TVSearchOrderAfterSelect;
+            // 
+            // ExpandSearchOrderDrivers
+            // 
+            ExpandSearchOrderDrivers.Location = new Point(181, 404);
+            ExpandSearchOrderDrivers.Name = "ExpandSearchOrderDrivers";
+            ExpandSearchOrderDrivers.Size = new Size(103, 23);
+            ExpandSearchOrderDrivers.TabIndex = 7;
+            ExpandSearchOrderDrivers.Text = "Collapse All";
+            ExpandSearchOrderDrivers.UseVisualStyleBackColor = true;
+            ExpandSearchOrderDrivers.Click += ExpandSearchOrderButton_Click;
+            // 
+            // MoveUpButtonDrivers
+            // 
+            MoveUpButtonDrivers.Enabled = false;
+            MoveUpButtonDrivers.Location = new Point(290, 404);
+            MoveUpButtonDrivers.Name = "MoveUpButtonDrivers";
+            MoveUpButtonDrivers.Size = new Size(89, 23);
+            MoveUpButtonDrivers.TabIndex = 6;
+            MoveUpButtonDrivers.Text = "Move Up";
+            MoveUpButtonDrivers.UseVisualStyleBackColor = true;
+            MoveUpButtonDrivers.Click += TVSearchOderMoveUp;
+            // 
+            // MoveDownButtonDrivers
+            // 
+            MoveDownButtonDrivers.Enabled = false;
+            MoveDownButtonDrivers.Location = new Point(385, 404);
+            MoveDownButtonDrivers.Name = "MoveDownButtonDrivers";
+            MoveDownButtonDrivers.Size = new Size(89, 23);
+            MoveDownButtonDrivers.TabIndex = 5;
+            MoveDownButtonDrivers.Text = "Move Down";
+            MoveDownButtonDrivers.UseVisualStyleBackColor = true;
+            MoveDownButtonDrivers.Click += TVSearchOderMoveDown;
+            // 
+            // tabServer
+            // 
+            tabServer.Controls.Add(groupBox7);
+            tabServer.Controls.Add(groupBox12);
+            tabServer.Location = new Point(4, 5);
+            tabServer.Name = "tabServer";
+            tabServer.Size = new Size(480, 435);
+            tabServer.TabIndex = 10;
+            tabServer.Tag = "80";
+            tabServer.UseVisualStyleBackColor = true;
+            // 
+            // groupBox7
+            // 
+            groupBox7.Controls.Add(ServerFileState);
+            groupBox7.Controls.Add(buttonBrowseServerApp);
+            groupBox7.Controls.Add(serverAppLocationTextBox);
+            groupBox7.Location = new Point(6, 6);
+            groupBox7.Name = "groupBox7";
+            groupBox7.Size = new Size(468, 87);
+            groupBox7.TabIndex = 11;
+            groupBox7.TabStop = false;
+            groupBox7.Text = "Server Application Location";
+            // 
+            // ServerFileState
+            // 
+            ServerFileState.AutoSize = true;
+            ServerFileState.Location = new Point(20, 60);
+            ServerFileState.Name = "ServerFileState";
+            ServerFileState.Size = new Size(81, 15);
+            ServerFileState.TabIndex = 11;
+            ServerFileState.Text = "File not found";
+            // 
+            // buttonBrowseServerApp
+            // 
+            buttonBrowseServerApp.Location = new Point(376, 28);
+            buttonBrowseServerApp.Name = "buttonBrowseServerApp";
+            buttonBrowseServerApp.Size = new Size(75, 23);
+            buttonBrowseServerApp.TabIndex = 10;
+            buttonBrowseServerApp.Text = "Browse ...";
+            buttonBrowseServerApp.UseVisualStyleBackColor = true;
+            buttonBrowseServerApp.Click += BrowseForServerAppClick;
+            // 
+            // serverAppLocationTextBox
+            // 
+            serverAppLocationTextBox.Location = new Point(19, 28);
+            serverAppLocationTextBox.Name = "serverAppLocationTextBox";
+            serverAppLocationTextBox.ReadOnly = true;
+            serverAppLocationTextBox.Size = new Size(351, 23);
+            serverAppLocationTextBox.TabIndex = 0;
+            // 
+            // groupBox12
+            // 
+            groupBox12.Controls.Add(labelSrvPid);
+            groupBox12.Controls.Add(label7);
+            groupBox12.Controls.Add(label21);
+            groupBox12.Controls.Add(labelSrvTotalSocketsClosed);
+            groupBox12.Controls.Add(label20);
+            groupBox12.Controls.Add(labelSrvTotalSocketsCreated);
+            groupBox12.Controls.Add(labelSrvTotalThreads);
+            groupBox12.Controls.Add(label16);
+            groupBox12.Controls.Add(buttonServerConnect);
+            groupBox12.Controls.Add(labelServerStatus);
+            groupBox12.Controls.Add(label15);
+            groupBox12.Location = new Point(3, 92);
+            groupBox12.Name = "groupBox12";
+            groupBox12.Size = new Size(471, 183);
+            groupBox12.TabIndex = 0;
+            groupBox12.TabStop = false;
+            // 
+            // labelSrvPid
+            // 
+            labelSrvPid.AutoSize = true;
+            labelSrvPid.Location = new Point(175, 65);
+            labelSrvPid.Name = "labelSrvPid";
+            labelSrvPid.Size = new Size(12, 15);
+            labelSrvPid.TabIndex = 13;
+            labelSrvPid.Text = "-";
+            // 
+            // label7
+            // 
+            label7.AutoSize = true;
+            label7.Location = new Point(25, 65);
+            label7.Name = "label7";
+            label7.Size = new Size(66, 15);
+            label7.TabIndex = 12;
+            label7.Text = "Process Id: ";
+            // 
+            // label21
+            // 
+            label21.AutoSize = true;
+            label21.Location = new Point(25, 142);
+            label21.Name = "label21";
+            label21.Size = new Size(117, 15);
+            label21.TabIndex = 8;
+            label21.Text = "Total Sockets Closed:";
+            // 
+            // labelSrvTotalSocketsClosed
+            // 
+            labelSrvTotalSocketsClosed.AutoSize = true;
+            labelSrvTotalSocketsClosed.Location = new Point(175, 142);
+            labelSrvTotalSocketsClosed.Name = "labelSrvTotalSocketsClosed";
+            labelSrvTotalSocketsClosed.Size = new Size(13, 15);
+            labelSrvTotalSocketsClosed.TabIndex = 7;
+            labelSrvTotalSocketsClosed.Text = "0";
+            // 
+            // label20
+            // 
+            label20.AutoSize = true;
+            label20.Location = new Point(25, 115);
+            label20.Name = "label20";
+            label20.Size = new Size(122, 15);
+            label20.TabIndex = 6;
+            label20.Text = "Total Sockets Created:";
+            // 
+            // labelSrvTotalSocketsCreated
+            // 
+            labelSrvTotalSocketsCreated.AutoSize = true;
+            labelSrvTotalSocketsCreated.Location = new Point(175, 115);
+            labelSrvTotalSocketsCreated.Name = "labelSrvTotalSocketsCreated";
+            labelSrvTotalSocketsCreated.Size = new Size(13, 15);
+            labelSrvTotalSocketsCreated.TabIndex = 5;
+            labelSrvTotalSocketsCreated.Text = "0";
+            // 
+            // labelSrvTotalThreads
+            // 
+            labelSrvTotalThreads.AutoSize = true;
+            labelSrvTotalThreads.Location = new Point(175, 89);
+            labelSrvTotalThreads.Name = "labelSrvTotalThreads";
+            labelSrvTotalThreads.Size = new Size(13, 15);
+            labelSrvTotalThreads.TabIndex = 4;
+            labelSrvTotalThreads.Text = "0";
+            // 
+            // label16
+            // 
+            label16.AutoSize = true;
+            label16.Location = new Point(25, 89);
+            label16.Name = "label16";
+            label16.Size = new Size(123, 15);
+            label16.TabIndex = 3;
+            label16.Text = "Total Threads Created:";
+            // 
+            // buttonServerConnect
+            // 
+            buttonServerConnect.Location = new Point(175, 22);
+            buttonServerConnect.Name = "buttonServerConnect";
+            buttonServerConnect.Size = new Size(85, 23);
+            buttonServerConnect.TabIndex = 2;
+            buttonServerConnect.Text = "Reconnect";
+            buttonServerConnect.UseVisualStyleBackColor = true;
+            buttonServerConnect.Click += ConnectServerButtonClick;
+            // 
+            // labelServerStatus
+            // 
+            labelServerStatus.AutoSize = true;
+            labelServerStatus.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            labelServerStatus.ForeColor = Color.Green;
+            labelServerStatus.Location = new Point(73, 26);
+            labelServerStatus.Name = "labelServerStatus";
+            labelServerStatus.Size = new Size(67, 15);
+            labelServerStatus.TabIndex = 1;
+            labelServerStatus.Text = "Connected";
+            // 
+            // label15
+            // 
+            label15.AutoSize = true;
+            label15.Location = new Point(25, 26);
+            label15.Name = "label15";
+            label15.Size = new Size(42, 15);
+            label15.TabIndex = 0;
+            label15.Text = "Status:";
+            // 
             // configCancel
             // 
             configCancel.DialogResult = DialogResult.Cancel;
-            configCancel.Location = new Point(559, 13);
+            configCancel.Location = new Point(608, 14);
             configCancel.Name = "configCancel";
             configCancel.Size = new Size(75, 23);
             configCancel.TabIndex = 1;
@@ -973,7 +1241,7 @@
             // configOK
             // 
             configOK.DialogResult = DialogResult.OK;
-            configOK.Location = new Point(475, 13);
+            configOK.Location = new Point(524, 14);
             configOK.Name = "configOK";
             configOK.Size = new Size(75, 23);
             configOK.TabIndex = 0;
@@ -985,12 +1253,17 @@
             // 
             browseFileDialog.Filter = "All files|*.*";
             // 
+            // folderBrowserDialog
+            // 
+            folderBrowserDialog.AddToRecent = false;
+            folderBrowserDialog.ShowHiddenFiles = true;
+            // 
             // ConfigurationForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = configCancel;
-            ClientSize = new Size(656, 507);
+            ClientSize = new Size(703, 507);
             Controls.Add(splitContainer2);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             KeyPreview = true;
@@ -1017,8 +1290,6 @@
             tabMainPage.ResumeLayout(false);
             groupBox8.ResumeLayout(false);
             groupBox8.PerformLayout();
-            groupBox7.ResumeLayout(false);
-            groupBox7.PerformLayout();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nodeMaxDepthUpDown).EndInit();
@@ -1047,6 +1318,12 @@
             tabPELoaderPage.ResumeLayout(false);
             groupBox11.ResumeLayout(false);
             groupBox11.PerformLayout();
+            tabSearchOrderDrivers.ResumeLayout(false);
+            tabServer.ResumeLayout(false);
+            groupBox7.ResumeLayout(false);
+            groupBox7.PerformLayout();
+            groupBox12.ResumeLayout(false);
+            groupBox12.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -1101,10 +1378,6 @@
         private Button MoveUpButton;
         private Button MoveDownButton;
         private TreeView TVSearchOrder;
-        private GroupBox groupBox7;
-        private TextBox serverAppLocationTextBox;
-        private Button buttonBrowseServerApp;
-        private Label label7;
         private Label label8;
         private NumericUpDown nodeMaxDepthUpDown;
         private Label label9;
@@ -1126,5 +1399,32 @@
         private Label label13;
         private Label label14;
         private Label labelAllocGran;
+        private TabPage tabSearchOrderDrivers;
+        private TabPage tabServer;
+        private TreeView TVSearchOrderDrivers;
+        private Button ExpandSearchOrderDrivers;
+        private Button MoveUpButtonDrivers;
+        private Button MoveDownButtonDrivers;
+        private Button AddUserDirectoryButton;
+        private Button AddUserDirectoryDriversButton;
+        private Button DeleteUserDirectoryDriversButton;
+        private Button DeleteUserDirectoryButton;
+        private FolderBrowserDialog folderBrowserDialog;
+        private GroupBox groupBox12;
+        private Button buttonServerConnect;
+        private Label labelServerStatus;
+        private Label label15;
+        private Label labelSrvTotalThreads;
+        private Label label16;
+        private Label label21;
+        private Label labelSrvTotalSocketsClosed;
+        private Label label20;
+        private Label labelSrvTotalSocketsCreated;
+        private GroupBox groupBox7;
+        private Button buttonBrowseServerApp;
+        private TextBox serverAppLocationTextBox;
+        private Label ServerFileState;
+        private Label label7;
+        private Label labelSrvPid;
     }
 }

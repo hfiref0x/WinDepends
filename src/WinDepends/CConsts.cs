@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 Nov 2024
+*  DATE:        28 Nov 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -25,7 +25,8 @@ public static class CConsts
     public const string NotAvailableMsg = "N/A";
     public const string NotBoundMsg = "Not bound";
     public const string NoneMsg = "None";
-    public const string NoResponseMsg = "No response";
+
+    //public const string NoResponseMsg = "No response";
 
     public const string DateTimeFormat24Hours = "dd/MM/yyyy HH:mm:ss";
 
@@ -39,7 +40,6 @@ public static class CConsts
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
 
-    public const int ModuleNodeDepthLimit = 255;
     public const int ModuleNodeDepthDefault = 2;
 
     public const int TagUseESC = 100;
@@ -71,6 +71,8 @@ public static class CConsts
 
     public const int SearchOrderIconsWidth = 18;
     public const int SearchOrderIconsHeigth = 17;
+
+    public const string SearchOrderUserValue = "SearchOrderUserValue";
 
     /// <summary>
     /// Count of LVImports, LVExports columns.
@@ -110,6 +112,9 @@ public static class CConsts
     //
     public const string ShortcutFileExt = ".lnk";
 
+    // Dll file extension
+    public const string DllFileExt = ".dll";
+
     //
     // Common open dialog filter extensions.
     //
@@ -142,6 +147,7 @@ public static class CConsts
     public const int CoreServerChainSizeMax = 32762;
 
     public const string HintFormLabelControl = "HintLabel";
+    public const string CategoryUserDefinedDirectory = "The user defined directory";
 
     /// <summary>
     /// Msg: OK
@@ -700,7 +706,7 @@ public static class SearchOrderTypesExtension
             SearchOrderType.System32Directory => "The system directory",
             SearchOrderType.SystemDirectory => "The 16-bit system directory",
             SearchOrderType.EnvironmentPathDirectories => "The system's \"PATH\" environment variable directories",
-            SearchOrderType.UserDefinedDirectory => "The user defined directory",
+            SearchOrderType.UserDefinedDirectory => CConsts.CategoryUserDefinedDirectory,
             _ => searchOrder.ToString()
         };
     }

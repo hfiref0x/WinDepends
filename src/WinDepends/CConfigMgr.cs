@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Nov 2024
+*  DATE:        01 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -42,7 +42,9 @@ public class CConfiguration
     public bool ClearLogOnFileOpen { get; set; }
     public bool UseApiSetSchema { get; set; }
     public bool UseRelocForImages { get; set; }
+    public bool UseStats { get; set; }
 
+    public bool AnalysisSettingsUseAsDefault { get; set; }
     public bool HighlightApiSet { get; set; }
     public int HistoryDepth { get; set; }
     public string ExternalViewerCommand { get; set; }

@@ -67,7 +67,8 @@ BOOL mlist_add(
 BOOL mlist_traverse(
     _In_ PLIST_ENTRY head,
     _In_ mlist_action action,
-    _In_ SOCKET s
+    _In_ SOCKET s,
+    _In_opt_ pmodule_ctx context
 )
 {
     BOOL bAnyError = FALSE;
@@ -117,7 +118,7 @@ BOOL mlist_traverse(
         if (bAnyError)
             return FALSE;
 
-        sendstring_plaintext(s, pchBuffer);
+        sendstring_plaintext(s, pchBuffer, context);
 
     }
     else if (action == mlist_free) { 

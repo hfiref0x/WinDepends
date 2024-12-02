@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Jul 2024
+*  DATE:        01 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -19,11 +19,13 @@ namespace WinDepends;
 public partial class FindDialogForm : Form
 {
     private readonly MainForm mainForm;
+    readonly bool escKeyEnabled;
 
-    public FindDialogForm(MainForm parent)
+    public FindDialogForm(MainForm parent, bool bEscKeyEnabled)
     {
         InitializeComponent();
         mainForm = parent;
+        escKeyEnabled = bEscKeyEnabled;
     }
 
     private void FindTextBox_TextChanged(object sender, EventArgs e)
@@ -56,4 +58,13 @@ public partial class FindDialogForm : Form
     {
         if (MatchCaseCheckBox.Checked) mainForm.LogFindOptions |= RichTextBoxFinds.MatchCase;
     }
+
+    private void FindDialogForm_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Escape && escKeyEnabled)
+        {
+            this.Close();
+        }
+    }
+
 }

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Nov 15, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -30,6 +30,7 @@
 #define WDEP_STATUS_405 L"WDEP/1.0 405 Command unknown or not allowed\r\n"
 #define WDEP_STATUS_415 L"WDEP/1.0 415 Invalid file headers or signatures\r\n"
 #define WDEP_STATUS_500 L"WDEP/1.0 500 Can not allocate resources\r\n"
+#define WDEP_STATUS_501 L"WDEP/1.0 501 Context not allocated\r\n"
 #define WDEP_STATUS_600 L"WDEP/1.0 600 Exception in get_datadirs routine\r\n"
 #define WDEP_STATUS_601 L"WDEP/1.0 601 Exception in get_headers routine\r\n"
 #define WDEP_STATUS_602 L"WDEP/1.0 602 Exception in get_imports routine\r\n"
@@ -64,13 +65,6 @@
     valid_image_range((pointer), sizeof(struct_type), (image_base), (image_size))
 
 
-LPBYTE pe32open(
-    _In_ SOCKET s,
-    _In_ pmodule_ctx context,
-    _In_ BOOL fUseReloc,
-    _In_ ULONG minAppAddress
-);
-
 BOOL relocimage64(
     _In_ LPVOID MappedView,
     _In_ LPVOID RebaseFrom,
@@ -78,24 +72,29 @@ BOOL relocimage64(
     _In_ ULONG RelDataSize
 );
 
+LPBYTE pe32open(
+    _In_ SOCKET s,
+    _In_opt_ pmodule_ctx context
+);
+
 BOOL get_headers(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 );
 
 BOOL get_datadirs(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 );
 
 BOOL get_imports(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 );
 
 BOOL get_exports(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 );
 
 BOOL pe32close(

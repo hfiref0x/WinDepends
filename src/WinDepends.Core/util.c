@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Nov 27, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -117,36 +117,41 @@ BOOL heap_free(_In_opt_ HANDLE heap, _In_ LPVOID memory)
     return HeapFree(hHeap, 0, memory);
 }
 
-void calculatePerformanceStats(DWORD64 bytesSent, LONG64 timeTaken)
-{
-    InterlockedAdd64((PLONG64)&gsup.CallStats.totalBytesSent, bytesSent);
-    InterlockedIncrement64((PLONG64)&gsup.CallStats.totalSendCalls);
-    InterlockedAdd64((PLONG64)&gsup.CallStats.totalTimeSpent, timeTaken);
-}
-
-int sendstring_plaintext_no_track(SOCKET s, const wchar_t* Buffer)
+int sendstring_plaintext_no_track(
+    _In_ SOCKET s, 
+    _In_ const wchar_t* Buffer
+)
 {
     return (send(s, (const char*)Buffer, (int)wcslen(Buffer) * sizeof(wchar_t), 0) >= 0);
 }
 
-int sendstring_plaintext(SOCKET s, const wchar_t* Buffer)
+int sendstring_plaintext(
+    _In_ SOCKET s, 
+    _In_ const wchar_t* Buffer,
+    _In_opt_ pmodule_ctx context
+)
 {
     int result;
     LARGE_INTEGER endCount;
     LONG64 timeTaken;
+    BOOL enableStats;
 
     int bufferLength = (int)wcslen(Buffer) * sizeof(wchar_t);
+    enableStats = ((context != NULL) && context->enable_call_stats);
 
-    if (gsup.EnableCallStats) {
-        QueryPerformanceCounter(&gsup.CallStats.startCount);
+    if (enableStats) {
+        QueryPerformanceCounter(&context->start_count);
     }
 
     result = send(s, (const char*)Buffer, bufferLength, 0);
 
-    if (gsup.EnableCallStats && result != SOCKET_ERROR) {
+    if (enableStats && result != SOCKET_ERROR) {
         QueryPerformanceCounter(&endCount);
-        timeTaken = (LONG64)((endCount.QuadPart - gsup.CallStats.startCount.QuadPart) * 1000000 / gsup.CallStats.frequency.QuadPart);
-        calculatePerformanceStats(result, timeTaken);
+        timeTaken = (LONG64)((endCount.QuadPart - context->start_count.QuadPart) * 1000000 / gsup.PerformanceFrequency.QuadPart);
+
+        context->total_bytes_sent += result;
+        context->total_send_calls += 1;
+        context->total_time_spent += timeTaken;
     }
 
     return (result >= 0);
@@ -541,14 +546,13 @@ VOID resolve_apiset_namespace()
 void utils_init()
 {
     RtlSecureZeroMemory(&gsup, sizeof(SUP_CONTEXT));
-    QueryPerformanceFrequency(&gsup.CallStats.frequency);
+    QueryPerformanceFrequency(&gsup.PerformanceFrequency);
 
     HMODULE hNtdll = GetModuleHandle(L"ntdll.dll");
     if (hNtdll == NULL) {
         return;
     }
 
-    gsup.MinAppAddress = DEFAULT_APP_ADDRESS;
     gsup.NtOpenSymbolicLinkObject = (pfnNtOpenSymbolicLinkObject)GetProcAddress(hNtdll, "NtOpenSymbolicLinkObject");
     gsup.NtOpenDirectoryObject = (pfnNtOpenDirectoryObject)GetProcAddress(hNtdll, "NtOpenDirectoryObject");
     gsup.NtQueryDirectoryObject = (pfnNtQueryDirectoryObject)GetProcAddress(hNtdll, "NtQueryDirectoryObject");
@@ -578,7 +582,6 @@ void utils_init()
         gsup.Initialized = TRUE;
     }
 
-    cmd_init();
 }
 
 /*
@@ -874,6 +877,164 @@ LPWSTR resolve_apiset_name(
     }
 
     return NULL;
+}
+
+LPVOID get_manifest(
+    _In_ HMODULE module
+)
+{
+    HRSRC   h_manifest;
+    DWORD   sz_manifest, cch_encoded = 0;
+    HGLOBAL p_manifest;
+    LPVOID  encoded;
+
+    do {
+        h_manifest = FindResource(module, CREATEPROCESS_MANIFEST_RESOURCE_ID, RT_MANIFEST);
+        if (h_manifest == NULL)
+            break;
+
+        sz_manifest = SizeofResource(module, h_manifest);
+        if (sz_manifest == 0)
+            break;
+
+        p_manifest = LoadResource(module, h_manifest);
+        if (p_manifest == NULL)
+            break;
+
+        if (CryptBinaryToString(p_manifest, sz_manifest, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &cch_encoded))
+        {
+            encoded = heap_calloc(NULL, cch_encoded * sizeof(WCHAR));
+            if (encoded)
+            {
+                if (CryptBinaryToString(p_manifest, sz_manifest, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, encoded, &cch_encoded))
+                    return encoded;
+                else
+                    heap_free(NULL, encoded);
+            }
+        }
+
+    } while (FALSE);
+
+    return NULL;
+}
+
+_Success_(return) BOOL get_params_token(
+    _In_ LPCWSTR params,
+    _In_ ULONG token_index,
+    _Out_ LPWSTR buffer,
+    _In_ ULONG buffer_length, //in chars
+    _Out_ PULONG token_len
+)
+{
+    ULONG c, plen = 0;
+    WCHAR divider;
+
+    *token_len = 0;
+
+    if (params == NULL) {
+        if ((buffer != NULL) && (buffer_length > 0)) {
+            *buffer = 0;
+        }
+        return FALSE;
+    }
+
+    for (c = 0; c <= token_index; c++) {
+        plen = 0;
+
+        while (*params == ' ') {
+            params++;
+        }
+
+        switch (*params) {
+        case 0:
+            goto zero_term_exit;
+
+        case '"':
+            params++;
+            divider = '"';
+            break;
+
+        default:
+            divider = ' ';
+        }
+
+        while ((*params != '"') && (*params != divider) && (*params != 0)) {
+            plen++;
+            if (c == token_index)
+                if ((plen < buffer_length) && (buffer != NULL)) {
+                    *buffer = *params;
+                    buffer++;
+                }
+            params++;
+        }
+
+        if (*params != 0)
+            params++;
+    }
+
+zero_term_exit:
+
+    if ((buffer != NULL) && (buffer_length > 0))
+        *buffer = 0;
+
+    *token_len = plen;
+
+    return (plen < buffer_length) ? TRUE : FALSE;
+}
+
+_Success_(return) BOOL get_params_option(
+    _In_ LPCWSTR params,
+    _In_ LPCWSTR option_name,
+    _In_ BOOL is_parametric,
+    _Out_opt_ LPWSTR value,
+    _In_ ULONG value_length, //in chars
+    _Out_opt_ PULONG param_length
+)
+{
+    BOOL result;
+    WCHAR param_buffer[MAX_PATH + 1];
+    ULONG rlen;
+    INT	i = 0;
+
+    if (param_length)
+        *param_length = 0;
+
+    if (is_parametric) {
+        if (value == NULL || value_length == 0)
+        {
+            return FALSE;
+        }
+    }
+
+    if (value)
+        *value = L'\0';
+
+    RtlSecureZeroMemory(param_buffer, sizeof(param_buffer));
+
+    while (get_params_token(
+        params,
+        i,
+        param_buffer,
+        MAX_PATH,
+        &rlen))
+    {
+        if (rlen == 0)
+            break;
+
+        if (wcscmp(param_buffer, option_name) == 0) {
+            if (is_parametric) {
+                result = get_params_token(params, i + 1, value, value_length, &rlen);
+                if (param_length)
+                    *param_length = rlen;
+                return result;
+            }
+
+            return TRUE;
+        }
+        ++i;
+    }
+
+    return FALSE;
 }
 
 void base64encode(char* s, char* b64) 

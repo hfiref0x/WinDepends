@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Nov 27, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -94,7 +94,7 @@ DWORD WINAPI client_thread(
         WINDEPENDS_SERVER_MINOR_VERSION,
         __TIMESTAMP__);
 
-    sendstring_plaintext(s, hello_msg);
+    sendstring_plaintext_no_track(s, hello_msg);
 
     while (s != INVALID_SOCKET) {
         hheap = HeapCreate(0, (SIZE_T)(256 * 1024), 0);
@@ -126,16 +126,18 @@ DWORD WINAPI client_thread(
 
             switch (get_command_entry(cmd)) {
 
+                //
+                // Open module file for analysis and allocate designated context.
+                //
             case ce_open:                
-                if (pmctx) {
-                    cmd_close(pmctx);
-                    pmctx = NULL;
-                }
                 if (params != NULL) {
                     pmctx = cmd_open(s, params);
                 }
                 break;
 
+                //
+                // Close module file and deallocate module context.
+                //
             case ce_close:
                 if (pmctx) {
                     cmd_close(pmctx);
@@ -143,62 +145,83 @@ DWORD WINAPI client_thread(
                 }
                 break;
 
-            case ce_imports:
-                if (pmctx) {
-                    get_imports(s, pmctx);
-                }
-                break;
-
-            case ce_exports:
-                if (pmctx) {
-                    get_exports(s, pmctx);
-                }
-                break;
-
+               //
+               // Get module PE headers.
+               //
             case ce_headers:
-                if (pmctx) {
-                    get_headers(s, pmctx);
-                }
+                get_headers(s, pmctx);
                 break;
 
+                //
+                // Get module imports.
+                //
+            case ce_imports:
+                get_imports(s, pmctx);
+                break;
+
+                //
+                // Get module exports.
+                //
+            case ce_exports:
+                get_exports(s, pmctx);
+                break;
+
+                //
+                // Get module PE data directories.
+                //
             case ce_datadirs:
-                if (pmctx) {
-                    get_datadirs(s, pmctx);
-                }
+                get_datadirs(s, pmctx);
                 break;
 
+                //
+                // Return analysis call stats.
+                //
+            case ce_callstats:
+                cmd_callstats(s, pmctx);
+                break;
+
+                //
+                // Server shutdown.
+                //
             case ce_shutdown:
                 server_shutdown();
                 break;
 
+                //
+                // Exit current client thread.
+                //
             case ce_exit:
                 goto recv_loop_end;
                 break;
 
+                //
+                // Query known dlls lists.
+                //
             case ce_knowndlls:
                 cmd_query_knowndlls_list(s, params);
                 break;
 
+                //
+                // Resolve apiset contract filename.
+                //
             case ce_apisetresolve:
-                if (params) {
-                    cmd_resolve_apiset_name(s, params);
+                if (params && pmctx) {
+                    cmd_resolve_apiset_name(s, params, pmctx);
                 }
                 break;
             
+                //
+                // Select source of apiset map (peb or file).
+                //
             case ce_apisetmapsrc:
                 if (params) {
                     cmd_set_apisetmap_src(s, params);
                 }
                 break;
 
-            case ce_usereloc:
-                cmd_usereloc(s, params);
-                break;
-
-            case ce_callstats:
-                cmd_callstats(s, params);
-                break;
-
+                //
+                // Return global server stats.
+                //
             case ce_servstats:
                 cmd_servstats(s,
                     InterlockedCompareExchange(&g_threads, 0, 0),
@@ -206,6 +229,9 @@ DWORD WINAPI client_thread(
                     InterlockedCompareExchange64(&g_client_sockets_closed, 0, 0));
                 break;
 
+                //
+                // Unknown command handler.
+                //
             case ce_unknown:
             default:
                 cmd_unknown_command(s);
@@ -287,12 +313,12 @@ void connect_loop()
 
             th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)client_thread, (LPVOID)(DWORD_PTR)clientsocket, 0, &tid);
             if (!th) {
-                sendstring_plaintext(clientsocket, L"Error starting client thread.\r\n");
+                printf("Error starting client thread.\r\n");
             }
         }
         else
         {
-            sendstring_plaintext(clientsocket, L"Maximum allowed clients connected.\r\n");
+            printf("Maximum allowed clients connected.\r\n");
         }
 
         if (!th)
@@ -316,8 +342,11 @@ DWORD WINAPI server_watchdog_thread(
 {
     UNREFERENCED_PARAMETER(parameter);
 
+#ifdef _DEBUG
+    INT timeout = 60;
+#else
     INT timeout = 30;
-
+#endif
     do {
 
         Sleep(1000);

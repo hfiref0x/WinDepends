@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Nov 2024
+*  DATE:        01 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -248,7 +248,7 @@ public partial class ConfigurationForm : Form
         //
         // Setup state of controls.
         //
-        foreach (Control ctrl in tabShellIntegrationPage.Controls)
+        foreach (Control ctrl in tabShellIntegration.Controls)
         {
             ctrl.Enabled = CUtils.IsAdministrator;
         }
@@ -287,6 +287,8 @@ public partial class ConfigurationForm : Form
         chBoxClearLogOnFileOpen.Checked = m_CurrentConfiguration.ClearLogOnFileOpen;
         chBoxUseReloc.Checked = m_CurrentConfiguration.UseRelocForImages;
         cbMinAppAddress.Enabled = m_CurrentConfiguration.UseRelocForImages;
+        chBoxUseStats.Checked = m_CurrentConfiguration.UseStats;
+        chBoxAnalysisDefaultEnabled.Checked = m_CurrentConfiguration.AnalysisSettingsUseAsDefault;
 
         commandTextBox.Text = m_CurrentConfiguration.ExternalViewerCommand;
         argumentsTextBox.Text = m_CurrentConfiguration.ExternalViewerArguments;
@@ -418,6 +420,14 @@ public partial class ConfigurationForm : Form
             case CConsts.TagUseRelocForImages:
                 m_CurrentConfiguration.UseRelocForImages = checkBox.Checked;
                 cbMinAppAddress.Enabled = checkBox.Checked;
+                break;
+
+            case CConsts.TagUseStats:
+                m_CurrentConfiguration.UseStats = checkBox.Checked;
+                break;
+
+            case CConsts.TagAnalysisDefaultEnabled:
+                m_CurrentConfiguration.AnalysisSettingsUseAsDefault = checkBox.Checked;
                 break;
 
         }

@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Nov 26, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -30,16 +30,9 @@ cmd_entry cmds[] = {
     {L"knowndlls", 9, ce_knowndlls },
     {L"apisetresolve", 13, ce_apisetresolve },
     {L"apisetmapsrc", 12, ce_apisetmapsrc },
-    {L"usereloc", 8, ce_usereloc },
     {L"callstats", 9, ce_callstats },
     {L"servstats", 9, ce_servstats }
 };
-
-void cmd_init()
-{
-    //Future use
-    ;
-}
 
 cmd_entry_type get_command_entry(
     _In_ LPCWSTR cmd
@@ -65,7 +58,7 @@ void cmd_unknown_command(
     _In_ SOCKET s
 )
 {
-    sendstring_plaintext(s, WDEP_STATUS_405);
+    sendstring_plaintext_no_track(s, WDEP_STATUS_405);
 }
 
 /*
@@ -73,50 +66,46 @@ void cmd_unknown_command(
 *
 * Purpose:
 *
-* Global server call stats.
+* Server call stats.
 *
 */
 void cmd_callstats(
     _In_ SOCKET s,
-    _In_opt_ LPCWSTR params
+    _In_opt_ pmodule_ctx context
 )
 {
     WCHAR buffer[512];
+    DWORD64 totalBytesSent = 0, totalSendCalls = 0, totalTimeSpent = 0;
 
-    if (params != NULL) {
-
-        if (wcsncmp(params, L"enable", 6) == 0)
-        {
-            gsup.EnableCallStats = TRUE;
-        }
-        else if (wcsncmp(params, L"disable", 7) == 0)
-        {
-            gsup.EnableCallStats = FALSE;
-        }
-        else if (wcsncmp(params, L"reset", 5) == 0)
-        {
-            InterlockedExchange64((PLONG64)&gsup.CallStats.totalBytesSent, 0);
-            InterlockedExchange64((PLONG64)&gsup.CallStats.totalSendCalls, 0);
-            InterlockedExchange64((PLONG64)&gsup.CallStats.totalTimeSpent, 0);
-        }
+    if (context == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_501);
+        return;
     }
 
-    if (gsup.EnableCallStats) {
+    __try {
 
+        if (context->enable_call_stats) {
+
+            totalBytesSent = context->total_bytes_sent;
+            totalSendCalls = context->total_send_calls;
+            totalTimeSpent = context->total_time_spent;
+
+        }
+
+    }
+    __finally
+    {
         StringCchPrintf(buffer, ARRAYSIZE(buffer),
             L"%s{\"stats\":{"
             L"\"totalBytesSent\":%llu,"
             L"\"totalSendCalls\":%llu,"
             L"\"totalTimeSpent\":%llu}}\r\n",
             WDEP_STATUS_OK,
-            gsup.CallStats.totalBytesSent,
-            gsup.CallStats.totalSendCalls,
-            gsup.CallStats.totalTimeSpent);
+            totalBytesSent,
+            totalSendCalls,
+            totalTimeSpent);
 
         sendstring_plaintext_no_track(s, buffer);
-    }
-    else {
-        sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
     }
 }
 
@@ -151,36 +140,6 @@ void cmd_servstats(
 }
 
 /*
-* cmd_usereloc
-*
-* Purpose:
-*
-* Enable/disable relocation.
-* 
-* usereloc 1234567
-* usereloc <NULL>
-*
-*/
-void cmd_usereloc(
-    _In_ SOCKET s,
-    _In_opt_ LPCWSTR params
-)
-{
-    if (params == NULL) {
-        printf("use relocation turned off\r\n");
-        gsup.UseRelocation = FALSE;
-        gsup.MinAppAddress = DEFAULT_APP_ADDRESS;
-    }
-    else {
-        gsup.MinAppAddress = strtoul_w((PWCHAR)params);
-        gsup.UseRelocation = TRUE;
-        printf("use relocation turned on, min app address 0x%lX\r\n", gsup.MinAppAddress);
-    }
-
-    sendstring_plaintext(s, WDEP_STATUS_OK);
-}
-
-/*
 * cmd_set_apisetmap_src
 *
 * Purpose:
@@ -194,12 +153,12 @@ void cmd_set_apisetmap_src(
 )
 {
     if (params == NULL || !gsup.Initialized) {
-        sendstring_plaintext(s, WDEP_STATUS_500);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         return;
     }
 
     gsup.UseApiSetMapFile = (wcsncmp(params, L"file", 4) == 0);
-    sendstring_plaintext(s, WDEP_STATUS_OK);
+    sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
 }
 
 /*
@@ -223,7 +182,7 @@ void cmd_query_knowndlls_list(
     SIZE_T sz, i;
 
     if (params == NULL || !gsup.Initialized) {
-        sendstring_plaintext(s, WDEP_STATUS_500);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         return;
     }
 
@@ -243,7 +202,7 @@ void cmd_query_knowndlls_list(
     }
 
     if (sz == 0) {
-        sendstring_plaintext(s, WDEP_STATUS_500);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         return;
     }
 
@@ -276,12 +235,12 @@ void cmd_query_knowndlls_list(
         }
 
         mlist_add(&msg_lh, L"]}}\r\n");
-        mlist_traverse(&msg_lh, mlist_send, s);
+        mlist_traverse(&msg_lh, mlist_send, s, NULL);
 
         heap_free(NULL, buffer);
     }
     else {
-        sendstring_plaintext(s, WDEP_STATUS_500);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
     }
 }
 
@@ -295,7 +254,8 @@ void cmd_query_knowndlls_list(
 */
 void cmd_resolve_apiset_name(
     _In_ SOCKET s,
-    _In_ LPCWSTR api_set_name
+    _In_ LPCWSTR api_set_name,
+    _In_ pmodule_ctx context
 )
 {
     LPWSTR resolved_name = NULL;
@@ -310,17 +270,17 @@ void cmd_resolve_apiset_name(
             buffer = (PWCH)heap_calloc(NULL, sz);
             if (buffer) {
                 StringCchPrintf(buffer, sz / sizeof(WCHAR), L"%ws{\"filename\":{\"path\":\"%ws\"}}\r\n", WDEP_STATUS_OK, resolved_name);
-                sendstring_plaintext(s, buffer);
+                sendstring_plaintext(s, buffer, context);
                 heap_free(NULL, buffer);
             }
             heap_free(NULL, resolved_name);
         }
         else {
-            sendstring_plaintext(s, WDEP_STATUS_500);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         }
     }
     else {
-        sendstring_plaintext(s, WDEP_STATUS_208);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_208);
     }
 
 }
@@ -354,6 +314,61 @@ void cmd_close(
 }
 
 /*
+* cmd_open_opt
+*
+* Purpose:
+*
+* Allocate module context, set analysis settings.
+*
+*/
+pmodule_ctx cmd_open_opt(
+    _In_ SOCKET s,
+    _In_opt_ LPCWSTR params
+)
+{
+    pmodule_ctx context;
+    ULONG param_length;
+    WCHAR option_buffer[100];
+
+    context = (pmodule_ctx)heap_calloc(NULL, sizeof(module_ctx));
+    if (context) {
+
+        if (params) {
+            param_length = 0;
+            context->enable_call_stats = get_params_option(
+                params,
+                L"use_stats",
+                FALSE,
+                NULL,
+                0,
+                &param_length);
+
+            param_length = 0;
+            RtlSecureZeroMemory(&option_buffer, sizeof(option_buffer));
+
+            if (get_params_option(
+                params,
+                L"reloc",
+                TRUE,
+                option_buffer,
+                ARRAYSIZE(option_buffer),
+                &param_length))
+            {
+                context->use_reloc = TRUE;
+                context->min_app_address = strtoul_w(option_buffer);
+            }
+        }
+
+        sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
+    }
+    else {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+    }
+
+    return context;
+}
+
+/*
 * cmd_open
 *
 * Purpose:
@@ -363,28 +378,89 @@ void cmd_close(
 */
 pmodule_ctx cmd_open(
     _In_ SOCKET s,
-    _In_ LPCWSTR filename
+    _In_ LPCWSTR params
 )
 {
+    BOOL bResult = FALSE;
+    ULONG param_length;
     SIZE_T sz;
+    PWCH file_name = NULL;
     pmodule_ctx context;
+    WCHAR option_buffer[100];
 
-    context = (pmodule_ctx)heap_calloc(NULL, sizeof(module_ctx));
-    if (context) {
+    do {
 
-        sz = (1 + wcslen(filename)) * sizeof(WCHAR);
-        context->filename = (PWCH)heap_calloc(NULL, sz);
-        if (context->filename) {
-            wcscpy_s(context->filename, sz / sizeof(WCHAR), filename);
+        context = (pmodule_ctx)heap_calloc(NULL, sizeof(module_ctx));
+        if (context == NULL) {
+            break;
         }
 
-        context->directory = (PWCH)heap_calloc(NULL, sz);
-        if (context->directory) {
-            _filepath_w(filename, context->directory);
+        sz = (wcslen(params) + 1) * sizeof(WCHAR);
+        file_name = (PWCH)heap_calloc(NULL, sz);
+        if (file_name == NULL) {
+            break;
         }
 
-        context->module = pe32open(s, context, gsup.UseRelocation, gsup.MinAppAddress);
-       
+        param_length = 0;
+        if (get_params_option(
+            params,
+            L"file",
+            TRUE,
+            file_name,
+            (ULONG)sz,
+            &param_length))
+        {
+            sz = (1 + wcslen(file_name)) * sizeof(WCHAR);
+            context->filename = (PWCH)heap_calloc(NULL, sz);
+            if (context->filename) {
+                wcscpy_s(context->filename, sz / sizeof(WCHAR), file_name);
+            }
+
+            context->directory = (PWCH)heap_calloc(NULL, sz);
+            if (context->directory) {
+                _filepath_w(file_name, context->directory);
+            }
+
+            context->module = pe32open(s, context);
+        }
+
+        param_length = 0;
+        context->enable_call_stats = get_params_option(
+            params,
+            L"use_stats",
+            FALSE,
+            NULL,
+            0,
+            &param_length);
+
+        param_length = 0;
+        RtlSecureZeroMemory(&option_buffer, sizeof(option_buffer));
+
+        if (get_params_option(
+            params,
+            L"reloc",
+            TRUE,
+            option_buffer,
+            ARRAYSIZE(option_buffer),
+            &param_length))
+        {
+            context->use_reloc = TRUE;
+            context->min_app_address = strtoul_w(option_buffer);
+        }
+
+        bResult = TRUE;
+
+    } while (FALSE);
+
+    if (!bResult) {
+        if (context) {
+            heap_free(NULL, context);
+            context = NULL;
+        }
+    }
+
+    if (file_name != NULL) {
+        heap_free(NULL, file_name);
     }
 
     return context;

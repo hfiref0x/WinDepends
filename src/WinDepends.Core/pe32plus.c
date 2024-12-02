@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Nov 26, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -124,52 +124,13 @@ BOOL relocimage64(
     return TRUE;
 }
 
-LPVOID get_manifest(
-    _In_ HMODULE module
-)
-{
-    HRSRC   h_manifest;
-    DWORD   sz_manifest, cch_encoded = 0;
-    HGLOBAL p_manifest;
-    LPVOID  encoded;
-
-    do {
-        h_manifest = FindResource(module, CREATEPROCESS_MANIFEST_RESOURCE_ID, RT_MANIFEST);
-        if (h_manifest == NULL)
-            break;
-
-        sz_manifest = SizeofResource(module, h_manifest);
-        if (sz_manifest == 0)
-            break;
-
-        p_manifest = LoadResource(module, h_manifest);
-        if (p_manifest == NULL)
-            break;
-
-        if (CryptBinaryToString(p_manifest, sz_manifest, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &cch_encoded))
-        {
-            encoded = heap_calloc(NULL, cch_encoded * sizeof(WCHAR));
-            if (encoded)
-            {
-                if (CryptBinaryToString(p_manifest, sz_manifest, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, encoded, &cch_encoded))
-                    return encoded;
-                else
-                    heap_free(NULL, encoded);
-            }
-        }
-
-    } while (FALSE);
-
-    return NULL;
-}
-
 BOOL get_datadirs(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 )
 {
     LIST_ENTRY          msg_lh;
-    PIMAGE_DOS_HEADER   dos_hdr = (PIMAGE_DOS_HEADER)context->module;
+    PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
     BOOL                status = FALSE;
     WCHAR               text[1024];
@@ -177,14 +138,20 @@ BOOL get_datadirs(
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
-
-    if (!context->module)
-    {
-        sendstring_plaintext(s, WDEP_STATUS_404);
+    if (context == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_501);
         return FALSE;
     }
 
     __try {
+
+        if (!context->module)
+        {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_404);
+            return FALSE;
+        }
+
+        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
 
         InitializeListHead(&msg_lh);
 
@@ -242,13 +209,13 @@ BOOL get_datadirs(
         }
 
         mlist_add(&msg_lh, L"]}\r\n");
-        mlist_traverse(&msg_lh, mlist_send, s);
+        mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
         printf("exception in get_datadirs\r\n");
-        mlist_traverse(&msg_lh, mlist_free, s);
-        sendstring_plaintext(s, WDEP_STATUS_600);
+        mlist_traverse(&msg_lh, mlist_free, s, NULL);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_600);
     }
 
     return status;
@@ -256,7 +223,7 @@ BOOL get_datadirs(
 
 BOOL get_headers(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 )
 {
     LIST_ENTRY          msg_lh;
@@ -271,14 +238,19 @@ BOOL get_headers(
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
-    if (!context->module)
-    {
-        sendstring_plaintext(s, WDEP_STATUS_404);
+    if (context == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_501);
         return FALSE;
     }
 
     __try
     {
+        if (!context->module)
+        {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_404);
+            return FALSE;
+        }
+
         text = VirtualAllocEx(GetCurrentProcess(), 
             NULL, 
             textsize * sizeof(WCHAR), 
@@ -287,7 +259,7 @@ BOOL get_headers(
 
         if (!text)
         {
-            sendstring_plaintext(s, WDEP_STATUS_500);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
             __leave;
         }
 
@@ -539,13 +511,13 @@ BOOL get_headers(
         }
 
         mlist_add(&msg_lh, L"}}\r\n");
-        mlist_traverse(&msg_lh, mlist_send, s);
+        mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
         printf("exception in get_headers\r\n");
-        mlist_traverse(&msg_lh, mlist_free, s);
-        sendstring_plaintext(s, WDEP_STATUS_601);
+        mlist_traverse(&msg_lh, mlist_free, s, NULL);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_601);
     }
 
     if (text != NULL) {
@@ -556,7 +528,7 @@ BOOL get_headers(
 
 BOOL get_exports(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 )
 {
     LIST_ENTRY          msg_lh;
@@ -572,14 +544,19 @@ BOOL get_exports(
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
-    if (!context->module)
-    {
-        sendstring_plaintext(s, WDEP_STATUS_404);
+    if (context == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_501);
         return FALSE;
     }
 
     __try
     {
+        if (!context->module)
+        {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_404);
+            return FALSE;
+        }
+
         InitializeListHead(&msg_lh);
 
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
@@ -674,20 +651,20 @@ BOOL get_exports(
             mlist_add(&msg_lh, L"]}");
         }
         mlist_add(&msg_lh, L"}}\r\n");
-        mlist_traverse(&msg_lh, mlist_send, s);
+        mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
         printf("exception in get_exports\r\n");
-        mlist_traverse(&msg_lh, mlist_free, s);
-        sendstring_plaintext(s, WDEP_STATUS_603);
+        mlist_traverse(&msg_lh, mlist_free, s, NULL);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_603);
     }
 
     return status;
 }
 
 /*
-void process_thunks_dbg(PBYTE module, SOCKET s, PIMAGE_THUNK_DATA32 thunk, DWORD64 flag, PULONG32 bound, DWORD_PTR offset)
+void process_thunks_dbg(pmodule_ctx context, PBYTE module, SOCKET s, PIMAGE_THUNK_DATA32 thunk, DWORD64 flag, PULONG32 bound, DWORD_PTR offset)
 {
     DWORD   fhint, ordinal;
     char    *strfname;
@@ -718,14 +695,14 @@ void process_thunks_dbg(PBYTE module, SOCKET s, PIMAGE_THUNK_DATA32 thunk, DWORD
         StringCchPrintf(text, ARRAYSIZE(text),
             L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
             ordinal, fhint, strfname, fbound);
-        sendstring_plaintext(s, text);
+        sendstring_plaintext(s, text, context);
     }
 }
 */
 
 BOOL get_imports(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context
+    _In_opt_ pmodule_ctx context
 )
 {
     LIST_ENTRY                  msg_lh;
@@ -741,14 +718,19 @@ BOOL get_imports(
     define_3264_union(ULONG, bound_table);
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_header);
 
-    if (!context->module)
-    {
-        sendstring_plaintext(s, WDEP_STATUS_404);
+    if (context == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_501);
         return FALSE;
-    }  
+    }
 
     __try
     {
+        if (!context->module)
+        {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_404);
+            return FALSE;
+        }
+
         InitializeListHead(&msg_lh);
 
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + ((PIMAGE_DOS_HEADER)context->module)->e_lfanew);
@@ -852,13 +834,13 @@ BOOL get_imports(
             status = TRUE;
         }
         mlist_add(&msg_lh, L"]}}\r\n");
-        mlist_traverse(&msg_lh, mlist_send, s);
+        mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
         printf("exception in get_imports\r\n");
-        mlist_traverse(&msg_lh, mlist_free, s);
-        sendstring_plaintext(s, WDEP_STATUS_602);
+        mlist_traverse(&msg_lh, mlist_free, s, NULL);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_602);
     }
 
     return status;
@@ -866,19 +848,18 @@ BOOL get_imports(
 
 LPBYTE pe32open(
     _In_ SOCKET s,
-    _In_ pmodule_ctx context,
-    _In_ BOOL fUseReloc,
-    _In_ ULONG minAppAddress
+    _In_opt_ pmodule_ctx context
 )
 {
-    HANDLE              hf;
+    BOOL                use_reloc;
+    HANDLE              hf = INVALID_HANDLE_VALUE;
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
     DWORD               iobytes, dwSignature = 0, szOptAndSections,
                         vsize, psize, tsize, status = 0, dwRealChecksum = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
-    int                 c, startAddress;
+    int                 c, startAddress, min_app_address;
 
     PIMAGE_SECTION_HEADER       sections;
     BY_HANDLE_FILE_INFORMATION  fileinfo = { 0 };
@@ -886,35 +867,42 @@ LPBYTE pe32open(
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
-    opt_file_hdr.uptr = NULL;
-
-    hf = CreateFile(context->filename, GENERIC_READ | SYNCHRONIZE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-    if (hf == INVALID_HANDLE_VALUE)
-    {
-        sendstring_plaintext(s, WDEP_STATUS_404);
-        return NULL;
+    if (context == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_501);
+        return FALSE;
     }
+
+    opt_file_hdr.uptr = NULL;
 
     __try
     {
-        if (!GetFileInformationByHandle(hf, &fileinfo))
+        hf = CreateFile(context->filename, GENERIC_READ | SYNCHRONIZE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (hf == INVALID_HANDLE_VALUE)
         {
-            sendstring_plaintext(s, WDEP_STATUS_404);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             __leave;
         }
 
+        if (!GetFileInformationByHandle(hf, &fileinfo))
+        {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_404);
+            __leave;
+        }
+
+        use_reloc = context->use_reloc;
+        min_app_address = context->min_app_address;
         context->file_size.LowPart = fileinfo.nFileSizeLow;
         context->file_size.HighPart = fileinfo.nFileSizeHigh;
 
         iobytes = 0;
         if (!ReadFile(hf, &dos_hdr, sizeof(dos_hdr), &iobytes, NULL))
         {
-            sendstring_plaintext(s, WDEP_STATUS_403);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
         if ((iobytes != sizeof(dos_hdr)) || (dos_hdr.e_magic != IMAGE_DOS_SIGNATURE) || (dos_hdr.e_lfanew <= 0))
         {
-            sendstring_plaintext(s, WDEP_STATUS_415);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
@@ -923,12 +911,12 @@ LPBYTE pe32open(
         ovl.Offset = dos_hdr.e_lfanew;
         if (!ReadFile(hf, &dwSignature, sizeof(dwSignature), &iobytes, &ovl))
         {
-            sendstring_plaintext(s, WDEP_STATUS_403);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
         if ((iobytes != sizeof(dwSignature)) || (dwSignature != IMAGE_NT_SIGNATURE))
         {
-            sendstring_plaintext(s, WDEP_STATUS_415);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
@@ -937,12 +925,12 @@ LPBYTE pe32open(
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature);
         if (!ReadFile(hf, &nt_file_hdr, sizeof(nt_file_hdr), &iobytes, &ovl))
         {
-            sendstring_plaintext(s, WDEP_STATUS_403);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
         if (iobytes != sizeof(nt_file_hdr))
         {
-            sendstring_plaintext(s, WDEP_STATUS_415);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
@@ -972,19 +960,19 @@ LPBYTE pe32open(
             GetCurrentProcess(), NULL, szOptAndSections, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
         if (!opt_file_hdr.opt_file_hdr64)
         {
-            sendstring_plaintext(s, WDEP_STATUS_500);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
             __leave;
         }
 
         if (!ReadFile(hf, opt_file_hdr.opt_file_hdr64, szOptAndSections, &iobytes, &ovl))
         {
-            sendstring_plaintext(s, WDEP_STATUS_403);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
         /*
         if (iobytes != szOptAndSections)
         {
-            sendstring_plaintext(s, WDEP_STATUS_415);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
         */
@@ -1012,7 +1000,7 @@ LPBYTE pe32open(
                 if (((sections[c].VirtualAddress % opt_file_hdr.opt_file_hdr64->SectionAlignment) != 0) ||
                     (sections[c].VirtualAddress != vsize))
                 {
-                    sendstring_plaintext(s, WDEP_STATUS_415);
+                    sendstring_plaintext_no_track(s, WDEP_STATUS_415);
                     __leave;
                 }
 
@@ -1020,7 +1008,7 @@ LPBYTE pe32open(
                 psize = sections[c].SizeOfRawData;
                 if ((tsize | psize) == 0)
                 {
-                    sendstring_plaintext(s, WDEP_STATUS_415);
+                    sendstring_plaintext_no_track(s, WDEP_STATUS_415);
                     __leave;
                 }
 
@@ -1034,28 +1022,28 @@ LPBYTE pe32open(
 
             if (vsize != PAGE_ALIGN(opt_file_hdr.opt_file_hdr64->SizeOfImage))
             {
-                sendstring_plaintext(s, WDEP_STATUS_415);
+                sendstring_plaintext_no_track(s, WDEP_STATUS_415);
                 __leave;
             }
             break;
         }
         default:
-            sendstring_plaintext(s, WDEP_STATUS_415);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
             break;
         }
 
         /* End of image validation. Begin image loading */
 
-        if (fUseReloc) {
-            startAddress = minAppAddress;
+        if (use_reloc) {
+            startAddress = min_app_address;
         }
         else {
-            startAddress = DEFAULT_APP_ADDRESS;
+            startAddress = RELOC_DEFAULT_APP_ADDRESS;
         }
 
         // allocate image buffer below 4GB for x86-32 compatibility
-        for (c = startAddress; c < 0x40000000; c += 0x10000)
+        for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
         {
             module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             if (module)
@@ -1064,7 +1052,7 @@ LPBYTE pe32open(
 
         if (!module)
         {
-            sendstring_plaintext(s, WDEP_STATUS_500);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
             __leave;
         }
 
@@ -1091,7 +1079,7 @@ LPBYTE pe32open(
 
             if (!ReadFile(hf, module, psize, &iobytes, &ovl))
             {
-                sendstring_plaintext(s, WDEP_STATUS_403);
+                sendstring_plaintext_no_track(s, WDEP_STATUS_403);
                 __leave;
             }
 
@@ -1115,19 +1103,19 @@ LPBYTE pe32open(
                 iobytes = 0;
                 if (!ReadFile(hf, module + sections[c].VirtualAddress, tsize, &iobytes, &ovl))
                 {
-                    sendstring_plaintext(s, WDEP_STATUS_403);
+                    sendstring_plaintext_no_track(s, WDEP_STATUS_403);
                     __leave;
                 }
             }
             break;
         }
         default:
-            sendstring_plaintext(s, WDEP_STATUS_415);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
             break;
         }
 
-        if (fUseReloc) {
+        if (use_reloc) {
             switch (opt_file_hdr.opt_file_hdr64->Magic)
             {
             case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
@@ -1163,7 +1151,8 @@ LPBYTE pe32open(
         if (opt_file_hdr.opt_file_hdr64)
             VirtualFreeEx(GetCurrentProcess(), opt_file_hdr.opt_file_hdr64, 0, MEM_RELEASE);
 
-        CloseHandle(hf);
+        if (hf != INVALID_HANDLE_VALUE)
+            CloseHandle(hf);
     }
 
     if (module) {
@@ -1187,7 +1176,7 @@ LPBYTE pe32open(
             fileinfo.nFileSizeLow,
             dwRealChecksum
         );
-        sendstring_plaintext(s, text);
+        sendstring_plaintext(s, text, context);
     }
 
     return module;

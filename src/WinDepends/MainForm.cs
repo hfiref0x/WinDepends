@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2024
+*  DATE:        01 Dec 2024
 *  
 *  Codename:    VasilEk
 *
@@ -157,7 +157,6 @@ public partial class MainForm : Form
             }
 
             m_CoreClient.SetApiSetSchemaNamespaceUse(m_Configuration.UseApiSetSchema);
-            m_CoreClient.SetUseRelocForImages(m_Configuration.UseRelocForImages, m_Configuration.MinAppAddress);
         }
 
         LVExports.VirtualMode = true;
@@ -249,7 +248,7 @@ public partial class MainForm : Form
         //
         if (origInstance == null)
         {
-            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module);
+            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module, m_Configuration);
 
             switch (openStatus)
             {
@@ -270,7 +269,34 @@ public partial class MainForm : Form
                         m_Configuration.SearchOrderListUM,
                         m_Configuration.SearchOrderListKM);
 
+                    CCoreCallStats stats = null;
+                    if (m_Configuration.UseStats)
+                    {
+                        stats = m_CoreClient.GetCoreCallStats();
+                    }
+                    
                     m_CoreClient.CloseModule();
+
+
+                    if (m_Configuration.UseStats && stats != null)
+                    {
+                        string sizeText;
+                        if (stats.TotalBytesSent >= 1024 * 1024)
+                        {
+                            sizeText = $"{stats.TotalBytesSent / (1024 * 1024)} MB";
+                        }
+                        else if (stats.TotalBytesSent >= 1024)
+                        {
+                            sizeText = $"{stats.TotalBytesSent / 1024} KB";
+                        }
+                        else
+                        {
+                            sizeText = $"{stats.TotalBytesSent} byte";
+                        }
+
+                        var statsData = $"[STATS {Path.GetFileName(module.FileName)}] Received: {sizeText}, \"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
+                        LogEvent(module.FileName, LogEventType.FileStats, statsData);
+                    }
 
                     if (module.ExportContainErrors)
                     {
@@ -785,6 +811,11 @@ public partial class MainForm : Form
                 outputColor = Color.Red;
                 break;
 
+            case LogEventType.FileStats:
+                loggedMessage = extraInformation;
+                outputColor = Color.Purple;
+                break;
+
             case LogEventType.ModuleLogFromSession:
                 loggedMessage = extraInformation;
                 outputColor = Color.Red;
@@ -1215,7 +1246,6 @@ public partial class MainForm : Form
                     m_CoreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.UseApiSetSchema);
                 }
 
-                m_CoreClient?.SetUseRelocForImages(m_Configuration.UseRelocForImages, m_Configuration.MinAppAddress);
             }
         }
     }
@@ -2033,6 +2063,7 @@ public partial class MainForm : Form
             reLog.SelectionBackColor = Color.Black;
             reLog.SelectionColor = Color.LightGreen;
             reLog.Select(startindex, endindex);
+            reLog.ScrollToCaret();
             LogSearchPosition = startindex + endindex;
         }
         else
@@ -2062,7 +2093,7 @@ public partial class MainForm : Form
     {
         LogFindText = string.Empty;
         LogSearchPosition = 0;
-        using (FindDialogForm FindDialog = new(this))
+        using (FindDialogForm FindDialog = new(this, m_Configuration.EscKeyEnabled))
         {
             FindDialog.ShowDialog();
         }
@@ -2540,7 +2571,7 @@ public partial class MainForm : Form
     {
         HighlightInstanceHandler(true);
     }
- 
+
     private void MainMenu_FileDropDown(object sender, EventArgs e)
     {
         bool bSessionAllocated = m_Depends != null;

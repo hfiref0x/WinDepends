@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Nov 26, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -16,7 +16,6 @@
 #define _UTIL_H_
 
 typedef struct _GLOBAL_STATS {
-    LARGE_INTEGER frequency;
     LARGE_INTEGER startCount;
     DWORD64 totalBytesSent;
     DWORD64 totalSendCalls;
@@ -47,11 +46,8 @@ typedef struct _SUP_CONTEXT {
     BOOL UseApiSetMapFile;
     PVOID ApiSetMap;
 
-    BOOL UseRelocation;
-    ULONG MinAppAddress;
-
     BOOL EnableCallStats;
-    GLOBAL_STATS CallStats;
+    LARGE_INTEGER PerformanceFrequency;
 
     pfnNtOpenSymbolicLinkObject NtOpenSymbolicLinkObject;
     pfnNtOpenDirectoryObject NtOpenDirectoryObject;
@@ -105,8 +101,16 @@ extern SUP_CONTEXT gsup;
 
 void utils_init();
 
-int sendstring_plaintext(SOCKET s, const wchar_t* Buffer);
-int sendstring_plaintext_no_track(SOCKET s, const wchar_t* Buffer);
+int sendstring_plaintext(
+    _In_ SOCKET s,
+    _In_ const wchar_t* Buffer,
+    _In_opt_ pmodule_ctx context
+);
+
+int sendstring_plaintext_no_track(
+    _In_ SOCKET s, 
+    _In_ const wchar_t* Buffer
+);
 
 BOOL name_is_apiset(
     _In_ LPCWSTR set_name
@@ -128,7 +132,28 @@ DWORD calc_mapped_file_chksum(
     _In_ PUSHORT opt_hdr_chksum
 );
 
+LPVOID get_manifest(
+    _In_ HMODULE module
+);
+
 void base64encode(char* s, char* b64);
+
+_Success_(return) BOOL get_params_token(
+    _In_ LPCWSTR params,
+    _In_ ULONG token_index,
+    _Out_ LPWSTR buffer,
+    _In_ ULONG buffer_length, //in chars
+    _Out_ PULONG token_len
+);
+
+_Success_(return) BOOL get_params_option(
+    _In_ LPCWSTR params,
+    _In_ LPCWSTR option_name,
+    _In_ BOOL is_parametric,
+    _Out_opt_ LPWSTR value,
+    _In_ ULONG value_length, //in chars
+    _Out_opt_ PULONG param_length
+);
 
 LPVOID heap_malloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
 LPVOID heap_calloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);

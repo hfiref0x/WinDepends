@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Nov 2024
+*  DATE:        30 Nov 2024
 *  
 *  Core Server communication class.
 *
@@ -24,14 +24,6 @@ using System.Text;
 namespace WinDepends;
 
 public delegate void LogEventCallback(string? EventName, LogEventType LogEventType, string ExtraInformation = null);
-
-public enum CallStatsInformationType
-{
-    Enable,
-    Disable,
-    Reset,
-    Receive
-}
 
 public enum ModuleInformationType
 {
@@ -354,10 +346,23 @@ public class CCoreClient : IDisposable
     /// Open Coff module and read for futher operations.
     /// </summary>
     /// <param name="module"></param>
+    /// <param name="configuration"></param>
     /// <returns></returns>
-    public ModuleOpenStatus OpenModule(ref CModule module)
+    public ModuleOpenStatus OpenModule(ref CModule module, CConfiguration configuration)
     {
-        string cmd = $"open {module.FileName}\r\n";
+        string cmd = $"open file \"{module.FileName}\"";
+
+        if (configuration.UseStats)
+        {
+            cmd += " use_stats";
+        }
+
+        if (configuration.UseRelocForImages)
+        {
+            cmd += $" reloc {configuration.MinAppAddress.ToString()}";
+        }
+
+        cmd += "\r\n";
 
         var status = SendRequest(cmd);
         if (status != RequestSendStatus.Okay)
@@ -487,15 +492,9 @@ public class CCoreClient : IDisposable
         }
     */
 
-    public CCoreCallStats GetCoreCallStats(CallStatsInformationType informationType)
+    public CCoreCallStats GetCoreCallStats()
     {
-        string cmd = informationType switch
-        {
-            CallStatsInformationType.Enable => "callstats enable\r\n",
-            CallStatsInformationType.Disable => "callstats disable\r\n",
-            CallStatsInformationType.Reset => "callstats reset\r\n",
-            _ => "callstats\r\n",
-        };
+        string cmd = "callstats\r\n";
         var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreCallStatsRoot));
         if (rootObject != null)
             return rootObject.CallStats;
@@ -711,19 +710,6 @@ public class CCoreClient : IDisposable
     public bool SetApiSetSchemaNamespaceUse(bool fromFile)
     {
         string cmd = $"apisetmapsrc {(fromFile ? "file" : "peb")}\r\n";
-        var status = SendRequest(cmd);
-
-        if (status != RequestSendStatus.Okay || !IsRequestSuccessful())
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    public bool SetUseRelocForImages(bool useReloc, uint minimumAppAddress)
-    {
-        string cmd = (useReloc) ? $"usereloc {minimumAppAddress}\r\n" : $"usereloc\r\n";
         var status = SendRequest(cmd);
 
         if (status != RequestSendStatus.Okay || !IsRequestSuccessful())

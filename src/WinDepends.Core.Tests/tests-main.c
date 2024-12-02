@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Oct 01, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core.Tests
 *
@@ -183,7 +183,7 @@ void main()
         // Execute command line test.
         if (nArgs > 1) {
 
-            StringCchPrintf(szBuffer, ARRAYSIZE(szBuffer), L"open %ws\r\n", szArglist[1]);
+            StringCchPrintf(szBuffer, ARRAYSIZE(szBuffer), L"open file \"%ws\"\r\n", szArglist[1]);
             sendstring_plaintext(g_appsocket, szBuffer);
 
             if (is_successful_request())
@@ -211,20 +211,26 @@ void main()
             }
         }
         else {
-            //sendstring_plaintext(g_appsocket, L"open C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\r\n");
-            sendstring_plaintext(g_appsocket, L"open C:\\windows\\system32\\ntdll.dll\r\n");
+            //sendstring_plaintext(g_appsocket, L"open file \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\"\r\n");
+            sendstring_plaintext(g_appsocket, L"open file \"C:\\windows\\system32\\ntdll.dll\" use_stats\r\n");
             if (is_successful_request())
             {
                 print_received_data();
             }
-        /*    sendstring_plaintext(g_appsocket, L"knowndlls 64\r\n");
-            if (is_successful_request())
-            {
-                print_received_data();
-            }*/
+            /*    sendstring_plaintext(g_appsocket, L"knowndlls 64\r\n");
+                if (is_successful_request())
+                {
+                    print_received_data();
+                }*/
 
 
             sendstring_plaintext(g_appsocket, L"headers\r\n");
+            if (is_successful_request())
+            {
+                print_received_data();
+            }
+
+            sendstring_plaintext(g_appsocket, L"exports\r\n");
             if (is_successful_request())
             {
                 print_received_data();
@@ -236,11 +242,6 @@ void main()
                 print_received_data();
             }
 
-            sendstring_plaintext(g_appsocket, L"exports\r\n");
-            if (is_successful_request())
-            {
-                print_received_data();
-            }
         }
 
         Sleep(0);
@@ -250,7 +251,7 @@ void main()
 
     if (g_appsocket != INVALID_SOCKET)
         closesocket(g_appsocket);
-
+    system("pause");
     WSACleanup();
     ExitProcess(0);
 }

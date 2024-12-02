@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Nov 2024
+*  DATE:        01 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -26,8 +26,6 @@ public static class CConsts
     public const string NotBoundMsg = "Not bound";
     public const string NoneMsg = "None";
 
-    //public const string NoResponseMsg = "No response";
-
     public const string DateTimeFormat24Hours = "dd/MM/yyyy HH:mm:ss";
 
     public const uint DefaultAppStartAddress = 0x1000000;
@@ -35,7 +33,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2411;
+    public const uint VersionBuild = 2412;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -43,7 +41,6 @@ public static class CConsts
     public const int ModuleNodeDepthDefault = 2;
 
     public const int TagUseESC = 100;
-
     public const int TagAutoExpand = 120;
     public const int TagFullPaths = 121;
     public const int TagViewUndecorated = 122;
@@ -58,6 +55,8 @@ public static class CConsts
     public const int TagUseApiSetSchema = 500;
     public const int TagHighlightApiSet = 501;
     public const int TagUseRelocForImages = 600;
+    public const int TagUseStats = 601;
+    public const int TagAnalysisDefaultEnabled = 602;
 
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;
@@ -177,6 +176,10 @@ public static class CConsts
     /// Msg: Can not allocate resources
     /// </summary>
     public const string WDEP_STATUS_500 = "WDEP/1.0 500 Can not allocate resources\r\n";
+    /// <summary>
+    /// Context not allocated
+    /// </summary>
+    public const string WDEP_STATUS_501 = "WDEP/1.0 501 Context not allocated\r\n";
     /// <summary>
     /// Msg: Exception in get_datadirs routine
     /// </summary>
@@ -628,6 +631,7 @@ public enum LogEventType
     FileOpenSessionError,
     FileSessionSave,
     FileSessionSaveError,
+    FileStats,
     CoreServerStartOK,
     CoreServerStartError,
     CoreServerReceiveError,

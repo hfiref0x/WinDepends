@@ -98,9 +98,9 @@
             // 
             // FindDialogForm
             // 
+            AcceptButton = FindButton;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            CancelButton = button2;
             ClientSize = new Size(339, 123);
             Controls.Add(MatchCaseCheckBox);
             Controls.Add(MatchWholeCheckBox);
@@ -109,6 +109,7 @@
             Controls.Add(FindTextBox);
             Controls.Add(label1);
             FormBorderStyle = FormBorderStyle.FixedDialog;
+            KeyPreview = true;
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "FindDialogForm";
@@ -117,6 +118,7 @@
             StartPosition = FormStartPosition.CenterParent;
             Text = "Find";
             Load += FindDialogForm_Load;
+            KeyDown += FindDialogForm_KeyDown;
             ResumeLayout(false);
             PerformLayout();
         }

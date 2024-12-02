@@ -28,22 +28,22 @@
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode1 = new TreeNode("History");
-            TreeNode treeNode2 = new TreeNode("Main", new TreeNode[] { treeNode1 });
-            TreeNode treeNode3 = new TreeNode("ApiSet");
-            TreeNode treeNode4 = new TreeNode("External Module Viewer");
-            TreeNode treeNode5 = new TreeNode("External Function Help");
-            TreeNode treeNode6 = new TreeNode("Module Search Order");
-            TreeNode treeNode7 = new TreeNode("Module Search Order (drivers)");
-            TreeNode treeNode8 = new TreeNode("PE Loader");
-            TreeNode treeNode9 = new TreeNode("Server");
-            TreeNode treeNode10 = new TreeNode("Shell Integration");
+            TreeNode treeNode11 = new TreeNode("History");
+            TreeNode treeNode12 = new TreeNode("Main", new TreeNode[] { treeNode11 });
+            TreeNode treeNode13 = new TreeNode("ApiSet");
+            TreeNode treeNode14 = new TreeNode("External Module Viewer");
+            TreeNode treeNode15 = new TreeNode("External Function Help");
+            TreeNode treeNode16 = new TreeNode("Module Search Order");
+            TreeNode treeNode17 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode18 = new TreeNode("Analysis (global)");
+            TreeNode treeNode19 = new TreeNode("Server");
+            TreeNode treeNode20 = new TreeNode("Shell Integration");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
             TVSettings = new TreeView();
             settingsTabControl = new TabControl();
-            tabMainPage = new TabPage();
+            tabMain = new TabPage();
             groupBox8 = new GroupBox();
             label12 = new Label();
             chBoxCompressSessionFiles = new CheckBox();
@@ -61,13 +61,13 @@
             chBoxAutoExpands = new CheckBox();
             groupBox2 = new GroupBox();
             checkBox1 = new CheckBox();
-            tabHistoryPage = new TabPage();
+            tabMainHistory = new TabPage();
             groupBox6 = new GroupBox();
             cbHistoryFullPath = new CheckBox();
             label2 = new Label();
             historyUpDown = new NumericUpDown();
             label1 = new Label();
-            tabShellIntegrationPage = new TabPage();
+            tabShellIntegration = new TabPage();
             buttonElevate = new Button();
             groupBox1 = new GroupBox();
             customExtBox = new TextBox();
@@ -78,7 +78,7 @@
             columnHeader1 = new ColumnHeader();
             columnHeader2 = new ColumnHeader();
             shellIntegrationWarningLabel = new Label();
-            tabExternalViewerPage = new TabPage();
+            tabExternalViewer = new TabPage();
             groupBox4 = new GroupBox();
             buttonBrowse = new Button();
             argumentsTextBox = new TextBox();
@@ -97,12 +97,15 @@
             ExpandSearchOrderButton = new Button();
             MoveUpButton = new Button();
             MoveDownButton = new Button();
-            tabApiSetPage = new TabPage();
+            tabApiSetContracts = new TabPage();
             groupBox10 = new GroupBox();
             chBoxHighlightApiSet = new CheckBox();
             groupBox9 = new GroupBox();
             chBoxApiSetNamespace = new CheckBox();
-            tabPELoaderPage = new TabPage();
+            tabAnalysis = new TabPage();
+            chBoxAnalysisDefaultEnabled = new CheckBox();
+            groupBox13 = new GroupBox();
+            chBoxUseStats = new CheckBox();
             groupBox11 = new GroupBox();
             labelAllocGran = new Label();
             label14 = new Label();
@@ -146,25 +149,26 @@
             splitContainer1.Panel2.SuspendLayout();
             splitContainer1.SuspendLayout();
             settingsTabControl.SuspendLayout();
-            tabMainPage.SuspendLayout();
+            tabMain.SuspendLayout();
             groupBox8.SuspendLayout();
             groupBox3.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nodeMaxDepthUpDown).BeginInit();
             groupBox2.SuspendLayout();
-            tabHistoryPage.SuspendLayout();
+            tabMainHistory.SuspendLayout();
             groupBox6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)historyUpDown).BeginInit();
-            tabShellIntegrationPage.SuspendLayout();
+            tabShellIntegration.SuspendLayout();
             groupBox1.SuspendLayout();
-            tabExternalViewerPage.SuspendLayout();
+            tabExternalViewer.SuspendLayout();
             groupBox4.SuspendLayout();
             tabExternalFunctionHelp.SuspendLayout();
             groupBox5.SuspendLayout();
             tabSearchOrder.SuspendLayout();
-            tabApiSetPage.SuspendLayout();
+            tabApiSetContracts.SuspendLayout();
             groupBox10.SuspendLayout();
             groupBox9.SuspendLayout();
-            tabPELoaderPage.SuspendLayout();
+            tabAnalysis.SuspendLayout();
+            groupBox13.SuspendLayout();
             groupBox11.SuspendLayout();
             tabSearchOrderDrivers.SuspendLayout();
             tabServer.SuspendLayout();
@@ -216,37 +220,37 @@
             TVSettings.HideSelection = false;
             TVSettings.Location = new Point(0, 0);
             TVSettings.Name = "TVSettings";
-            treeNode1.Name = "HistoryNode";
-            treeNode1.Tag = "11";
-            treeNode1.Text = "History";
-            treeNode2.Name = "MainWindowNode";
-            treeNode2.Tag = "10";
-            treeNode2.Text = "Main";
-            treeNode3.Name = "ApiSetNode";
-            treeNode3.Tag = "60";
-            treeNode3.Text = "ApiSet";
-            treeNode4.Name = "ExternalModuleViewerNode";
-            treeNode4.Tag = "30";
-            treeNode4.Text = "External Module Viewer";
-            treeNode5.Name = "xternalFunctionHelpNode";
-            treeNode5.Tag = "40";
-            treeNode5.Text = "External Function Help";
-            treeNode6.Name = "SearchOrderNode";
-            treeNode6.Tag = "50";
-            treeNode6.Text = "Module Search Order";
-            treeNode7.Name = "SearchOrderDriverNode";
-            treeNode7.Tag = "90";
-            treeNode7.Text = "Module Search Order (drivers)";
-            treeNode8.Name = "PELoaderNode";
-            treeNode8.Tag = "70";
-            treeNode8.Text = "PE Loader";
-            treeNode9.Name = "ServerNode";
-            treeNode9.Tag = "80";
-            treeNode9.Text = "Server";
-            treeNode10.Name = "ShellIntegrationNode";
-            treeNode10.Tag = "20";
-            treeNode10.Text = "Shell Integration";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8, treeNode9, treeNode10 });
+            treeNode11.Name = "HistoryNode";
+            treeNode11.Tag = "11";
+            treeNode11.Text = "History";
+            treeNode12.Name = "MainWindowNode";
+            treeNode12.Tag = "10";
+            treeNode12.Text = "Main";
+            treeNode13.Name = "ApiSetNode";
+            treeNode13.Tag = "60";
+            treeNode13.Text = "ApiSet";
+            treeNode14.Name = "ExternalModuleViewerNode";
+            treeNode14.Tag = "30";
+            treeNode14.Text = "External Module Viewer";
+            treeNode15.Name = "xternalFunctionHelpNode";
+            treeNode15.Tag = "40";
+            treeNode15.Text = "External Function Help";
+            treeNode16.Name = "SearchOrderNode";
+            treeNode16.Tag = "50";
+            treeNode16.Text = "Module Search Order";
+            treeNode17.Name = "SearchOrderDriverNode";
+            treeNode17.Tag = "90";
+            treeNode17.Text = "Module Search Order (drivers)";
+            treeNode18.Name = "AnalysisNode";
+            treeNode18.Tag = "70";
+            treeNode18.Text = "Analysis (global)";
+            treeNode19.Name = "ServerNode";
+            treeNode19.Tag = "80";
+            treeNode19.Text = "Server";
+            treeNode20.Name = "ShellIntegrationNode";
+            treeNode20.Tag = "20";
+            treeNode20.Text = "Shell Integration";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode12, treeNode13, treeNode14, treeNode15, treeNode16, treeNode17, treeNode18, treeNode19, treeNode20 });
             TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
@@ -254,14 +258,14 @@
             // settingsTabControl
             // 
             settingsTabControl.Appearance = TabAppearance.FlatButtons;
-            settingsTabControl.Controls.Add(tabMainPage);
-            settingsTabControl.Controls.Add(tabHistoryPage);
-            settingsTabControl.Controls.Add(tabShellIntegrationPage);
-            settingsTabControl.Controls.Add(tabExternalViewerPage);
+            settingsTabControl.Controls.Add(tabMain);
+            settingsTabControl.Controls.Add(tabMainHistory);
+            settingsTabControl.Controls.Add(tabShellIntegration);
+            settingsTabControl.Controls.Add(tabExternalViewer);
             settingsTabControl.Controls.Add(tabExternalFunctionHelp);
             settingsTabControl.Controls.Add(tabSearchOrder);
-            settingsTabControl.Controls.Add(tabApiSetPage);
-            settingsTabControl.Controls.Add(tabPELoaderPage);
+            settingsTabControl.Controls.Add(tabApiSetContracts);
+            settingsTabControl.Controls.Add(tabAnalysis);
             settingsTabControl.Controls.Add(tabSearchOrderDrivers);
             settingsTabControl.Controls.Add(tabServer);
             settingsTabControl.Dock = DockStyle.Fill;
@@ -273,18 +277,18 @@
             settingsTabControl.SizeMode = TabSizeMode.Fixed;
             settingsTabControl.TabIndex = 0;
             // 
-            // tabMainPage
+            // tabMain
             // 
-            tabMainPage.Controls.Add(groupBox8);
-            tabMainPage.Controls.Add(groupBox3);
-            tabMainPage.Controls.Add(groupBox2);
-            tabMainPage.Location = new Point(4, 5);
-            tabMainPage.Name = "tabMainPage";
-            tabMainPage.Padding = new Padding(3);
-            tabMainPage.Size = new Size(480, 435);
-            tabMainPage.TabIndex = 0;
-            tabMainPage.Tag = "10";
-            tabMainPage.UseVisualStyleBackColor = true;
+            tabMain.Controls.Add(groupBox8);
+            tabMain.Controls.Add(groupBox3);
+            tabMain.Controls.Add(groupBox2);
+            tabMain.Location = new Point(4, 5);
+            tabMain.Name = "tabMain";
+            tabMain.Padding = new Padding(3);
+            tabMain.Size = new Size(480, 435);
+            tabMain.TabIndex = 0;
+            tabMain.Tag = "10";
+            tabMain.UseVisualStyleBackColor = true;
             // 
             // groupBox8
             // 
@@ -481,16 +485,16 @@
             checkBox1.UseVisualStyleBackColor = true;
             checkBox1.Click += ChBox_Click;
             // 
-            // tabHistoryPage
+            // tabMainHistory
             // 
-            tabHistoryPage.Controls.Add(groupBox6);
-            tabHistoryPage.Location = new Point(4, 5);
-            tabHistoryPage.Name = "tabHistoryPage";
-            tabHistoryPage.Padding = new Padding(3);
-            tabHistoryPage.Size = new Size(480, 435);
-            tabHistoryPage.TabIndex = 2;
-            tabHistoryPage.Tag = "11";
-            tabHistoryPage.UseVisualStyleBackColor = true;
+            tabMainHistory.Controls.Add(groupBox6);
+            tabMainHistory.Location = new Point(4, 5);
+            tabMainHistory.Name = "tabMainHistory";
+            tabMainHistory.Padding = new Padding(3);
+            tabMainHistory.Size = new Size(480, 435);
+            tabMainHistory.TabIndex = 2;
+            tabMainHistory.Tag = "11";
+            tabMainHistory.UseVisualStyleBackColor = true;
             // 
             // groupBox6
             // 
@@ -544,20 +548,20 @@
             label1.TabIndex = 2;
             label1.Text = "Depth";
             // 
-            // tabShellIntegrationPage
+            // tabShellIntegration
             // 
-            tabShellIntegrationPage.Controls.Add(buttonElevate);
-            tabShellIntegrationPage.Controls.Add(groupBox1);
-            tabShellIntegrationPage.Controls.Add(buttonSelectAll);
-            tabShellIntegrationPage.Controls.Add(LVFileExt);
-            tabShellIntegrationPage.Controls.Add(shellIntegrationWarningLabel);
-            tabShellIntegrationPage.Location = new Point(4, 5);
-            tabShellIntegrationPage.Name = "tabShellIntegrationPage";
-            tabShellIntegrationPage.Padding = new Padding(3);
-            tabShellIntegrationPage.Size = new Size(480, 435);
-            tabShellIntegrationPage.TabIndex = 3;
-            tabShellIntegrationPage.Tag = "20";
-            tabShellIntegrationPage.UseVisualStyleBackColor = true;
+            tabShellIntegration.Controls.Add(buttonElevate);
+            tabShellIntegration.Controls.Add(groupBox1);
+            tabShellIntegration.Controls.Add(buttonSelectAll);
+            tabShellIntegration.Controls.Add(LVFileExt);
+            tabShellIntegration.Controls.Add(shellIntegrationWarningLabel);
+            tabShellIntegration.Location = new Point(4, 5);
+            tabShellIntegration.Name = "tabShellIntegration";
+            tabShellIntegration.Padding = new Padding(3);
+            tabShellIntegration.Size = new Size(480, 435);
+            tabShellIntegration.TabIndex = 3;
+            tabShellIntegration.Tag = "20";
+            tabShellIntegration.UseVisualStyleBackColor = true;
             // 
             // buttonElevate
             // 
@@ -655,16 +659,16 @@
             shellIntegrationWarningLabel.Text = "Shell integration requires elevated administrator rights";
             shellIntegrationWarningLabel.Visible = false;
             // 
-            // tabExternalViewerPage
+            // tabExternalViewer
             // 
-            tabExternalViewerPage.Controls.Add(groupBox4);
-            tabExternalViewerPage.Location = new Point(4, 5);
-            tabExternalViewerPage.Name = "tabExternalViewerPage";
-            tabExternalViewerPage.Size = new Size(480, 435);
-            tabExternalViewerPage.TabIndex = 4;
-            tabExternalViewerPage.Tag = "30";
-            tabExternalViewerPage.Text = "tabPage1";
-            tabExternalViewerPage.UseVisualStyleBackColor = true;
+            tabExternalViewer.Controls.Add(groupBox4);
+            tabExternalViewer.Location = new Point(4, 5);
+            tabExternalViewer.Name = "tabExternalViewer";
+            tabExternalViewer.Size = new Size(480, 435);
+            tabExternalViewer.TabIndex = 4;
+            tabExternalViewer.Tag = "30";
+            tabExternalViewer.Text = "tabPage1";
+            tabExternalViewer.UseVisualStyleBackColor = true;
             // 
             // groupBox4
             // 
@@ -851,16 +855,16 @@
             MoveDownButton.UseVisualStyleBackColor = true;
             MoveDownButton.Click += TVSearchOderMoveDown;
             // 
-            // tabApiSetPage
+            // tabApiSetContracts
             // 
-            tabApiSetPage.Controls.Add(groupBox10);
-            tabApiSetPage.Controls.Add(groupBox9);
-            tabApiSetPage.Location = new Point(4, 5);
-            tabApiSetPage.Name = "tabApiSetPage";
-            tabApiSetPage.Size = new Size(480, 435);
-            tabApiSetPage.TabIndex = 7;
-            tabApiSetPage.Tag = "60";
-            tabApiSetPage.UseVisualStyleBackColor = true;
+            tabApiSetContracts.Controls.Add(groupBox10);
+            tabApiSetContracts.Controls.Add(groupBox9);
+            tabApiSetContracts.Location = new Point(4, 5);
+            tabApiSetContracts.Name = "tabApiSetContracts";
+            tabApiSetContracts.Size = new Size(480, 435);
+            tabApiSetContracts.TabIndex = 7;
+            tabApiSetContracts.Tag = "60";
+            tabApiSetContracts.UseVisualStyleBackColor = true;
             // 
             // groupBox10
             // 
@@ -906,15 +910,51 @@
             chBoxApiSetNamespace.UseVisualStyleBackColor = true;
             chBoxApiSetNamespace.Click += ChBox_Click;
             // 
-            // tabPELoaderPage
+            // tabAnalysis
             // 
-            tabPELoaderPage.Controls.Add(groupBox11);
-            tabPELoaderPage.Location = new Point(4, 5);
-            tabPELoaderPage.Name = "tabPELoaderPage";
-            tabPELoaderPage.Size = new Size(480, 435);
-            tabPELoaderPage.TabIndex = 8;
-            tabPELoaderPage.Tag = "70";
-            tabPELoaderPage.UseVisualStyleBackColor = true;
+            tabAnalysis.Controls.Add(chBoxAnalysisDefaultEnabled);
+            tabAnalysis.Controls.Add(groupBox13);
+            tabAnalysis.Controls.Add(groupBox11);
+            tabAnalysis.Location = new Point(4, 5);
+            tabAnalysis.Name = "tabAnalysis";
+            tabAnalysis.Size = new Size(480, 435);
+            tabAnalysis.TabIndex = 8;
+            tabAnalysis.Tag = "70";
+            tabAnalysis.UseVisualStyleBackColor = true;
+            // 
+            // chBoxAnalysisDefaultEnabled
+            // 
+            chBoxAnalysisDefaultEnabled.AutoSize = true;
+            chBoxAnalysisDefaultEnabled.Location = new Point(22, 276);
+            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
+            chBoxAnalysisDefaultEnabled.Size = new Size(306, 19);
+            chBoxAnalysisDefaultEnabled.TabIndex = 9;
+            chBoxAnalysisDefaultEnabled.Tag = "602";
+            chBoxAnalysisDefaultEnabled.Text = "Make these settings default and do not ask everytime";
+            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
+            chBoxAnalysisDefaultEnabled.Click += ChBox_Click;
+            // 
+            // groupBox13
+            // 
+            groupBox13.Controls.Add(chBoxUseStats);
+            groupBox13.Location = new Point(3, 199);
+            groupBox13.Name = "groupBox13";
+            groupBox13.Size = new Size(471, 57);
+            groupBox13.TabIndex = 8;
+            groupBox13.TabStop = false;
+            groupBox13.Text = "Statistics";
+            // 
+            // chBoxUseStats
+            // 
+            chBoxUseStats.AutoSize = true;
+            chBoxUseStats.Location = new Point(19, 22);
+            chBoxUseStats.Name = "chBoxUseStats";
+            chBoxUseStats.Size = new Size(200, 19);
+            chBoxUseStats.TabIndex = 8;
+            chBoxUseStats.Tag = "601";
+            chBoxUseStats.Text = "Enable transport statistics display";
+            chBoxUseStats.UseVisualStyleBackColor = true;
+            chBoxUseStats.Click += ChBox_Click;
             // 
             // groupBox11
             // 
@@ -925,15 +965,15 @@
             groupBox11.Controls.Add(chBoxUseReloc);
             groupBox11.Location = new Point(3, 3);
             groupBox11.Name = "groupBox11";
-            groupBox11.Size = new Size(471, 429);
+            groupBox11.Size = new Size(471, 193);
             groupBox11.TabIndex = 7;
             groupBox11.TabStop = false;
-            groupBox11.Text = "Portable Executable Loader Settings";
+            groupBox11.Text = "Loader Settings";
             // 
             // labelAllocGran
             // 
             labelAllocGran.AutoSize = true;
-            labelAllocGran.Location = new Point(188, 109);
+            labelAllocGran.Location = new Point(188, 92);
             labelAllocGran.Name = "labelAllocGran";
             labelAllocGran.Size = new Size(25, 15);
             labelAllocGran.TabIndex = 9;
@@ -942,7 +982,7 @@
             // label14
             // 
             label14.AutoSize = true;
-            label14.Location = new Point(19, 109);
+            label14.Location = new Point(19, 92);
             label14.Name = "label14";
             label14.Size = new Size(163, 15);
             label14.TabIndex = 8;
@@ -951,7 +991,7 @@
             // label13
             // 
             label13.AutoSize = true;
-            label13.Location = new Point(19, 137);
+            label13.Location = new Point(19, 116);
             label13.Name = "label13";
             label13.Size = new Size(389, 60);
             label13.TabIndex = 7;
@@ -961,7 +1001,7 @@
             // 
             cbMinAppAddress.Enabled = false;
             cbMinAppAddress.FormattingEnabled = true;
-            cbMinAppAddress.Location = new Point(19, 66);
+            cbMinAppAddress.Location = new Point(19, 57);
             cbMinAppAddress.Name = "cbMinAppAddress";
             cbMinAppAddress.Size = new Size(237, 23);
             cbMinAppAddress.TabIndex = 6;
@@ -1287,7 +1327,7 @@
             ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
             splitContainer1.ResumeLayout(false);
             settingsTabControl.ResumeLayout(false);
-            tabMainPage.ResumeLayout(false);
+            tabMain.ResumeLayout(false);
             groupBox8.ResumeLayout(false);
             groupBox8.PerformLayout();
             groupBox3.ResumeLayout(false);
@@ -1295,27 +1335,30 @@
             ((System.ComponentModel.ISupportInitialize)nodeMaxDepthUpDown).EndInit();
             groupBox2.ResumeLayout(false);
             groupBox2.PerformLayout();
-            tabHistoryPage.ResumeLayout(false);
+            tabMainHistory.ResumeLayout(false);
             groupBox6.ResumeLayout(false);
             groupBox6.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)historyUpDown).EndInit();
-            tabShellIntegrationPage.ResumeLayout(false);
-            tabShellIntegrationPage.PerformLayout();
+            tabShellIntegration.ResumeLayout(false);
+            tabShellIntegration.PerformLayout();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
-            tabExternalViewerPage.ResumeLayout(false);
+            tabExternalViewer.ResumeLayout(false);
             groupBox4.ResumeLayout(false);
             groupBox4.PerformLayout();
             tabExternalFunctionHelp.ResumeLayout(false);
             groupBox5.ResumeLayout(false);
             groupBox5.PerformLayout();
             tabSearchOrder.ResumeLayout(false);
-            tabApiSetPage.ResumeLayout(false);
+            tabApiSetContracts.ResumeLayout(false);
             groupBox10.ResumeLayout(false);
             groupBox10.PerformLayout();
             groupBox9.ResumeLayout(false);
             groupBox9.PerformLayout();
-            tabPELoaderPage.ResumeLayout(false);
+            tabAnalysis.ResumeLayout(false);
+            tabAnalysis.PerformLayout();
+            groupBox13.ResumeLayout(false);
+            groupBox13.PerformLayout();
             groupBox11.ResumeLayout(false);
             groupBox11.PerformLayout();
             tabSearchOrderDrivers.ResumeLayout(false);
@@ -1332,9 +1375,9 @@
         private SplitContainer splitContainer1;
         private TreeView TVSettings;
         private TabControl settingsTabControl;
-        private TabPage tabMainPage;
-        private TabPage tabHistoryPage;
-        private TabPage tabShellIntegrationPage;
+        private TabPage tabMain;
+        private TabPage tabMainHistory;
+        private TabPage tabShellIntegration;
         private GroupBox groupBox1;
         private TextBox customExtBox;
         private Label label4;
@@ -1354,7 +1397,7 @@
         private CheckBox chBoxUndecorateSymbols;
         private CheckBox chBoxAutoExpands;
         private CheckBox chBoxFullPaths;
-        private TabPage tabExternalViewerPage;
+        private TabPage tabExternalViewer;
         private OpenFileDialog browseFileDialog;
         private GroupBox groupBox4;
         private Button buttonBrowse;
@@ -1387,12 +1430,12 @@
         private Label label11;
         private Label label12;
         private CheckBox chBoxClearLogOnFileOpen;
-        private TabPage tabApiSetPage;
+        private TabPage tabApiSetContracts;
         private GroupBox groupBox9;
         private CheckBox chBoxApiSetNamespace;
         private GroupBox groupBox10;
         private CheckBox chBoxHighlightApiSet;
-        private TabPage tabPELoaderPage;
+        private TabPage tabAnalysis;
         private GroupBox groupBox11;
         private CheckBox chBoxUseReloc;
         private ComboBox cbMinAppAddress;
@@ -1426,5 +1469,8 @@
         private Label ServerFileState;
         private Label label7;
         private Label labelSrvPid;
+        private GroupBox groupBox13;
+        private CheckBox chBoxUseStats;
+        private CheckBox chBoxAnalysisDefaultEnabled;
     }
 }

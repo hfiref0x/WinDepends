@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Nov 08, 2024
+*  Modified on: Nov 30, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -36,7 +36,8 @@ typedef enum {
 BOOL mlist_traverse(
     _In_ PLIST_ENTRY head,
     _In_ mlist_action action,
-    _In_ SOCKET s
+    _In_ SOCKET s,
+    _In_opt_ pmodule_ctx context
 );
 
 #endif _MLIST_H_

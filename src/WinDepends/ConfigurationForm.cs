@@ -430,6 +430,10 @@ public partial class ConfigurationForm : Form
                 m_CurrentConfiguration.AnalysisSettingsUseAsDefault = checkBox.Checked;
                 break;
 
+            case CConsts.TagPropagateSettingsEnabled:
+                m_CurrentConfiguration.PropagateSettingsOnDependencies = checkBox.Checked;
+                break;
+
         }
     }
 
@@ -482,9 +486,15 @@ public partial class ConfigurationForm : Form
         {
             foreach (ListViewItem item in LVFileExt.Items)
             {
+                string extension = item.Tag.ToString();
+
                 if (item.Checked)
                 {
-                    CUtils.SetAssoc(item.Tag.ToString());
+                    CUtils.SetAssoc(extension);
+                }
+                else
+                {
+                    CUtils.RemoveAssoc(extension);
                 }
             }
         }

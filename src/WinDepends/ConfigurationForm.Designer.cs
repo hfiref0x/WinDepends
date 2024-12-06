@@ -103,7 +103,6 @@
             groupBox9 = new GroupBox();
             chBoxApiSetNamespace = new CheckBox();
             tabAnalysis = new TabPage();
-            chBoxAnalysisDefaultEnabled = new CheckBox();
             groupBox13 = new GroupBox();
             chBoxUseStats = new CheckBox();
             groupBox11 = new GroupBox();
@@ -140,6 +139,9 @@
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
             folderBrowserDialog = new FolderBrowserDialog();
+            groupBox14 = new GroupBox();
+            chBoxAnalysisDefaultEnabled = new CheckBox();
+            chBoxPropagateSettings = new CheckBox();
             ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
             splitContainer2.Panel1.SuspendLayout();
             splitContainer2.Panel2.SuspendLayout();
@@ -174,6 +176,7 @@
             tabServer.SuspendLayout();
             groupBox7.SuspendLayout();
             groupBox12.SuspendLayout();
+            groupBox14.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainer2
@@ -912,7 +915,7 @@
             // 
             // tabAnalysis
             // 
-            tabAnalysis.Controls.Add(chBoxAnalysisDefaultEnabled);
+            tabAnalysis.Controls.Add(groupBox14);
             tabAnalysis.Controls.Add(groupBox13);
             tabAnalysis.Controls.Add(groupBox11);
             tabAnalysis.Location = new Point(4, 5);
@@ -921,18 +924,6 @@
             tabAnalysis.TabIndex = 8;
             tabAnalysis.Tag = "70";
             tabAnalysis.UseVisualStyleBackColor = true;
-            // 
-            // chBoxAnalysisDefaultEnabled
-            // 
-            chBoxAnalysisDefaultEnabled.AutoSize = true;
-            chBoxAnalysisDefaultEnabled.Location = new Point(22, 276);
-            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
-            chBoxAnalysisDefaultEnabled.Size = new Size(306, 19);
-            chBoxAnalysisDefaultEnabled.TabIndex = 9;
-            chBoxAnalysisDefaultEnabled.Tag = "602";
-            chBoxAnalysisDefaultEnabled.Text = "Make these settings default and do not ask everytime";
-            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
-            chBoxAnalysisDefaultEnabled.Click += ChBox_Click;
             // 
             // groupBox13
             // 
@@ -1160,9 +1151,9 @@
             groupBox12.Controls.Add(buttonServerConnect);
             groupBox12.Controls.Add(labelServerStatus);
             groupBox12.Controls.Add(label15);
-            groupBox12.Location = new Point(3, 92);
+            groupBox12.Location = new Point(6, 92);
             groupBox12.Name = "groupBox12";
-            groupBox12.Size = new Size(471, 183);
+            groupBox12.Size = new Size(468, 183);
             groupBox12.TabIndex = 0;
             groupBox12.TabStop = false;
             // 
@@ -1298,6 +1289,40 @@
             folderBrowserDialog.AddToRecent = false;
             folderBrowserDialog.ShowHiddenFiles = true;
             // 
+            // groupBox14
+            // 
+            groupBox14.Controls.Add(chBoxPropagateSettings);
+            groupBox14.Controls.Add(chBoxAnalysisDefaultEnabled);
+            groupBox14.Location = new Point(6, 262);
+            groupBox14.Name = "groupBox14";
+            groupBox14.Size = new Size(468, 100);
+            groupBox14.TabIndex = 10;
+            groupBox14.TabStop = false;
+            groupBox14.Text = "Analysis Settings";
+            // 
+            // chBoxAnalysisDefaultEnabled
+            // 
+            chBoxAnalysisDefaultEnabled.AutoSize = true;
+            chBoxAnalysisDefaultEnabled.Location = new Point(16, 58);
+            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
+            chBoxAnalysisDefaultEnabled.Size = new Size(319, 19);
+            chBoxAnalysisDefaultEnabled.TabIndex = 10;
+            chBoxAnalysisDefaultEnabled.Tag = "602";
+            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
+            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
+            // 
+            // chBoxPropagateSettings
+            // 
+            chBoxPropagateSettings.AutoSize = true;
+            chBoxPropagateSettings.Location = new Point(16, 33);
+            chBoxPropagateSettings.Name = "chBoxPropagateSettings";
+            chBoxPropagateSettings.Size = new Size(261, 19);
+            chBoxPropagateSettings.TabIndex = 11;
+            chBoxPropagateSettings.Tag = "603";
+            chBoxPropagateSettings.Text = "Propagate analysis settings on dependencies";
+            chBoxPropagateSettings.UseVisualStyleBackColor = true;
+            chBoxPropagateSettings.Click += ChBox_Click;
+            // 
             // ConfigurationForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -1356,7 +1381,6 @@
             groupBox9.ResumeLayout(false);
             groupBox9.PerformLayout();
             tabAnalysis.ResumeLayout(false);
-            tabAnalysis.PerformLayout();
             groupBox13.ResumeLayout(false);
             groupBox13.PerformLayout();
             groupBox11.ResumeLayout(false);
@@ -1367,6 +1391,8 @@
             groupBox7.PerformLayout();
             groupBox12.ResumeLayout(false);
             groupBox12.PerformLayout();
+            groupBox14.ResumeLayout(false);
+            groupBox14.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -1471,6 +1497,8 @@
         private Label labelSrvPid;
         private GroupBox groupBox13;
         private CheckBox chBoxUseStats;
+        private GroupBox groupBox14;
+        private CheckBox chBoxPropagateSettings;
         private CheckBox chBoxAnalysisDefaultEnabled;
     }
 }

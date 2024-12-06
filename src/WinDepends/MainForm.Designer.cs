@@ -726,7 +726,7 @@
             // chImportsEntryPoint
             // 
             chImportsEntryPoint.Text = "EntryPoint";
-            chImportsEntryPoint.Width = 290;
+            chImportsEntryPoint.Width = 150;
             // 
             // LVExports
             // 
@@ -774,7 +774,7 @@
             // chExportsEntryPoint
             // 
             chExportsEntryPoint.Text = "EntryPoint";
-            chExportsEntryPoint.Width = 290;
+            chExportsEntryPoint.Width = 150;
             // 
             // MainToolBar
             // 
@@ -1052,7 +1052,7 @@
             // 
             mainMenuConfigurationItem.Name = "mainMenuConfigurationItem";
             mainMenuConfigurationItem.ShortcutKeys = Keys.F2;
-            mainMenuConfigurationItem.Size = new Size(180, 22);
+            mainMenuConfigurationItem.Size = new Size(167, 22);
             mainMenuConfigurationItem.Text = "&Configuration";
             mainMenuConfigurationItem.Click += ConfigureMenuItem_Click;
             mainMenuConfigurationItem.MouseEnter += MainMenu_MouseEnter;

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Dec 2024
+*  DATE:        06 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -57,6 +57,7 @@ public static class CConsts
     public const int TagUseRelocForImages = 600;
     public const int TagUseStats = 601;
     public const int TagAnalysisDefaultEnabled = 602;
+    public const int TagPropagateSettingsEnabled = 603;
 
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;
@@ -120,6 +121,8 @@ public static class CConsts
     public const string HandledFileExtensionsMsg = "Handled File Extensions|";
     public const string WinDependsFilter = "|WinDepends session view (*.wds)|*.wds|All files (*.*)|*.*";
     public const string ConfigBrowseFilter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*";
+
+    public const string ShellIntegrationCommand = "file\\shell\\View in WinDepends";
 
     //
     // System stuff.

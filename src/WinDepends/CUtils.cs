@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Nov 2024
+*  DATE:        06 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -76,6 +76,15 @@ public struct PropertyElement(string name, string value)
 {
     public string Name { get; set; } = name;
     public string Value { get; set; } = value;
+}
+
+public struct AnalysisSettings(bool useReloc, bool useStats, bool setDefault, bool propagateSeetings, uint minAppAddress)
+{
+    public bool UseRelocForImages { get; set; } = useReloc;
+    public bool UseStats { get; set; } = useStats;
+    public bool AnalysisSettingsUseAsDefault { get; set; } = setDefault;
+    public bool PropagateSettingsOnDependencies { get; set; } = propagateSeetings;
+    public uint MinAppAddress { get; set; } = minAppAddress;
 }
 
 public record TooltipInfo(Control Control, string AssociatedText);
@@ -165,7 +174,7 @@ public static class CUtils
     {
         bool result;
 
-        string extKeyName = $"{extension}file\\shell\\View in WinDepends";
+        string extKeyName = $"{extension}{CConsts.ShellIntegrationCommand}";
 
         try
         {
@@ -191,7 +200,7 @@ public static class CUtils
     {
         bool result = true;
 
-        string extKeyName = $"{extension}file\\shell\\View in WinDepends";
+        string extKeyName = $"{extension}{CConsts.ShellIntegrationCommand}";
 
         try
         {
@@ -202,11 +211,11 @@ public static class CUtils
                     // Set command value.
                     using (var subKey = regKey.CreateSubKey("command"))
                     {
-                        subKey?.SetValue("", $"{Application.ExecutablePath} %1", RegistryValueKind.String);
+                        subKey?.SetValue("", $"\"{Application.ExecutablePath}\" %1", RegistryValueKind.String);
                     }
 
                     // Set icon value.
-                    regKey.SetValue("Icon", $"{Application.ExecutablePath}, 0", RegistryValueKind.String);
+                    regKey.SetValue("Icon", $"\"{Application.ExecutablePath}\", 0", RegistryValueKind.String);
                 }
             }
         }
@@ -222,9 +231,27 @@ public static class CUtils
     /// Removes Windows Registry association key for given extension
     /// </summary>
     /// <param name="extension"></param>
-    static internal void RemoveAssoc(string extension)
+    static internal bool RemoveAssoc(string extension)
     {
-        Registry.ClassesRoot.DeleteSubKeyTree($"{extension}file\\shell\\View in WinDepends", false);
+        bool result = true;
+        string keyName = $"{extension}{CConsts.ShellIntegrationCommand}";
+
+        try
+        {
+            using (var regKey = Registry.ClassesRoot.OpenSubKey(keyName))
+            {
+                if (regKey != null)
+                {
+                    Registry.ClassesRoot.DeleteSubKeyTree(keyName, false);
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return result;
     }
 
     /// <summary>

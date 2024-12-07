@@ -809,7 +809,7 @@ public class CCoreClient : IDisposable
 
                 ProcessStartInfo processInfo = new()
                 {
-                    FileName = fileName,
+                    FileName = $"\"{fileName}\"",
                     UseShellExecute = false
                 };
                 ServerProcess = Process.Start(processInfo);

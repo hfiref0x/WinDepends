@@ -319,7 +319,7 @@ public class CModule
                 return is64bit ? (int)ModuleIconType.DelayLoadModule64Duplicate : (int)ModuleIconType.DelayLoadModuleDuplicate;
             }
 
-            if (bWarningOtherErrors)
+            if (bExportError || bWarningOtherErrors)
             {
                 return is64bit ? (int)ModuleIconType.DelayLoadModule64Warning : (int)ModuleIconType.DelayLoadModuleWarning;
             }
@@ -349,7 +349,7 @@ public class CModule
                 return is64bit ? (int)ModuleIconType.ForwardedModule64Duplicate : (int)ModuleIconType.ForwardedModuleDuplicate;
             }
 
-            if (bWarningOtherErrors)
+            if (bExportError || bWarningOtherErrors)
             {
                 return is64bit ? (int)ModuleIconType.ForwardedModule64Warning : (int)ModuleIconType.ForwardedModuleWarning;
             }

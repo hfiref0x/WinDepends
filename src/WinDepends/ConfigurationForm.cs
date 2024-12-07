@@ -867,7 +867,7 @@ public partial class ConfigurationForm : Form
             if (null != Process.Start(new ProcessStartInfo
             {
                 WorkingDirectory = Environment.CurrentDirectory,
-                FileName = $"\"Application.ExecutablePath\"",
+                FileName = $"\"{Application.ExecutablePath}\"",
                 Verb = "runas",
                 UseShellExecute = true
             }))

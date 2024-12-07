@@ -5,7 +5,7 @@
 
 + Windows 10/11
 
-(reportedly working on Windows 8.1, but we do not officially support it, and ApiSet resolving will be unavailable)
+(reportedly working on Windows 8.1, but we do not officially support it)
 
 + [.NET Desktop Runtime 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 + Administrative privilege is not required
@@ -34,7 +34,7 @@ WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.
 * Several functionally may not work as expected or be disabled due to beta state.
 * CLI version is not yet implemented, we are still not sure is it needed or not.
 * ARM binaries are not tested in native environment as we don't have it in a bare metal.
-* Some limitations comes from Windows OS support, for example we do not support ApiSet schema versions prior to Windows 10, because Windows 10 is a minimum supported OS.
+* Some limitations comes from Windows OS support.
 * If you found a bug, have a suggestion or want to do pull request - feel free to do so, we appreciate your input.
 
 # Installation and Usage

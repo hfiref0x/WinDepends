@@ -101,8 +101,13 @@
             groupBox10 = new GroupBox();
             chBoxHighlightApiSet = new CheckBox();
             groupBox9 = new GroupBox();
+            apisetTextBox = new TextBox();
+            buttonApiSetBrowse = new Button();
             chBoxApiSetNamespace = new CheckBox();
             tabAnalysis = new TabPage();
+            groupBox14 = new GroupBox();
+            chBoxPropagateSettings = new CheckBox();
+            chBoxAnalysisDefaultEnabled = new CheckBox();
             groupBox13 = new GroupBox();
             chBoxUseStats = new CheckBox();
             groupBox11 = new GroupBox();
@@ -139,9 +144,9 @@
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
             folderBrowserDialog = new FolderBrowserDialog();
-            groupBox14 = new GroupBox();
-            chBoxAnalysisDefaultEnabled = new CheckBox();
-            chBoxPropagateSettings = new CheckBox();
+            groupBox15 = new GroupBox();
+            labelApiSetCount = new Label();
+            labelApiSetVersion = new Label();
             ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
             splitContainer2.Panel1.SuspendLayout();
             splitContainer2.Panel2.SuspendLayout();
@@ -170,13 +175,14 @@
             groupBox10.SuspendLayout();
             groupBox9.SuspendLayout();
             tabAnalysis.SuspendLayout();
+            groupBox14.SuspendLayout();
             groupBox13.SuspendLayout();
             groupBox11.SuspendLayout();
             tabSearchOrderDrivers.SuspendLayout();
             tabServer.SuspendLayout();
             groupBox7.SuspendLayout();
             groupBox12.SuspendLayout();
-            groupBox14.SuspendLayout();
+            groupBox15.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainer2
@@ -575,7 +581,7 @@
             buttonElevate.Text = "Elevate";
             buttonElevate.UseVisualStyleBackColor = true;
             buttonElevate.Visible = false;
-            buttonElevate.Click += ButtonEleavate_Click;
+            buttonElevate.Click += ButtonElevate_Click;
             // 
             // groupBox1
             // 
@@ -860,6 +866,7 @@
             // 
             // tabApiSetContracts
             // 
+            tabApiSetContracts.Controls.Add(groupBox15);
             tabApiSetContracts.Controls.Add(groupBox10);
             tabApiSetContracts.Controls.Add(groupBox9);
             tabApiSetContracts.Location = new Point(4, 5);
@@ -872,7 +879,7 @@
             // groupBox10
             // 
             groupBox10.Controls.Add(chBoxHighlightApiSet);
-            groupBox10.Location = new Point(9, 81);
+            groupBox10.Location = new Point(9, 115);
             groupBox10.Name = "groupBox10";
             groupBox10.Size = new Size(465, 69);
             groupBox10.TabIndex = 6;
@@ -893,23 +900,43 @@
             // 
             // groupBox9
             // 
+            groupBox9.Controls.Add(apisetTextBox);
+            groupBox9.Controls.Add(buttonApiSetBrowse);
             groupBox9.Controls.Add(chBoxApiSetNamespace);
             groupBox9.Location = new Point(9, 6);
             groupBox9.Name = "groupBox9";
-            groupBox9.Size = new Size(465, 69);
+            groupBox9.Size = new Size(465, 103);
             groupBox9.TabIndex = 5;
             groupBox9.TabStop = false;
-            groupBox9.Text = "Namespace";
+            groupBox9.Text = "Override Used Namespace";
+            // 
+            // apisetTextBox
+            // 
+            apisetTextBox.Location = new Point(19, 57);
+            apisetTextBox.Name = "apisetTextBox";
+            apisetTextBox.ReadOnly = true;
+            apisetTextBox.Size = new Size(351, 23);
+            apisetTextBox.TabIndex = 7;
+            // 
+            // buttonApiSetBrowse
+            // 
+            buttonApiSetBrowse.Location = new Point(376, 56);
+            buttonApiSetBrowse.Name = "buttonApiSetBrowse";
+            buttonApiSetBrowse.Size = new Size(75, 23);
+            buttonApiSetBrowse.TabIndex = 6;
+            buttonApiSetBrowse.Text = "Browse";
+            buttonApiSetBrowse.UseVisualStyleBackColor = true;
+            buttonApiSetBrowse.Click += buttonApiSetBrowse_Click;
             // 
             // chBoxApiSetNamespace
             // 
             chBoxApiSetNamespace.AutoSize = true;
             chBoxApiSetNamespace.Location = new Point(19, 32);
             chBoxApiSetNamespace.Name = "chBoxApiSetNamespace";
-            chBoxApiSetNamespace.Size = new Size(251, 19);
+            chBoxApiSetNamespace.Size = new Size(211, 19);
             chBoxApiSetNamespace.TabIndex = 5;
             chBoxApiSetNamespace.Tag = "500";
-            chBoxApiSetNamespace.Text = "Retrieve from system ApiSetSchema.dll file";
+            chBoxApiSetNamespace.Text = "Retrieve from ApiSetSchema.dll file";
             chBoxApiSetNamespace.UseVisualStyleBackColor = true;
             chBoxApiSetNamespace.Click += ChBox_Click;
             // 
@@ -924,6 +951,40 @@
             tabAnalysis.TabIndex = 8;
             tabAnalysis.Tag = "70";
             tabAnalysis.UseVisualStyleBackColor = true;
+            // 
+            // groupBox14
+            // 
+            groupBox14.Controls.Add(chBoxPropagateSettings);
+            groupBox14.Controls.Add(chBoxAnalysisDefaultEnabled);
+            groupBox14.Location = new Point(6, 262);
+            groupBox14.Name = "groupBox14";
+            groupBox14.Size = new Size(468, 100);
+            groupBox14.TabIndex = 10;
+            groupBox14.TabStop = false;
+            groupBox14.Text = "Analysis Settings";
+            // 
+            // chBoxPropagateSettings
+            // 
+            chBoxPropagateSettings.AutoSize = true;
+            chBoxPropagateSettings.Location = new Point(16, 33);
+            chBoxPropagateSettings.Name = "chBoxPropagateSettings";
+            chBoxPropagateSettings.Size = new Size(261, 19);
+            chBoxPropagateSettings.TabIndex = 11;
+            chBoxPropagateSettings.Tag = "603";
+            chBoxPropagateSettings.Text = "Propagate analysis settings on dependencies";
+            chBoxPropagateSettings.UseVisualStyleBackColor = true;
+            chBoxPropagateSettings.Click += ChBox_Click;
+            // 
+            // chBoxAnalysisDefaultEnabled
+            // 
+            chBoxAnalysisDefaultEnabled.AutoSize = true;
+            chBoxAnalysisDefaultEnabled.Location = new Point(16, 58);
+            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
+            chBoxAnalysisDefaultEnabled.Size = new Size(319, 19);
+            chBoxAnalysisDefaultEnabled.TabIndex = 10;
+            chBoxAnalysisDefaultEnabled.Tag = "602";
+            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
+            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
             // 
             // groupBox13
             // 
@@ -1289,39 +1350,34 @@
             folderBrowserDialog.AddToRecent = false;
             folderBrowserDialog.ShowHiddenFiles = true;
             // 
-            // groupBox14
+            // groupBox15
             // 
-            groupBox14.Controls.Add(chBoxPropagateSettings);
-            groupBox14.Controls.Add(chBoxAnalysisDefaultEnabled);
-            groupBox14.Location = new Point(6, 262);
-            groupBox14.Name = "groupBox14";
-            groupBox14.Size = new Size(468, 100);
-            groupBox14.TabIndex = 10;
-            groupBox14.TabStop = false;
-            groupBox14.Text = "Analysis Settings";
+            groupBox15.Controls.Add(labelApiSetCount);
+            groupBox15.Controls.Add(labelApiSetVersion);
+            groupBox15.Location = new Point(9, 190);
+            groupBox15.Name = "groupBox15";
+            groupBox15.Size = new Size(465, 100);
+            groupBox15.TabIndex = 7;
+            groupBox15.TabStop = false;
+            groupBox15.Text = "Current Namespace Information";
             // 
-            // chBoxAnalysisDefaultEnabled
+            // labelApiSetCount
             // 
-            chBoxAnalysisDefaultEnabled.AutoSize = true;
-            chBoxAnalysisDefaultEnabled.Location = new Point(16, 58);
-            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
-            chBoxAnalysisDefaultEnabled.Size = new Size(319, 19);
-            chBoxAnalysisDefaultEnabled.TabIndex = 10;
-            chBoxAnalysisDefaultEnabled.Tag = "602";
-            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
-            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
+            labelApiSetCount.AutoSize = true;
+            labelApiSetCount.Location = new Point(19, 62);
+            labelApiSetCount.Name = "labelApiSetCount";
+            labelApiSetCount.Size = new Size(43, 15);
+            labelApiSetCount.TabIndex = 11;
+            labelApiSetCount.Text = "Count:";
             // 
-            // chBoxPropagateSettings
+            // labelApiSetVersion
             // 
-            chBoxPropagateSettings.AutoSize = true;
-            chBoxPropagateSettings.Location = new Point(16, 33);
-            chBoxPropagateSettings.Name = "chBoxPropagateSettings";
-            chBoxPropagateSettings.Size = new Size(261, 19);
-            chBoxPropagateSettings.TabIndex = 11;
-            chBoxPropagateSettings.Tag = "603";
-            chBoxPropagateSettings.Text = "Propagate analysis settings on dependencies";
-            chBoxPropagateSettings.UseVisualStyleBackColor = true;
-            chBoxPropagateSettings.Click += ChBox_Click;
+            labelApiSetVersion.AutoSize = true;
+            labelApiSetVersion.Location = new Point(19, 34);
+            labelApiSetVersion.Name = "labelApiSetVersion";
+            labelApiSetVersion.Size = new Size(48, 15);
+            labelApiSetVersion.TabIndex = 10;
+            labelApiSetVersion.Text = "Version:";
             // 
             // ConfigurationForm
             // 
@@ -1381,6 +1437,8 @@
             groupBox9.ResumeLayout(false);
             groupBox9.PerformLayout();
             tabAnalysis.ResumeLayout(false);
+            groupBox14.ResumeLayout(false);
+            groupBox14.PerformLayout();
             groupBox13.ResumeLayout(false);
             groupBox13.PerformLayout();
             groupBox11.ResumeLayout(false);
@@ -1391,8 +1449,8 @@
             groupBox7.PerformLayout();
             groupBox12.ResumeLayout(false);
             groupBox12.PerformLayout();
-            groupBox14.ResumeLayout(false);
-            groupBox14.PerformLayout();
+            groupBox15.ResumeLayout(false);
+            groupBox15.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -1500,5 +1558,10 @@
         private GroupBox groupBox14;
         private CheckBox chBoxPropagateSettings;
         private CheckBox chBoxAnalysisDefaultEnabled;
+        private TextBox apisetTextBox;
+        private Button buttonApiSetBrowse;
+        private GroupBox groupBox15;
+        private Label labelApiSetCount;
+        private Label labelApiSetVersion;
     }
 }

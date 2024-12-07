@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 17, 2024
 *
-*  Modified on: Sep 25, 2024
+*  Modified on: Dec 02, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -172,6 +172,13 @@ typedef struct _TEB {
 
 __inline struct _PEB* NtCurrentPeb() { return NtCurrentTeb()->ProcessEnvironmentBlock; }
 
+#ifndef RtlInitEmptyUnicodeString
+#define RtlInitEmptyUnicodeString(_ucStr,_buf,_bufSize) \
+    ((_ucStr)->Buffer = (_buf), \
+     (_ucStr)->Length = 0, \
+     (_ucStr)->MaximumLength = (USHORT)(_bufSize))
+#endif
+
 typedef struct _OBJECT_DIRECTORY_INFORMATION {
     UNICODE_STRING Name;
     UNICODE_STRING TypeName;
@@ -213,6 +220,11 @@ typedef LONG(NTAPI* pfnRtlCompareUnicodeStrings)(
     _In_ SIZE_T String1Length,
     _In_reads_(String2Length) PWCHAR String2,
     _In_ SIZE_T String2Length,
+    _In_ BOOLEAN CaseInSensitive);
+
+typedef LONG(NTAPI* pfnRtlCompareUnicodeString)(
+    _In_ PCUNICODE_STRING String1,
+    _In_ PCUNICODE_STRING String2,
     _In_ BOOLEAN CaseInSensitive);
 
 typedef PIMAGE_NT_HEADERS(NTAPI* pfnRtlImageNtHeader)(

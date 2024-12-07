@@ -3,11 +3,11 @@
 *
 *  Created on: Aug 27, 2024
 *
-*  Modified on: Sep 25, 2024
+*  Modified on: Dec 06, 2024
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #pragma once
@@ -29,23 +29,31 @@
 #define API_SET_SCHEMA_SUFFIX           L".sys"
 #endif
 
-// API-
-#define API_SET_PREFIX_API 0x2d004900500041
+#define API_SET_PREFIX_API              (ULONGLONG)0x002D004900500041 /* L"API-" */
 
-// EXT-
-#define API_SET_PREFIX_EXT 0x2d005400580045
+#define API_SET_PREFIX_EXT              (ULONGLONG)0x002D005400580045 /* L"EXT-" */
 
 #define API_SET_PREFIX_NAME_A           "API-"
 #define API_SET_PREFIX_NAME_A_SIZE      (sizeof(API_SET_PREFIX_NAME_A) - sizeof(CHAR))
+#define API_SET_PREFIX_NAME_A_LENGTH    (RTL_NUMBER_OF(API_SET_PREFIX_NAME_A) - 1)
 #define API_SET_PREFIX_NAME_U           TEXT(API_SET_PREFIX_NAME_A)
 #define API_SET_PREFIX_NAME_U_SIZE      (sizeof(API_SET_PREFIX_NAME_U) - sizeof(WCHAR))
-#define API_SET_PREFIX_NAME_LENGTH      (RTL_NUMBER_OF(API_SET_PREFIX_NAME_U) - 1)
+#define API_SET_PREFIX_NAME_U_LENGTH    (RTL_NUMBER_OF(API_SET_PREFIX_NAME_U) - 1)
 
 #define API_SET_EXTENSION_NAME_A        "EXT-"
 #define API_SET_EXTENSION_NAME_A_SIZE   (sizeof(API_SET_EXTENSION_NAME_A) - sizeof(CHAR))
+#define API_SET_EXTENSION_NAME_A_LENGTH (RTL_NUMBER_OF(API_SET_EXTENSION_NAME_A) - 1)
 #define API_SET_EXTENSION_NAME_U        TEXT(API_SET_EXTENSION_NAME_A)
 #define API_SET_EXTENSION_NAME_U_SIZE   (sizeof(API_SET_EXTENSION_NAME_U) - sizeof(WCHAR))
-#define API_SET_EXTENSION_NAME_LENGTH   (RTL_NUMBER_OF(API_SET_EXTENSION_NAME_U) - 1)
+#define API_SET_EXTENSION_NAME_U_LENGTH (RTL_NUMBER_OF(API_SET_EXTENSION_NAME_U) - 1)
+
+#define API_SET_DLL_EXT_A               ".DLL"
+#define API_SET_DLL_EXT_A_SIZE          (sizeof(API_SET_DLL_EXT_A) - sizeof(CHAR))
+#define API_SET_DLL_EXT_A_NAME_LENGTH   (RTL_NUMBER_OF(API_SET_DLL_EXT_A) - 1)
+#define API_SET_DLL_EXT_U               TEXT(API_SET_DLL_EXT_A)
+#define API_SET_DLL_EXT_U_SIZE          (sizeof(API_SET_DLL_EXT_U) - sizeof(WCHAR))
+#define API_SET_DLL_EXT_U_NAME_LENGTH   (RTL_NUMBER_OF(API_SET_DLL_EXT_U) - 1)
+
 
 #define API_SET_SCHEMA_FLAGS_SEALED              0x00000001UL
 #define API_SET_SCHEMA_FLAGS_HOST_EXTENSION      0x00000002UL
@@ -69,32 +77,11 @@
 #define API_SET_SCHEMA_VERSION_V6    6
 #endif
 
-#define API_SET_EMPTY_NAMESPACE_VALUE(ValueEntry) \
-    ((ValueEntry->ValueOffset == 0) && (ValueEntry->ValueLength == 0) && \
-    (ValueEntry->NameOffset == 0) && (ValueEntry->NameLength == 0))
-
 #define API_SET_TO_UPPER_PREFIX(x) ((x) & 0xFFFFFFDFFFDFFFDFULL)
 
 //
-// Macro for APISET structures.
+// API Set Schema Version 2
 //
-#define API_SET_TO_VALUE_ENTRY(Namespace, Entry, Index) \
-    ((API_SET_VALUE_ENTRY_V6 *)RtlOffsetToPointer(Namespace, (Index) * sizeof(API_SET_VALUE_ENTRY_V6) + Entry->DataOffset))
-
-#define API_SET_TO_VALUE_NAME(Namespace, Entry) \
-    ((PWCHAR)RtlOffsetToPointer(Namespace, Entry->NameOffset))
-
-#define API_SET_TO_HASH_ENTRY(Namespace, HashIndex) \
-   ((API_SET_HASH_ENTRY_V6*)RtlOffsetToPointer(Namespace, Namespace->NamespaceHashesOffset + sizeof(ULONG64) * (HashIndex)))
-
-#define API_SET_TO_NAMESPACE_ENTRY(Namespace, LookupHashEntry) \
-   ((PAPI_SET_NAMESPACE_ENTRY_V6)RtlOffsetToPointer(Namespace, LookupHashEntry->NamespaceIndex * sizeof(API_SET_NAMESPACE_ENTRY_V6) + Namespace->NamespaceEntryOffset))
-
-#define API_SET_TO_NAMESPACE_ENTRY_NAME(Namespace, NamespaceEntry) \
-   ((PWCHAR)RtlOffsetToPointer(Namespace, NamespaceEntry->NameOffset))
-
-
-// V2
 
 typedef struct _API_SET_VALUE_ENTRY_V2 {
     ULONG NameOffset;
@@ -120,7 +107,12 @@ typedef struct _API_SET_NAMESPACE_ARRAY_V2 {
     _Field_size_full_(Count) API_SET_NAMESPACE_ENTRY_V2 Array[ANYSIZE_ARRAY];
 } API_SET_NAMESPACE_ARRAY_V2, * PAPI_SET_NAMESPACE_ARRAY_V2;
 
-// V4
+#define API_SET_NAMESPACE_ENTRY_V2(ApiSetNamespace, Index) \
+  (((PAPI_SET_NAMESPACE_ARRAY_V2)(ApiSetNamespace))->Array + Index)
+
+//
+// API Set Schema Version 4
+//
 
 typedef struct _API_SET_VALUE_ENTRY_V4 {
     ULONG Flags;
@@ -155,7 +147,31 @@ typedef struct _API_SET_NAMESPACE_ARRAY_V4 {
     _Field_size_full_(Count) API_SET_NAMESPACE_ENTRY_V4 Array[ANYSIZE_ARRAY];
 } API_SET_NAMESPACE_ARRAY_V4, * PAPI_SET_NAMESPACE_ARRAY_V4;
 
-// V6
+#define IS_API_SET_EMPTY_VALUE_ENTRY_V4(ValueEntry) \
+    ((ValueEntry->ValueOffset == 0) && (ValueEntry->ValueLength == 0) && \
+    (ValueEntry->NameOffset == 0) && (ValueEntry->NameLength == 0))
+
+#define API_SET_NAMESPACE_ENTRY_V4(ApiSetNamespace, Index) \
+    ((PAPI_SET_NAMESPACE_ENTRY_V4)(((PAPI_SET_NAMESPACE_ARRAY_V4)(ApiSetNamespace))->Array + Index))
+
+#define API_SET_NAMESPACE_ENTRY_NAME_V4(ApiSetNamespace, NamespaceEntry) \
+    ((PWCHAR)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_NAMESPACE_ENTRY_V4)(NamespaceEntry))->NameOffset))
+
+#define API_SET_NAMESPACE_ENTRY_DATA_V4(ApiSetNamespace, NamespaceEntry) \
+    ((PAPI_SET_VALUE_ARRAY_V4)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_NAMESPACE_ENTRY_V4)(NamespaceEntry))->DataOffset))
+
+#define API_SET_VALUE_ENTRY_V4(ApiSetNamespace, ResolvedValueArray, Index) \
+    ((PAPI_SET_VALUE_ENTRY_V4)(((PAPI_SET_VALUE_ARRAY_V4)(ResolvedValueArray))->Array + Index))
+
+#define API_SET_VALUE_ENTRY_NAME_V4(ApiSetNamespace, ApiSetValueEntry) \
+    ((WCHAR*)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_VALUE_ENTRY_V4)(ApiSetValueEntry))->NameOffset))
+
+#define API_SET_VALUE_ENTRY_VALUE_V4(ApiSetNamespace, ApiSetValueEntry) \
+    ((WCHAR*)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_VALUE_ENTRY_V4)(ApiSetValueEntry))->ValueOffset))
+
+//
+// API Set Schema Version 6
+//
 
 typedef struct _API_SET_HASH_ENTRY_V6 {
     ULONG Hash;
@@ -180,7 +196,7 @@ typedef struct _API_SET_VALUE_ENTRY_V6 {
 } API_SET_VALUE_ENTRY_V6, * PAPI_SET_VALUE_ENTRY_V6;
 
 _Struct_size_bytes_(Size)
-typedef struct _API_SET_NAMESPACE_ARRAY_V6 {
+typedef struct _API_SET_NAMESPACE_V6 {
     ULONG Version;
     ULONG Size;
     ULONG Flags;
@@ -188,14 +204,57 @@ typedef struct _API_SET_NAMESPACE_ARRAY_V6 {
     ULONG NamespaceEntryOffset;  //API_SET_NAMESPACE_ENTRY_V6
     ULONG NamespaceHashesOffset; //_API_SET_HASH_ENTRY_V6
     ULONG HashMultiplier;
-} API_SET_NAMESPACE_ARRAY_V6, * PAPI_SET_NAMESPACE_ARRAY_V6;
+} API_SET_NAMESPACE_V6, * PAPI_SET_NAMESPACE_V6;
+
+#define IS_API_SET_EMPTY_VALUE_ENTRY_V6(ValueEntry) \
+    ((ValueEntry->ValueOffset == 0) && (ValueEntry->ValueLength == 0) && \
+    (ValueEntry->NameOffset == 0) && (ValueEntry->NameLength == 0))
+
+#define API_SET_VALUE_ENTRY_V6(Namespace, Entry, Index) \
+    ((API_SET_VALUE_ENTRY_V6 *)RtlOffsetToPointer(Namespace, (Index) * sizeof(API_SET_VALUE_ENTRY_V6) + Entry->DataOffset))
+
+#define API_SET_VALUE_NAME_V6(Namespace, Entry) \
+    ((PWCHAR)RtlOffsetToPointer(Namespace, Entry->NameOffset))
+
+#define API_SET_VALUE_ENTRY_VALUE_V6(ApiSetNamespace, Entry) \
+    ((PWCHAR)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_VALUE_ENTRY_V6)(Entry))->ValueOffset))
+
+#define API_SET_HASH_ENTRY_V6(Namespace, HashIndex) \
+   ((API_SET_HASH_ENTRY_V6*)RtlOffsetToPointer(Namespace, Namespace->NamespaceHashesOffset + sizeof(ULONG64) * (HashIndex)))
+
+#define API_SET_NAMESPACE_ENTRY_V6(Namespace, LookupHashEntry) \
+   ((PAPI_SET_NAMESPACE_ENTRY_V6)RtlOffsetToPointer(Namespace, LookupHashEntry->NamespaceIndex * sizeof(API_SET_NAMESPACE_ENTRY_V6) + \
+        Namespace->NamespaceEntryOffset))
+
+#define API_SET_NAMESPACE_ENTRY_NAME_V6(Namespace, NamespaceEntry) \
+   ((PWCHAR)RtlOffsetToPointer(Namespace, NamespaceEntry->NameOffset))
 
 typedef struct _API_SET_NAMESPACE {
-    union {
-        API_SET_NAMESPACE_ARRAY_V2* v2;
-        API_SET_NAMESPACE_ARRAY_V4* v4;
-        API_SET_NAMESPACE_ARRAY_V6* v6;
-    } Namespace;
+    ULONG Version;
 } API_SET_NAMESPACE, * PAPI_SET_NAMESPACE;
+
+NTSTATUS
+NTAPI
+ApiSetResolveToHostV6(
+    _In_ PAPI_SET_NAMESPACE ApiSetNamespace,
+    _In_ PCUNICODE_STRING ApiSetNameToResolve,
+    _In_opt_ PCUNICODE_STRING ParentName,
+    _Out_ PUNICODE_STRING Output);
+
+NTSTATUS
+NTAPI
+ApiSetResolveToHostV4(
+    _In_ PAPI_SET_NAMESPACE ApiSetNamespace,
+    _In_ PCUNICODE_STRING ResolveName,
+    _In_opt_ PCUNICODE_STRING ParentName,
+    _Out_ PUNICODE_STRING Output);
+
+NTSTATUS 
+NTAPI
+ApiSetResolveToHostV2(
+    _In_ PAPI_SET_NAMESPACE ApiSetNamespace,
+    _In_ PCUNICODE_STRING ApiSetNameToResolve,
+    _In_opt_ PCUNICODE_STRING ParentName,
+    _Out_ PUNICODE_STRING Output);
 
 #endif /* _APISETX_H_ */

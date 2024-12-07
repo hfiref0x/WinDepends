@@ -237,6 +237,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="apiset.c" />
     <ClCompile Include="cmd.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="mlist.c" />

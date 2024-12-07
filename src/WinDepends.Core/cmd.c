@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Dec 07, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -30,6 +30,7 @@ cmd_entry cmds[] = {
     {L"knowndlls", 9, ce_knowndlls },
     {L"apisetresolve", 13, ce_apisetresolve },
     {L"apisetmapsrc", 12, ce_apisetmapsrc },
+    {L"apisetnsinfo", 12, ce_apisetnsinfo },
     {L"callstats", 9, ce_callstats },
     {L"servstats", 9, ce_servstats }
 };
@@ -140,28 +141,6 @@ void cmd_servstats(
 }
 
 /*
-* cmd_set_apisetmap_src
-*
-* Purpose:
-*
-* Change apiset namespace source.
-*
-*/
-void cmd_set_apisetmap_src(
-    _In_ SOCKET s,
-    _In_opt_ LPCWSTR params
-)
-{
-    if (params == NULL || !gsup.Initialized) {
-        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
-        return;
-    }
-
-    gsup.UseApiSetMapFile = (wcsncmp(params, L"file", 4) == 0);
-    sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
-}
-
-/*
 * cmd_query_knowndlls_list
 *
 * Purpose:
@@ -227,7 +206,7 @@ void cmd_query_knowndlls_list(
             StringCchPrintf(buffer, sz / sizeof(WCHAR),
                 L"\"%ws\"",
                 dll_entry->Element);
-            
+
             mlist_add(&msg_lh, buffer);
 
             dll_entry = dll_entry->Next;
@@ -241,6 +220,120 @@ void cmd_query_knowndlls_list(
     }
     else {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+    }
+}
+
+/*
+* cmd_apisetnamespace_info
+*
+* Purpose:
+*
+* Retrieve apiset namespace information.
+*
+*/
+void cmd_apisetnamespace_info(
+    _In_ SOCKET s
+)
+{
+    ULONG version, count;
+    PAPI_SET_NAMESPACE ApiSetNamespace;
+    WCHAR buffer[200];
+
+    union {
+        PAPI_SET_NAMESPACE_V6 v6;
+        PAPI_SET_NAMESPACE_ARRAY_V4 v4;
+        PAPI_SET_NAMESPACE_ARRAY_V2 v2;
+        PVOID Data;
+    } ApiSet;
+
+    if (gsup.Initialized == FALSE) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
+
+    ApiSetNamespace = (PAPI_SET_NAMESPACE)gsup.ApiSetMap;
+    ApiSet.Data = gsup.ApiSetMap;
+    version = ApiSetNamespace->Version;
+
+    switch (ApiSetNamespace->Version) {
+
+    case API_SET_SCHEMA_VERSION_V2:
+        count = ApiSet.v2->Count;
+        break;
+
+    case API_SET_SCHEMA_VERSION_V4:
+        count = ApiSet.v4->Count;
+        break;
+
+    case API_SET_SCHEMA_VERSION_V6:
+        count = ApiSet.v6->Count;
+        break;
+
+    default:
+        sendstring_plaintext_no_track(s, WDEP_STATUS_208);
+        return;
+    }
+
+    RtlSecureZeroMemory(buffer, sizeof(buffer));
+    StringCchPrintf(buffer, ARRAYSIZE(buffer), L"%ws{\"apisetns\":{\"version\":%u, \"count\":%lu}}\r\n", WDEP_STATUS_OK, version, count);
+    sendstring_plaintext_no_track(s, buffer);
+}
+
+/*
+* cmd_set_apisetmap_src
+*
+* Purpose:
+*
+* Change apiset namespace source.
+*
+*/
+void cmd_set_apisetmap_src(
+    _In_ SOCKET s,
+    _In_opt_ LPCWSTR params
+)
+{
+    ULONG param_length;
+    SIZE_T sz;
+    PWCH file_name = NULL;
+    PVOID api_set_namespace;
+
+    if (!gsup.Initialized) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
+
+    if (params == NULL) {
+        gsup.UseApiSetMapFile = FALSE;
+        gsup.ApiSetMap = NtCurrentPeb()->ApiSetMap;
+        sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
+    }
+    else {
+        sz = (wcslen(params) + 1) * sizeof(WCHAR);
+        file_name = (PWCH)heap_calloc(NULL, sz);
+        if (file_name != NULL) {
+
+            param_length = 0;
+            if (get_params_option(
+                params,
+                L"file",
+                TRUE,
+                file_name,
+                (ULONG)sz,
+                &param_length))
+            {
+                api_set_namespace = load_apiset_namespace(file_name);
+                if (api_set_namespace) {
+                    gsup.UseApiSetMapFile = TRUE;
+                    gsup.ApiSetMap = api_set_namespace;
+                }
+            }
+
+            heap_free(NULL, file_name);
+            sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
+        }
+        else {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        }
     }
 }
 
@@ -262,27 +355,21 @@ void cmd_resolve_apiset_name(
     PWCH buffer;
     SIZE_T name_length = 0, sz;
 
-    if (name_is_apiset(api_set_name)) {
-        resolved_name = resolve_apiset_name(api_set_name, NULL, &name_length);
-        if (resolved_name && name_length) {
+    resolved_name = resolve_apiset_name(api_set_name, NULL, &name_length);
+    if (resolved_name && name_length) {
 
-            sz = (MAX_PATH * sizeof(WCHAR)) + name_length + sizeof(UNICODE_NULL);
-            buffer = (PWCH)heap_calloc(NULL, sz);
-            if (buffer) {
-                StringCchPrintf(buffer, sz / sizeof(WCHAR), L"%ws{\"filename\":{\"path\":\"%ws\"}}\r\n", WDEP_STATUS_OK, resolved_name);
-                sendstring_plaintext(s, buffer, context);
-                heap_free(NULL, buffer);
-            }
-            heap_free(NULL, resolved_name);
+        sz = (MAX_PATH * sizeof(WCHAR)) + name_length + sizeof(UNICODE_NULL);
+        buffer = (PWCH)heap_calloc(NULL, sz);
+        if (buffer) {
+            StringCchPrintf(buffer, sz / sizeof(WCHAR), L"%ws{\"filename\":{\"path\":\"%ws\"}}\r\n", WDEP_STATUS_OK, resolved_name);
+            sendstring_plaintext(s, buffer, context);
+            heap_free(NULL, buffer);
         }
-        else {
-            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
-        }
+        heap_free(NULL, resolved_name);
     }
     else {
-        sendstring_plaintext_no_track(s, WDEP_STATUS_208);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
     }
-
 }
 
 /*
@@ -311,61 +398,6 @@ void cmd_close(
 
         heap_free(NULL, context);
     }
-}
-
-/*
-* cmd_open_opt
-*
-* Purpose:
-*
-* Allocate module context, set analysis settings.
-*
-*/
-pmodule_ctx cmd_open_opt(
-    _In_ SOCKET s,
-    _In_opt_ LPCWSTR params
-)
-{
-    pmodule_ctx context;
-    ULONG param_length;
-    WCHAR option_buffer[100];
-
-    context = (pmodule_ctx)heap_calloc(NULL, sizeof(module_ctx));
-    if (context) {
-
-        if (params) {
-            param_length = 0;
-            context->enable_call_stats = get_params_option(
-                params,
-                L"use_stats",
-                FALSE,
-                NULL,
-                0,
-                &param_length);
-
-            param_length = 0;
-            RtlSecureZeroMemory(&option_buffer, sizeof(option_buffer));
-
-            if (get_params_option(
-                params,
-                L"reloc",
-                TRUE,
-                option_buffer,
-                ARRAYSIZE(option_buffer),
-                &param_length))
-            {
-                context->use_reloc = TRUE;
-                context->min_app_address = strtoul_w(option_buffer);
-            }
-        }
-
-        sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
-    }
-    else {
-        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
-    }
-
-    return context;
 }
 
 /*

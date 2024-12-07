@@ -40,13 +40,14 @@ public class CConfiguration
     public bool CompressSessionFiles { get; set; }
     public bool HistoryShowFullPath { get; set; }
     public bool ClearLogOnFileOpen { get; set; }
-    public bool UseApiSetSchema { get; set; }
+    public bool UseApiSetSchemaFile { get; set; }
     public bool UseRelocForImages { get; set; }
     public bool UseStats { get; set; }
     public bool AnalysisSettingsUseAsDefault { get; set; }
     public bool PropagateSettingsOnDependencies { get; set; }
     public bool HighlightApiSet { get; set; }
     public int HistoryDepth { get; set; }
+    public string ApiSetSchemaFile { get; set; }
     public string ExternalViewerCommand { get; set; }
     public string ExternalViewerArguments { get; set; }
     public string ExternalFunctionHelpURL { get; set; }
@@ -81,6 +82,7 @@ public class CConfiguration
             ExternalViewerArguments = "\"%1\"";
             ExternalFunctionHelpURL = CConsts.ExternalFunctionHelpURL;
             MinAppAddress = CConsts.DefaultAppStartAddress;
+            UseApiSetSchemaFile = false;
 
             string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
             CoreServerAppLocation = $"{Path.GetDirectoryName(Application.ExecutablePath)}\\{CConsts.WinDependsCoreApp}.{cpuArch}.exe";

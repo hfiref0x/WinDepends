@@ -52,7 +52,7 @@ public static class CConsts
     public const int TagSystemInformation = 300;
     public const int TagConfiguration = 301;
     public const int TagCompressSessionFiles = 400;
-    public const int TagUseApiSetSchema = 500;
+    public const int TagUseApiSetSchemaFile = 500;
     public const int TagHighlightApiSet = 501;
     public const int TagUseRelocForImages = 600;
     public const int TagUseStats = 601;
@@ -156,9 +156,9 @@ public static class CConsts
     /// </summary>
     public const string WDEP_STATUS_200 = "WDEP/1.0 200 OK\r\n";
     /// <summary>
-    /// Msg: Already resolved
+    /// Msg: Unknown data format
     /// </summary>
-    public const string WDEP_STATUS_208 = "WDEP/1.0 208 Already resolved\r\n";
+    public const string WDEP_STATUS_208 = "WDEP/1.0 208 Unknown data format\r\n";
     /// <summary>
     /// Msg: Invalid parameters received
     /// </summary>

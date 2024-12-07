@@ -492,6 +492,16 @@ public class CCoreClient : IDisposable
         }
     */
 
+    public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo()
+    {
+        string cmd = "apisetnsinfo\r\n";
+        var rootObject = (CCoreApiSetNamespaceInfoRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreApiSetNamespaceInfoRoot));
+        if (rootObject != null)
+            return rootObject.Namespace;
+
+        return null;
+    }
+
     public CCoreCallStats GetCoreCallStats()
     {
         string cmd = "callstats\r\n";
@@ -707,9 +717,17 @@ public class CCoreClient : IDisposable
 
     }
 
-    public bool SetApiSetSchemaNamespaceUse(bool fromFile)
+    public bool SetApiSetSchemaNamespaceUse(string fileName)
     {
-        string cmd = $"apisetmapsrc {(fromFile ? "file" : "peb")}\r\n";
+        string cmd = "apisetmapsrc";
+
+        if (!string.IsNullOrEmpty(fileName))
+        {
+            cmd += $" file \"{fileName}\"";
+        }
+
+        cmd += "\r\n";
+
         var status = SendRequest(cmd);
 
         if (status != RequestSendStatus.Okay || !IsRequestSuccessful())

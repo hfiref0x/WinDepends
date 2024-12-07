@@ -14,6 +14,7 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Configuration;
 using System.Diagnostics;
 
 namespace WinDepends;
@@ -225,6 +226,21 @@ public partial class ConfigurationForm : Form
         }
     }
 
+    private void ShowApiSetNamespaceInformation()
+    {
+        if (m_CoreClient == null || m_CoreClient.ClientConnection == null || !m_CoreClient.ClientConnection.Connected)
+        {
+            return;
+        }
+
+        CCoreApiSetNamespaceInfo nsinfo = m_CoreClient.GetApiSetNamespaceInfo();
+        if (nsinfo != null)
+        {
+            labelApiSetVersion.Text = $"Version: {nsinfo.Version}";
+            labelApiSetCount.Text = $"Entry Count: {nsinfo.Count}";
+        }
+    }
+
     private void CheckServerFileState(string fileName)
     {
         ServerFileState.Font = new Font(ServerFileState.Font, FontStyle.Bold);
@@ -281,7 +297,7 @@ public partial class ConfigurationForm : Form
         chBoxUndecorateSymbols.Checked = m_CurrentConfiguration.ViewUndecorated;
         chBoxResolveApiSets.Checked = m_CurrentConfiguration.ResolveAPIsets;
         chBoxHighlightApiSet.Checked = m_CurrentConfiguration.HighlightApiSet;
-        chBoxApiSetNamespace.Checked = m_CurrentConfiguration.UseApiSetSchema;
+        chBoxApiSetNamespace.Checked = m_CurrentConfiguration.UseApiSetSchemaFile;
         chBoxUpperCase.Checked = m_CurrentConfiguration.UppperCaseModuleNames;
         chBoxCompressSessionFiles.Checked = m_CurrentConfiguration.CompressSessionFiles;
         chBoxClearLogOnFileOpen.Checked = m_CurrentConfiguration.ClearLogOnFileOpen;
@@ -296,6 +312,12 @@ public partial class ConfigurationForm : Form
         searchOnlineTextBox.Text = m_CurrentConfiguration.ExternalFunctionHelpURL;
 
         serverAppLocationTextBox.Text = m_CurrentConfiguration.CoreServerAppLocation;
+
+        buttonApiSetBrowse.Enabled = m_CurrentConfiguration.UseApiSetSchemaFile;
+        if (m_CurrentConfiguration.UseApiSetSchemaFile)
+        {
+            apisetTextBox.Text = m_CurrentConfiguration.ApiSetSchemaFile;
+        }
 
         //
         // Elevate button setup.
@@ -357,6 +379,7 @@ public partial class ConfigurationForm : Form
 
         CheckServerFileState(m_CurrentConfiguration.CoreServerAppLocation);
         ShowServerStatusAndSetControls();
+        ShowApiSetNamespaceInformation();
     }
 
     private void ConfigurationForm_KeyDown(object sender, KeyEventArgs e)
@@ -409,8 +432,9 @@ public partial class ConfigurationForm : Form
                 m_CurrentConfiguration.CompressSessionFiles = checkBox.Checked;
                 break;
 
-            case CConsts.TagUseApiSetSchema:
-                m_CurrentConfiguration.UseApiSetSchema = checkBox.Checked;
+            case CConsts.TagUseApiSetSchemaFile:
+                m_CurrentConfiguration.UseApiSetSchemaFile = checkBox.Checked;
+                buttonApiSetBrowse.Enabled = checkBox.Checked;
                 break;
 
             case CConsts.TagHighlightApiSet:
@@ -439,21 +463,6 @@ public partial class ConfigurationForm : Form
 
     private void ButtonEleavate_Click(object sender, EventArgs e)
     {
-        try
-        {
-            if (null != Process.Start(new ProcessStartInfo
-            {
-                WorkingDirectory = Environment.CurrentDirectory,
-                FileName = Application.ExecutablePath,
-                Verb = "runas",
-                UseShellExecute = true
-            }))
-            {
-                Application.Exit();
-            }
-
-        }
-        catch { };
 
     }
 
@@ -503,6 +512,15 @@ public partial class ConfigurationForm : Form
         m_CurrentConfiguration.ExternalViewerArguments = argumentsTextBox.Text;
         m_CurrentConfiguration.ExternalFunctionHelpURL = searchOnlineTextBox.Text;
         m_CurrentConfiguration.CoreServerAppLocation = serverAppLocationTextBox.Text;
+
+        if (m_CurrentConfiguration.UseApiSetSchemaFile)
+        {
+            m_CurrentConfiguration.ApiSetSchemaFile = apisetTextBox.Text;
+        }
+        else
+        {
+            m_CurrentConfiguration.ApiSetSchemaFile = string.Empty;
+        }
 
         SetSearchOrderList(TVSearchOrder,
             m_CurrentConfiguration.SearchOrderListUM,
@@ -839,6 +857,38 @@ public partial class ConfigurationForm : Form
 
             m_CoreClient.ConnectClient();
             ShowServerStatusAndSetControls();
+        }
+    }
+
+    private void ButtonElevate_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            if (null != Process.Start(new ProcessStartInfo
+            {
+                WorkingDirectory = Environment.CurrentDirectory,
+                FileName = $"\"Application.ExecutablePath\"",
+                Verb = "runas",
+                UseShellExecute = true
+            }))
+            {
+                Application.Exit();
+            }
+
+        }
+        catch { };
+    }
+
+    private void buttonApiSetBrowse_Click(object sender, EventArgs e)
+    {
+        browseFileDialog.Filter = Properties.Resources.ResourceManager.GetString("DllFilesFilter");
+        if (browseFileDialog.ShowDialog() == DialogResult.OK)
+        {
+            apisetTextBox.Text = browseFileDialog.FileName;
+            m_CurrentConfiguration.ApiSetSchemaFile = browseFileDialog.FileName;
+            
+            m_CoreClient?.SetApiSetSchemaNamespaceUse(m_CurrentConfiguration.ApiSetSchemaFile);
+            ShowApiSetNamespaceInformation();
         }
     }
 }

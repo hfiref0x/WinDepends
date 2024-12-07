@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Dec 07, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -23,7 +23,7 @@
 // Windows Dependencies Exchange Protocol/1.0
 //
 #define WDEP_STATUS_OK  L"WDEP/1.0 200 OK\r\n"
-#define WDEP_STATUS_208 L"WDEP/1.0 208 Already resolved\r\n"
+#define WDEP_STATUS_208 L"WDEP/1.0 208 Unknown data format\r\n"
 #define WDEP_STATUS_400 L"WDEP/1.0 400 Invalid parameters received\r\n"
 #define WDEP_STATUS_403 L"WDEP/1.0 403 Can not read file headers\r\n"
 #define WDEP_STATUS_404 L"WDEP/1.0 404 File not found or can not be accessed\r\n"

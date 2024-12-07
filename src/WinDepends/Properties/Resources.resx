@@ -268,4 +268,7 @@
   <data name="Refresh" xml:space="preserve">
     <value>Refresh all module information for the active module session</value>
   </data>
+  <data name="DllFilesFilter" xml:space="preserve">
+    <value>Dll Files|*.dll</value>
+  </data>
 </root>

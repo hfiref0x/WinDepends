@@ -156,7 +156,7 @@ public partial class MainForm : Form
                 CPathResolver.KnownDllsPath32 = path32;
             }
 
-            m_CoreClient.SetApiSetSchemaNamespaceUse(m_Configuration.UseApiSetSchema);
+            m_CoreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
         }
 
         LVExports.VirtualMode = true;
@@ -274,7 +274,7 @@ public partial class MainForm : Form
                     {
                         stats = m_CoreClient.GetCoreCallStats();
                     }
-                    
+
                     m_CoreClient.CloseModule();
 
 
@@ -1201,7 +1201,7 @@ public partial class MainForm : Form
         var bUndecoratedPrev = m_Configuration.ViewUndecorated;
         var bResolveAPISetsPrev = m_Configuration.ResolveAPIsets;
         var bHighlightAPISetsPrev = m_Configuration.HighlightApiSet;
-        var bUseApiSetSchemaPrev = m_Configuration.UseApiSetSchema;
+        var bUseApiSetSchemaFilePrev = m_Configuration.UseApiSetSchemaFile;
 
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
@@ -1241,9 +1241,9 @@ public partial class MainForm : Form
                     UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 }
 
-                if (m_Configuration.UseApiSetSchema != bUseApiSetSchemaPrev)
+                if (m_Configuration.UseApiSetSchemaFile != bUseApiSetSchemaFilePrev)
                 {
-                    m_CoreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.UseApiSetSchema);
+                    m_CoreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
                 }
 
             }

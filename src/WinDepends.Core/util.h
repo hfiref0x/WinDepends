@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Dec 02, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -55,6 +55,7 @@ typedef struct _SUP_CONTEXT {
     pfnNtQuerySymbolicLinkObject NtQuerySymbolicLinkObject;
     pfnRtlInitUnicodeString RtlInitUnicodeString;
     pfnRtlCompareUnicodeStrings RtlCompareUnicodeStrings;
+    pfnRtlCompareUnicodeString RtlCompareUnicodeString;
     pfnRtlImageNtHeader RtlImageNtHeader;
     pfnNtClose NtClose;
 
@@ -112,14 +113,14 @@ int sendstring_plaintext_no_track(
     _In_ const wchar_t* Buffer
 );
 
-BOOL name_is_apiset(
-    _In_ LPCWSTR set_name
+PVOID load_apiset_namespace(
+    _In_ LPCWSTR apiset_schema_dll
 );
 
-LPWSTR resolve_apiset_name(
-    _In_ LPCWSTR name_to_resolve,
-    _In_opt_ LPCWSTR parent_library_name,
-    _Out_ SIZE_T* name_length
+_Success_(return != NULL) LPWSTR resolve_apiset_name(
+    _In_ LPCWSTR apiset_name,
+    _In_opt_ LPCWSTR parent_name,
+    _Out_ SIZE_T * name_length
 );
 
 unsigned long strtoul_w(wchar_t* s);
@@ -135,8 +136,6 @@ DWORD calc_mapped_file_chksum(
 LPVOID get_manifest(
     _In_ HMODULE module
 );
-
-void base64encode(char* s, char* b64);
 
 _Success_(return) BOOL get_params_token(
     _In_ LPCWSTR params,

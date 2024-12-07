@@ -789,8 +789,10 @@ BOOL get_imports(
                 if (img64)
                     process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64, 0)
                 else
+#pragma warning(push)
+#pragma warning(disable: 28182) // No.
                     process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32, 0);
-
+#pragma warning(pop)
                 mlist_add(&msg_lh, L"]}");
             }
             status = TRUE;           

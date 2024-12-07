@@ -88,7 +88,7 @@ namespace WinDepends.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Thu 11/28/2024 16:13:37.40 
+        ///   Looks up a localized string similar to Fri 12/06/2024  7:19:19.11 
         ///.
         /// </summary>
         internal static string BuildDate {
@@ -184,6 +184,15 @@ namespace WinDepends.Properties {
         internal static string Copy_Text {
             get {
                 return ResourceManager.GetString("Copy Text", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dll Files|*.dll.
+        /// </summary>
+        internal static string DllFilesFilter {
+            get {
+                return ResourceManager.GetString("DllFilesFilter", resourceCulture);
             }
         }
         

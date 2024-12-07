@@ -224,6 +224,22 @@ void main()
                 }*/
 
 
+            sendstring_plaintext(g_appsocket, L"apisetmapsrc\r\n");
+            if (is_successful_request())
+            {
+                sendstring_plaintext(g_appsocket, L"apisetresolve api-ms-win-core-psapi-l1-1-0.dll\r\n");
+                if (is_successful_request())
+                {
+                    print_received_data();
+                }
+            }
+
+            sendstring_plaintext(g_appsocket, L"apisetnsinfo\r\n");
+            if (is_successful_request())
+            {
+                print_received_data();
+            }
+
             sendstring_plaintext(g_appsocket, L"headers\r\n");
             if (is_successful_request())
             {

@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Dec 07, 2024
 *
 *      Project: WinDepends.Core
 *
@@ -27,6 +27,7 @@ typedef enum {
     ce_knowndlls,
     ce_apisetresolve,
     ce_apisetmapsrc,
+    ce_apisetnsinfo,
     ce_callstats,
     ce_servstats,
     ce_unknown = 0xffff
@@ -41,6 +42,10 @@ void cmd_query_knowndlls_list(
 );
 
 void cmd_unknown_command(
+    _In_ SOCKET s
+);
+
+void cmd_apisetnamespace_info(
     _In_ SOCKET s
 );
 

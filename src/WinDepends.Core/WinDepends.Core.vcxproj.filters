@@ -33,6 +33,9 @@
     <ClCompile Include="mlist.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="apiset.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pe32plus.h">

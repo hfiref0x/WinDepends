@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Nov 2024
+*  DATE:        07 Dec 2024
 *  
 *  Core Server reply structures (JSON serialized).
 *
@@ -42,6 +42,27 @@ public class CCoreDataDirectoryRoot
 
     [DataMember(Name = "directories")]
     public List<CCoreDirectoryEntry> Entry { get; set; }
+}
+
+/*
+ *  CCoreApiSetNamespaceInfo.
+ * 
+*/
+
+[DataContract]
+public class CCoreApiSetNamespaceInfo
+{
+    [DataMember(Name = "version")]
+    public uint Version { get; set; }
+    [DataMember(Name = "count")]
+    public uint Count { get; set; }
+}
+
+[DataContract]
+public class CCoreApiSetNamespaceInfoRoot
+{
+    [DataMember(Name = "apisetns")]
+    public CCoreApiSetNamespaceInfo Namespace { get; set; }
 }
 
 /*

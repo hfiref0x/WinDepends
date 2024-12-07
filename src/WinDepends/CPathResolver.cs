@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Nov 2024
+*  DATE:        07 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -294,7 +294,7 @@ public static class CPathResolver
             _ => false,
         };
 
-        // KM module resolving (special case), fixme.
+        // KM module resolving.
         if (needRedirection == false && module.IsKernelModule)
         {
             foreach (var entry in searchOrderKM)

@@ -10,6 +10,9 @@
     <Compile Update="ConfigurationForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="FileOpenForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="FindDialogForm.cs">
       <SubType>Form</SubType>
     </Compile>

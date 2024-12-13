@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Dec 2024
+*  DATE:        13 Dec 2024
 *  
 *  Codename:    VasilEk
 *
@@ -198,13 +198,15 @@ public partial class MainForm : Form
     /// Insert module entry to treelist.
     /// </summary>
     /// <returns></returns>
-    private TreeNode AddModuleEntry(CModule module, TreeNode parentNode = null)
+    private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
     {
         CModule parentModule;
+        bool currentModuleIsRoot = (parentNode == null);
+
         //
         // Respect tree depth settings.
         //
-        if (parentNode != null)
+        if (!currentModuleIsRoot)
         {
             parentModule = (CModule)parentNode.Tag;
             if (parentModule.Depth >= m_Configuration.ModuleNodeDepthMax)
@@ -248,19 +250,45 @@ public partial class MainForm : Form
         //
         if (origInstance == null)
         {
-            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module, m_Configuration);
+            bool useReloc = false;
+            bool useStats = false;
+            uint minAppAddress = 0;
+
+            //
+            // If this is not a root node.
+            //
+            if (!currentModuleIsRoot)
+            {
+                if (fileOpenSettings.PropagateSettingsOnDependencies)
+                {
+                    useReloc = fileOpenSettings.UseRelocForImages;
+                    minAppAddress = fileOpenSettings.MinAppAddress;
+                    useStats = fileOpenSettings.UseStats;
+                }
+            }
+            else
+            {
+                useReloc = fileOpenSettings.UseRelocForImages;
+                minAppAddress = fileOpenSettings.MinAppAddress;
+                useStats = fileOpenSettings.UseStats;
+            }
+
+            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module, useStats, useReloc, minAppAddress);
 
             switch (openStatus)
             {
                 case ModuleOpenStatus.Okay:
+
                     module.IsProcessed = m_CoreClient.GetModuleHeadersInformation(module);
                     if (!module.IsProcessed)
                     {
                         LogEvent(module.FileName, LogEventType.ModuleProcessingError);
                     }
 
+                    //
                     // If this is root module, setup resolver.
-                    if (parentNode == null)
+                    //
+                    if (currentModuleIsRoot)
                     {
                         CPathResolver.QueryFileInformation(module);
                     }
@@ -270,14 +298,16 @@ public partial class MainForm : Form
                         m_Configuration.SearchOrderListKM);
 
                     CCoreCallStats stats = null;
-                    if (m_Configuration.UseStats)
+                    if (useStats)
                     {
                         stats = m_CoreClient.GetCoreCallStats();
                     }
 
                     m_CoreClient.CloseModule();
 
-
+                    //
+                    // Display statistics.
+                    //
                     if (m_Configuration.UseStats && stats != null)
                     {
                         string sizeText;
@@ -361,7 +391,7 @@ public partial class MainForm : Form
         tvNode.ImageIndex = module.ModuleImageIndex;
         tvNode.SelectedImageIndex = module.ModuleImageIndex;
 
-        if (parentNode != null)
+        if (!currentModuleIsRoot)
         {
             parentModule = (CModule)parentNode.Tag;
             module.Depth = parentModule.Depth + 1;
@@ -993,12 +1023,38 @@ public partial class MainForm : Form
             };
 
             CPathResolver.Initialized = false;
-            using (CActCtxHelper sxsHelper = new(fileName))
+
+            if (m_Depends.RootModule != null)
             {
-                if (m_Depends.RootModule != null)
+                CFileOpenSettings fileOpenSettings = new(m_Configuration);
+
+                if (!fileOpenSettings.AnalysisSettingsUseAsDefault)
+                {
+                    using (FileOpenForm fileOpenForm = new(m_Configuration.EscKeyEnabled, fileOpenSettings))
+                    {
+                        //
+                        // Update global settings if use as default is checked.
+                        //
+                        if (fileOpenForm.ShowDialog() == DialogResult.OK)
+                        {
+                            m_Configuration.UseStats = fileOpenSettings.UseStats;
+                            m_Configuration.UseRelocForImages = fileOpenSettings.UseRelocForImages;
+                            m_Configuration.MinAppAddress = fileOpenSettings.MinAppAddress;
+                            m_Configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
+                            m_Configuration.AnalysisSettingsUseAsDefault = fileOpenSettings.AnalysisSettingsUseAsDefault;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                }
+
+                using (CActCtxHelper sxsHelper = new(fileName))
                 {
                     CPathResolver.ActCtxHelper = sxsHelper;
-                    PopulateObjectToLists(m_Depends.RootModule, false);
+
+                    PopulateObjectToLists(m_Depends.RootModule, false, fileOpenSettings);
 
                     LVModules.BeginUpdate();
 
@@ -1008,8 +1064,9 @@ public partial class MainForm : Form
                     LVModules.EndUpdate();
 
                     bResult = true;
-                }
+                }//CActCtxHelper
             }
+
         }
 
         if (bResult)
@@ -1048,12 +1105,17 @@ public partial class MainForm : Form
             mainMenu.Enabled = false;
             MainToolBar.Enabled = false;
             bResult = OpenInputFileInternal(fileName);
+            string logEvent = bResult ? $"Populating \"{fileName}\" has been completed" : $"There is an error while populating \"{fileName}\"";
+            UpdateOperationStatus(logEvent);
+        }
+        catch
+        {
+            UpdateOperationStatus($"There is an exception error while populating \"{fileName}\"");
         }
         finally
         {
             mainMenu.Enabled = true;
             MainToolBar.Enabled = true;
-            UpdateOperationStatus(string.Empty);
         }
 
         return bResult;
@@ -1076,7 +1138,7 @@ public partial class MainForm : Form
 
         if (m_Depends.RootModule != null)
         {
-            PopulateObjectToLists(m_Depends.RootModule, true);
+            PopulateObjectToLists(m_Depends.RootModule, true, null);
 
             // Restore important module related warnings/errors in the log.
             foreach (var entry in m_Depends.ModuleAnalysisLog)
@@ -1095,7 +1157,7 @@ public partial class MainForm : Form
         return true;
     }
 
-    private void PopulateObjectToLists(CModule module, bool loadFromObject)
+    private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
         List<TreeNode> baseNodes = [];
 
@@ -1116,13 +1178,13 @@ public partial class MainForm : Form
         else
         {
             // Add root module.
-            m_RootNode = AddModuleEntry(module, null);
+            m_RootNode = AddModuleEntry(module, fileOpenSettings, null);
 
             // Add root module dependencies.
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddModuleEntry(importModule, m_RootNode));
+                baseNodes.Add(AddModuleEntry(importModule, fileOpenSettings, m_RootNode));
             }
         }
 
@@ -1134,13 +1196,13 @@ public partial class MainForm : Form
             foreach (var dependent in nodeModule.Dependents)
             {
                 UpdateOperationStatus($"Populating {dependent.FileName}");
-                PopulateDependentObjectsToLists(dependent, node, loadFromObject);
+                PopulateDependentObjectsToLists(dependent, node, loadFromObject, fileOpenSettings);
             }
         }
 
     }
 
-    private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject)
+    private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
         TreeNode tvNode;
 
@@ -1150,13 +1212,13 @@ public partial class MainForm : Form
         }
         else
         {
-            tvNode = AddModuleEntry(module, parentNode);
+            tvNode = AddModuleEntry(module, fileOpenSettings, parentNode);
         }
 
         foreach (CModule dependentModule in module.Dependents)
         {
             UpdateOperationStatus($"Populating {dependentModule.FileName}");
-            PopulateDependentObjectsToLists(dependentModule, tvNode, loadFromObject);
+            PopulateDependentObjectsToLists(dependentModule, tvNode, loadFromObject, fileOpenSettings);
         }
     }
 

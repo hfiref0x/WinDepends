@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 Nov 2024
+*  DATE:        13 Dec 2024
 *  
 *  Core Server communication class.
 *
@@ -346,20 +346,20 @@ public class CCoreClient : IDisposable
     /// Open Coff module and read for futher operations.
     /// </summary>
     /// <param name="module"></param>
-    /// <param name="configuration"></param>
+    /// <param name="fileOpenSettings"></param>
     /// <returns></returns>
-    public ModuleOpenStatus OpenModule(ref CModule module, CConfiguration configuration)
+    public ModuleOpenStatus OpenModule(ref CModule module, bool useStats, bool useReloc, uint minAppAddress)
     {
         string cmd = $"open file \"{module.FileName}\"";
 
-        if (configuration.UseStats)
+        if (useStats)
         {
             cmd += " use_stats";
         }
 
-        if (configuration.UseRelocForImages)
+        if (useReloc)
         {
-            cmd += $" reloc {configuration.MinAppAddress.ToString()}";
+            cmd += $" reloc {minAppAddress.ToString()}";
         }
 
         cmd += "\r\n";

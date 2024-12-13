@@ -28,16 +28,16 @@
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode11 = new TreeNode("History");
-            TreeNode treeNode12 = new TreeNode("Main", new TreeNode[] { treeNode11 });
-            TreeNode treeNode13 = new TreeNode("ApiSet");
-            TreeNode treeNode14 = new TreeNode("External Module Viewer");
-            TreeNode treeNode15 = new TreeNode("External Function Help");
-            TreeNode treeNode16 = new TreeNode("Module Search Order");
-            TreeNode treeNode17 = new TreeNode("Module Search Order (drivers)");
-            TreeNode treeNode18 = new TreeNode("Analysis (global)");
-            TreeNode treeNode19 = new TreeNode("Server");
-            TreeNode treeNode20 = new TreeNode("Shell Integration");
+            TreeNode treeNode1 = new TreeNode("History");
+            TreeNode treeNode2 = new TreeNode("Main", new TreeNode[] { treeNode1 });
+            TreeNode treeNode3 = new TreeNode("ApiSet");
+            TreeNode treeNode4 = new TreeNode("External Module Viewer");
+            TreeNode treeNode5 = new TreeNode("External Function Help");
+            TreeNode treeNode6 = new TreeNode("Module Search Order");
+            TreeNode treeNode7 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode8 = new TreeNode("Analysis (global)");
+            TreeNode treeNode9 = new TreeNode("Server");
+            TreeNode treeNode10 = new TreeNode("Shell Integration");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
@@ -98,6 +98,9 @@
             MoveUpButton = new Button();
             MoveDownButton = new Button();
             tabApiSetContracts = new TabPage();
+            groupBox15 = new GroupBox();
+            labelApiSetCount = new Label();
+            labelApiSetVersion = new Label();
             groupBox10 = new GroupBox();
             chBoxHighlightApiSet = new CheckBox();
             groupBox9 = new GroupBox();
@@ -144,9 +147,6 @@
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
             folderBrowserDialog = new FolderBrowserDialog();
-            groupBox15 = new GroupBox();
-            labelApiSetCount = new Label();
-            labelApiSetVersion = new Label();
             ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
             splitContainer2.Panel1.SuspendLayout();
             splitContainer2.Panel2.SuspendLayout();
@@ -172,6 +172,7 @@
             groupBox5.SuspendLayout();
             tabSearchOrder.SuspendLayout();
             tabApiSetContracts.SuspendLayout();
+            groupBox15.SuspendLayout();
             groupBox10.SuspendLayout();
             groupBox9.SuspendLayout();
             tabAnalysis.SuspendLayout();
@@ -182,7 +183,6 @@
             tabServer.SuspendLayout();
             groupBox7.SuspendLayout();
             groupBox12.SuspendLayout();
-            groupBox15.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainer2
@@ -229,37 +229,37 @@
             TVSettings.HideSelection = false;
             TVSettings.Location = new Point(0, 0);
             TVSettings.Name = "TVSettings";
-            treeNode11.Name = "HistoryNode";
-            treeNode11.Tag = "11";
-            treeNode11.Text = "History";
-            treeNode12.Name = "MainWindowNode";
-            treeNode12.Tag = "10";
-            treeNode12.Text = "Main";
-            treeNode13.Name = "ApiSetNode";
-            treeNode13.Tag = "60";
-            treeNode13.Text = "ApiSet";
-            treeNode14.Name = "ExternalModuleViewerNode";
-            treeNode14.Tag = "30";
-            treeNode14.Text = "External Module Viewer";
-            treeNode15.Name = "xternalFunctionHelpNode";
-            treeNode15.Tag = "40";
-            treeNode15.Text = "External Function Help";
-            treeNode16.Name = "SearchOrderNode";
-            treeNode16.Tag = "50";
-            treeNode16.Text = "Module Search Order";
-            treeNode17.Name = "SearchOrderDriverNode";
-            treeNode17.Tag = "90";
-            treeNode17.Text = "Module Search Order (drivers)";
-            treeNode18.Name = "AnalysisNode";
-            treeNode18.Tag = "70";
-            treeNode18.Text = "Analysis (global)";
-            treeNode19.Name = "ServerNode";
-            treeNode19.Tag = "80";
-            treeNode19.Text = "Server";
-            treeNode20.Name = "ShellIntegrationNode";
-            treeNode20.Tag = "20";
-            treeNode20.Text = "Shell Integration";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode12, treeNode13, treeNode14, treeNode15, treeNode16, treeNode17, treeNode18, treeNode19, treeNode20 });
+            treeNode1.Name = "HistoryNode";
+            treeNode1.Tag = "11";
+            treeNode1.Text = "History";
+            treeNode2.Name = "MainWindowNode";
+            treeNode2.Tag = "10";
+            treeNode2.Text = "Main";
+            treeNode3.Name = "ApiSetNode";
+            treeNode3.Tag = "60";
+            treeNode3.Text = "ApiSet";
+            treeNode4.Name = "ExternalModuleViewerNode";
+            treeNode4.Tag = "30";
+            treeNode4.Text = "External Module Viewer";
+            treeNode5.Name = "xternalFunctionHelpNode";
+            treeNode5.Tag = "40";
+            treeNode5.Text = "External Function Help";
+            treeNode6.Name = "SearchOrderNode";
+            treeNode6.Tag = "50";
+            treeNode6.Text = "Module Search Order";
+            treeNode7.Name = "SearchOrderDriverNode";
+            treeNode7.Tag = "90";
+            treeNode7.Text = "Module Search Order (drivers)";
+            treeNode8.Name = "AnalysisNode";
+            treeNode8.Tag = "70";
+            treeNode8.Text = "Analysis (global)";
+            treeNode9.Name = "ServerNode";
+            treeNode9.Tag = "80";
+            treeNode9.Text = "Server";
+            treeNode10.Name = "ShellIntegrationNode";
+            treeNode10.Tag = "20";
+            treeNode10.Text = "Shell Integration";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8, treeNode9, treeNode10 });
             TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
@@ -387,11 +387,11 @@
             // label10
             // 
             label10.AutoSize = true;
-            label10.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            label10.ForeColor = Color.Red;
+            label10.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            label10.ForeColor = Color.Black;
             label10.Location = new Point(19, 146);
             label10.Name = "label10";
-            label10.Size = new Size(57, 15);
+            label10.Size = new Size(55, 15);
             label10.TabIndex = 16;
             label10.Text = "Warning:";
             // 
@@ -876,6 +876,35 @@
             tabApiSetContracts.Tag = "60";
             tabApiSetContracts.UseVisualStyleBackColor = true;
             // 
+            // groupBox15
+            // 
+            groupBox15.Controls.Add(labelApiSetCount);
+            groupBox15.Controls.Add(labelApiSetVersion);
+            groupBox15.Location = new Point(9, 190);
+            groupBox15.Name = "groupBox15";
+            groupBox15.Size = new Size(465, 100);
+            groupBox15.TabIndex = 7;
+            groupBox15.TabStop = false;
+            groupBox15.Text = "Current Namespace Information";
+            // 
+            // labelApiSetCount
+            // 
+            labelApiSetCount.AutoSize = true;
+            labelApiSetCount.Location = new Point(19, 62);
+            labelApiSetCount.Name = "labelApiSetCount";
+            labelApiSetCount.Size = new Size(43, 15);
+            labelApiSetCount.TabIndex = 11;
+            labelApiSetCount.Text = "Count:";
+            // 
+            // labelApiSetVersion
+            // 
+            labelApiSetVersion.AutoSize = true;
+            labelApiSetVersion.Location = new Point(19, 34);
+            labelApiSetVersion.Name = "labelApiSetVersion";
+            labelApiSetVersion.Size = new Size(48, 15);
+            labelApiSetVersion.TabIndex = 10;
+            labelApiSetVersion.Text = "Version:";
+            // 
             // groupBox10
             // 
             groupBox10.Controls.Add(chBoxHighlightApiSet);
@@ -961,7 +990,7 @@
             groupBox14.Size = new Size(468, 100);
             groupBox14.TabIndex = 10;
             groupBox14.TabStop = false;
-            groupBox14.Text = "Analysis Settings";
+            groupBox14.Text = "Analysis";
             // 
             // chBoxPropagateSettings
             // 
@@ -985,6 +1014,7 @@
             chBoxAnalysisDefaultEnabled.Tag = "602";
             chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
             chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
+            chBoxAnalysisDefaultEnabled.Click += ChBox_Click;
             // 
             // groupBox13
             // 
@@ -1020,7 +1050,7 @@
             groupBox11.Size = new Size(471, 193);
             groupBox11.TabIndex = 7;
             groupBox11.TabStop = false;
-            groupBox11.Text = "Loader Settings";
+            groupBox11.Text = "Loader";
             // 
             // labelAllocGran
             // 
@@ -1350,35 +1380,6 @@
             folderBrowserDialog.AddToRecent = false;
             folderBrowserDialog.ShowHiddenFiles = true;
             // 
-            // groupBox15
-            // 
-            groupBox15.Controls.Add(labelApiSetCount);
-            groupBox15.Controls.Add(labelApiSetVersion);
-            groupBox15.Location = new Point(9, 190);
-            groupBox15.Name = "groupBox15";
-            groupBox15.Size = new Size(465, 100);
-            groupBox15.TabIndex = 7;
-            groupBox15.TabStop = false;
-            groupBox15.Text = "Current Namespace Information";
-            // 
-            // labelApiSetCount
-            // 
-            labelApiSetCount.AutoSize = true;
-            labelApiSetCount.Location = new Point(19, 62);
-            labelApiSetCount.Name = "labelApiSetCount";
-            labelApiSetCount.Size = new Size(43, 15);
-            labelApiSetCount.TabIndex = 11;
-            labelApiSetCount.Text = "Count:";
-            // 
-            // labelApiSetVersion
-            // 
-            labelApiSetVersion.AutoSize = true;
-            labelApiSetVersion.Location = new Point(19, 34);
-            labelApiSetVersion.Name = "labelApiSetVersion";
-            labelApiSetVersion.Size = new Size(48, 15);
-            labelApiSetVersion.TabIndex = 10;
-            labelApiSetVersion.Text = "Version:";
-            // 
             // ConfigurationForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -1432,6 +1433,8 @@
             groupBox5.PerformLayout();
             tabSearchOrder.ResumeLayout(false);
             tabApiSetContracts.ResumeLayout(false);
+            groupBox15.ResumeLayout(false);
+            groupBox15.PerformLayout();
             groupBox10.ResumeLayout(false);
             groupBox10.PerformLayout();
             groupBox9.ResumeLayout(false);
@@ -1449,8 +1452,6 @@
             groupBox7.PerformLayout();
             groupBox12.ResumeLayout(false);
             groupBox12.PerformLayout();
-            groupBox15.ResumeLayout(false);
-            groupBox15.PerformLayout();
             ResumeLayout(false);
         }
 

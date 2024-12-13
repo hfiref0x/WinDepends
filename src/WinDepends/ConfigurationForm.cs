@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Dec 2024
+*  DATE:        13 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -14,7 +14,6 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
-using System.Configuration;
 using System.Diagnostics;
 
 namespace WinDepends;
@@ -305,6 +304,7 @@ public partial class ConfigurationForm : Form
         cbMinAppAddress.Enabled = m_CurrentConfiguration.UseRelocForImages;
         chBoxUseStats.Checked = m_CurrentConfiguration.UseStats;
         chBoxAnalysisDefaultEnabled.Checked = m_CurrentConfiguration.AnalysisSettingsUseAsDefault;
+        chBoxPropagateSettings.Checked = m_CurrentConfiguration.PropagateSettingsOnDependencies;
 
         commandTextBox.Text = m_CurrentConfiguration.ExternalViewerCommand;
         argumentsTextBox.Text = m_CurrentConfiguration.ExternalViewerArguments;
@@ -461,11 +461,6 @@ public partial class ConfigurationForm : Form
         }
     }
 
-    private void ButtonEleavate_Click(object sender, EventArgs e)
-    {
-
-    }
-
     private static void SetSearchOrderList(TreeView view,
                                     List<SearchOrderType> soElements,
                                     List<string> soDirs,
@@ -534,23 +529,8 @@ public partial class ConfigurationForm : Form
 
         if (m_CurrentConfiguration.UseRelocForImages && cbMinAppAddress.SelectedItem != null)
         {
-            uint selectedValue = ParseMinAppAddressValue(cbMinAppAddress.SelectedItem.ToString());
+            uint selectedValue = CUtils.ParseMinAppAddressValue(cbMinAppAddress.SelectedItem.ToString());
             m_CurrentConfiguration.MinAppAddress = selectedValue;
-        }
-    }
-
-    private static UInt32 ParseMinAppAddressValue(string value)
-    {
-        try
-        {
-            string selectedHex = value.Substring(2); //remove prefix
-            uint selectedValue = uint.Parse(selectedHex, System.Globalization.NumberStyles.HexNumber);
-            selectedValue &= ~(CUtils.AllocationGranularity - 1);
-            return selectedValue;
-        }
-        catch
-        {
-            return CConsts.DefaultAppStartAddress;
         }
     }
 
@@ -790,7 +770,7 @@ public partial class ConfigurationForm : Form
         {
             if (!string.IsNullOrEmpty(cbMinAppAddress.Text))
             {
-                var selectedValue = ParseMinAppAddressValue(cbMinAppAddress.Text);
+                var selectedValue = CUtils.ParseMinAppAddressValue(cbMinAppAddress.Text);
                 var stringValue = $"0x{selectedValue:X}";
 
                 for (int i = 0; i < cbMinAppAddress.Items.Count; i++)
@@ -886,7 +866,7 @@ public partial class ConfigurationForm : Form
         {
             apisetTextBox.Text = browseFileDialog.FileName;
             m_CurrentConfiguration.ApiSetSchemaFile = browseFileDialog.FileName;
-            
+
             m_CoreClient?.SetApiSetSchemaNamespaceUse(m_CurrentConfiguration.ApiSetSchemaFile);
             ShowApiSetNamespaceInformation();
         }

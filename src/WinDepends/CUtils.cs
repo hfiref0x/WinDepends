@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        06 Dec 2024
+*  DATE:        13 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -78,13 +78,13 @@ public struct PropertyElement(string name, string value)
     public string Value { get; set; } = value;
 }
 
-public struct AnalysisSettings(bool useReloc, bool useStats, bool setDefault, bool propagateSeetings, uint minAppAddress)
+public class CFileOpenSettings(CConfiguration configuration)
 {
-    public bool UseRelocForImages { get; set; } = useReloc;
-    public bool UseStats { get; set; } = useStats;
-    public bool AnalysisSettingsUseAsDefault { get; set; } = setDefault;
-    public bool PropagateSettingsOnDependencies { get; set; } = propagateSeetings;
-    public uint MinAppAddress { get; set; } = minAppAddress;
+    public bool UseRelocForImages { get; set; } = configuration.UseRelocForImages;
+    public bool UseStats { get; set; } = configuration.UseStats;
+    public bool AnalysisSettingsUseAsDefault { get; set; } = configuration.AnalysisSettingsUseAsDefault;
+    public bool PropagateSettingsOnDependencies { get; set; } = configuration.PropagateSettingsOnDependencies;
+    public uint MinAppAddress { get; set; } = configuration.MinAppAddress;
 }
 
 public record TooltipInfo(Control Control, string AssociatedText);
@@ -666,6 +666,30 @@ public static class CUtils
         {
             Clipboard.Clear();
             Clipboard.SetText(data);
+        }
+    }
+    public static UInt32 ParseMinAppAddressValue(string value)
+    {
+        try
+        {
+            string selectedHex;
+
+            if (value.StartsWith("0x"))
+            {
+                selectedHex = value.Substring(2); //remove prefix
+            }
+            else
+            {
+                selectedHex = value;
+            }
+
+            uint selectedValue = uint.Parse(selectedHex, System.Globalization.NumberStyles.HexNumber);
+            selectedValue &= ~(CUtils.AllocationGranularity - 1);
+            return selectedValue;
+        }
+        catch
+        {
+            return CConsts.DefaultAppStartAddress;
         }
     }
 

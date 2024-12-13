@@ -46,6 +46,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="CSymbolResolver.cs" />
     <Compile Remove="CTests.cs" />
   </ItemGroup>
 

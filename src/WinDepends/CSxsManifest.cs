@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Oct 2024
+*  DATE:        13 Dec 2024
 *  
 *  Implementation of basic sxs manifest parser class.
 *
@@ -75,7 +75,7 @@ public class CSxsEntries : List<CSxsEntry>
     }
 }
 
-public class CSxsManifest
+internal class CSxsManifest
 {
     public static CSxsEntries QueryInformationFromManifestFile(string fileName, string directoryName, out bool bAutoElevate)
     {
@@ -144,7 +144,7 @@ public class CSxsManifest
                                    .Replace("SXS_ASSEMBLY_NAME", "\"\"", StringComparison.OrdinalIgnoreCase);
 
             // Remove blank lines.
-            manifestText = string.Join(Environment.NewLine, manifestText.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+            manifestText = string.Join(Environment.NewLine, manifestText.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries));
 
             try
             {

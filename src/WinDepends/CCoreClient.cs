@@ -56,9 +56,11 @@ public enum ModuleOpenStatus
 
 public class CBufferChain
 {
-    public CBufferChain Next;
+    private CBufferChain next;
     public uint DataSize;
     public char[] Data;
+
+    public CBufferChain Next { get => next; set => next = value; }
 
     public CBufferChain()
     {
@@ -134,6 +136,7 @@ public class CCoreClient : IDisposable
         if (disposing)
         {
             DisconnectClient();
+            ClientConnection?.Dispose();
             ServerProcess?.Dispose();
         }
 
@@ -159,7 +162,9 @@ public class CCoreClient : IDisposable
         }
 
         string response = new(idata.Data);
+#pragma warning disable CA1309 // Use ordinal string comparison
         return string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.InvariantCulture);
+#pragma warning restore CA1309 // Use ordinal string comparison
     }
 
     public static bool IsModuleNameApiSetContract(string moduleName)
@@ -359,7 +364,7 @@ public class CCoreClient : IDisposable
 
         if (useReloc)
         {
-            cmd += $" reloc {minAppAddress.ToString()}";
+            cmd += $" reloc {minAppAddress}";
         }
 
         cmd += "\r\n";
@@ -523,6 +528,11 @@ public class CCoreClient : IDisposable
 
     public bool GetModuleHeadersInformation(CModule module)
     {
+        if (module == null)
+        {
+            return false;
+        }
+
         var dataObject = (CCoreStructsRoot)GetModuleInformationByType(ModuleInformationType.Headers);
         if (dataObject == null)
         {

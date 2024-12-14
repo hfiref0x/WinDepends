@@ -661,7 +661,7 @@ public partial class ConfigurationForm : Form
 
         if (node.Parent != null) node = node.Parent;
 
-        if (view != null && view.Nodes.Contains(node))
+        if (view.Nodes.Contains(node))
         {
             int index = view.Nodes.IndexOf(node);
             if (index < view.Nodes.Count - 1)

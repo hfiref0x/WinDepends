@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Nov 2024
+*  DATE:        13 Dec 2024
 *  
 *  Activation context path resolution helper.
 *
@@ -26,9 +26,6 @@ public class CActCtxHelper : IDisposable
     readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
     public IntPtr ActivationContext { get; set; } = new(-1);
     IntPtr contextCookie;
-#if DEBUG
-    readonly string contextFileName;
-#endif
     #region "P-Invoke"
     [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     static extern IntPtr CreateActCtx(ref ACTCTX actctx);
@@ -91,9 +88,6 @@ public class CActCtxHelper : IDisposable
             lpAssemblyDirectory = Path.GetDirectoryName(fileName),
             lpResourceName = resourceId
         };
-#if DEBUG
-        contextFileName = fileName;
-#endif
         ActivationContext = CreateActCtx(ref requestedActivationContext);
     }
 

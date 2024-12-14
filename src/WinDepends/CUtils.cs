@@ -89,7 +89,7 @@ public class CFileOpenSettings(CConfiguration configuration)
 
 public record TooltipInfo(Control Control, string AssociatedText);
 
-public static class RichTextBoxExtensions
+internal static class RichTextBoxExtensions
 {
     /// <summary>
     /// Append text with colored selection.

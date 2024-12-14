@@ -12,8 +12,8 @@
     <StartupObject>WinDepends.Program</StartupObject>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
-    <Copyright>(C) 2024 UG North</Copyright>
-    <Title>Windows Dependency Walker</Title>
+    <Copyright>(C) 2024, 2025 UG North</Copyright>
+    <Title>Windows Dependencies</Title>
     <Company>UG North</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <FileVersion>1.0.0.2412</FileVersion>

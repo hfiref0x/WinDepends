@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        24 Sep 2024
+*  DATE:        13 Dec 2024
 *
 *  Win32 API P/Invoke.
 *
@@ -162,7 +162,7 @@ static partial class NativeMethods
         public ulong ullAvailExtendedVirtual;
         public MEMORYSTATUSEX()
         {
-            dwLength = (uint)Marshal.SizeOf(typeof(NativeMethods.MEMORYSTATUSEX));
+            dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>();
         }
 
     }
@@ -339,7 +339,7 @@ static partial class NativeMethods
         {
             SHELLEXECUTEINFO info = new()
             {
-                cbSize = Convert.ToInt32(Marshal.SizeOf(typeof(SHELLEXECUTEINFO))),
+                cbSize = Convert.ToInt32(Marshal.SizeOf<SHELLEXECUTEINFO>()),
                 lpVerb = "properties",
                 lpFile = fileName,
                 nShow = ShowCommands.SW_SHOW,
@@ -421,7 +421,7 @@ public class ElevatedDragDropManager : IMessageFilter
     {
         NativeMethods.CHANGEFILTERSTRUCT changeStruct = new()
         {
-            cbSize = Convert.ToUInt32(Marshal.SizeOf(typeof(NativeMethods.CHANGEFILTERSTRUCT)))
+            cbSize = Convert.ToUInt32(Marshal.SizeOf<NativeMethods.CHANGEFILTERSTRUCT>())
         };
         NativeMethods.ChangeWindowMessageFilterEx(hWnd, WM_DROPFILES, NativeMethods.ChangeWindowMessageFilterExAction.Allow, ref changeStruct);
         NativeMethods.ChangeWindowMessageFilterEx(hWnd, WM_COPYDATA, NativeMethods.ChangeWindowMessageFilterExAction.Allow, ref changeStruct);

@@ -1143,7 +1143,7 @@ public partial class MainForm : Form
             // Restore important module related warnings/errors in the log.
             foreach (var entry in m_Depends.ModuleAnalysisLog)
             {
-                LogEventFromSession(entry.loggedMessage, entry.color);
+                LogEventFromSession(entry.LoggedMessage, entry.EntryColor);
             }
         }
         else
@@ -3273,17 +3273,17 @@ public partial class MainForm : Form
 
         m_FunctionLookupText += char.ToLower(e.KeyChar);
 
-        var hintLabel = m_FunctionsHintForm.Controls[CConsts.HintFormLabelControl] as Label;
+        if (m_FunctionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
+        {
+            hintLabel.Text = "Search: " + m_FunctionLookupText;
+            hintLabel.Size = hintLabel.PreferredSize;
 
-        hintLabel.Text = "Search: " + m_FunctionLookupText;
-        hintLabel.Size = hintLabel.PreferredSize;
+            Point location = lvDst.PointToScreen(new Point(lvDst.Bounds.Left, lvDst.Bounds.Bottom));
 
-        Point location = new(lvDst.Bounds.Left, lvDst.Bounds.Bottom);
-        location = lvDst.PointToScreen(location);
-
-        m_FunctionsHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
-        m_FunctionsHintForm.Location = new Point(location.X, location.Y);
-        m_FunctionsHintForm.Show();
+            m_FunctionsHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
+            m_FunctionsHintForm.Location = location;
+            m_FunctionsHintForm.Show();
+        }
 
         List<CFunction> currentList = lvDst == LVImports ? m_CurrentImportsList : m_CurrentExportsList;
 
@@ -3308,11 +3308,11 @@ public partial class MainForm : Form
             }
 
             lvDst.EndUpdate();
-
-            await Task.Delay(2000);
-            m_FunctionsHintForm.Hide();
-            m_FunctionLookupText = "";
         }
+
+        await Task.Delay(2000);
+        m_FunctionsHintForm.Hide();
+        m_FunctionLookupText = "";
     }
 
     private async void LVModules_KeyPress(object sender, KeyPressEventArgs e)
@@ -3331,16 +3331,16 @@ public partial class MainForm : Form
 
         m_ModuleLookupText += char.ToLower(e.KeyChar);
 
-        var hintLabel = m_ModulesHintForm.Controls[CConsts.HintFormLabelControl] as Label;
-        hintLabel.Text = "Search: " + m_ModuleLookupText;
-        hintLabel.Size = hintLabel.PreferredSize;
+        if (m_ModulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
+        {
+            hintLabel.Text = "Search: " + m_ModuleLookupText;
+            hintLabel.Size = hintLabel.PreferredSize;
 
-        Point location = new(LVModules.Bounds.Left, LVModules.Bounds.Bottom);
-        location = LVModules.PointToScreen(location);
-
-        m_ModulesHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
-        m_ModulesHintForm.Location = new Point(location.X, location.Y);
-        m_ModulesHintForm.Show();
+            Point location = new(LVModules.Bounds.Left, LVModules.Bounds.Bottom);
+            m_ModulesHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
+            m_ModulesHintForm.Location = LVModules.PointToScreen(location);
+            m_ModulesHintForm.Show();
+        }
 
         CModule matchingModule = m_LoadedModulesList.FirstOrDefault(module =>
         {
@@ -3363,10 +3363,11 @@ public partial class MainForm : Form
 
             LVModules.EndUpdate();
 
-            await Task.Delay(2000);
-            m_ModulesHintForm.Hide();
-            m_ModuleLookupText = "";
         }
+
+        await Task.Delay(2000);
+        m_ModulesHintForm.Hide();
+        m_ModuleLookupText = "";
     }
 
     private void LVFunctions_Leave(object sender, EventArgs e)

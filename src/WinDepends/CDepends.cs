@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Oct 2024
+*  DATE:        13 Dec 2024
 *  
 *  Implementation of base session class.
 *
@@ -19,7 +19,7 @@
 namespace WinDepends;
 
 [Serializable()]
-public record LogEntry(string loggedMessage, Color color);
+public record LogEntry(string LoggedMessage, Color EntryColor);
 
 [Serializable()]
 public class CDepends

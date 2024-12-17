@@ -88,7 +88,7 @@ namespace WinDepends.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Fri 12/06/2024  7:19:19.11 
+        ///   Looks up a localized string similar to Tue 12/17/2024  6:13:32.05 
         ///.
         /// </summary>
         internal static string BuildDate {
@@ -130,6 +130,60 @@ namespace WinDepends.Properties {
         internal static string Configuration {
             get {
                 return ResourceManager.GetString("Configuration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configures how ApiSets contracts will be handled and displayed.
+        /// </summary>
+        internal static string Configure_ApiSets___ {
+            get {
+                return ResourceManager.GetString("Configure ApiSets...", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configures the external module viewer to use the application of your choice.
+        /// </summary>
+        internal static string Configure_External_Module_Viewer___ {
+            get {
+                return ResourceManager.GetString("Configure External Module Viewer...", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configures what file extensions WinDepends handles.
+        /// </summary>
+        internal static string Configure_Handled_File_Extensions___ {
+            get {
+                return ResourceManager.GetString("Configure Handled File Extensions...", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configure or view the search order used when locating dependent modules.
+        /// </summary>
+        internal static string Configure_Module_Search_Order___ {
+            get {
+                return ResourceManager.GetString("Configure Module Search Order...", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configure or view the search order used when locating dependent driver modules.
+        /// </summary>
+        internal static string Configure_Module_Search_Order__drivers____ {
+            get {
+                return ResourceManager.GetString("Configure Module Search Order (drivers)...", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configures debug symbols dlls and store locations.
+        /// </summary>
+        internal static string Configure_Symbols___ {
+            get {
+                return ResourceManager.GetString("Configure Symbols...", resourceCulture);
             }
         }
         
@@ -193,6 +247,15 @@ namespace WinDepends.Properties {
         internal static string DllFilesFilter {
             get {
                 return ResourceManager.GetString("DllFilesFilter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open program documentation.
+        /// </summary>
+        internal static string Documentation {
+            get {
+                return ResourceManager.GetString("Documentation", resourceCulture);
             }
         }
         
@@ -281,9 +344,9 @@ namespace WinDepends.Properties {
         /// <summary>
         ///   Looks up a localized string similar to Highlight the matching item in the related view.
         /// </summary>
-        internal static string Highlight_Module_In_Tree {
+        internal static string Highlight_Matching_Module_In_Tree {
             get {
-                return ResourceManager.GetString("Highlight Module In Tree", resourceCulture);
+                return ResourceManager.GetString("Highlight Matching Module In Tree", resourceCulture);
             }
         }
         

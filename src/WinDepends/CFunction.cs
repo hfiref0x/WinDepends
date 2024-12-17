@@ -126,7 +126,7 @@ public class CFunction
     {
         if (string.IsNullOrEmpty(UndecoratedName))
         {
-            UndecoratedName = NativeMethods.UndecorateFunctionName(RawName);
+            UndecoratedName = CSymbolResolver.UndecorateFunctionName(RawName);
         }
 
         return UndecoratedName;

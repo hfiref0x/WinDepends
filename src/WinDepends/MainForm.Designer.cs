@@ -130,7 +130,16 @@
             MenuClearLogItem = new ToolStripMenuItem();
             OptionsMenuItem = new ToolStripMenuItem();
             mainMenuConfigurationItem = new ToolStripMenuItem();
+            toolStripMenuItem19 = new ToolStripSeparator();
+            mainMenuConfigureModuleSearchOrderItem = new ToolStripMenuItem();
+            mainMenuConfigureModuleSearchOrderDriversItem = new ToolStripMenuItem();
+            mainMenuConfigureExternalModuleViewerItem = new ToolStripMenuItem();
+            mainMenuConfigureHandledFileExtensionsItem = new ToolStripMenuItem();
+            mainMenuConfigureApiSetsItem = new ToolStripMenuItem();
+            mainMenuConfigureSymbolsItem = new ToolStripMenuItem();
             HelpMenuItem = new ToolStripMenuItem();
+            MenuDocumentationItem = new ToolStripMenuItem();
+            toolStripMenuItem20 = new ToolStripSeparator();
             MenuAboutItem = new ToolStripMenuItem();
             TVModules = new TreeView();
             moduleTreePopupMenu = new ContextMenuStrip(components);
@@ -1043,7 +1052,7 @@
             // 
             // OptionsMenuItem
             // 
-            OptionsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mainMenuConfigurationItem });
+            OptionsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mainMenuConfigurationItem, toolStripMenuItem19, mainMenuConfigureModuleSearchOrderItem, mainMenuConfigureModuleSearchOrderDriversItem, mainMenuConfigureExternalModuleViewerItem, mainMenuConfigureHandledFileExtensionsItem, mainMenuConfigureApiSetsItem, mainMenuConfigureSymbolsItem });
             OptionsMenuItem.Name = "OptionsMenuItem";
             OptionsMenuItem.Size = new Size(61, 20);
             OptionsMenuItem.Text = "&Options";
@@ -1052,23 +1061,101 @@
             // 
             mainMenuConfigurationItem.Name = "mainMenuConfigurationItem";
             mainMenuConfigurationItem.ShortcutKeys = Keys.F2;
-            mainMenuConfigurationItem.Size = new Size(167, 22);
+            mainMenuConfigurationItem.Size = new Size(297, 22);
             mainMenuConfigurationItem.Text = "&Configuration";
             mainMenuConfigurationItem.Click += ConfigureMenuItem_Click;
             mainMenuConfigurationItem.MouseEnter += MainMenu_MouseEnter;
             mainMenuConfigurationItem.MouseLeave += MainMenu_MouseLeave;
             // 
+            // toolStripMenuItem19
+            // 
+            toolStripMenuItem19.Name = "toolStripMenuItem19";
+            toolStripMenuItem19.Size = new Size(294, 6);
+            // 
+            // mainMenuConfigureModuleSearchOrderItem
+            // 
+            mainMenuConfigureModuleSearchOrderItem.Name = "mainMenuConfigureModuleSearchOrderItem";
+            mainMenuConfigureModuleSearchOrderItem.Size = new Size(297, 22);
+            mainMenuConfigureModuleSearchOrderItem.Tag = "7";
+            mainMenuConfigureModuleSearchOrderItem.Text = "Configure Module Search Order...";
+            mainMenuConfigureModuleSearchOrderItem.Click += MainMenu_ConfigureItemClick;
+            mainMenuConfigureModuleSearchOrderItem.MouseEnter += MainMenu_MouseEnter;
+            mainMenuConfigureModuleSearchOrderItem.MouseLeave += MainMenu_MouseLeave;
+            // 
+            // mainMenuConfigureModuleSearchOrderDriversItem
+            // 
+            mainMenuConfigureModuleSearchOrderDriversItem.Name = "mainMenuConfigureModuleSearchOrderDriversItem";
+            mainMenuConfigureModuleSearchOrderDriversItem.Size = new Size(297, 22);
+            mainMenuConfigureModuleSearchOrderDriversItem.Tag = "8";
+            mainMenuConfigureModuleSearchOrderDriversItem.Text = "Configure Module Search Order (drivers)...";
+            mainMenuConfigureModuleSearchOrderDriversItem.Click += MainMenu_ConfigureItemClick;
+            mainMenuConfigureModuleSearchOrderDriversItem.MouseEnter += MainMenu_MouseEnter;
+            mainMenuConfigureModuleSearchOrderDriversItem.MouseLeave += MainMenu_MouseLeave;
+            // 
+            // mainMenuConfigureExternalModuleViewerItem
+            // 
+            mainMenuConfigureExternalModuleViewerItem.Name = "mainMenuConfigureExternalModuleViewerItem";
+            mainMenuConfigureExternalModuleViewerItem.Size = new Size(297, 22);
+            mainMenuConfigureExternalModuleViewerItem.Tag = "5";
+            mainMenuConfigureExternalModuleViewerItem.Text = "Configure External Module Viewer...";
+            mainMenuConfigureExternalModuleViewerItem.Click += MainMenu_ConfigureItemClick;
+            mainMenuConfigureExternalModuleViewerItem.MouseEnter += MainMenu_MouseEnter;
+            mainMenuConfigureExternalModuleViewerItem.MouseLeave += MainMenu_MouseLeave;
+            // 
+            // mainMenuConfigureHandledFileExtensionsItem
+            // 
+            mainMenuConfigureHandledFileExtensionsItem.Name = "mainMenuConfigureHandledFileExtensionsItem";
+            mainMenuConfigureHandledFileExtensionsItem.Size = new Size(297, 22);
+            mainMenuConfigureHandledFileExtensionsItem.Tag = "6";
+            mainMenuConfigureHandledFileExtensionsItem.Text = "Configure Handled File Extensions...";
+            mainMenuConfigureHandledFileExtensionsItem.Click += MainMenu_ConfigureItemClick;
+            mainMenuConfigureHandledFileExtensionsItem.MouseEnter += MainMenu_MouseEnter;
+            mainMenuConfigureHandledFileExtensionsItem.MouseLeave += MainMenu_MouseLeave;
+            // 
+            // mainMenuConfigureApiSetsItem
+            // 
+            mainMenuConfigureApiSetsItem.Name = "mainMenuConfigureApiSetsItem";
+            mainMenuConfigureApiSetsItem.Size = new Size(297, 22);
+            mainMenuConfigureApiSetsItem.Tag = "3";
+            mainMenuConfigureApiSetsItem.Text = "Configure ApiSets...";
+            mainMenuConfigureApiSetsItem.Click += MainMenu_ConfigureItemClick;
+            mainMenuConfigureApiSetsItem.MouseEnter += MainMenu_MouseEnter;
+            mainMenuConfigureApiSetsItem.MouseLeave += MainMenu_MouseLeave;
+            // 
+            // mainMenuConfigureSymbolsItem
+            // 
+            mainMenuConfigureSymbolsItem.Name = "mainMenuConfigureSymbolsItem";
+            mainMenuConfigureSymbolsItem.Size = new Size(297, 22);
+            mainMenuConfigureSymbolsItem.Tag = "10";
+            mainMenuConfigureSymbolsItem.Text = "Configure Symbols...";
+            mainMenuConfigureSymbolsItem.Click += MainMenu_ConfigureItemClick;
+            mainMenuConfigureSymbolsItem.MouseEnter += MainMenu_MouseEnter;
+            mainMenuConfigureSymbolsItem.MouseLeave += MainMenu_MouseLeave;
+            // 
             // HelpMenuItem
             // 
-            HelpMenuItem.DropDownItems.AddRange(new ToolStripItem[] { MenuAboutItem });
+            HelpMenuItem.DropDownItems.AddRange(new ToolStripItem[] { MenuDocumentationItem, toolStripMenuItem20, MenuAboutItem });
             HelpMenuItem.Name = "HelpMenuItem";
             HelpMenuItem.Size = new Size(44, 20);
             HelpMenuItem.Text = "&Help";
             // 
+            // MenuDocumentationItem
+            // 
+            MenuDocumentationItem.Name = "MenuDocumentationItem";
+            MenuDocumentationItem.Size = new Size(157, 22);
+            MenuDocumentationItem.Text = "&Documentation";
+            MenuDocumentationItem.MouseEnter += MainMenu_MouseEnter;
+            MenuDocumentationItem.MouseLeave += MainMenu_MouseLeave;
+            // 
+            // toolStripMenuItem20
+            // 
+            toolStripMenuItem20.Name = "toolStripMenuItem20";
+            toolStripMenuItem20.Size = new Size(154, 6);
+            // 
             // MenuAboutItem
             // 
             MenuAboutItem.Name = "MenuAboutItem";
-            MenuAboutItem.Size = new Size(116, 22);
+            MenuAboutItem.Size = new Size(157, 22);
             MenuAboutItem.Text = "&About...";
             MenuAboutItem.Click += MenuAbout_Click;
             MenuAboutItem.MouseEnter += MainMenu_MouseEnter;
@@ -1220,6 +1307,8 @@
             ContextOpenModuleLocationItem.Size = new Size(301, 22);
             ContextOpenModuleLocationItem.Text = "Open Module Location";
             ContextOpenModuleLocationItem.Click += ViewOpenModuleLocationItem_Click;
+            ContextOpenModuleLocationItem.MouseEnter += MainMenu_MouseEnter;
+            ContextOpenModuleLocationItem.MouseLeave += MainMenu_MouseLeave;
             // 
             // ContextViewModuleInExternalViewerItem
             // 
@@ -1371,15 +1460,15 @@
             // 
             moduleViewPopupMenu.Items.AddRange(new ToolStripItem[] { HighlightInTreeItem, toolStripSeparator7, moduleViewCopyFileNameMenuItem, toolStripMenuItem10, toolStripSeparator8, toolStripMenuItem11, toolStripSeparator9, openModuleLocationToolStripMenuItem, toolStripMenuItem12, toolStripMenuItem13 });
             moduleViewPopupMenu.Name = "moduleViewPopupMenu";
-            moduleViewPopupMenu.Size = new Size(274, 176);
+            moduleViewPopupMenu.Size = new Size(305, 176);
             moduleViewPopupMenu.Opening += ModuleViewPopupMenu_Opening;
             // 
             // HighlightInTreeItem
             // 
             HighlightInTreeItem.Name = "HighlightInTreeItem";
             HighlightInTreeItem.ShortcutKeys = Keys.Control | Keys.M;
-            HighlightInTreeItem.Size = new Size(273, 22);
-            HighlightInTreeItem.Text = "Highlight Module In Tree";
+            HighlightInTreeItem.Size = new Size(304, 22);
+            HighlightInTreeItem.Text = "Highlight Matching Module In Tree";
             HighlightInTreeItem.Click += HighlightModuleInTreeOrList;
             HighlightInTreeItem.MouseEnter += MainMenu_MouseEnter;
             HighlightInTreeItem.MouseLeave += MainMenu_MouseLeave;
@@ -1387,7 +1476,7 @@
             // toolStripSeparator7
             // 
             toolStripSeparator7.Name = "toolStripSeparator7";
-            toolStripSeparator7.Size = new Size(270, 6);
+            toolStripSeparator7.Size = new Size(301, 6);
             toolStripSeparator7.MouseEnter += MainMenu_MouseEnter;
             toolStripSeparator7.MouseLeave += MainMenu_MouseLeave;
             // 
@@ -1395,7 +1484,7 @@
             // 
             moduleViewCopyFileNameMenuItem.Name = "moduleViewCopyFileNameMenuItem";
             moduleViewCopyFileNameMenuItem.ShortcutKeyDisplayString = "Ctrl+C";
-            moduleViewCopyFileNameMenuItem.Size = new Size(273, 22);
+            moduleViewCopyFileNameMenuItem.Size = new Size(304, 22);
             moduleViewCopyFileNameMenuItem.Text = "Copy File Name";
             moduleViewCopyFileNameMenuItem.Click += MenuCopyItem_Click;
             moduleViewCopyFileNameMenuItem.MouseEnter += MainMenu_MouseEnter;
@@ -1405,7 +1494,7 @@
             // 
             toolStripMenuItem10.Name = "toolStripMenuItem10";
             toolStripMenuItem10.ShortcutKeyDisplayString = "Ctrl+A";
-            toolStripMenuItem10.Size = new Size(273, 22);
+            toolStripMenuItem10.Size = new Size(304, 22);
             toolStripMenuItem10.Text = "Select All";
             toolStripMenuItem10.Click += SelectAll_Click;
             toolStripMenuItem10.MouseEnter += MainMenu_MouseEnter;
@@ -1414,7 +1503,7 @@
             // toolStripSeparator8
             // 
             toolStripSeparator8.Name = "toolStripSeparator8";
-            toolStripSeparator8.Size = new Size(270, 6);
+            toolStripSeparator8.Size = new Size(301, 6);
             toolStripSeparator8.MouseEnter += MainMenu_MouseEnter;
             toolStripSeparator8.MouseLeave += MainMenu_MouseLeave;
             // 
@@ -1423,7 +1512,7 @@
             toolStripMenuItem11.CheckOnClick = true;
             toolStripMenuItem11.Name = "toolStripMenuItem11";
             toolStripMenuItem11.ShortcutKeyDisplayString = "F9";
-            toolStripMenuItem11.Size = new Size(273, 22);
+            toolStripMenuItem11.Size = new Size(304, 22);
             toolStripMenuItem11.Text = "Full Paths";
             toolStripMenuItem11.Click += ModuleFullPathsMenuItem_Click;
             toolStripMenuItem11.MouseEnter += MainMenu_MouseEnter;
@@ -1432,7 +1521,7 @@
             // toolStripSeparator9
             // 
             toolStripSeparator9.Name = "toolStripSeparator9";
-            toolStripSeparator9.Size = new Size(270, 6);
+            toolStripSeparator9.Size = new Size(301, 6);
             toolStripSeparator9.MouseEnter += MainMenu_MouseEnter;
             toolStripSeparator9.MouseLeave += MainMenu_MouseLeave;
             // 
@@ -1440,14 +1529,17 @@
             // 
             openModuleLocationToolStripMenuItem.Name = "openModuleLocationToolStripMenuItem";
             openModuleLocationToolStripMenuItem.ShortcutKeyDisplayString = "Ctrl+J";
-            openModuleLocationToolStripMenuItem.Size = new Size(273, 22);
+            openModuleLocationToolStripMenuItem.Size = new Size(304, 22);
             openModuleLocationToolStripMenuItem.Text = "Open Module Location";
+            openModuleLocationToolStripMenuItem.Click += ViewOpenModuleLocationItem_Click;
+            openModuleLocationToolStripMenuItem.MouseEnter += MainMenu_MouseEnter;
+            openModuleLocationToolStripMenuItem.MouseLeave += MainMenu_MouseLeave;
             // 
             // toolStripMenuItem12
             // 
             toolStripMenuItem12.Name = "toolStripMenuItem12";
             toolStripMenuItem12.ShortcutKeyDisplayString = "Enter";
-            toolStripMenuItem12.Size = new Size(273, 22);
+            toolStripMenuItem12.Size = new Size(304, 22);
             toolStripMenuItem12.Text = "View Module in External Viewer";
             toolStripMenuItem12.Click += ViewModuleInExternalViewer_Click;
             toolStripMenuItem12.MouseEnter += MainMenu_MouseEnter;
@@ -1457,7 +1549,7 @@
             // 
             toolStripMenuItem13.Name = "toolStripMenuItem13";
             toolStripMenuItem13.ShortcutKeyDisplayString = "Alt+Enter";
-            toolStripMenuItem13.Size = new Size(273, 22);
+            toolStripMenuItem13.Size = new Size(304, 22);
             toolStripMenuItem13.Text = "Properties...";
             toolStripMenuItem13.Click += PropertiesMenuItem_Click;
             toolStripMenuItem13.MouseEnter += MainMenu_MouseEnter;
@@ -1531,8 +1623,10 @@
             resolveAPIsetsToolStripMenuItem.Name = "resolveAPIsetsToolStripMenuItem";
             resolveAPIsetsToolStripMenuItem.ShortcutKeyDisplayString = "F11";
             resolveAPIsetsToolStripMenuItem.Size = new Size(284, 22);
-            resolveAPIsetsToolStripMenuItem.Text = "Resolve API sets";
+            resolveAPIsetsToolStripMenuItem.Text = "Show Resolved API sets";
             resolveAPIsetsToolStripMenuItem.Click += ResolveAPIsetsToolStripMenuItem_Click;
+            resolveAPIsetsToolStripMenuItem.MouseEnter += MainMenu_MouseEnter;
+            resolveAPIsetsToolStripMenuItem.MouseLeave += MainMenu_MouseLeave;
             // 
             // toolStripMenuItem9
             // 
@@ -1758,5 +1852,14 @@
         private ToolStripMenuItem ContextOpenModuleLocationItem;
         private ToolStripSeparator toolStripMenuItem18;
         private ToolStripMenuItem ViewRefreshItem;
+        private ToolStripSeparator toolStripMenuItem19;
+        private ToolStripMenuItem mainMenuConfigureModuleSearchOrderItem;
+        private ToolStripMenuItem mainMenuConfigureModuleSearchOrderDriversItem;
+        private ToolStripMenuItem mainMenuConfigureExternalModuleViewerItem;
+        private ToolStripMenuItem mainMenuConfigureHandledFileExtensionsItem;
+        private ToolStripMenuItem mainMenuConfigureApiSetsItem;
+        private ToolStripMenuItem mainMenuConfigureSymbolsItem;
+        private ToolStripMenuItem MenuDocumentationItem;
+        private ToolStripSeparator toolStripMenuItem20;
     }
 }

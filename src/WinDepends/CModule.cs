@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2024
+*  DATE:        17 Dec 2024
 *  
 *  Implementation of base CModule class.
 *
@@ -86,6 +86,343 @@ public enum DebugEntryType : uint
     EmbeddedPortablePdb = 17,
     PdbChecksum = 19,
     ExtendedCharacteristics = 20
+}
+
+public enum ModuleIconType
+{
+    /// <summary>
+    /// Missing module.
+    /// </summary>
+    MissingModule = 0,
+
+    /// <summary>
+    /// Invalid module.
+    /// </summary>
+    InvalidModule,
+
+    /// <summary>
+    /// Normal module with no errors. 
+    /// </summary>
+    NormalModule,
+
+    /// <summary>
+    /// Duplicate module processed somewhere in the tree.
+    /// </summary>
+    DuplicateModule,
+
+    /// <summary>
+    /// Warning for module.
+    /// </summary>
+    WarningModule,
+
+    /// <summary>
+    /// Duplicate module processed with warnings somewhere in the tree.
+    /// </summary>
+    DuplicateModuleWarning,
+
+    /// <summary>
+    /// Normal 64-bit module with no errors.
+    /// </summary>
+    NormalModule64,
+
+    /// <summary>
+    /// Duplicate 64-bit module processed somewhere in the tree.
+    /// </summary>
+    DuplicateModule64,
+
+    /// <summary>
+    /// Warning for module 64-bit.
+    /// </summary>
+    WarningModule64,
+
+    /// <summary>
+    /// Duplicate 64-bit module processed with warnings somewhere in the tree.
+    /// </summary>
+    DuplicateModule64Warning,
+
+    /// <summary>
+    /// Forwarded module is missing.
+    /// </summary>
+    MissingForwardedModule,
+
+    /// <summary>
+    /// Forwarded module is invalid.
+    /// </summary>
+    InvalidForwardedModule,
+
+    /// <summary>
+    /// This is forwarded module.
+    /// </summary>
+    ForwardedModule,
+
+    /// <summary>
+    /// This is forwarded module processed somewhere in the tree.
+    /// </summary>
+    ForwardedModuleDuplicate,
+
+    /// <summary>
+    /// This is forwarded module with warnings.
+    /// </summary>
+    ForwardedModuleWarning,
+
+    /// <summary>
+    /// This is duplicate forwarded module with warnings.
+    /// </summary>
+    ForwardedModuleDuplicateWarning,
+
+    /// <summary>
+    /// This is 64-bit forwarded module.
+    /// </summary>
+    ForwardedModule64,
+
+    /// <summary>
+    /// This is 64-bit forwarded module processed somewhere in the tree.
+    /// </summary>
+    ForwardedModule64Duplicate,
+
+    /// <summary>
+    /// This is 64-bit forwarded module with warnings.
+    /// </summary>
+    ForwardedModule64Warning,
+
+    /// <summary>
+    /// This is 64-bit duplicate forwarded module with warnings.
+    /// </summary>
+    ForwardedModule64DuplicateWarning,
+
+    /// <summary>
+    /// Delay-load module is missing.
+    /// </summary>
+    MissingDelayLoadModule,
+
+    /// <summary>
+    /// Delay-load module is invalid.
+    /// </summary>
+    InvalidDelayLoadModule,
+
+    /// <summary>
+    /// This is a delay-load module.
+    /// </summary>
+    DelayLoadModule,
+
+    /// <summary>
+    /// Delay-load module processed somewhere in the tree.
+    /// </summary>
+    DelayLoadModuleDuplicate,
+
+    /// <summary>
+    /// Delay-load module with warnings.
+    /// </summary>
+    DelayLoadModuleWarning,
+
+    /// <summary>
+    /// Delay-load module processed somewhere in the tree with warnings.
+    /// </summary>
+    DelayLoadModuleDuplicateWarning,
+
+    /// <summary>
+    /// This is delay-load module 64-bit.
+    /// </summary>
+    DelayLoadModule64,
+
+    /// <summary>
+    /// Delay-load 64-bit module processed somewhere in the tree.
+    /// </summary>
+    DelayLoadModule64Duplicate,
+
+    /// <summary>
+    /// Delay-load 64-bit module with warnings.
+    /// </summary>
+    DelayLoadModule64Warning,
+
+    /// <summary>
+    /// Delay-load 64-bit module processed somewhere in the tree with warnings.
+    /// </summary>
+    DelayLoadModule64DuplicateWarning,
+
+    /// <summary>
+    /// Dynamic module that is missing.
+    /// </summary>
+    MissingDynamicModule,
+
+    /// <summary>
+    /// Dynamic module that is invalid.
+    /// </summary>
+    InvalidDynamicModule,
+
+    /// <summary>
+    /// Dynamic module.
+    /// </summary>
+    NormalDynamicModule,
+
+    /// <summary>
+    /// Duplicate module processed somewhere in the tree.
+    /// </summary>
+    DuplicateDynamicModule,
+
+    /// <summary>
+    /// Dynamic module with warnings.
+    /// </summary>
+    WarningDynamicModule,
+
+    /// <summary>
+    /// Duplicate dynamic module with warnings.
+    /// </summary>
+    DuplicateDynamicModuleWarning,
+
+    /// <summary>
+    /// Dynamic module 64-bit.
+    /// </summary>
+    NormalDynamicModule64,
+
+    /// <summary>
+    /// Duplicate 64-bit module processed somewhere in the tree.
+    /// </summary>
+    DuplicateDynamicModule64,
+
+    /// <summary>
+    /// Dynamic 64-bit module with warnings.
+    /// </summary>
+    WarningDynamicModule64,
+
+    /// <summary>
+    /// Duplicate dynamic 64-bit module with warnings.
+    /// </summary>
+    DuplicateDynamicModule64Warning,
+
+    /// <summary>
+    /// Dynamic module mapped as image or datafile.
+    /// </summary>
+    DynamicMappedModuleNoExec,
+
+    /// <summary>
+    /// Dynamic 64-bit module mapped as image or datafile.
+    /// </summary>
+    DynamicMappedModule64NoExec,
+
+    /// <summary>
+    /// Dynamic module mapped as image or datafile with warnings.
+    /// </summary>
+    DynamicMappedModuleNoExecWarning,
+    /// <summary>
+    /// Dynamic 64-bit module mapped as image or datafile with warnings.
+    /// </summary>
+    DynamicMappedModule64NoExecWarning
+}
+
+public enum ModuleIconCompactType
+{
+    /// <summary>
+    /// Missing module.
+    /// </summary>
+    MissingModule = 0,
+
+    /// <summary>
+    /// Missing delay-load module.
+    /// </summary>
+    DelayLoadMissing,
+
+    /// <summary>
+    /// Missing dynamic module.
+    /// </summary>
+    DynamicMissing,
+
+    /// <summary>
+    /// Invalid module.
+    /// </summary>
+    Invalid,
+
+    /// <summary>
+    /// Invalid delay-load module.
+    /// </summary>
+    DelayLoadInvalid,
+
+    /// <summary>
+    /// Invalid dynamic module.
+    /// </summary>
+    DynamicInvalid,
+
+    /// <summary>
+    /// Warning for module.
+    /// </summary>
+    WarningModule,
+
+    /// <summary>
+    /// Warning for module 64-bit.
+    /// </summary>
+    WarningModule64,
+
+    /// <summary>
+    /// Warning for delay-load module.
+    /// </summary>
+    DelayLoadModuleWarning,
+
+    /// <summary>
+    /// Warning for delay-load module 64-bit.
+    /// </summary>
+    DelayLoadModule64Warning,
+
+    /// <summary>
+    /// Warning for dynamic load module.
+    /// </summary>
+    DynamicModuleWarning,
+
+    /// <summary>
+    /// Warning for dynamic load module 64-bit.
+    /// </summary>
+    DynamicModule64Warning,
+
+    /// <summary>
+    /// Warning for module loaded with 
+    /// DONT_RESOLVE_DLL_REFERENCES and/or the LOAD_LIBRARY_AS_DATAFILE flag.
+    /// </summary>
+    WarningMappedNoExecImage,
+
+    /// <summary>
+    /// Warning for module 64-bit loaded with 
+    /// DONT_RESOLVE_DLL_REFERENCES and/or the LOAD_LIBRARY_AS_DATAFILE flag.
+    /// </summary>
+    WarningMappedNoExecImage64,
+
+    /// <summary>
+    /// Normal module with no errors. 
+    /// </summary>
+    NormalModule,
+
+    /// <summary>
+    /// Normal 64-bit module with no errors.
+    /// </summary>
+    NormalModule64,
+
+    /// <summary>
+    /// Delay-load module.
+    /// </summary>
+    DelayLoadModule,
+
+    /// <summary>
+    /// Delay-load module 64-bit.
+    /// </summary>
+    DelayLoadModule64,
+
+    /// <summary>
+    /// Dynamic module.
+    /// </summary>
+    DynamicModule,
+
+    /// <summary>
+    /// Dynamic module 64-bit.
+    /// </summary>
+    DynamicModule64,
+
+    /// <summary>
+    /// The module mapped as image or datafile.
+    /// </summary>
+    MappedModuleNoExec,
+
+    /// <summary>
+    /// The 64-bit module mapped as image or datafile.
+    /// </summary>
+    MappedModule64NoExec
 }
 
 [Serializable()]
@@ -286,6 +623,10 @@ public class CModule
         return is64BitMachine;
     }
 
+    /// <summary>
+    /// Get icon index for tree view module display.
+    /// </summary>
+    /// <returns></returns>
     public int GetIconIndexForModule()
     {
         bool is64bit = Is64bitArchitecture();
@@ -379,6 +720,63 @@ public class CModule
 
         return is64bit ? (bExportError ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.NormalModule64) :
             (bExportError ? (int)ModuleIconType.WarningModule : (int)ModuleIconType.NormalModule);
+    }
+
+    /// <summary>
+    /// Get image index for compact (list view) module display.
+    /// </summary>
+    /// <returns></returns>
+    public int GetIconIndexForModuleCompact()
+    {
+        bool is64bit = Is64bitArchitecture();
+        ModuleInfoFlags mflags = GetModuleFlags();
+        bool bFileNotFound = mflags.HasFlag(ModuleInfoFlags.FileNotFound);
+        bool bExportError = mflags.HasFlag(ModuleInfoFlags.ExportError);
+        bool bInvalid = mflags.HasFlag(ModuleInfoFlags.Invalid);
+        bool bWarningOtherErrors = mflags.HasFlag(ModuleInfoFlags.WarningOtherErrors);
+
+        if (IsDelayLoad)
+        {
+            if (bInvalid)
+            {
+                return (int)ModuleIconCompactType.DelayLoadInvalid;
+            }
+
+            if (bFileNotFound)
+            {
+                return (int)ModuleIconCompactType.DelayLoadMissing;
+            }
+
+            if (bExportError)
+            {
+                return (int)ModuleIconCompactType.DelayLoadModuleWarning;
+            }
+
+            if (bWarningOtherErrors)
+            {
+                return is64bit ? (int)ModuleIconCompactType.DelayLoadModule64Warning : (int)ModuleIconCompactType.DelayLoadModuleWarning;
+            }
+
+            return is64bit ? (int)ModuleIconCompactType.DelayLoadModule64 : (int)ModuleIconCompactType.DelayLoadModule;
+        }
+
+        if (bInvalid)
+        {
+            return (int)ModuleIconCompactType.Invalid;
+        }
+
+        if (bFileNotFound)
+        {
+            return (int)ModuleIconCompactType.MissingModule;
+        }
+
+        if (bWarningOtherErrors)
+        {
+            return is64bit ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.WarningModule;
+        }
+
+        return is64bit ? (bExportError ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.NormalModule64) :
+            (bExportError ? (int)ModuleIconCompactType.WarningModule : (int)ModuleIconCompactType.NormalModule);
     }
 
     public override int GetHashCode()

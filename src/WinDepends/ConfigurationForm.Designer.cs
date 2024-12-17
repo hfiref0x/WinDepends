@@ -30,14 +30,15 @@
         {
             TreeNode treeNode1 = new TreeNode("History");
             TreeNode treeNode2 = new TreeNode("Main", new TreeNode[] { treeNode1 });
-            TreeNode treeNode3 = new TreeNode("ApiSet");
-            TreeNode treeNode4 = new TreeNode("External Module Viewer");
+            TreeNode treeNode3 = new TreeNode("Analysis (global)");
+            TreeNode treeNode4 = new TreeNode("ApiSets");
             TreeNode treeNode5 = new TreeNode("External Function Help");
-            TreeNode treeNode6 = new TreeNode("Module Search Order");
-            TreeNode treeNode7 = new TreeNode("Module Search Order (drivers)");
-            TreeNode treeNode8 = new TreeNode("Analysis (global)");
-            TreeNode treeNode9 = new TreeNode("Server");
-            TreeNode treeNode10 = new TreeNode("Shell Integration");
+            TreeNode treeNode6 = new TreeNode("External Module Viewer");
+            TreeNode treeNode7 = new TreeNode("Handled File Extensions");
+            TreeNode treeNode8 = new TreeNode("Module Search Order");
+            TreeNode treeNode9 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode10 = new TreeNode("Server");
+            TreeNode treeNode11 = new TreeNode("Symbols");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
@@ -49,7 +50,6 @@
             chBoxCompressSessionFiles = new CheckBox();
             groupBox3 = new GroupBox();
             chBoxClearLogOnFileOpen = new CheckBox();
-            label11 = new Label();
             chBoxFullPaths = new CheckBox();
             label10 = new Label();
             label8 = new Label();
@@ -67,46 +67,6 @@
             label2 = new Label();
             historyUpDown = new NumericUpDown();
             label1 = new Label();
-            tabShellIntegration = new TabPage();
-            buttonElevate = new Button();
-            groupBox1 = new GroupBox();
-            customExtBox = new TextBox();
-            label4 = new Label();
-            buttonAssociate = new Button();
-            buttonSelectAll = new Button();
-            LVFileExt = new ListView();
-            columnHeader1 = new ColumnHeader();
-            columnHeader2 = new ColumnHeader();
-            shellIntegrationWarningLabel = new Label();
-            tabExternalViewer = new TabPage();
-            groupBox4 = new GroupBox();
-            buttonBrowse = new Button();
-            argumentsTextBox = new TextBox();
-            label5 = new Label();
-            commandTextBox = new TextBox();
-            label3 = new Label();
-            tabExternalFunctionHelp = new TabPage();
-            groupBox5 = new GroupBox();
-            buttonDefaultURL = new Button();
-            searchOnlineTextBox = new TextBox();
-            label6 = new Label();
-            tabSearchOrder = new TabPage();
-            DeleteUserDirectoryButton = new Button();
-            AddUserDirectoryButton = new Button();
-            TVSearchOrder = new TreeView();
-            ExpandSearchOrderButton = new Button();
-            MoveUpButton = new Button();
-            MoveDownButton = new Button();
-            tabApiSetContracts = new TabPage();
-            groupBox15 = new GroupBox();
-            labelApiSetCount = new Label();
-            labelApiSetVersion = new Label();
-            groupBox10 = new GroupBox();
-            chBoxHighlightApiSet = new CheckBox();
-            groupBox9 = new GroupBox();
-            apisetTextBox = new TextBox();
-            buttonApiSetBrowse = new Button();
-            chBoxApiSetNamespace = new CheckBox();
             tabAnalysis = new TabPage();
             groupBox14 = new GroupBox();
             chBoxPropagateSettings = new CheckBox();
@@ -119,6 +79,46 @@
             label13 = new Label();
             cbMinAppAddress = new ComboBox();
             chBoxUseReloc = new CheckBox();
+            tabApiSet = new TabPage();
+            groupBox15 = new GroupBox();
+            labelApiSetCount = new Label();
+            labelApiSetVersion = new Label();
+            groupBox10 = new GroupBox();
+            chBoxHighlightApiSet = new CheckBox();
+            groupBox9 = new GroupBox();
+            apisetTextBox = new TextBox();
+            buttonApiSetBrowse = new Button();
+            chBoxApiSetNamespace = new CheckBox();
+            tabExternalFunctionHelp = new TabPage();
+            groupBox5 = new GroupBox();
+            buttonDefaultURL = new Button();
+            searchOnlineTextBox = new TextBox();
+            label6 = new Label();
+            tabExternalViewer = new TabPage();
+            groupBox4 = new GroupBox();
+            buttonBrowse = new Button();
+            argumentsTextBox = new TextBox();
+            label5 = new Label();
+            commandTextBox = new TextBox();
+            label3 = new Label();
+            tabHandledFileExtensions = new TabPage();
+            buttonElevate = new Button();
+            groupBox1 = new GroupBox();
+            customExtBox = new TextBox();
+            label4 = new Label();
+            buttonAssociate = new Button();
+            buttonSelectAll = new Button();
+            LVFileExt = new ListView();
+            columnHeader1 = new ColumnHeader();
+            columnHeader2 = new ColumnHeader();
+            shellIntegrationWarningLabel = new Label();
+            tabSearchOrder = new TabPage();
+            DeleteUserDirectoryButton = new Button();
+            AddUserDirectoryButton = new Button();
+            TVSearchOrder = new TreeView();
+            ExpandSearchOrderButton = new Button();
+            MoveUpButton = new Button();
+            MoveDownButton = new Button();
             tabSearchOrderDrivers = new TabPage();
             DeleteUserDirectoryDriversButton = new Button();
             AddUserDirectoryDriversButton = new Button();
@@ -143,6 +143,15 @@
             buttonServerConnect = new Button();
             labelServerStatus = new Label();
             label15 = new Label();
+            tabSymbols = new TabPage();
+            groupBox16 = new GroupBox();
+            buttonSymbolsBrowse = new Button();
+            symbolsStoreTextBox = new TextBox();
+            label19 = new Label();
+            buttonDbghelpBrowse = new Button();
+            dbghelpTextBox = new TextBox();
+            label18 = new Label();
+            label17 = new Label();
             configCancel = new Button();
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
@@ -164,25 +173,27 @@
             tabMainHistory.SuspendLayout();
             groupBox6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)historyUpDown).BeginInit();
-            tabShellIntegration.SuspendLayout();
-            groupBox1.SuspendLayout();
-            tabExternalViewer.SuspendLayout();
-            groupBox4.SuspendLayout();
-            tabExternalFunctionHelp.SuspendLayout();
-            groupBox5.SuspendLayout();
-            tabSearchOrder.SuspendLayout();
-            tabApiSetContracts.SuspendLayout();
-            groupBox15.SuspendLayout();
-            groupBox10.SuspendLayout();
-            groupBox9.SuspendLayout();
             tabAnalysis.SuspendLayout();
             groupBox14.SuspendLayout();
             groupBox13.SuspendLayout();
             groupBox11.SuspendLayout();
+            tabApiSet.SuspendLayout();
+            groupBox15.SuspendLayout();
+            groupBox10.SuspendLayout();
+            groupBox9.SuspendLayout();
+            tabExternalFunctionHelp.SuspendLayout();
+            groupBox5.SuspendLayout();
+            tabExternalViewer.SuspendLayout();
+            groupBox4.SuspendLayout();
+            tabHandledFileExtensions.SuspendLayout();
+            groupBox1.SuspendLayout();
+            tabSearchOrder.SuspendLayout();
             tabSearchOrderDrivers.SuspendLayout();
             tabServer.SuspendLayout();
             groupBox7.SuspendLayout();
             groupBox12.SuspendLayout();
+            tabSymbols.SuspendLayout();
+            groupBox16.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainer2
@@ -235,31 +246,34 @@
             treeNode2.Name = "MainWindowNode";
             treeNode2.Tag = "10";
             treeNode2.Text = "Main";
-            treeNode3.Name = "ApiSetNode";
-            treeNode3.Tag = "60";
-            treeNode3.Text = "ApiSet";
-            treeNode4.Name = "ExternalModuleViewerNode";
+            treeNode3.Name = "AnalysisNode";
+            treeNode3.Tag = "20";
+            treeNode3.Text = "Analysis (global)";
+            treeNode4.Name = "ApiSetsNode";
             treeNode4.Tag = "30";
-            treeNode4.Text = "External Module Viewer";
+            treeNode4.Text = "ApiSets";
             treeNode5.Name = "xternalFunctionHelpNode";
             treeNode5.Tag = "40";
             treeNode5.Text = "External Function Help";
-            treeNode6.Name = "SearchOrderNode";
+            treeNode6.Name = "ExternalModuleViewerNode";
             treeNode6.Tag = "50";
-            treeNode6.Text = "Module Search Order";
-            treeNode7.Name = "SearchOrderDriverNode";
-            treeNode7.Tag = "90";
-            treeNode7.Text = "Module Search Order (drivers)";
-            treeNode8.Name = "AnalysisNode";
+            treeNode6.Text = "External Module Viewer";
+            treeNode7.Name = "ShellIntegrationNode";
+            treeNode7.Tag = "60";
+            treeNode7.Text = "Handled File Extensions";
+            treeNode8.Name = "SearchOrderNode";
             treeNode8.Tag = "70";
-            treeNode8.Text = "Analysis (global)";
-            treeNode9.Name = "ServerNode";
+            treeNode8.Text = "Module Search Order";
+            treeNode9.Name = "SearchOrderDriverNode";
             treeNode9.Tag = "80";
-            treeNode9.Text = "Server";
-            treeNode10.Name = "ShellIntegrationNode";
-            treeNode10.Tag = "20";
-            treeNode10.Text = "Shell Integration";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8, treeNode9, treeNode10 });
+            treeNode9.Text = "Module Search Order (drivers)";
+            treeNode10.Name = "ServerNode";
+            treeNode10.Tag = "90";
+            treeNode10.Text = "Server";
+            treeNode11.Name = "SymbolsNode";
+            treeNode11.Tag = "100";
+            treeNode11.Text = "Symbols";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8, treeNode9, treeNode10, treeNode11 });
             TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
@@ -269,14 +283,15 @@
             settingsTabControl.Appearance = TabAppearance.FlatButtons;
             settingsTabControl.Controls.Add(tabMain);
             settingsTabControl.Controls.Add(tabMainHistory);
-            settingsTabControl.Controls.Add(tabShellIntegration);
-            settingsTabControl.Controls.Add(tabExternalViewer);
-            settingsTabControl.Controls.Add(tabExternalFunctionHelp);
-            settingsTabControl.Controls.Add(tabSearchOrder);
-            settingsTabControl.Controls.Add(tabApiSetContracts);
             settingsTabControl.Controls.Add(tabAnalysis);
+            settingsTabControl.Controls.Add(tabApiSet);
+            settingsTabControl.Controls.Add(tabExternalFunctionHelp);
+            settingsTabControl.Controls.Add(tabExternalViewer);
+            settingsTabControl.Controls.Add(tabHandledFileExtensions);
+            settingsTabControl.Controls.Add(tabSearchOrder);
             settingsTabControl.Controls.Add(tabSearchOrderDrivers);
             settingsTabControl.Controls.Add(tabServer);
+            settingsTabControl.Controls.Add(tabSymbols);
             settingsTabControl.Dock = DockStyle.Fill;
             settingsTabControl.ItemSize = new Size(0, 1);
             settingsTabControl.Location = new Point(0, 0);
@@ -334,7 +349,6 @@
             // groupBox3
             // 
             groupBox3.Controls.Add(chBoxClearLogOnFileOpen);
-            groupBox3.Controls.Add(label11);
             groupBox3.Controls.Add(chBoxFullPaths);
             groupBox3.Controls.Add(label10);
             groupBox3.Controls.Add(label8);
@@ -363,15 +377,6 @@
             chBoxClearLogOnFileOpen.UseVisualStyleBackColor = true;
             chBoxClearLogOnFileOpen.Click += ChBox_Click;
             // 
-            // label11
-            // 
-            label11.AutoSize = true;
-            label11.Location = new Point(76, 146);
-            label11.Name = "label11";
-            label11.Size = new Size(294, 15);
-            label11.TabIndex = 17;
-            label11.Text = "Increasing depth value drastically affects performance.";
-            // 
             // chBoxFullPaths
             // 
             chBoxFullPaths.AutoSize = true;
@@ -391,9 +396,9 @@
             label10.ForeColor = Color.Black;
             label10.Location = new Point(19, 146);
             label10.Name = "label10";
-            label10.Size = new Size(55, 15);
+            label10.Size = new Size(345, 15);
             label10.TabIndex = 16;
-            label10.Text = "Warning:";
+            label10.Text = "Warning: Increasing depth value drastically affects performance.";
             // 
             // label8
             // 
@@ -511,7 +516,7 @@
             groupBox6.Controls.Add(label2);
             groupBox6.Controls.Add(historyUpDown);
             groupBox6.Controls.Add(label1);
-            groupBox6.Location = new Point(9, 6);
+            groupBox6.Location = new Point(6, 6);
             groupBox6.Name = "groupBox6";
             groupBox6.Size = new Size(465, 121);
             groupBox6.TabIndex = 4;
@@ -557,24 +562,379 @@
             label1.TabIndex = 2;
             label1.Text = "Depth";
             // 
-            // tabShellIntegration
+            // tabAnalysis
             // 
-            tabShellIntegration.Controls.Add(buttonElevate);
-            tabShellIntegration.Controls.Add(groupBox1);
-            tabShellIntegration.Controls.Add(buttonSelectAll);
-            tabShellIntegration.Controls.Add(LVFileExt);
-            tabShellIntegration.Controls.Add(shellIntegrationWarningLabel);
-            tabShellIntegration.Location = new Point(4, 5);
-            tabShellIntegration.Name = "tabShellIntegration";
-            tabShellIntegration.Padding = new Padding(3);
-            tabShellIntegration.Size = new Size(480, 435);
-            tabShellIntegration.TabIndex = 3;
-            tabShellIntegration.Tag = "20";
-            tabShellIntegration.UseVisualStyleBackColor = true;
+            tabAnalysis.Controls.Add(groupBox14);
+            tabAnalysis.Controls.Add(groupBox13);
+            tabAnalysis.Controls.Add(groupBox11);
+            tabAnalysis.Location = new Point(4, 5);
+            tabAnalysis.Name = "tabAnalysis";
+            tabAnalysis.Size = new Size(480, 435);
+            tabAnalysis.TabIndex = 8;
+            tabAnalysis.Tag = "20";
+            tabAnalysis.UseVisualStyleBackColor = true;
+            // 
+            // groupBox14
+            // 
+            groupBox14.Controls.Add(chBoxPropagateSettings);
+            groupBox14.Controls.Add(chBoxAnalysisDefaultEnabled);
+            groupBox14.Location = new Point(6, 262);
+            groupBox14.Name = "groupBox14";
+            groupBox14.Size = new Size(468, 100);
+            groupBox14.TabIndex = 10;
+            groupBox14.TabStop = false;
+            groupBox14.Text = "Analysis";
+            // 
+            // chBoxPropagateSettings
+            // 
+            chBoxPropagateSettings.AutoSize = true;
+            chBoxPropagateSettings.Location = new Point(16, 33);
+            chBoxPropagateSettings.Name = "chBoxPropagateSettings";
+            chBoxPropagateSettings.Size = new Size(261, 19);
+            chBoxPropagateSettings.TabIndex = 11;
+            chBoxPropagateSettings.Tag = "603";
+            chBoxPropagateSettings.Text = "Propagate analysis settings on dependencies";
+            chBoxPropagateSettings.UseVisualStyleBackColor = true;
+            chBoxPropagateSettings.Click += ChBox_Click;
+            // 
+            // chBoxAnalysisDefaultEnabled
+            // 
+            chBoxAnalysisDefaultEnabled.AutoSize = true;
+            chBoxAnalysisDefaultEnabled.Location = new Point(16, 58);
+            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
+            chBoxAnalysisDefaultEnabled.Size = new Size(319, 19);
+            chBoxAnalysisDefaultEnabled.TabIndex = 10;
+            chBoxAnalysisDefaultEnabled.Tag = "602";
+            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
+            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
+            chBoxAnalysisDefaultEnabled.Click += ChBox_Click;
+            // 
+            // groupBox13
+            // 
+            groupBox13.Controls.Add(chBoxUseStats);
+            groupBox13.Location = new Point(6, 199);
+            groupBox13.Name = "groupBox13";
+            groupBox13.Size = new Size(468, 57);
+            groupBox13.TabIndex = 8;
+            groupBox13.TabStop = false;
+            groupBox13.Text = "Statistics";
+            // 
+            // chBoxUseStats
+            // 
+            chBoxUseStats.AutoSize = true;
+            chBoxUseStats.Location = new Point(19, 22);
+            chBoxUseStats.Name = "chBoxUseStats";
+            chBoxUseStats.Size = new Size(200, 19);
+            chBoxUseStats.TabIndex = 8;
+            chBoxUseStats.Tag = "601";
+            chBoxUseStats.Text = "Enable transport statistics display";
+            chBoxUseStats.UseVisualStyleBackColor = true;
+            chBoxUseStats.Click += ChBox_Click;
+            // 
+            // groupBox11
+            // 
+            groupBox11.Controls.Add(labelAllocGran);
+            groupBox11.Controls.Add(label14);
+            groupBox11.Controls.Add(label13);
+            groupBox11.Controls.Add(cbMinAppAddress);
+            groupBox11.Controls.Add(chBoxUseReloc);
+            groupBox11.Location = new Point(6, 6);
+            groupBox11.Name = "groupBox11";
+            groupBox11.Size = new Size(468, 193);
+            groupBox11.TabIndex = 7;
+            groupBox11.TabStop = false;
+            groupBox11.Text = "Loader";
+            // 
+            // labelAllocGran
+            // 
+            labelAllocGran.AutoSize = true;
+            labelAllocGran.Location = new Point(188, 92);
+            labelAllocGran.Name = "labelAllocGran";
+            labelAllocGran.Size = new Size(25, 15);
+            labelAllocGran.TabIndex = 9;
+            labelAllocGran.Text = "0x0";
+            // 
+            // label14
+            // 
+            label14.AutoSize = true;
+            label14.Location = new Point(19, 92);
+            label14.Name = "label14";
+            label14.Size = new Size(163, 15);
+            label14.TabIndex = 8;
+            label14.Text = "System allocation granularity:";
+            // 
+            // label13
+            // 
+            label13.AutoSize = true;
+            label13.Location = new Point(19, 116);
+            label13.Name = "label13";
+            label13.Size = new Size(389, 60);
+            label13.TabIndex = 7;
+            label13.Text = resources.GetString("label13.Text");
+            // 
+            // cbMinAppAddress
+            // 
+            cbMinAppAddress.Enabled = false;
+            cbMinAppAddress.FormattingEnabled = true;
+            cbMinAppAddress.Location = new Point(19, 57);
+            cbMinAppAddress.Name = "cbMinAppAddress";
+            cbMinAppAddress.Size = new Size(237, 23);
+            cbMinAppAddress.TabIndex = 6;
+            cbMinAppAddress.KeyUp += CbMinAppAddressKeyUp;
+            // 
+            // chBoxUseReloc
+            // 
+            chBoxUseReloc.AutoSize = true;
+            chBoxUseReloc.Location = new Point(19, 32);
+            chBoxUseReloc.Name = "chBoxUseReloc";
+            chBoxUseReloc.Size = new Size(237, 19);
+            chBoxUseReloc.TabIndex = 5;
+            chBoxUseReloc.Tag = "600";
+            chBoxUseReloc.Text = "Enable relocations when parsing images";
+            chBoxUseReloc.UseVisualStyleBackColor = true;
+            chBoxUseReloc.Click += ChBox_Click;
+            // 
+            // tabApiSet
+            // 
+            tabApiSet.Controls.Add(groupBox15);
+            tabApiSet.Controls.Add(groupBox10);
+            tabApiSet.Controls.Add(groupBox9);
+            tabApiSet.Location = new Point(4, 5);
+            tabApiSet.Name = "tabApiSet";
+            tabApiSet.Size = new Size(480, 435);
+            tabApiSet.TabIndex = 7;
+            tabApiSet.Tag = "30";
+            tabApiSet.UseVisualStyleBackColor = true;
+            // 
+            // groupBox15
+            // 
+            groupBox15.Controls.Add(labelApiSetCount);
+            groupBox15.Controls.Add(labelApiSetVersion);
+            groupBox15.Location = new Point(6, 190);
+            groupBox15.Name = "groupBox15";
+            groupBox15.Size = new Size(468, 100);
+            groupBox15.TabIndex = 7;
+            groupBox15.TabStop = false;
+            groupBox15.Text = "Current Namespace Information";
+            // 
+            // labelApiSetCount
+            // 
+            labelApiSetCount.AutoSize = true;
+            labelApiSetCount.Location = new Point(19, 62);
+            labelApiSetCount.Name = "labelApiSetCount";
+            labelApiSetCount.Size = new Size(43, 15);
+            labelApiSetCount.TabIndex = 11;
+            labelApiSetCount.Text = "Count:";
+            // 
+            // labelApiSetVersion
+            // 
+            labelApiSetVersion.AutoSize = true;
+            labelApiSetVersion.Location = new Point(19, 34);
+            labelApiSetVersion.Name = "labelApiSetVersion";
+            labelApiSetVersion.Size = new Size(48, 15);
+            labelApiSetVersion.TabIndex = 10;
+            labelApiSetVersion.Text = "Version:";
+            // 
+            // groupBox10
+            // 
+            groupBox10.Controls.Add(chBoxHighlightApiSet);
+            groupBox10.Location = new Point(6, 115);
+            groupBox10.Name = "groupBox10";
+            groupBox10.Size = new Size(468, 69);
+            groupBox10.TabIndex = 6;
+            groupBox10.TabStop = false;
+            groupBox10.Text = "Appearance";
+            // 
+            // chBoxHighlightApiSet
+            // 
+            chBoxHighlightApiSet.AutoSize = true;
+            chBoxHighlightApiSet.Location = new Point(19, 32);
+            chBoxHighlightApiSet.Name = "chBoxHighlightApiSet";
+            chBoxHighlightApiSet.Size = new Size(165, 19);
+            chBoxHighlightApiSet.TabIndex = 5;
+            chBoxHighlightApiSet.Tag = "501";
+            chBoxHighlightApiSet.Text = "Highlight ApiSet contracts";
+            chBoxHighlightApiSet.UseVisualStyleBackColor = true;
+            chBoxHighlightApiSet.Click += ChBox_Click;
+            // 
+            // groupBox9
+            // 
+            groupBox9.Controls.Add(apisetTextBox);
+            groupBox9.Controls.Add(buttonApiSetBrowse);
+            groupBox9.Controls.Add(chBoxApiSetNamespace);
+            groupBox9.Location = new Point(6, 6);
+            groupBox9.Name = "groupBox9";
+            groupBox9.Size = new Size(468, 103);
+            groupBox9.TabIndex = 5;
+            groupBox9.TabStop = false;
+            groupBox9.Text = "Override Used Namespace";
+            // 
+            // apisetTextBox
+            // 
+            apisetTextBox.Location = new Point(19, 57);
+            apisetTextBox.Name = "apisetTextBox";
+            apisetTextBox.ReadOnly = true;
+            apisetTextBox.Size = new Size(351, 23);
+            apisetTextBox.TabIndex = 7;
+            // 
+            // buttonApiSetBrowse
+            // 
+            buttonApiSetBrowse.Location = new Point(376, 56);
+            buttonApiSetBrowse.Name = "buttonApiSetBrowse";
+            buttonApiSetBrowse.Size = new Size(75, 23);
+            buttonApiSetBrowse.TabIndex = 6;
+            buttonApiSetBrowse.Text = "Browse";
+            buttonApiSetBrowse.UseVisualStyleBackColor = true;
+            buttonApiSetBrowse.Click += ButtonApiSetBrowse_Click;
+            // 
+            // chBoxApiSetNamespace
+            // 
+            chBoxApiSetNamespace.AutoSize = true;
+            chBoxApiSetNamespace.Location = new Point(19, 32);
+            chBoxApiSetNamespace.Name = "chBoxApiSetNamespace";
+            chBoxApiSetNamespace.Size = new Size(211, 19);
+            chBoxApiSetNamespace.TabIndex = 5;
+            chBoxApiSetNamespace.Tag = "500";
+            chBoxApiSetNamespace.Text = "Retrieve from ApiSetSchema.dll file";
+            chBoxApiSetNamespace.UseVisualStyleBackColor = true;
+            chBoxApiSetNamespace.Click += ChBox_Click;
+            // 
+            // tabExternalFunctionHelp
+            // 
+            tabExternalFunctionHelp.Controls.Add(groupBox5);
+            tabExternalFunctionHelp.Location = new Point(4, 5);
+            tabExternalFunctionHelp.Name = "tabExternalFunctionHelp";
+            tabExternalFunctionHelp.Size = new Size(480, 435);
+            tabExternalFunctionHelp.TabIndex = 5;
+            tabExternalFunctionHelp.Tag = "40";
+            tabExternalFunctionHelp.UseVisualStyleBackColor = true;
+            // 
+            // groupBox5
+            // 
+            groupBox5.Controls.Add(buttonDefaultURL);
+            groupBox5.Controls.Add(searchOnlineTextBox);
+            groupBox5.Controls.Add(label6);
+            groupBox5.Location = new Point(6, 6);
+            groupBox5.Name = "groupBox5";
+            groupBox5.Size = new Size(468, 107);
+            groupBox5.TabIndex = 0;
+            groupBox5.TabStop = false;
+            groupBox5.Text = "External Function Help settings";
+            // 
+            // buttonDefaultURL
+            // 
+            buttonDefaultURL.Location = new Point(375, 48);
+            buttonDefaultURL.Name = "buttonDefaultURL";
+            buttonDefaultURL.Size = new Size(81, 23);
+            buttonDefaultURL.TabIndex = 12;
+            buttonDefaultURL.Text = "Default URL";
+            buttonDefaultURL.UseVisualStyleBackColor = true;
+            buttonDefaultURL.Click += ButtonDefaultURL_Click;
+            // 
+            // searchOnlineTextBox
+            // 
+            searchOnlineTextBox.Location = new Point(12, 49);
+            searchOnlineTextBox.Name = "searchOnlineTextBox";
+            searchOnlineTextBox.PlaceholderText = "https://learn.microsoft.com/en-us/search/?terms=%1";
+            searchOnlineTextBox.Size = new Size(353, 23);
+            searchOnlineTextBox.TabIndex = 11;
+            // 
+            // label6
+            // 
+            label6.AutoSize = true;
+            label6.Location = new Point(6, 31);
+            label6.Name = "label6";
+            label6.Size = new Size(299, 15);
+            label6.TabIndex = 10;
+            label6.Text = "Search Online (Use %1 to represent the function name):";
+            // 
+            // tabExternalViewer
+            // 
+            tabExternalViewer.Controls.Add(groupBox4);
+            tabExternalViewer.Location = new Point(4, 5);
+            tabExternalViewer.Name = "tabExternalViewer";
+            tabExternalViewer.Size = new Size(480, 435);
+            tabExternalViewer.TabIndex = 4;
+            tabExternalViewer.Tag = "50";
+            tabExternalViewer.Text = "tabPage1";
+            tabExternalViewer.UseVisualStyleBackColor = true;
+            // 
+            // groupBox4
+            // 
+            groupBox4.Controls.Add(buttonBrowse);
+            groupBox4.Controls.Add(argumentsTextBox);
+            groupBox4.Controls.Add(label5);
+            groupBox4.Controls.Add(commandTextBox);
+            groupBox4.Controls.Add(label3);
+            groupBox4.Location = new Point(6, 6);
+            groupBox4.Name = "groupBox4";
+            groupBox4.Size = new Size(468, 171);
+            groupBox4.TabIndex = 5;
+            groupBox4.TabStop = false;
+            groupBox4.Text = "External Module Viewer settings";
+            // 
+            // buttonBrowse
+            // 
+            buttonBrowse.Location = new Point(375, 52);
+            buttonBrowse.Name = "buttonBrowse";
+            buttonBrowse.Size = new Size(75, 23);
+            buttonBrowse.TabIndex = 9;
+            buttonBrowse.Text = "Browse ...";
+            buttonBrowse.UseVisualStyleBackColor = true;
+            buttonBrowse.Click += ButtonBrowse_Click;
+            // 
+            // argumentsTextBox
+            // 
+            argumentsTextBox.Location = new Point(28, 113);
+            argumentsTextBox.Name = "argumentsTextBox";
+            argumentsTextBox.PlaceholderText = "\"%1\"";
+            argumentsTextBox.Size = new Size(341, 23);
+            argumentsTextBox.TabIndex = 8;
+            argumentsTextBox.Text = "\"%1\"";
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new Point(28, 95);
+            label5.Name = "label5";
+            label5.Size = new Size(284, 15);
+            label5.TabIndex = 7;
+            label5.Text = "Arguments (Use a %1 to represent the module path):";
+            // 
+            // commandTextBox
+            // 
+            commandTextBox.Location = new Point(28, 52);
+            commandTextBox.Name = "commandTextBox";
+            commandTextBox.Size = new Size(341, 23);
+            commandTextBox.TabIndex = 6;
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(28, 34);
+            label3.Name = "label3";
+            label3.Size = new Size(67, 15);
+            label3.TabIndex = 5;
+            label3.Text = "Command:";
+            // 
+            // tabHandledFileExtensions
+            // 
+            tabHandledFileExtensions.Controls.Add(buttonElevate);
+            tabHandledFileExtensions.Controls.Add(groupBox1);
+            tabHandledFileExtensions.Controls.Add(buttonSelectAll);
+            tabHandledFileExtensions.Controls.Add(LVFileExt);
+            tabHandledFileExtensions.Controls.Add(shellIntegrationWarningLabel);
+            tabHandledFileExtensions.Location = new Point(4, 5);
+            tabHandledFileExtensions.Name = "tabHandledFileExtensions";
+            tabHandledFileExtensions.Padding = new Padding(3);
+            tabHandledFileExtensions.Size = new Size(480, 435);
+            tabHandledFileExtensions.TabIndex = 3;
+            tabHandledFileExtensions.Tag = "60";
+            tabHandledFileExtensions.UseVisualStyleBackColor = true;
             // 
             // buttonElevate
             // 
-            buttonElevate.Location = new Point(385, 407);
+            buttonElevate.Location = new Point(385, 405);
             buttonElevate.Name = "buttonElevate";
             buttonElevate.Size = new Size(89, 25);
             buttonElevate.TabIndex = 8;
@@ -640,7 +1000,7 @@
             LVFileExt.FullRowSelect = true;
             LVFileExt.GridLines = true;
             LVFileExt.HeaderStyle = ColumnHeaderStyle.None;
-            LVFileExt.Location = new Point(6, 7);
+            LVFileExt.Location = new Point(6, 6);
             LVFileExt.MultiSelect = false;
             LVFileExt.Name = "LVFileExt";
             LVFileExt.Size = new Size(468, 327);
@@ -668,124 +1028,6 @@
             shellIntegrationWarningLabel.Text = "Shell integration requires elevated administrator rights";
             shellIntegrationWarningLabel.Visible = false;
             // 
-            // tabExternalViewer
-            // 
-            tabExternalViewer.Controls.Add(groupBox4);
-            tabExternalViewer.Location = new Point(4, 5);
-            tabExternalViewer.Name = "tabExternalViewer";
-            tabExternalViewer.Size = new Size(480, 435);
-            tabExternalViewer.TabIndex = 4;
-            tabExternalViewer.Tag = "30";
-            tabExternalViewer.Text = "tabPage1";
-            tabExternalViewer.UseVisualStyleBackColor = true;
-            // 
-            // groupBox4
-            // 
-            groupBox4.Controls.Add(buttonBrowse);
-            groupBox4.Controls.Add(argumentsTextBox);
-            groupBox4.Controls.Add(label5);
-            groupBox4.Controls.Add(commandTextBox);
-            groupBox4.Controls.Add(label3);
-            groupBox4.Location = new Point(3, 7);
-            groupBox4.Name = "groupBox4";
-            groupBox4.Size = new Size(471, 171);
-            groupBox4.TabIndex = 5;
-            groupBox4.TabStop = false;
-            groupBox4.Text = "External Module Viewer settings";
-            // 
-            // buttonBrowse
-            // 
-            buttonBrowse.Location = new Point(375, 52);
-            buttonBrowse.Name = "buttonBrowse";
-            buttonBrowse.Size = new Size(75, 23);
-            buttonBrowse.TabIndex = 9;
-            buttonBrowse.Text = "Browse ...";
-            buttonBrowse.UseVisualStyleBackColor = true;
-            buttonBrowse.Click += ButtonBrowse_Click;
-            // 
-            // argumentsTextBox
-            // 
-            argumentsTextBox.Location = new Point(28, 113);
-            argumentsTextBox.Name = "argumentsTextBox";
-            argumentsTextBox.PlaceholderText = "\"%1\"";
-            argumentsTextBox.Size = new Size(341, 23);
-            argumentsTextBox.TabIndex = 8;
-            argumentsTextBox.Text = "\"%1\"";
-            // 
-            // label5
-            // 
-            label5.AutoSize = true;
-            label5.Location = new Point(28, 95);
-            label5.Name = "label5";
-            label5.Size = new Size(284, 15);
-            label5.TabIndex = 7;
-            label5.Text = "Arguments (Use a %1 to represent the module path):";
-            // 
-            // commandTextBox
-            // 
-            commandTextBox.Location = new Point(28, 52);
-            commandTextBox.Name = "commandTextBox";
-            commandTextBox.Size = new Size(341, 23);
-            commandTextBox.TabIndex = 6;
-            // 
-            // label3
-            // 
-            label3.AutoSize = true;
-            label3.Location = new Point(28, 34);
-            label3.Name = "label3";
-            label3.Size = new Size(67, 15);
-            label3.TabIndex = 5;
-            label3.Text = "Command:";
-            // 
-            // tabExternalFunctionHelp
-            // 
-            tabExternalFunctionHelp.Controls.Add(groupBox5);
-            tabExternalFunctionHelp.Location = new Point(4, 5);
-            tabExternalFunctionHelp.Name = "tabExternalFunctionHelp";
-            tabExternalFunctionHelp.Size = new Size(480, 435);
-            tabExternalFunctionHelp.TabIndex = 5;
-            tabExternalFunctionHelp.Tag = "40";
-            tabExternalFunctionHelp.UseVisualStyleBackColor = true;
-            // 
-            // groupBox5
-            // 
-            groupBox5.Controls.Add(buttonDefaultURL);
-            groupBox5.Controls.Add(searchOnlineTextBox);
-            groupBox5.Controls.Add(label6);
-            groupBox5.Location = new Point(3, 7);
-            groupBox5.Name = "groupBox5";
-            groupBox5.Size = new Size(471, 107);
-            groupBox5.TabIndex = 0;
-            groupBox5.TabStop = false;
-            groupBox5.Text = "External Function Help settings";
-            // 
-            // buttonDefaultURL
-            // 
-            buttonDefaultURL.Location = new Point(375, 48);
-            buttonDefaultURL.Name = "buttonDefaultURL";
-            buttonDefaultURL.Size = new Size(81, 23);
-            buttonDefaultURL.TabIndex = 12;
-            buttonDefaultURL.Text = "Default URL";
-            buttonDefaultURL.UseVisualStyleBackColor = true;
-            buttonDefaultURL.Click += ButtonDefaultURL_Click;
-            // 
-            // searchOnlineTextBox
-            // 
-            searchOnlineTextBox.Location = new Point(6, 49);
-            searchOnlineTextBox.Name = "searchOnlineTextBox";
-            searchOnlineTextBox.PlaceholderText = "https://learn.microsoft.com/en-us/search/?terms=%1";
-            searchOnlineTextBox.Size = new Size(363, 23);
-            searchOnlineTextBox.TabIndex = 11;
-            // 
-            // label6
-            // 
-            label6.AutoSize = true;
-            label6.Location = new Point(6, 31);
-            label6.Name = "label6";
-            label6.Size = new Size(299, 15);
-            label6.TabIndex = 10;
-            label6.Text = "Search Online (Use %1 to represent the function name):";
-            // 
             // tabSearchOrder
             // 
             tabSearchOrder.Controls.Add(DeleteUserDirectoryButton);
@@ -799,7 +1041,7 @@
             tabSearchOrder.Padding = new Padding(3);
             tabSearchOrder.Size = new Size(480, 435);
             tabSearchOrder.TabIndex = 6;
-            tabSearchOrder.Tag = "50";
+            tabSearchOrder.Tag = "70";
             // 
             // DeleteUserDirectoryButton
             // 
@@ -864,243 +1106,6 @@
             MoveDownButton.UseVisualStyleBackColor = true;
             MoveDownButton.Click += TVSearchOderMoveDown;
             // 
-            // tabApiSetContracts
-            // 
-            tabApiSetContracts.Controls.Add(groupBox15);
-            tabApiSetContracts.Controls.Add(groupBox10);
-            tabApiSetContracts.Controls.Add(groupBox9);
-            tabApiSetContracts.Location = new Point(4, 5);
-            tabApiSetContracts.Name = "tabApiSetContracts";
-            tabApiSetContracts.Size = new Size(480, 435);
-            tabApiSetContracts.TabIndex = 7;
-            tabApiSetContracts.Tag = "60";
-            tabApiSetContracts.UseVisualStyleBackColor = true;
-            // 
-            // groupBox15
-            // 
-            groupBox15.Controls.Add(labelApiSetCount);
-            groupBox15.Controls.Add(labelApiSetVersion);
-            groupBox15.Location = new Point(9, 190);
-            groupBox15.Name = "groupBox15";
-            groupBox15.Size = new Size(465, 100);
-            groupBox15.TabIndex = 7;
-            groupBox15.TabStop = false;
-            groupBox15.Text = "Current Namespace Information";
-            // 
-            // labelApiSetCount
-            // 
-            labelApiSetCount.AutoSize = true;
-            labelApiSetCount.Location = new Point(19, 62);
-            labelApiSetCount.Name = "labelApiSetCount";
-            labelApiSetCount.Size = new Size(43, 15);
-            labelApiSetCount.TabIndex = 11;
-            labelApiSetCount.Text = "Count:";
-            // 
-            // labelApiSetVersion
-            // 
-            labelApiSetVersion.AutoSize = true;
-            labelApiSetVersion.Location = new Point(19, 34);
-            labelApiSetVersion.Name = "labelApiSetVersion";
-            labelApiSetVersion.Size = new Size(48, 15);
-            labelApiSetVersion.TabIndex = 10;
-            labelApiSetVersion.Text = "Version:";
-            // 
-            // groupBox10
-            // 
-            groupBox10.Controls.Add(chBoxHighlightApiSet);
-            groupBox10.Location = new Point(9, 115);
-            groupBox10.Name = "groupBox10";
-            groupBox10.Size = new Size(465, 69);
-            groupBox10.TabIndex = 6;
-            groupBox10.TabStop = false;
-            groupBox10.Text = "Appearance";
-            // 
-            // chBoxHighlightApiSet
-            // 
-            chBoxHighlightApiSet.AutoSize = true;
-            chBoxHighlightApiSet.Location = new Point(19, 32);
-            chBoxHighlightApiSet.Name = "chBoxHighlightApiSet";
-            chBoxHighlightApiSet.Size = new Size(165, 19);
-            chBoxHighlightApiSet.TabIndex = 5;
-            chBoxHighlightApiSet.Tag = "501";
-            chBoxHighlightApiSet.Text = "Highlight ApiSet contracts";
-            chBoxHighlightApiSet.UseVisualStyleBackColor = true;
-            chBoxHighlightApiSet.Click += ChBox_Click;
-            // 
-            // groupBox9
-            // 
-            groupBox9.Controls.Add(apisetTextBox);
-            groupBox9.Controls.Add(buttonApiSetBrowse);
-            groupBox9.Controls.Add(chBoxApiSetNamespace);
-            groupBox9.Location = new Point(9, 6);
-            groupBox9.Name = "groupBox9";
-            groupBox9.Size = new Size(465, 103);
-            groupBox9.TabIndex = 5;
-            groupBox9.TabStop = false;
-            groupBox9.Text = "Override Used Namespace";
-            // 
-            // apisetTextBox
-            // 
-            apisetTextBox.Location = new Point(19, 57);
-            apisetTextBox.Name = "apisetTextBox";
-            apisetTextBox.ReadOnly = true;
-            apisetTextBox.Size = new Size(351, 23);
-            apisetTextBox.TabIndex = 7;
-            // 
-            // buttonApiSetBrowse
-            // 
-            buttonApiSetBrowse.Location = new Point(376, 56);
-            buttonApiSetBrowse.Name = "buttonApiSetBrowse";
-            buttonApiSetBrowse.Size = new Size(75, 23);
-            buttonApiSetBrowse.TabIndex = 6;
-            buttonApiSetBrowse.Text = "Browse";
-            buttonApiSetBrowse.UseVisualStyleBackColor = true;
-            buttonApiSetBrowse.Click += buttonApiSetBrowse_Click;
-            // 
-            // chBoxApiSetNamespace
-            // 
-            chBoxApiSetNamespace.AutoSize = true;
-            chBoxApiSetNamespace.Location = new Point(19, 32);
-            chBoxApiSetNamespace.Name = "chBoxApiSetNamespace";
-            chBoxApiSetNamespace.Size = new Size(211, 19);
-            chBoxApiSetNamespace.TabIndex = 5;
-            chBoxApiSetNamespace.Tag = "500";
-            chBoxApiSetNamespace.Text = "Retrieve from ApiSetSchema.dll file";
-            chBoxApiSetNamespace.UseVisualStyleBackColor = true;
-            chBoxApiSetNamespace.Click += ChBox_Click;
-            // 
-            // tabAnalysis
-            // 
-            tabAnalysis.Controls.Add(groupBox14);
-            tabAnalysis.Controls.Add(groupBox13);
-            tabAnalysis.Controls.Add(groupBox11);
-            tabAnalysis.Location = new Point(4, 5);
-            tabAnalysis.Name = "tabAnalysis";
-            tabAnalysis.Size = new Size(480, 435);
-            tabAnalysis.TabIndex = 8;
-            tabAnalysis.Tag = "70";
-            tabAnalysis.UseVisualStyleBackColor = true;
-            // 
-            // groupBox14
-            // 
-            groupBox14.Controls.Add(chBoxPropagateSettings);
-            groupBox14.Controls.Add(chBoxAnalysisDefaultEnabled);
-            groupBox14.Location = new Point(6, 262);
-            groupBox14.Name = "groupBox14";
-            groupBox14.Size = new Size(468, 100);
-            groupBox14.TabIndex = 10;
-            groupBox14.TabStop = false;
-            groupBox14.Text = "Analysis";
-            // 
-            // chBoxPropagateSettings
-            // 
-            chBoxPropagateSettings.AutoSize = true;
-            chBoxPropagateSettings.Location = new Point(16, 33);
-            chBoxPropagateSettings.Name = "chBoxPropagateSettings";
-            chBoxPropagateSettings.Size = new Size(261, 19);
-            chBoxPropagateSettings.TabIndex = 11;
-            chBoxPropagateSettings.Tag = "603";
-            chBoxPropagateSettings.Text = "Propagate analysis settings on dependencies";
-            chBoxPropagateSettings.UseVisualStyleBackColor = true;
-            chBoxPropagateSettings.Click += ChBox_Click;
-            // 
-            // chBoxAnalysisDefaultEnabled
-            // 
-            chBoxAnalysisDefaultEnabled.AutoSize = true;
-            chBoxAnalysisDefaultEnabled.Location = new Point(16, 58);
-            chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
-            chBoxAnalysisDefaultEnabled.Size = new Size(319, 19);
-            chBoxAnalysisDefaultEnabled.TabIndex = 10;
-            chBoxAnalysisDefaultEnabled.Tag = "602";
-            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
-            chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
-            chBoxAnalysisDefaultEnabled.Click += ChBox_Click;
-            // 
-            // groupBox13
-            // 
-            groupBox13.Controls.Add(chBoxUseStats);
-            groupBox13.Location = new Point(3, 199);
-            groupBox13.Name = "groupBox13";
-            groupBox13.Size = new Size(471, 57);
-            groupBox13.TabIndex = 8;
-            groupBox13.TabStop = false;
-            groupBox13.Text = "Statistics";
-            // 
-            // chBoxUseStats
-            // 
-            chBoxUseStats.AutoSize = true;
-            chBoxUseStats.Location = new Point(19, 22);
-            chBoxUseStats.Name = "chBoxUseStats";
-            chBoxUseStats.Size = new Size(200, 19);
-            chBoxUseStats.TabIndex = 8;
-            chBoxUseStats.Tag = "601";
-            chBoxUseStats.Text = "Enable transport statistics display";
-            chBoxUseStats.UseVisualStyleBackColor = true;
-            chBoxUseStats.Click += ChBox_Click;
-            // 
-            // groupBox11
-            // 
-            groupBox11.Controls.Add(labelAllocGran);
-            groupBox11.Controls.Add(label14);
-            groupBox11.Controls.Add(label13);
-            groupBox11.Controls.Add(cbMinAppAddress);
-            groupBox11.Controls.Add(chBoxUseReloc);
-            groupBox11.Location = new Point(3, 3);
-            groupBox11.Name = "groupBox11";
-            groupBox11.Size = new Size(471, 193);
-            groupBox11.TabIndex = 7;
-            groupBox11.TabStop = false;
-            groupBox11.Text = "Loader";
-            // 
-            // labelAllocGran
-            // 
-            labelAllocGran.AutoSize = true;
-            labelAllocGran.Location = new Point(188, 92);
-            labelAllocGran.Name = "labelAllocGran";
-            labelAllocGran.Size = new Size(25, 15);
-            labelAllocGran.TabIndex = 9;
-            labelAllocGran.Text = "0x0";
-            // 
-            // label14
-            // 
-            label14.AutoSize = true;
-            label14.Location = new Point(19, 92);
-            label14.Name = "label14";
-            label14.Size = new Size(163, 15);
-            label14.TabIndex = 8;
-            label14.Text = "System allocation granularity:";
-            // 
-            // label13
-            // 
-            label13.AutoSize = true;
-            label13.Location = new Point(19, 116);
-            label13.Name = "label13";
-            label13.Size = new Size(389, 60);
-            label13.TabIndex = 7;
-            label13.Text = resources.GetString("label13.Text");
-            // 
-            // cbMinAppAddress
-            // 
-            cbMinAppAddress.Enabled = false;
-            cbMinAppAddress.FormattingEnabled = true;
-            cbMinAppAddress.Location = new Point(19, 57);
-            cbMinAppAddress.Name = "cbMinAppAddress";
-            cbMinAppAddress.Size = new Size(237, 23);
-            cbMinAppAddress.TabIndex = 6;
-            cbMinAppAddress.KeyUp += CbMinAppAddressKeyUp;
-            // 
-            // chBoxUseReloc
-            // 
-            chBoxUseReloc.AutoSize = true;
-            chBoxUseReloc.Location = new Point(19, 32);
-            chBoxUseReloc.Name = "chBoxUseReloc";
-            chBoxUseReloc.Size = new Size(237, 19);
-            chBoxUseReloc.TabIndex = 5;
-            chBoxUseReloc.Tag = "600";
-            chBoxUseReloc.Text = "Enable relocations when parsing images";
-            chBoxUseReloc.UseVisualStyleBackColor = true;
-            chBoxUseReloc.Click += ChBox_Click;
-            // 
             // tabSearchOrderDrivers
             // 
             tabSearchOrderDrivers.Controls.Add(DeleteUserDirectoryDriversButton);
@@ -1113,7 +1118,7 @@
             tabSearchOrderDrivers.Name = "tabSearchOrderDrivers";
             tabSearchOrderDrivers.Size = new Size(480, 435);
             tabSearchOrderDrivers.TabIndex = 9;
-            tabSearchOrderDrivers.Tag = "90";
+            tabSearchOrderDrivers.Tag = "80";
             tabSearchOrderDrivers.UseVisualStyleBackColor = true;
             // 
             // DeleteUserDirectoryDriversButton
@@ -1187,7 +1192,7 @@
             tabServer.Name = "tabServer";
             tabServer.Size = new Size(480, 435);
             tabServer.TabIndex = 10;
-            tabServer.Tag = "80";
+            tabServer.Tag = "90";
             tabServer.UseVisualStyleBackColor = true;
             // 
             // groupBox7
@@ -1242,7 +1247,7 @@
             groupBox12.Controls.Add(buttonServerConnect);
             groupBox12.Controls.Add(labelServerStatus);
             groupBox12.Controls.Add(label15);
-            groupBox12.Location = new Point(6, 92);
+            groupBox12.Location = new Point(6, 94);
             groupBox12.Name = "groupBox12";
             groupBox12.Size = new Size(468, 183);
             groupBox12.TabIndex = 0;
@@ -1350,6 +1355,91 @@
             label15.TabIndex = 0;
             label15.Text = "Status:";
             // 
+            // tabSymbols
+            // 
+            tabSymbols.Controls.Add(groupBox16);
+            tabSymbols.Location = new Point(4, 5);
+            tabSymbols.Name = "tabSymbols";
+            tabSymbols.Size = new Size(480, 435);
+            tabSymbols.TabIndex = 11;
+            tabSymbols.Tag = "100";
+            tabSymbols.UseVisualStyleBackColor = true;
+            // 
+            // groupBox16
+            // 
+            groupBox16.Controls.Add(buttonSymbolsBrowse);
+            groupBox16.Controls.Add(symbolsStoreTextBox);
+            groupBox16.Controls.Add(label19);
+            groupBox16.Controls.Add(buttonDbghelpBrowse);
+            groupBox16.Controls.Add(dbghelpTextBox);
+            groupBox16.Controls.Add(label18);
+            groupBox16.Controls.Add(label17);
+            groupBox16.Location = new Point(6, 6);
+            groupBox16.Name = "groupBox16";
+            groupBox16.Size = new Size(468, 350);
+            groupBox16.TabIndex = 0;
+            groupBox16.TabStop = false;
+            groupBox16.Text = "Configure Symbols";
+            // 
+            // buttonSymbolsBrowse
+            // 
+            buttonSymbolsBrowse.Location = new Point(406, 199);
+            buttonSymbolsBrowse.Name = "buttonSymbolsBrowse";
+            buttonSymbolsBrowse.Size = new Size(36, 23);
+            buttonSymbolsBrowse.TabIndex = 6;
+            buttonSymbolsBrowse.Text = "...";
+            buttonSymbolsBrowse.UseVisualStyleBackColor = true;
+            // 
+            // symbolsStoreTextBox
+            // 
+            symbolsStoreTextBox.Location = new Point(19, 199);
+            symbolsStoreTextBox.Name = "symbolsStoreTextBox";
+            symbolsStoreTextBox.Size = new Size(378, 23);
+            symbolsStoreTextBox.TabIndex = 5;
+            // 
+            // label19
+            // 
+            label19.AutoSize = true;
+            label19.Location = new Point(6, 176);
+            label19.Name = "label19";
+            label19.Size = new Size(82, 15);
+            label19.TabIndex = 4;
+            label19.Text = "Symbols path:";
+            // 
+            // buttonDbghelpBrowse
+            // 
+            buttonDbghelpBrowse.Location = new Point(406, 144);
+            buttonDbghelpBrowse.Name = "buttonDbghelpBrowse";
+            buttonDbghelpBrowse.Size = new Size(36, 23);
+            buttonDbghelpBrowse.TabIndex = 3;
+            buttonDbghelpBrowse.Text = "...";
+            buttonDbghelpBrowse.UseVisualStyleBackColor = true;
+            // 
+            // dbghelpTextBox
+            // 
+            dbghelpTextBox.Location = new Point(19, 144);
+            dbghelpTextBox.Name = "dbghelpTextBox";
+            dbghelpTextBox.Size = new Size(378, 23);
+            dbghelpTextBox.TabIndex = 2;
+            // 
+            // label18
+            // 
+            label18.AutoSize = true;
+            label18.Location = new Point(6, 120);
+            label18.Name = "label18";
+            label18.Size = new Size(98, 15);
+            label18.TabIndex = 1;
+            label18.Text = "Dbghelp.dll path:";
+            // 
+            // label17
+            // 
+            label17.AutoSize = true;
+            label17.Location = new Point(6, 33);
+            label17.Name = "label17";
+            label17.Size = new Size(426, 60);
+            label17.TabIndex = 0;
+            label17.Text = "WinDepends uses debug symbols (PDB) to resolve anonymous function names \r\nwhen displaying module import/export list.\r\n\r\n(Optional)";
+            // 
             // configCancel
             // 
             configCancel.DialogResult = DialogResult.Cancel;
@@ -1384,7 +1474,6 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            CancelButton = configCancel;
             ClientSize = new Size(703, 507);
             Controls.Add(splitContainer2);
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -1421,24 +1510,6 @@
             groupBox6.ResumeLayout(false);
             groupBox6.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)historyUpDown).EndInit();
-            tabShellIntegration.ResumeLayout(false);
-            tabShellIntegration.PerformLayout();
-            groupBox1.ResumeLayout(false);
-            groupBox1.PerformLayout();
-            tabExternalViewer.ResumeLayout(false);
-            groupBox4.ResumeLayout(false);
-            groupBox4.PerformLayout();
-            tabExternalFunctionHelp.ResumeLayout(false);
-            groupBox5.ResumeLayout(false);
-            groupBox5.PerformLayout();
-            tabSearchOrder.ResumeLayout(false);
-            tabApiSetContracts.ResumeLayout(false);
-            groupBox15.ResumeLayout(false);
-            groupBox15.PerformLayout();
-            groupBox10.ResumeLayout(false);
-            groupBox10.PerformLayout();
-            groupBox9.ResumeLayout(false);
-            groupBox9.PerformLayout();
             tabAnalysis.ResumeLayout(false);
             groupBox14.ResumeLayout(false);
             groupBox14.PerformLayout();
@@ -1446,12 +1517,33 @@
             groupBox13.PerformLayout();
             groupBox11.ResumeLayout(false);
             groupBox11.PerformLayout();
+            tabApiSet.ResumeLayout(false);
+            groupBox15.ResumeLayout(false);
+            groupBox15.PerformLayout();
+            groupBox10.ResumeLayout(false);
+            groupBox10.PerformLayout();
+            groupBox9.ResumeLayout(false);
+            groupBox9.PerformLayout();
+            tabExternalFunctionHelp.ResumeLayout(false);
+            groupBox5.ResumeLayout(false);
+            groupBox5.PerformLayout();
+            tabExternalViewer.ResumeLayout(false);
+            groupBox4.ResumeLayout(false);
+            groupBox4.PerformLayout();
+            tabHandledFileExtensions.ResumeLayout(false);
+            tabHandledFileExtensions.PerformLayout();
+            groupBox1.ResumeLayout(false);
+            groupBox1.PerformLayout();
+            tabSearchOrder.ResumeLayout(false);
             tabSearchOrderDrivers.ResumeLayout(false);
             tabServer.ResumeLayout(false);
             groupBox7.ResumeLayout(false);
             groupBox7.PerformLayout();
             groupBox12.ResumeLayout(false);
             groupBox12.PerformLayout();
+            tabSymbols.ResumeLayout(false);
+            groupBox16.ResumeLayout(false);
+            groupBox16.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -1462,7 +1554,7 @@
         private TabControl settingsTabControl;
         private TabPage tabMain;
         private TabPage tabMainHistory;
-        private TabPage tabShellIntegration;
+        private TabPage tabHandledFileExtensions;
         private GroupBox groupBox1;
         private TextBox customExtBox;
         private Label label4;
@@ -1512,10 +1604,9 @@
         private GroupBox groupBox8;
         private CheckBox chBoxCompressSessionFiles;
         private Label label10;
-        private Label label11;
         private Label label12;
         private CheckBox chBoxClearLogOnFileOpen;
-        private TabPage tabApiSetContracts;
+        private TabPage tabApiSet;
         private GroupBox groupBox9;
         private CheckBox chBoxApiSetNamespace;
         private GroupBox groupBox10;
@@ -1564,5 +1655,14 @@
         private GroupBox groupBox15;
         private Label labelApiSetCount;
         private Label labelApiSetVersion;
+        private TabPage tabSymbols;
+        private GroupBox groupBox16;
+        private Label label17;
+        private Button buttonSymbolsBrowse;
+        private TextBox symbolsStoreTextBox;
+        private Label label19;
+        private Button buttonDbghelpBrowse;
+        private TextBox dbghelpTextBox;
+        private Label label18;
     }
 }

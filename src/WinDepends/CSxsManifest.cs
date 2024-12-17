@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        14 Dec 2024
 *  
 *  Implementation of basic sxs manifest parser class.
 *
@@ -51,7 +51,7 @@ public class CSxsEntry
 
             FilePath = loadFrom.EndsWith(Path.DirectorySeparatorChar.ToString()) ?
                 Path.Combine(loadFrom, Name) :
-                Path.ChangeExtension(loadFrom, ".dll");
+                Path.ChangeExtension(loadFrom, CConsts.DllFileExt);
         }
         else
         {

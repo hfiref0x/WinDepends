@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        17 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -490,59 +490,6 @@ public static class CUtils
         return deserializedObject;
     }
 
-    static internal int ListViewSelectImageIndexForModule(CModule module)
-    {
-        bool is64bit = module.Is64bitArchitecture();
-        ModuleInfoFlags mflags = module.GetModuleFlags();
-        bool bFileNotFound = mflags.HasFlag(ModuleInfoFlags.FileNotFound);
-        bool bExportError = mflags.HasFlag(ModuleInfoFlags.ExportError);
-        bool bInvalid = mflags.HasFlag(ModuleInfoFlags.Invalid);
-        bool bWarningOtherErrors = mflags.HasFlag(ModuleInfoFlags.WarningOtherErrors);
-
-        if (module.IsDelayLoad)
-        {
-            if (bInvalid)
-            {
-                return (int)ModuleIconCompactType.DelayLoadInvalid;
-            }
-
-            if (bFileNotFound)
-            {
-                return (int)ModuleIconCompactType.DelayLoadMissing;
-            }
-
-            if (bExportError)
-            {
-                return (int)ModuleIconCompactType.DelayLoadModuleWarning;
-            }
-
-            if (bWarningOtherErrors)
-            {
-                return is64bit ? (int)ModuleIconCompactType.DelayLoadModule64Warning : (int)ModuleIconCompactType.DelayLoadModuleWarning;
-            }
-
-            return is64bit ? (int)ModuleIconCompactType.DelayLoadModule64 : (int)ModuleIconCompactType.DelayLoadModule;
-        }
-
-        if (bInvalid)
-        {
-            return (int)ModuleIconCompactType.Invalid;
-        }
-
-        if (bFileNotFound)
-        {
-            return (int)ModuleIconCompactType.MissingModule;
-        }
-
-        if (bWarningOtherErrors)
-        {
-            return is64bit ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.WarningModule;
-        }
-
-        return is64bit ? (bExportError ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.NormalModule64) :
-            (bExportError ? (int)ModuleIconCompactType.WarningModule : (int)ModuleIconCompactType.NormalModule);
-    }
-
     /// <summary>
     /// Find module by it InstanceId
     /// </summary>
@@ -693,4 +640,22 @@ public static class CUtils
         }
     }
 
+    public static TreeNode FindNodeByTag(TreeNodeCollection nodes, object tagValue)
+    {
+        foreach (TreeNode node in nodes)
+        {
+            if (node.Tag != null && node.Tag.Equals(tagValue))
+            {
+                return node;
+            }
+
+            TreeNode foundNode = FindNodeByTag(node.Nodes, tagValue);
+            if (foundNode != null)
+            {
+                return foundNode;
+            }
+        }
+
+        return null;
+    }
 }

@@ -2,11 +2,11 @@
 *
 *  (C) COPYRIGHT AUTHORS, 2024
 *
-*  TITLE:       CCONFIGURATIONFORM.CS
+*  TITLE:       CONFIGURATIONFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        15 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,22 +20,24 @@ namespace WinDepends;
 
 public partial class ConfigurationForm : Form
 {
-    private readonly CCoreClient m_CoreClient;
-    private readonly string m_CurrentFileName = string.Empty;
-    private readonly bool m_Is64bitFile;
-    private bool m_SearchOrderExpand = true;
-    private bool m_SearchOrderDriversExpand = true;
-    private readonly CConfiguration m_CurrentConfiguration;
-    private TreeNode m_UserDefinedDirectoryNodeUM;
-    private TreeNode m_UserDefinedDirectoryNodeKM;
+    readonly CCoreClient m_CoreClient;
+    readonly string m_CurrentFileName = string.Empty;
+    readonly bool m_Is64bitFile;
+    bool m_SearchOrderExpand = true;
+    bool m_SearchOrderDriversExpand = true;
+    readonly CConfiguration m_CurrentConfiguration;
+    TreeNode m_UserDefinedDirectoryNodeUM;
+    TreeNode m_UserDefinedDirectoryNodeKM;
+    readonly int m_CurrentPageIndex;
 
-    public ConfigurationForm(string currentFileName, bool is64bitFile, CConfiguration currentConfiguration, CCoreClient coreClient)
+    public ConfigurationForm(string currentFileName, bool is64bitFile, CConfiguration currentConfiguration, CCoreClient coreClient, int pageIndex = 0)
     {
         InitializeComponent();
         m_CurrentFileName = currentFileName;
         m_Is64bitFile = is64bitFile;
         m_CurrentConfiguration = currentConfiguration;
         m_CoreClient = coreClient;
+        m_CurrentPageIndex = pageIndex;
     }
 
     private void FillSearchOrderCategoryWithItems(TreeNode rootNode, SearchOrderType soType)
@@ -263,7 +265,7 @@ public partial class ConfigurationForm : Form
         //
         // Setup state of controls.
         //
-        foreach (Control ctrl in tabShellIntegration.Controls)
+        foreach (Control ctrl in tabHandledFileExtensions.Controls)
         {
             ctrl.Enabled = CUtils.IsAdministrator;
         }
@@ -312,6 +314,9 @@ public partial class ConfigurationForm : Form
         searchOnlineTextBox.Text = m_CurrentConfiguration.ExternalFunctionHelpURL;
 
         serverAppLocationTextBox.Text = m_CurrentConfiguration.CoreServerAppLocation;
+
+        symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
+        dbghelpTextBox.Text = m_CurrentConfiguration.SymbolsDllsPath;
 
         buttonApiSetBrowse.Enabled = m_CurrentConfiguration.UseApiSetSchemaFile;
         if (m_CurrentConfiguration.UseApiSetSchemaFile)
@@ -380,6 +385,21 @@ public partial class ConfigurationForm : Form
         CheckServerFileState(m_CurrentConfiguration.CoreServerAppLocation);
         ShowServerStatusAndSetControls();
         ShowApiSetNamespaceInformation();
+
+        settingsTabControl.SelectedIndex = m_CurrentPageIndex;
+        if (m_CurrentPageIndex != 0 && settingsTabControl.SelectedTab != null)
+        {
+            var tagValue = settingsTabControl.SelectedTab.Tag;
+            var nodeToSelect = CUtils.FindNodeByTag(TVSettings.Nodes, tagValue);
+            if (nodeToSelect != null)
+            {
+                TVSettings.SelectedNode = nodeToSelect;
+            }
+        }
+        else
+        {
+            TVSettings.SelectedNode = TVSettings.Nodes[0];
+        }
     }
 
     private void ConfigurationForm_KeyDown(object sender, KeyEventArgs e)
@@ -598,6 +618,7 @@ public partial class ConfigurationForm : Form
             if (node.Tag == page.Tag)
             {
                 settingsTabControl.SelectedIndex = settingsTabControl.TabPages.IndexOf(page);
+                TVSettings.Select();
                 break;
             }
         }
@@ -787,18 +808,7 @@ public partial class ConfigurationForm : Form
 
     private void AddUserDirectoryButtonClick(object sender, EventArgs e)
     {
-        TreeView view;
-        TreeNode rootNode;
-        if (settingsTabControl.SelectedTab == tabSearchOrder)
-        {
-            view = TVSearchOrder;
-            rootNode = m_UserDefinedDirectoryNodeUM;
-        }
-        else
-        {
-            view = TVSearchOrderDrivers;
-            rootNode = m_UserDefinedDirectoryNodeKM;
-        }
+        TreeNode rootNode = (settingsTabControl.SelectedTab == tabSearchOrder) ? m_UserDefinedDirectoryNodeUM : m_UserDefinedDirectoryNodeKM;
 
         if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
         {
@@ -859,7 +869,7 @@ public partial class ConfigurationForm : Form
         catch { };
     }
 
-    private void buttonApiSetBrowse_Click(object sender, EventArgs e)
+    private void ButtonApiSetBrowse_Click(object sender, EventArgs e)
     {
         browseFileDialog.Filter = Properties.Resources.ResourceManager.GetString("DllFilesFilter");
         if (browseFileDialog.ShowDialog() == DialogResult.OK)

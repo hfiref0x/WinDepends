@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        16 Dec 2024
 *  
 *  Codename:    VasilEk
 *
@@ -128,7 +128,7 @@ public partial class MainForm : Form
         m_Configuration = CConfigManager.LoadConfiguration();
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
-
+        CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllsPath, m_Configuration.SymbolsStorePath);
 
         //
         // Add welcome message to the log.
@@ -1241,7 +1241,7 @@ public partial class MainForm : Form
         }
     }
 
-    private void ConfigureMenuItem_Click(object sender, EventArgs e)
+    private void ShowConfigurationForm(int pageIndex)
     {
         bool is64bitFile = true;
         string currentFileName = string.Empty;
@@ -1268,7 +1268,8 @@ public partial class MainForm : Form
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
                                                   m_Configuration,
-                                                  m_CoreClient))
+                                                  m_CoreClient,
+                                                  pageIndex))
         {
             if (configForm.ShowDialog() == DialogResult.OK)
             {
@@ -1310,6 +1311,11 @@ public partial class MainForm : Form
 
             }
         }
+    }
+
+    private void ConfigureMenuItem_Click(object sender, EventArgs e)
+    {
+        ShowConfigurationForm(0);
     }
 
     /// <summary>
@@ -1363,22 +1369,14 @@ public partial class MainForm : Form
     {
         CModule module = null;
 
-        var controlName = FindFocusedListControlName();
-        if (controlName == null)
-            return;
-
-        switch (controlName)
+        if (LVModules.Focused && LVModules.SelectedIndices.Count > 0)
         {
-            case CConsts.LVModulesName:
-                if (LVModules.SelectedIndices.Count > 0)
-                {
-                    var selectedItemIndex = LVModules.SelectedIndices[0];
-                    module = m_LoadedModulesList[selectedItemIndex];
-                }
-                break;
-            default:
-                module = TVModules.SelectedNode?.Tag as CModule;
-                break;
+            var selectedItemIndex = LVModules.SelectedIndices[0];
+            module = m_LoadedModulesList[selectedItemIndex];
+        }
+        else if (TVModules.Focused)
+        {
+            module = TVModules.SelectedNode?.Tag as CModule;
         }
 
         if (module == null || string.IsNullOrEmpty(module.FileName)) return;
@@ -2776,7 +2774,6 @@ public partial class MainForm : Form
         // ModuleImage | Module | File TimeStamp | Link TimeStamp | FileSize | Attr. | LinkChecksum | Real Checksum | CPU
         // Subsystem | Preffered Base | Actual Base | VirtualSize | LoadOrder | FileVer | ProductVer | ImageVer | LinkerVer | OSVer | SubsystemVer | 
         //
-        int moduleImageIndexInList = CUtils.ListViewSelectImageIndexForModule(module);
 
         //
         // Add item to ListView.
@@ -2784,7 +2781,7 @@ public partial class MainForm : Form
         ListViewItem lvItem = new()
         {
             Tag = module,
-            ImageIndex = moduleImageIndexInList
+            ImageIndex = module.GetIconIndexForModuleCompact()
         };
 
         string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
@@ -3425,5 +3422,13 @@ public partial class MainForm : Form
     private void TVModules_Click(object sender, EventArgs e)
     {
         CopyToolButton.Enabled = TVModules.SelectedNode != null;
+    }
+
+    private void MainMenu_ConfigureItemClick(object sender, EventArgs e)
+    {
+        if (sender is ToolStripMenuItem menuItem)
+        {
+            ShowConfigurationForm(Convert.ToInt32(menuItem.Tag));
+        }
     }
 }

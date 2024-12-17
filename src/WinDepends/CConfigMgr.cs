@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        02 Dec 2024
+*  DATE:        16 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -52,6 +52,8 @@ public class CConfiguration
     public string ExternalViewerArguments { get; set; }
     public string ExternalFunctionHelpURL { get; set; }
     public string CoreServerAppLocation { get; set; }
+    public string SymbolsDllsPath { get; set; }
+    public string SymbolsStorePath { get; set; }
 
     public uint MinAppAddress { get; set; }
 
@@ -64,6 +66,46 @@ public class CConfiguration
 
     public CConfiguration()
     {
+    }
+
+    public CConfiguration(CConfiguration other)
+    {
+        UppperCaseModuleNames = other.UppperCaseModuleNames;
+        ShowToolBar = other.ShowToolBar;
+        ShowStatusBar = other.ShowStatusBar;
+        SortColumnExports = other.SortColumnExports;
+        SortColumnImports = other.SortColumnImports;
+        SortColumnModules = other.SortColumnModules;
+        ModuleNodeDepthMax = other.ModuleNodeDepthMax;
+        ViewUndecorated = other.ViewUndecorated;
+        ResolveAPIsets = other.ResolveAPIsets;
+        FullPaths = other.FullPaths;
+        AutoExpands = other.AutoExpands;
+        EscKeyEnabled = other.EscKeyEnabled;
+        CompressSessionFiles = other.CompressSessionFiles;
+        HistoryShowFullPath = other.HistoryShowFullPath;
+        ClearLogOnFileOpen = other.ClearLogOnFileOpen;
+        UseApiSetSchemaFile = other.UseApiSetSchemaFile;
+        UseRelocForImages = other.UseRelocForImages;
+        UseStats = other.UseStats;
+        AnalysisSettingsUseAsDefault = other.AnalysisSettingsUseAsDefault;
+        PropagateSettingsOnDependencies = other.PropagateSettingsOnDependencies;
+        HighlightApiSet = other.HighlightApiSet;
+        HistoryDepth = other.HistoryDepth;
+        ApiSetSchemaFile = other.ApiSetSchemaFile;
+        ExternalViewerCommand = other.ExternalViewerCommand;
+        ExternalViewerArguments = other.ExternalViewerArguments;
+        ExternalFunctionHelpURL = other.ExternalFunctionHelpURL;
+        CoreServerAppLocation = other.CoreServerAppLocation;
+        SymbolsDllsPath = other.SymbolsDllsPath;
+        SymbolsStorePath = other.SymbolsStorePath;
+        MinAppAddress = other.MinAppAddress;
+
+        SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM);
+        SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM);
+        UserSearchOrderDirectoriesUM = new List<string>(other.UserSearchOrderDirectoriesUM);
+        UserSearchOrderDirectoriesKM = new List<string>(other.UserSearchOrderDirectoriesKM);
+        MRUList = new List<string>(other.MRUList);
     }
 
     public CConfiguration(bool bSetDefault)

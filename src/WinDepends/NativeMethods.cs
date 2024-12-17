@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        13 Dec 2024
+*  DATE:        14 Dec 2024
 *
 *  Win32 API P/Invoke.
 *
@@ -176,7 +176,33 @@ static partial class NativeMethods
         public const int STG_E_ACCESSDENIED = unchecked((int)0x80030005);
     }
 
-    [DllImport("kernel32.dll")]
+    [Flags]
+    public enum LoadLibraryFlags : uint
+    {
+        DONT_RESOLVE_DLL_REFERENCES = 0x00000001,
+        LOAD_LIBRARY_AS_DATAFILE = 0x00000002,
+        LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008,
+        LOAD_IGNORE_CODE_AUTHZ_LEVEL = 0x00000010,
+        LOAD_LIBRARY_AS_IMAGE_RESOURCE = 0x00000020,
+        LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE = 0x00000040,
+        LOAD_LIBRARY_REQUIRE_SIGNED_TARGET = 0x00000080,
+        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR = 0x00000100,
+        LOAD_LIBRARY_SEARCH_APPLICATION_DIR = 0x00000200,
+        LOAD_LIBRARY_SEARCH_USER_DIRS = 0x00000400,
+        LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800,
+        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS = 0x00001000
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    internal static extern IntPtr LoadLibraryEx([MarshalAs(UnmanagedType.LPWStr)] string lpFileName, IntPtr hFile, LoadLibraryFlags dwFlags);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+    internal static extern IntPtr GetProcAddress(IntPtr hModule, [MarshalAs(UnmanagedType.LPStr)] string procName);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    internal static extern bool FreeLibrary(IntPtr hModule);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
     internal static extern void GetSystemInfo(ref SYSTEM_INFO lpSystemInfo);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -207,14 +233,6 @@ static partial class NativeMethods
     [DllImport("shell32.dll", SetLastError = true)]
     internal static extern void DragFinish(IntPtr hDrop);
 
-    [DllImport("dbghelp.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    internal static extern uint UnDecorateSymbolName(
-        [MarshalAs(UnmanagedType.LPWStr)] string name,
-        [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder outputString,
-        int maxStringLength,
-        UNDNAME flags
-    );
-
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern uint SearchPath([MarshalAs(UnmanagedType.LPWStr)] string lpPath,
         [MarshalAs(UnmanagedType.LPWStr)] string lpFileName,
@@ -222,61 +240,6 @@ static partial class NativeMethods
         UInt32 nBufferLength,
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder lpBuffer,
         out IntPtr lpFilePart);
-
-    [Flags]
-    public enum UNDNAME : uint
-    {
-        /// <summary>Undecorate 32-bit decorated names.</summary>
-        Decode32Bit = 0x0800,
-
-        /// <summary>Enable full undecoration.</summary>
-        Complete = 0x0000,
-
-        /// <summary>Undecorate only the name for primary declaration. Returns [scope::]name. Does expand template parameters.</summary>
-        NameOnly = 0x1000,
-
-        /// <summary>Disable expansion of access specifiers for members.</summary>
-        NoAccessSpecifiers = 0x0080,
-
-        /// <summary>Disable expansion of the declaration language specifier.</summary>
-        NoAllocateLanguage = 0x0010,
-
-        /// <summary>Disable expansion of the declaration model.</summary>
-        NoAllocationModel = 0x0008,
-
-        /// <summary>Do not undecorate function arguments.</summary>
-        NoArguments = 0x2000,
-
-        /// <summary>Disable expansion of CodeView modifiers on the this type for primary declaration.</summary>
-        NoCVThisType = 0x0040,
-
-        /// <summary>Disable expansion of return types for primary declarations.</summary>
-        NoFunctionReturns = 0x0004,
-
-        /// <summary>Remove leading underscores from Microsoft keywords.</summary>
-        NoLeadingUndersCores = 0x0001,
-
-        /// <summary>Disable expansion of the static or virtual attribute of members.</summary>
-        NoMemberType = 0x0200,
-
-        /// <summary>Disable expansion of Microsoft keywords.</summary>
-        NoMsKeyWords = 0x0002,
-
-        /// <summary>Disable expansion of Microsoft keywords on the this type for primary declaration.</summary>
-        NoMsThisType = 0x0020,
-
-        /// <summary>Disable expansion of the Microsoft model for user-defined type returns.</summary>
-        NoReturnUDTModel = 0x0400,
-
-        /// <summary>Do not undecorate special names, such as vtable, vcall, vector, metatype, and so on.</summary>
-        NoSpecialSyms = 0x4000,
-
-        /// <summary>Disable all modifiers on the this type.</summary>
-        NoThisType = 0x0060,
-
-        /// <summary>Disable expansion of throw-signatures for functions and pointers to functions.</summary>
-        NoThrowSignatures = 0x0100,
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct POINT(int newX, int newY)
@@ -378,22 +341,6 @@ static partial class NativeMethods
         return null;
     }
 
-    /// <summary>
-    /// Call dbghelp!UnDecorateSymbolName to undecorate name.
-    /// </summary>
-    /// <param name="functionName"></param>
-    /// <returns></returns>
-    static internal string UndecorateFunctionName(string functionName)
-    {
-        var sb = new StringBuilder(128);
-
-        if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.Complete) > 0)
-        {
-            return sb.ToString();
-        }
-
-        return string.Empty;
-    }
 }
 
 /// <summary>

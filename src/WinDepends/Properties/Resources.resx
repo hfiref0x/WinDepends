@@ -184,7 +184,7 @@
   <data name="Highlight Matching Module In List" xml:space="preserve">
     <value>Highlight the matching item in the related view</value>
   </data>
-  <data name="Highlight Module In Tree" xml:space="preserve">
+  <data name="Highlight Matching Module In Tree" xml:space="preserve">
     <value>Highlight the matching item in the related view</value>
   </data>
   <data name="Highlight Next Instance" xml:space="preserve">
@@ -270,5 +270,26 @@
   </data>
   <data name="DllFilesFilter" xml:space="preserve">
     <value>Dll Files|*.dll</value>
+  </data>
+  <data name="Configure Module Search Order..." xml:space="preserve">
+    <value>Configure or view the search order used when locating dependent modules</value>
+  </data>
+  <data name="Configure Module Search Order (drivers)..." xml:space="preserve">
+    <value>Configure or view the search order used when locating dependent driver modules</value>
+  </data>
+  <data name="Configure External Module Viewer..." xml:space="preserve">
+    <value>Configures the external module viewer to use the application of your choice</value>
+  </data>
+  <data name="Configure Handled File Extensions..." xml:space="preserve">
+    <value>Configures what file extensions WinDepends handles</value>
+  </data>
+  <data name="Configure ApiSets..." xml:space="preserve">
+    <value>Configures how ApiSets contracts will be handled and displayed</value>
+  </data>
+  <data name="Configure Symbols..." xml:space="preserve">
+    <value>Configures debug symbols dlls and store locations</value>
+  </data>
+  <data name="Documentation" xml:space="preserve">
+    <value>Open program documentation</value>
   </data>
 </root>

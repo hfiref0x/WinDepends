@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        16 Dec 2024
+*  DATE:        19 Dec 2024
 *  
 *  Codename:    VasilEk
 *
@@ -73,8 +73,8 @@ public partial class MainForm : Form
     bool m_InstanceStopSearch;
     bool m_InstanceSelfFound;
 
-    private readonly Form m_FunctionsHintForm;
-    private readonly Form m_ModulesHintForm;
+    readonly Form m_FunctionsHintForm;
+    readonly Form m_ModulesHintForm;
 
     string m_FunctionLookupText = string.Empty;
     string m_ModuleLookupText = string.Empty;
@@ -102,15 +102,15 @@ public partial class MainForm : Form
                 DebugEntryType.OmapToSrc,
                 DebugEntryType.Borland];
 
-    private ListViewItem[] LVImportsCache = [];
-    private ListViewItem[] LVExportsCache = [];
+    ListViewItem[] LVImportsCache = [];
+    ListViewItem[] LVExportsCache = [];
 
-    private ListViewItem[] LVModulesCache = [];
+    ListViewItem[] LVModulesCache = [];
 
-    private int LVImportsFirstItem;
-    private int LVExportsFirstItem;
+    int LVImportsFirstItem;
+    int LVExportsFirstItem;
 
-    private int LVModulesFirstItem;
+    int LVModulesFirstItem;
 
     List<CFunction> m_CurrentExportsList = [];
     List<CFunction> m_CurrentImportsList = [];
@@ -128,7 +128,7 @@ public partial class MainForm : Form
         m_Configuration = CConfigManager.LoadConfiguration();
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
-        CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllsPath, m_Configuration.SymbolsStorePath);
+        CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
 
         //
         // Add welcome message to the log.
@@ -209,7 +209,7 @@ public partial class MainForm : Form
         if (!currentModuleIsRoot)
         {
             parentModule = (CModule)parentNode.Tag;
-            if (parentModule.Depth >= m_Configuration.ModuleNodeDepthMax)
+            if (parentModule.Depth > m_Configuration.ModuleNodeDepthMax)
             {
                 return null;
             }
@@ -427,7 +427,7 @@ public partial class MainForm : Form
         if (parentNode != null)
         {
             CModule parentModule = (CModule)parentNode.Tag;
-            if (parentModule.Depth >= m_Depends.SessionNodeMaxDepth)
+            if (parentModule.Depth > m_Depends.SessionNodeMaxDepth)
             {
                 return null;
             }
@@ -998,22 +998,59 @@ public partial class MainForm : Form
     {
         bool bResult = false;
 
-        if (m_Configuration.ClearLogOnFileOpen)
-        {
-            reLog.Clear();
-        }
-
         string fileExt = Path.GetExtension(fileName);
 
         bool bSessionFile = fileExt.Equals(CConsts.WinDependsSessionFileExt, StringComparison.OrdinalIgnoreCase);
 
         if (bSessionFile)
         {
+            if (m_Configuration.ClearLogOnFileOpen)
+            {
+                reLog.Clear();
+            }
             bResult = OpenSessionFile(fileName);
         }
         else
         {
+            //
+            // Display file open settings dialog depending on global settings.
+            //
+            CFileOpenSettings fileOpenSettings = new(m_Configuration);
+
+            if (!fileOpenSettings.AnalysisSettingsUseAsDefault)
+            {
+                using (FileOpenForm fileOpenForm = new(m_Configuration.EscKeyEnabled, fileOpenSettings, fileName))
+                {
+                    //
+                    // Update global settings if use as default is checked.
+                    //
+                    if (fileOpenForm.ShowDialog() == DialogResult.OK)
+                    {
+                        if (fileOpenSettings.AnalysisSettingsUseAsDefault)
+                        {
+                            m_Configuration.UseStats = fileOpenSettings.UseStats;
+                            m_Configuration.UseRelocForImages = fileOpenSettings.UseRelocForImages;
+                            m_Configuration.MinAppAddress = fileOpenSettings.MinAppAddress;
+                            m_Configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
+                            m_Configuration.AnalysisSettingsUseAsDefault = true;
+                        }
+                    }
+                    else
+                    {
+                        //
+                        // User cancelled file opening, return.
+                        //
+                        return false;
+                    }
+                }
+            }
+
             CloseInputFile();
+
+            if (m_Configuration.ClearLogOnFileOpen)
+            {
+                reLog.Clear();
+            }
 
             // Create new root object and output it submodules.
             m_Depends = new(fileName)
@@ -1022,34 +1059,9 @@ public partial class MainForm : Form
                 SessionNodeMaxDepth = m_Configuration.ModuleNodeDepthMax
             };
 
-            CPathResolver.Initialized = false;
-
             if (m_Depends.RootModule != null)
             {
-                CFileOpenSettings fileOpenSettings = new(m_Configuration);
-
-                if (!fileOpenSettings.AnalysisSettingsUseAsDefault)
-                {
-                    using (FileOpenForm fileOpenForm = new(m_Configuration.EscKeyEnabled, fileOpenSettings))
-                    {
-                        //
-                        // Update global settings if use as default is checked.
-                        //
-                        if (fileOpenForm.ShowDialog() == DialogResult.OK)
-                        {
-                            m_Configuration.UseStats = fileOpenSettings.UseStats;
-                            m_Configuration.UseRelocForImages = fileOpenSettings.UseRelocForImages;
-                            m_Configuration.MinAppAddress = fileOpenSettings.MinAppAddress;
-                            m_Configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
-                            m_Configuration.AnalysisSettingsUseAsDefault = fileOpenSettings.AnalysisSettingsUseAsDefault;
-                        }
-                        else
-                        {
-                            return false;
-                        }
-                    }
-                }
-
+                CPathResolver.Initialized = false;
                 using (CActCtxHelper sxsHelper = new(fileName))
                 {
                     CPathResolver.ActCtxHelper = sxsHelper;
@@ -1104,6 +1116,8 @@ public partial class MainForm : Form
         {
             mainMenu.Enabled = false;
             MainToolBar.Enabled = false;
+            TVModules.Enabled = false;
+            LVModules.Enabled = false;
             bResult = OpenInputFileInternal(fileName);
             string logEvent = bResult ? $"Populating \"{fileName}\" has been completed" : $"There is an error while populating \"{fileName}\"";
             UpdateOperationStatus(logEvent);
@@ -1116,6 +1130,8 @@ public partial class MainForm : Form
         {
             mainMenu.Enabled = true;
             MainToolBar.Enabled = true;
+            TVModules.Enabled = true;
+            LVModules.Enabled = true;
         }
 
         return bResult;
@@ -2939,6 +2955,10 @@ public partial class MainForm : Form
     private ListViewItem LVCreateFunctionEntry(CFunction function, CModule module)
     {
         ListViewItem lvItem = new();
+        if (module == null)
+        {
+            return lvItem;
+        }
 
         // Ordinal
         string ordinalValue = function.Ordinal == UInt32.MaxValue ? CConsts.NotAvailableMsg : $"{function.Ordinal} (0x{function.Ordinal:X4})";
@@ -2949,7 +2969,7 @@ public partial class MainForm : Form
         lvItem.SubItems.Add(hintValue);
 
         // FunctionName
-        string functionName = CConsts.NotAvailableMsg;
+        string functionName = string.Empty;
         if (function.SnapByOrdinal())
         {
             var resolvedFunction = module?.ResolveFunctionForOrdinal(function.Ordinal);
@@ -2963,7 +2983,47 @@ public partial class MainForm : Form
             functionName = m_Configuration.ViewUndecorated && function.IsNameDecorated() ? function.UndecorateFunctionName() : function.RawName;
         }
 
-        lvItem.SubItems.Add(functionName);
+        //
+        // Nothing found, attempt to resolve using symbols.
+        //
+        var bNameFromSymbols = false;
+        if (string.IsNullOrEmpty(functionName))
+        {
+            var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
+            if (moduleBase == IntPtr.Zero)
+            {
+                moduleBase = CSymbolResolver.LoadModule(module.FileName, 0);
+                if (moduleBase != IntPtr.Zero)
+                {
+                    CSymbolResolver.CacheSymModule(module.FileName, moduleBase);
+                }
+            }
+
+            if (moduleBase != IntPtr.Zero)
+            {
+                UInt64 address = Convert.ToUInt64(moduleBase) + function.Address;
+                if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
+                {
+                    functionName = symName;
+                    bNameFromSymbols = true;
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(functionName))
+        {
+            functionName = CConsts.NotAvailableMsg;
+        }
+
+        if (bNameFromSymbols)
+        {
+            lvItem.UseItemStyleForSubItems = false;
+            lvItem.SubItems.Add(functionName, Color.Black, m_Configuration.SymbolsHighlightColor, lvItem.Font);
+        }
+        else
+        {
+            lvItem.SubItems.Add(functionName);
+        }
 
         // EntryPoint
         string entryPoint;
@@ -3247,7 +3307,6 @@ public partial class MainForm : Form
         if (m_Depends != null)
         {
             var fName = m_Depends.RootModule.RawFileName;
-            CloseInputFile();
             OpenInputFile(fName);
         }
     }

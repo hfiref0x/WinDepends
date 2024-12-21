@@ -41,6 +41,9 @@
             chBoxAnalysisDefaultEnabled = new CheckBox();
             groupBox13 = new GroupBox();
             chBoxUseStats = new CheckBox();
+            label2 = new Label();
+            textBoxFileName = new TextBox();
+            label3 = new Label();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             groupBox13.SuspendLayout();
@@ -49,7 +52,7 @@
             // buttonOK
             // 
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(109, 316);
+            buttonOK.Location = new Point(112, 374);
             buttonOK.Name = "buttonOK";
             buttonOK.Size = new Size(75, 23);
             buttonOK.TabIndex = 0;
@@ -60,7 +63,7 @@
             // buttonCancel
             // 
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(190, 316);
+            buttonCancel.Location = new Point(193, 374);
             buttonCancel.Name = "buttonCancel";
             buttonCancel.Size = new Size(75, 23);
             buttonCancel.TabIndex = 1;
@@ -73,7 +76,7 @@
             groupBox1.Controls.Add(textBoxMinAppAddress);
             groupBox1.Controls.Add(labelAllocGran);
             groupBox1.Controls.Add(chBoxUseReloc);
-            groupBox1.Location = new Point(12, 12);
+            groupBox1.Location = new Point(12, 44);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(346, 142);
             groupBox1.TabIndex = 2;
@@ -121,11 +124,12 @@
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(label3);
             groupBox2.Controls.Add(chBoxPropagateSettings);
             groupBox2.Controls.Add(chBoxAnalysisDefaultEnabled);
-            groupBox2.Location = new Point(12, 223);
+            groupBox2.Location = new Point(12, 255);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(348, 82);
+            groupBox2.Size = new Size(348, 113);
             groupBox2.TabIndex = 3;
             groupBox2.TabStop = false;
             groupBox2.Text = "Analysis";
@@ -146,16 +150,16 @@
             chBoxAnalysisDefaultEnabled.AutoSize = true;
             chBoxAnalysisDefaultEnabled.Location = new Point(9, 47);
             chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
-            chBoxAnalysisDefaultEnabled.Size = new Size(319, 19);
+            chBoxAnalysisDefaultEnabled.Size = new Size(324, 19);
             chBoxAnalysisDefaultEnabled.TabIndex = 16;
             chBoxAnalysisDefaultEnabled.Tag = "602";
-            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime";
+            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime*";
             chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
             // 
             // groupBox13
             // 
             groupBox13.Controls.Add(chBoxUseStats);
-            groupBox13.Location = new Point(12, 160);
+            groupBox13.Location = new Point(12, 192);
             groupBox13.Name = "groupBox13";
             groupBox13.Size = new Size(346, 57);
             groupBox13.TabIndex = 9;
@@ -173,12 +177,40 @@
             chBoxUseStats.Text = "Enable transport statistics display";
             chBoxUseStats.UseVisualStyleBackColor = true;
             // 
+            // label2
+            // 
+            label2.AutoSize = true;
+            label2.Location = new Point(12, 16);
+            label2.Name = "label2";
+            label2.Size = new Size(55, 15);
+            label2.TabIndex = 10;
+            label2.Text = "Load file:";
+            // 
+            // textBoxFileName
+            // 
+            textBoxFileName.Location = new Point(73, 13);
+            textBoxFileName.Name = "textBoxFileName";
+            textBoxFileName.ReadOnly = true;
+            textBoxFileName.Size = new Size(285, 23);
+            textBoxFileName.TabIndex = 11;
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(9, 86);
+            label3.Name = "label3";
+            label3.Size = new Size(276, 15);
+            label3.TabIndex = 18;
+            label3.Text = "*You can reset this through program Configuration";
+            // 
             // FileOpenForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
-            ClientSize = new Size(370, 350);
+            ClientSize = new Size(370, 409);
+            Controls.Add(textBoxFileName);
+            Controls.Add(label2);
             Controls.Add(groupBox13);
             Controls.Add(groupBox2);
             Controls.Add(groupBox1);
@@ -201,6 +233,7 @@
             groupBox13.ResumeLayout(false);
             groupBox13.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -217,5 +250,8 @@
         private CheckBox chBoxAnalysisDefaultEnabled;
         private GroupBox groupBox13;
         private CheckBox chBoxUseStats;
+        private Label label2;
+        private TextBox textBoxFileName;
+        private Label label3;
     }
 }

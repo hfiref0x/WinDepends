@@ -145,6 +145,9 @@
             label15 = new Label();
             tabSymbols = new TabPage();
             groupBox16 = new GroupBox();
+            buttonSymbolPickColor = new Button();
+            panel1 = new Panel();
+            label11 = new Label();
             buttonSymbolsBrowse = new Button();
             symbolsStoreTextBox = new TextBox();
             label19 = new Label();
@@ -156,6 +159,7 @@
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
             folderBrowserDialog = new FolderBrowserDialog();
+            colorDialog = new ColorDialog();
             ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
             splitContainer2.Panel1.SuspendLayout();
             splitContainer2.Panel2.SuspendLayout();
@@ -194,6 +198,7 @@
             groupBox12.SuspendLayout();
             tabSymbols.SuspendLayout();
             groupBox16.SuspendLayout();
+            panel1.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainer2
@@ -405,14 +410,13 @@
             label8.AutoSize = true;
             label8.Location = new Point(193, 120);
             label8.Name = "label8";
-            label8.Size = new Size(94, 15);
+            label8.Size = new Size(100, 15);
             label8.TabIndex = 15;
-            label8.Text = "[1..10], default: 2";
+            label8.Text = "[1..100], default: 2";
             // 
             // nodeMaxDepthUpDown
             // 
             nodeMaxDepthUpDown.Location = new Point(135, 116);
-            nodeMaxDepthUpDown.Maximum = new decimal(new int[] { 10, 0, 0, 0 });
             nodeMaxDepthUpDown.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nodeMaxDepthUpDown.Name = "nodeMaxDepthUpDown";
             nodeMaxDepthUpDown.Size = new Size(52, 23);
@@ -1367,6 +1371,8 @@
             // 
             // groupBox16
             // 
+            groupBox16.Controls.Add(buttonSymbolPickColor);
+            groupBox16.Controls.Add(panel1);
             groupBox16.Controls.Add(buttonSymbolsBrowse);
             groupBox16.Controls.Add(symbolsStoreTextBox);
             groupBox16.Controls.Add(label19);
@@ -1376,10 +1382,37 @@
             groupBox16.Controls.Add(label17);
             groupBox16.Location = new Point(6, 6);
             groupBox16.Name = "groupBox16";
-            groupBox16.Size = new Size(468, 350);
+            groupBox16.Size = new Size(468, 297);
             groupBox16.TabIndex = 0;
             groupBox16.TabStop = false;
             groupBox16.Text = "Configure Symbols";
+            // 
+            // buttonSymbolPickColor
+            // 
+            buttonSymbolPickColor.Location = new Point(219, 246);
+            buttonSymbolPickColor.Name = "buttonSymbolPickColor";
+            buttonSymbolPickColor.Size = new Size(75, 23);
+            buttonSymbolPickColor.TabIndex = 8;
+            buttonSymbolPickColor.Text = "Change";
+            buttonSymbolPickColor.UseVisualStyleBackColor = true;
+            buttonSymbolPickColor.Click += ButtonSymbolPickColor_Click;
+            // 
+            // panel1
+            // 
+            panel1.Controls.Add(label11);
+            panel1.Location = new Point(19, 243);
+            panel1.Name = "panel1";
+            panel1.Size = new Size(194, 30);
+            panel1.TabIndex = 7;
+            // 
+            // label11
+            // 
+            label11.AutoSize = true;
+            label11.Location = new Point(8, 7);
+            label11.Name = "label11";
+            label11.Size = new Size(178, 15);
+            label11.TabIndex = 0;
+            label11.Text = "Resolved Symbol Highligh Color";
             // 
             // buttonSymbolsBrowse
             // 
@@ -1389,6 +1422,7 @@
             buttonSymbolsBrowse.TabIndex = 6;
             buttonSymbolsBrowse.Text = "...";
             buttonSymbolsBrowse.UseVisualStyleBackColor = true;
+            buttonSymbolsBrowse.Click += SymButtons_Click;
             // 
             // symbolsStoreTextBox
             // 
@@ -1414,6 +1448,7 @@
             buttonDbghelpBrowse.TabIndex = 3;
             buttonDbghelpBrowse.Text = "...";
             buttonDbghelpBrowse.UseVisualStyleBackColor = true;
+            buttonDbghelpBrowse.Click += SymButtons_Click;
             // 
             // dbghelpTextBox
             // 
@@ -1544,6 +1579,8 @@
             tabSymbols.ResumeLayout(false);
             groupBox16.ResumeLayout(false);
             groupBox16.PerformLayout();
+            panel1.ResumeLayout(false);
+            panel1.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -1664,5 +1701,9 @@
         private Button buttonDbghelpBrowse;
         private TextBox dbghelpTextBox;
         private Label label18;
+        private ColorDialog colorDialog;
+        private Button buttonSymbolPickColor;
+        private Panel panel1;
+        private Label label11;
     }
 }

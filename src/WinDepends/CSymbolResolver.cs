@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        17 Dec 2024
+*  DATE:        19 Dec 2024
 *
 *  MS Symbols resolver support class.
 *
@@ -16,7 +16,8 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
-using System.Diagnostics;
+using Microsoft.Win32.SafeHandles;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -25,24 +26,38 @@ namespace WinDepends;
 public static class CSymbolResolver
 {
     #region "P/Invoke stuff"
-    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-    public delegate IntPtr SymLoadModuleExDelegate(IntPtr hProcess, IntPtr hFile, string ImageName, string ModuleName, long BaseOfDll, int SizeOfDll, IntPtr Data, int Flags);
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-    public delegate bool SymInitializeDelegate(IntPtr hProcess, string UserSearchPath, bool fInvadeProcess);
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-    public delegate bool SymCleanupDelegate(IntPtr hProcess);
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-    public delegate bool SymFromAddrDelegate(IntPtr hProcess, long Address, out long Displacement, ref SYMBOL_INFO Symbol);
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
-    public delegate uint UnDecorateSymbolNameDelegate(
-        [MarshalAs(UnmanagedType.LPWStr)] string name,
-        [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder outputString,
-        int maxStringLength,
-        UNDNAME flags);
+    public const uint SYMOPT_CASE_INSENSITIVE = 0x00000001;
+    public const uint SYMOPT_UNDNAME = 0x00000002;
+    public const uint SYMOPT_DEFERRED_LOADS = 0x00000004;
+    public const uint SYMOPT_NO_CPP = 0x00000008;
+    public const uint SYMOPT_LOAD_LINES = 0x00000010;
+    public const uint SYMOPT_OMAP_FIND_NEAREST = 0x00000020;
+    public const uint SYMOPT_LOAD_ANYTHING = 0x00000040;
+    public const uint SYMOPT_IGNORE_CVREC = 0x00000080;
+    public const uint SYMOPT_NO_UNQUALIFIED_LOADS = 0x00000100;
+    public const uint SYMOPT_FAIL_CRITICAL_ERRORS = 0x00000200;
+    public const uint SYMOPT_EXACT_SYMBOLS = 0x00000400;
+    public const uint SYMOPT_ALLOW_ABSOLUTE_SYMBOLS = 0x00000800;
+    public const uint SYMOPT_IGNORE_NT_SYMPATH = 0x00001000;
+    public const uint SYMOPT_INCLUDE_32BIT_MODULES = 0x00002000;
+    public const uint SYMOPT_PUBLICS_ONLY = 0x00004000;
+    public const uint SYMOPT_NO_PUBLICS = 0x00008000;
+    public const uint SYMOPT_AUTO_PUBLICS = 0x00010000;
+    public const uint SYMOPT_NO_IMAGE_SEARCH = 0x00020000;
+    public const uint SYMOPT_SECURE = 0x00040000;
+    public const uint SYMOPT_NO_PROMPTS = 0x00080000;
+    public const uint SYMOPT_OVERWRITE = 0x00100000;
+    public const uint SYMOPT_IGNORE_IMAGEDIR = 0x00200000;
+    public const uint SYMOPT_FLAT_DIRECTORY = 0x00400000;
+    public const uint SYMOPT_FAVOR_COMPRESSED = 0x00800000;
+    public const uint SYMOPT_ALLOW_ZERO_ADDRESS = 0x01000000;
+    public const uint SYMOPT_DISABLE_SYMSRV_AUTODETECT = 0x02000000;
+    public const uint SYMOPT_READONLY_CACHE = 0x04000000;
+    public const uint SYMOPT_SYMPATH_LAST = 0x08000000;
+    public const uint SYMOPT_DISABLE_FAST_SYMBOLS = 0x10000000;
+    public const uint SYMOPT_DISABLE_SYMSRV_TIMEOUT = 0x20000000;
+    public const uint SYMOPT_DISABLE_SRVSTAR_ON_STARTUP = 0x40000000;
+    public const uint SYMOPT_DEBUG = 0x80000000;
 
     [Flags]
     public enum UNDNAME : uint
@@ -99,29 +114,75 @@ public static class CSymbolResolver
         NoThrowSignatures = 0x0100,
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct SYMBOL_INFO
     {
-        public uint SizeOfStruct;
-        public uint TypeIndex;
-        public ulong Reserved;
-        public ulong ModBase;
-        public uint Flags;
-        public ulong Value;
-        public ulong Address;
-        public uint Register;
-        public uint Scope;
-        public uint Tag;
-        public uint NameLen;
-        public uint MaxNameLen;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 1024)]
+        public UInt32 SizeOfStruct;
+        public UInt32 TypeIndex;
+        public UInt64 Reserved;
+        public UInt64 Reserved2;
+        public UInt32 Index;
+        public UInt32 Size;
+        public UInt64 ModBase;
+        public UInt32 Flags;
+        public UInt64 Value;
+        public UInt64 Address;
+        public UInt32 Register;
+        public UInt32 Scope;
+        public UInt32 Tag;
+        public UInt32 NameLen;
+        public UInt32 MaxNameLen;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 2000)]
         public string Name;
     }
     #endregion
 
+    static readonly UInt32 MAX_SYM_NAME = 2000;
+    static readonly UInt32 SIZE_OF_SYMBOL_INFO = (uint)Marshal.SizeOf(typeof(SYMBOL_INFO)) - (MAX_SYM_NAME * 2);
+
     // P/Invoke delegates
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate IntPtr SymLoadModuleExDelegate(SafeProcessHandle hProcess,
+        IntPtr hFile,
+        [MarshalAs(UnmanagedType.LPWStr)] string ImageName,
+        [MarshalAs(UnmanagedType.LPWStr)] string ModuleName,
+        UInt64 BaseOfDll,
+        int SizeOfDll,
+        IntPtr Data,
+        int Flags);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate bool SymInitializeDelegate(SafeProcessHandle hProcess,
+        [MarshalAs(UnmanagedType.LPWStr)] string UserSearchPath,
+        bool fInvadeProcess);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate bool SymCleanupDelegate(SafeProcessHandle hProcess);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate bool SymFromAddrDelegate(
+            SafeProcessHandle hProcess,
+            UInt64 Address,
+            out UInt64 Displacement,
+            ref SYMBOL_INFO Symbol);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate uint SymGetOptionsDelegate();
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate uint SymSetOptionsDelegate(uint options);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
+    delegate uint UnDecorateSymbolNameDelegate(
+        [MarshalAs(UnmanagedType.LPWStr)] string name,
+        [Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder outputString,
+        int maxStringLength,
+        UNDNAME flags);
+
     static SymLoadModuleExDelegate SymLoadModuleEx;
     static SymInitializeDelegate SymInitialize;
+    static SymGetOptionsDelegate SymGetOptions;
+    static SymSetOptionsDelegate SymSetOptions;
     static SymCleanupDelegate SymCleanup;
     static SymFromAddrDelegate SymFromAddr;
     static UnDecorateSymbolNameDelegate UnDecorateSymbolName;
@@ -132,6 +193,33 @@ public static class CSymbolResolver
     public static string DllsPath { get; set; }
     public static string StorePath { get; set; }
 
+    static readonly SafeProcessHandle CurrentProcess = new SafeProcessHandle(new IntPtr(-1), false);
+
+    private struct SymModuleItem
+    {
+        public IntPtr BaseAddress;
+    }
+
+    static readonly ConcurrentDictionary<string, SymModuleItem> symModulesCache = new();
+
+    public static void CacheSymModule(string symModuleName, IntPtr baseAddress)
+    {
+        var item = new SymModuleItem { BaseAddress = baseAddress };
+        symModulesCache.AddOrUpdate(symModuleName, item, (key, oldValue) => item);
+    }
+
+    public static IntPtr RetrieveCachedSymModule(string symModuleName)
+    {
+        if (symModulesCache.TryGetValue(symModuleName, out var item))
+        {
+            return item.BaseAddress;
+        }
+        else
+        {
+            return IntPtr.Zero;
+        }
+    }
+
     private static void ClearDelegates()
     {
         SymLoadModuleEx = null;
@@ -139,16 +227,21 @@ public static class CSymbolResolver
         SymCleanup = null;
         SymFromAddr = null;
         UnDecorateSymbolName = null;
+        SymSetOptions = null;
+        SymGetOptions = null;
     }
     private static bool InitializeDelegates()
     {
         UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
         SymLoadModuleEx = Marshal.GetDelegateForFunctionPointer<SymLoadModuleExDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymLoadModuleExW"));
-        SymInitialize = Marshal.GetDelegateForFunctionPointer<SymInitializeDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymInitialize"));
+        SymGetOptions = Marshal.GetDelegateForFunctionPointer<SymGetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymGetOptions"));
+        SymSetOptions = Marshal.GetDelegateForFunctionPointer<SymSetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymSetOptions"));
+        SymInitialize = Marshal.GetDelegateForFunctionPointer<SymInitializeDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymInitializeW"));
+        SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddrW"));
         SymCleanup = Marshal.GetDelegateForFunctionPointer<SymCleanupDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymCleanup"));
-        SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddr"));
 
-        if (UnDecorateSymbolName == null || SymLoadModuleEx == null || SymInitialize == null || SymCleanup == null || SymFromAddr == null)
+        if (UnDecorateSymbolName == null || SymLoadModuleEx == null || SymGetOptions == null || SymSetOptions == null ||
+            SymInitialize == null || SymCleanup == null || SymFromAddr == null)
         {
             ClearDelegates();
             return false;
@@ -157,17 +250,25 @@ public static class CSymbolResolver
         return true;
     }
 
-    public static void AllocateSymbolResolver(string dllsPath, string storePath)
+    public static void AllocateSymbolResolver(string dllPath, string storePath)
     {
-        DllsPath = string.IsNullOrEmpty(dllsPath) ? CConsts.DbgHelpDll : Path.Combine(dllsPath, CConsts.DbgHelpDll);
+        DllsPath = Path.Combine(dllPath, CConsts.DbgHelpDll);
         StorePath = storePath;
 
-        DbgHelpModule = NativeMethods.LoadLibraryEx(DllsPath, IntPtr.Zero, NativeMethods.LoadLibraryFlags.LOAD_LIBRARY_SEARCH_SYSTEM32);
+        DbgHelpModule = NativeMethods.LoadLibraryEx(DllsPath, IntPtr.Zero, 0);
         if (DbgHelpModule != IntPtr.Zero)
         {
             if (InitializeDelegates())
             {
-                SymbolsInitialized = SymInitialize(Process.GetCurrentProcess().Handle, StorePath, false);
+                var symOptions = SymGetOptions();
+
+                //SymSetOptions((symOptions | SYMOPT_DEFERRED_LOADS | SYMOPT_FAIL_CRITICAL_ERRORS | SYMOPT_PUBLICS_ONLY) & ~SYMOPT_UNDNAME);
+                SymSetOptions(symOptions | SYMOPT_DEFERRED_LOADS |
+                SYMOPT_CASE_INSENSITIVE |
+                SYMOPT_UNDNAME |
+                SYMOPT_AUTO_PUBLICS);
+
+                SymbolsInitialized = SymInitialize(CurrentProcess, StorePath, false);
             }
         }
 
@@ -179,11 +280,12 @@ public static class CSymbolResolver
         {
             if (SymbolsInitialized)
             {
-                SymCleanup(Process.GetCurrentProcess().Handle);
+                SymCleanup(CurrentProcess);
             }
             NativeMethods.FreeLibrary(DbgHelpModule);
             DbgHelpModule = IntPtr.Zero;
             ClearDelegates();
+            SymbolsInitialized = false;
         }
     }
 
@@ -208,42 +310,47 @@ public static class CSymbolResolver
 
         return string.Empty;
     }
-    static internal bool LoadPDBFile(string pdbFileName)
+    static internal IntPtr LoadModule(string fileName, UInt64 baseAddress)
     {
-        if (SymbolsInitialized == false)
+        if (!SymbolsInitialized)
         {
-            return false;
+            return IntPtr.Zero;
         }
         else
         {
-            return IntPtr.Zero != SymLoadModuleEx(Process.GetCurrentProcess().Handle,
-                                                  IntPtr.Zero,
-                                                  pdbFileName,
-                                                  null,
-                                                  0,
-                                                  0,
-                                                  IntPtr.Zero,
-                                                  0);
+            return SymLoadModuleEx(CurrentProcess,
+                                    IntPtr.Zero,
+                                    fileName,
+                                    null,
+                                    baseAddress,
+                                    0,
+                                    IntPtr.Zero,
+                                    0);
         }
     }
 
-    public static bool QuerySymbolForAddress(long address, out string symbolName)
+    public static bool QuerySymbolForAddress(UInt64 address, out string symbolName)
     {
-        if (SymbolsInitialized == false)
+        symbolName = null;
+
+        if (!SymbolsInitialized)
         {
-            symbolName = null;
             return false;
         }
 
-        SYMBOL_INFO symbol = new();
-        symbol.SizeOfStruct = (uint)Marshal.SizeOf(symbol);
-
-        if (SymFromAddr(Process.GetCurrentProcess().Handle, address, out long displacement, ref symbol))
+        var symbolInfo = new SYMBOL_INFO
         {
-            symbolName = symbol.Name;
+            SizeOfStruct = SIZE_OF_SYMBOL_INFO,
+            MaxNameLen = MAX_SYM_NAME
+        };
+
+        UInt64 displacement = 0;
+        if (SymFromAddr(CurrentProcess, address, out displacement, ref symbolInfo))
+        {
+            symbolName = symbolInfo.Name;
             return true;
         }
-        symbolName = null;
+
         return false;
     }
 

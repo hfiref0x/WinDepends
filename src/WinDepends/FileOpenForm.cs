@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        18 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -19,12 +19,15 @@ namespace WinDepends;
 
 public partial class FileOpenForm : Form
 {
-    private readonly CFileOpenSettings settings;
-    private readonly bool escKeyEnabled;
-    public FileOpenForm(bool bEscKeyEnabled, CFileOpenSettings fileOpenSettings)
+    readonly CFileOpenSettings settings;
+    readonly bool escKeyEnabled;
+    readonly string displayedFileName;
+
+    public FileOpenForm(bool bEscKeyEnabled, CFileOpenSettings fileOpenSettings, string fileName)
     {
         settings = fileOpenSettings;
         escKeyEnabled = bEscKeyEnabled;
+        displayedFileName = fileName;
         InitializeComponent();
     }
 
@@ -33,6 +36,7 @@ public partial class FileOpenForm : Form
         chBoxUseReloc.Checked = settings.UseRelocForImages;
         textBoxMinAppAddress.Enabled = chBoxUseReloc.Checked;
         textBoxMinAppAddress.Text = settings.MinAppAddress.ToString("X");
+        textBoxFileName.Text = displayedFileName;
         chBoxUseStats.Checked = settings.UseStats;
         chBoxPropagateSettings.Checked = settings.PropagateSettingsOnDependencies;
         chBoxAnalysisDefaultEnabled.Checked = settings.AnalysisSettingsUseAsDefault;

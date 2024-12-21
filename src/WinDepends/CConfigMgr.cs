@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        16 Dec 2024
+*  DATE:        19 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -52,10 +52,11 @@ public class CConfiguration
     public string ExternalViewerArguments { get; set; }
     public string ExternalFunctionHelpURL { get; set; }
     public string CoreServerAppLocation { get; set; }
-    public string SymbolsDllsPath { get; set; }
+    public string SymbolsDllPath { get; set; }
     public string SymbolsStorePath { get; set; }
 
     public uint MinAppAddress { get; set; }
+    public Color SymbolsHighlightColor { get; set; }
 
     public List<SearchOrderType> SearchOrderListUM { get; set; }
     public List<SearchOrderType> SearchOrderListKM { get; set; }
@@ -97,9 +98,10 @@ public class CConfiguration
         ExternalViewerArguments = other.ExternalViewerArguments;
         ExternalFunctionHelpURL = other.ExternalFunctionHelpURL;
         CoreServerAppLocation = other.CoreServerAppLocation;
-        SymbolsDllsPath = other.SymbolsDllsPath;
+        SymbolsDllPath = other.SymbolsDllPath;
         SymbolsStorePath = other.SymbolsStorePath;
         MinAppAddress = other.MinAppAddress;
+        SymbolsHighlightColor = other.SymbolsHighlightColor;
 
         SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM);
         SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM);
@@ -125,6 +127,9 @@ public class CConfiguration
             ExternalFunctionHelpURL = CConsts.ExternalFunctionHelpURL;
             MinAppAddress = CConsts.DefaultAppStartAddress;
             UseApiSetSchemaFile = false;
+
+            SymbolsDllPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            SymbolsHighlightColor = Color.Yellow;
 
             string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
             CoreServerAppLocation = $"{Path.GetDirectoryName(Application.ExecutablePath)}\\{CConsts.WinDependsCoreApp}.{cpuArch}.exe";

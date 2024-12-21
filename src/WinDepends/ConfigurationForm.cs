@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Dec 2024
+*  DATE:        19 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -316,7 +316,9 @@ public partial class ConfigurationForm : Form
         serverAppLocationTextBox.Text = m_CurrentConfiguration.CoreServerAppLocation;
 
         symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
-        dbghelpTextBox.Text = m_CurrentConfiguration.SymbolsDllsPath;
+        dbghelpTextBox.Text = Path.Combine(m_CurrentConfiguration.SymbolsDllPath, CConsts.DbgHelpDll);
+
+        panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
 
         buttonApiSetBrowse.Enabled = m_CurrentConfiguration.UseApiSetSchemaFile;
         if (m_CurrentConfiguration.UseApiSetSchemaFile)
@@ -879,6 +881,39 @@ public partial class ConfigurationForm : Form
 
             m_CoreClient?.SetApiSetSchemaNamespaceUse(m_CurrentConfiguration.ApiSetSchemaFile);
             ShowApiSetNamespaceInformation();
+        }
+    }
+
+    private void SymButtons_Click(object sender, EventArgs e)
+    {
+        if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+        {
+            if (sender == buttonDbghelpBrowse)
+            {
+                m_CurrentConfiguration.SymbolsDllPath = folderBrowserDialog.SelectedPath;
+                dbghelpTextBox.Text = m_CurrentConfiguration.SymbolsDllPath;
+            }
+            else if (sender == buttonSymbolsBrowse)
+            {
+                m_CurrentConfiguration.SymbolsStorePath = folderBrowserDialog.SelectedPath;
+                symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
+            }
+            else
+            {
+                return;
+            }
+
+            CSymbolResolver.ReleaseSymbolResolver();
+            CSymbolResolver.AllocateSymbolResolver(m_CurrentConfiguration.SymbolsDllPath, m_CurrentConfiguration.SymbolsStorePath);
+        }
+    }
+
+    private void ButtonSymbolPickColor_Click(object sender, EventArgs e)
+    {
+        if (colorDialog.ShowDialog() == DialogResult.OK)
+        {
+            m_CurrentConfiguration.SymbolsHighlightColor = colorDialog.Color;
+            panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
         }
     }
 }

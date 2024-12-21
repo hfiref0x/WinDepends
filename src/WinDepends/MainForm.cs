@@ -130,6 +130,16 @@ public partial class MainForm : Form
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
         CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
 
+        /* var moduleBase = CSymbolResolver.LoadModule("C:\\symdll\\crypt32.dll", 0);
+         if (moduleBase != IntPtr.Zero)
+         {
+             UInt64 address = Convert.ToUInt64(moduleBase) + 0x6E270;
+             if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
+             {
+                 MessageBox.Show(symName);
+             }
+         }*/
+
         //
         // Add welcome message to the log.
         //
@@ -2972,7 +2982,7 @@ public partial class MainForm : Form
         string functionName = string.Empty;
         if (function.SnapByOrdinal())
         {
-            var resolvedFunction = module?.ResolveFunctionForOrdinal(function.Ordinal);
+            var resolvedFunction = module.ResolveFunctionForOrdinal(function.Ordinal);
             if (resolvedFunction != null)
             {
                 functionName = m_Configuration.ViewUndecorated && resolvedFunction.IsNameDecorated() ? resolvedFunction.UndecorateFunctionName() : resolvedFunction.RawName;
@@ -2986,13 +2996,17 @@ public partial class MainForm : Form
         //
         // Nothing found, attempt to resolve using symbols.
         //
-        var bNameFromSymbols = false;
         if (string.IsNullOrEmpty(functionName))
         {
             var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
             if (moduleBase == IntPtr.Zero)
             {
+                UpdateOperationStatus($"Please wait, loading symbols for \"{module.FileName}\"");
+
                 moduleBase = CSymbolResolver.LoadModule(module.FileName, 0);
+
+                UpdateOperationStatus(string.Empty);
+
                 if (moduleBase != IntPtr.Zero)
                 {
                     CSymbolResolver.CacheSymModule(module.FileName, moduleBase);
@@ -3004,8 +3018,9 @@ public partial class MainForm : Form
                 UInt64 address = Convert.ToUInt64(moduleBase) + function.Address;
                 if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
                 {
-                    functionName = symName;
-                    bNameFromSymbols = true;
+                    function.IsNameFromSymbols = true;
+                    function.RawName = symName;
+                    functionName = m_Configuration.ViewUndecorated && function.IsNameDecorated() ? function.UndecorateFunctionName() : function.RawName;
                 }
             }
         }
@@ -3015,7 +3030,7 @@ public partial class MainForm : Form
             functionName = CConsts.NotAvailableMsg;
         }
 
-        if (bNameFromSymbols)
+        if (function.IsNameFromSymbols)
         {
             lvItem.UseItemStyleForSubItems = false;
             lvItem.SubItems.Add(functionName, Color.Black, m_Configuration.SymbolsHighlightColor, lvItem.Font);

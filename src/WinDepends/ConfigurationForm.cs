@@ -890,8 +890,16 @@ public partial class ConfigurationForm : Form
         {
             if (sender == buttonDbghelpBrowse)
             {
-                m_CurrentConfiguration.SymbolsDllPath = folderBrowserDialog.SelectedPath;
-                dbghelpTextBox.Text = m_CurrentConfiguration.SymbolsDllPath;
+                var fileName = Path.Combine(folderBrowserDialog.SelectedPath, CConsts.DbgHelpDll);
+                if (File.Exists(fileName))
+                {
+                    m_CurrentConfiguration.SymbolsDllPath = folderBrowserDialog.SelectedPath;
+                    dbghelpTextBox.Text = fileName;
+                } else
+                {
+                    MessageBox.Show($"The {CConsts.DbgHelpDll} was not found in the \"{folderBrowserDialog.SelectedPath}\" directory.");
+                    return;
+                }
             }
             else if (sender == buttonSymbolsBrowse)
             {

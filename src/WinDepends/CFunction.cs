@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Nov 2024
+*  DATE:        21 Dec 2024
 *  
 *  Implementation of CFunction related classes.
 *
@@ -75,6 +75,7 @@ public class CFunction
     public UInt32 Hint { get; set; } = UInt32.MaxValue;
     public UInt64 Address { get; set; }
     public bool IsExportFunction { get; set; }
+    public bool IsNameFromSymbols { get; set; }
     public FunctionKind Kind { get; set; } = FunctionKind.ImportUnresolvedFunction;
 
     public bool SnapByOrdinal() => (Ordinal != UInt32.MaxValue && string.IsNullOrEmpty(RawName));

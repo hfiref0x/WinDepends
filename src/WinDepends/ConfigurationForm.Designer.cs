@@ -1410,9 +1410,9 @@
             label11.AutoSize = true;
             label11.Location = new Point(8, 7);
             label11.Name = "label11";
-            label11.Size = new Size(178, 15);
+            label11.Size = new Size(182, 15);
             label11.TabIndex = 0;
-            label11.Text = "Resolved Symbol Highligh Color";
+            label11.Text = "Resolved Symbol Highlight Color";
             // 
             // buttonSymbolsBrowse
             // 

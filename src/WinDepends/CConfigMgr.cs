@@ -128,6 +128,7 @@ public class CConfiguration
             MinAppAddress = CConsts.DefaultAppStartAddress;
             UseApiSetSchemaFile = false;
 
+            SymbolsStorePath = "srv*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
             SymbolsDllPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
             SymbolsHighlightColor = Color.Yellow;
 

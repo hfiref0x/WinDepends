@@ -199,7 +199,7 @@ public static class CSymbolResolver
     public static string DllPath { get; set; }
     public static string StorePath { get; set; }
 
-    static readonly SafeProcessHandle CurrentProcess = new SafeProcessHandle(new IntPtr(-1), false);
+    static readonly SafeProcessHandle CurrentProcess = new(new IntPtr(-1), false);
 
     private struct SymModuleItem
     {
@@ -351,7 +351,7 @@ public static class CSymbolResolver
                                     IntPtr.Zero,
                                     fileName,
                                     null,
-                                    0,
+                                    baseAddress,
                                     0,
                                     IntPtr.Zero,
                                     0);
@@ -373,14 +373,27 @@ public static class CSymbolResolver
             MaxNameLen = MAX_SYM_NAME
         };
 
-        UInt64 displacement = 0;
-        if (SymFromAddr(CurrentProcess, address, out displacement, ref symbolInfo))
+        if (SymFromAddr(CurrentProcess, address, out ulong displacement, ref symbolInfo))
         {
             symbolName = symbolInfo.Name;
             return true;
         }
 
         return false;
+    }
+
+    public static string GetSymbolNameForAddress(UInt64 address, string moduleFileName)
+    {
+        var moduleBase = CSymbolResolver.RetrieveCachedSymModule(moduleFileName);
+        if (moduleBase != IntPtr.Zero)
+        {
+            if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
+            {
+                return symName;
+            }
+        }
+
+        return string.Empty;
     }
 
 }

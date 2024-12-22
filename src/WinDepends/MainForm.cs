@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Dec 2024
+*  DATE:        22 Dec 2024
 *  
 *  Codename:    VasilEk
 *
@@ -205,9 +205,9 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Insert module entry to treelist.
+    /// Insert module entry to TVModules treeview.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>Tree node.</returns>
     private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
     {
         CModule parentModule;
@@ -429,6 +429,12 @@ public partial class MainForm : Form
         return tvNode;
     }
 
+    /// <summary>
+    /// Adds module entry from loaded session object (saved session view).
+    /// </summary>
+    /// <param name="module">Module entry to be added.</param>
+    /// <param name="parentNode">Parent node if present.</param>
+    /// <returns>Tree node entry.</returns>
     private TreeNode AddSessionModuleEntry(CModule module, TreeNode parentNode = null)
     {
         //
@@ -493,7 +499,7 @@ public partial class MainForm : Form
     /// <summary>
     /// Return name of one of the active lists that has focus.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>Name of the focused control.</returns>
     private string? FindFocusedListControlName()
     {
         if (TVModules.Focused) return TVModules.Name;
@@ -540,7 +546,7 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Reset controls.
+    /// Reset main form controls.
     /// </summary>
     public void ResetFileView()
     {
@@ -743,6 +749,9 @@ public partial class MainForm : Form
         ViewUndecoratedToolButton.Checked = m_Configuration.ViewUndecorated;
         ResolveAPISetsToolButton.Checked = m_Configuration.ResolveAPIsets;
 
+        //
+        // Disable Save/Copy buttons by default.
+        //
         SaveToolButton.Enabled = false;
         CopyToolButton.Enabled = false;
 
@@ -803,6 +812,11 @@ public partial class MainForm : Form
         m_CoreClient?.Dispose();
     }
 
+    /// <summary>
+    /// Output log entry restored from session object (saved file).
+    /// </summary>
+    /// <param name="loggedMessage"></param>
+    /// <param name="color"></param>
     public void LogEventFromSession(string loggedMessage, Color color)
     {
         reLog.AppendText($"{loggedMessage}", color, true, true);
@@ -811,8 +825,9 @@ public partial class MainForm : Form
     /// <summary>
     /// Output event to the log.
     /// </summary>
-    /// <param name="fileName"></param>
-    /// <param name="eventType"></param>
+    /// <param name="fileName">Optional. Filename to be added to the log.</param>
+    /// <param name="eventType">Type of event.</param>
+    /// <param name="extraInformation">Additional information to be added to the log.</param>
     public void LogEvent(string? fileName, LogEventType eventType, string extraInformation = null)
     {
         Color outputColor = Color.Blue;
@@ -851,11 +866,17 @@ public partial class MainForm : Form
                 outputColor = Color.Red;
                 break;
 
+            //
+            // Stats command output.
+            //
             case LogEventType.FileStats:
                 loggedMessage = extraInformation;
                 outputColor = Color.Purple;
                 break;
 
+            //
+            // Message restored from the session object (saved file).
+            //
             case LogEventType.ModuleLogFromSession:
                 loggedMessage = extraInformation;
                 outputColor = Color.Red;
@@ -980,6 +1001,9 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Disposes resources allocated for currently opened file and resets output controls.
+    /// </summary>
     private void CloseInputFile()
     {
         if (m_Depends != null)
@@ -1001,7 +1025,7 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Opens input file from FS.
+    /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
     private bool OpenInputFileInternal(string? fileName)
@@ -1115,7 +1139,7 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Opens input file from FS.
+    /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
     private bool OpenInputFile(string? fileName)
@@ -1183,6 +1207,14 @@ public partial class MainForm : Form
         return true;
     }
 
+    /// <summary>
+    /// Builds hierarchical tree diagram of module dependencies.
+    /// First, it adds the given module as the root and populates its dependencies.
+    /// Next, it takes each dependent module and populates its dependencies recursively respecting the maximum depth level from settings.
+    /// </summary>
+    /// <param name="module">Module to populate dependencies.</param>
+    /// <param name="loadFromObject">If set then source is session object (restored from session file).</param>
+    /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
     private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
         List<TreeNode> baseNodes = [];
@@ -1228,6 +1260,13 @@ public partial class MainForm : Form
 
     }
 
+    /// <summary>
+    /// Populates main module dependencies recursively respecting the maximum depth level from settings.
+    /// </summary>
+    /// <param name="module">Module to populate dependencies.</param>
+    /// <param name="parentNode">A previous treeview node.</param>
+    /// <param name="loadFromObject">If set then source is session object (restored from session file).</param>
+    /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
     private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
         TreeNode tvNode;
@@ -1390,8 +1429,8 @@ public partial class MainForm : Form
     /// <summary>
     /// Module tree, module list menu handler.
     /// </summary>
-    /// <param name="action"></param>
-    void ProcessModuleEntry(ProcessModuleAction action)
+    /// <param name="action">One of the ProcessModuleAction values.</param>
+    private void ProcessModuleEntry(ProcessModuleAction action)
     {
         CModule module = null;
 
@@ -2396,6 +2435,22 @@ public partial class MainForm : Form
         }
     }
 
+    private void PreloadSymbolForSelectedModule(CModule module)
+    {
+        var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
+        if (moduleBase == IntPtr.Zero)
+        {
+            UpdateOperationStatus($"Please wait, loading symbols for \"{module.FileName}\"...");
+            moduleBase = CSymbolResolver.LoadModule(module.FileName, 0);
+            UpdateOperationStatus(string.Empty);
+
+            if (moduleBase != IntPtr.Zero)
+            {
+                CSymbolResolver.CacheSymModule(module.FileName, moduleBase);
+            }
+        }
+    }
+
     /// <summary>
     /// Invoked each time user selects a module. Builds parent import and export lists.
     /// </summary>
@@ -2698,8 +2753,9 @@ public partial class MainForm : Form
     /// <summary>
     /// Save/SaveAs handler.
     /// </summary>
-    /// <param name="SaveAs"></param>
-    private void SaveSessionObjectToFile(bool bSaveAs, bool bUseCompression = true)
+    /// <param name="saveAs">Works as Save or SaveAs depending on this flag.</param>
+    /// <param name="useCompression">If true then enabled compression for saved file.</param>
+    private void SaveSessionObjectToFile(bool saveAs, bool useCompression = true)
     {
         string fileName;
 
@@ -2709,7 +2765,7 @@ public partial class MainForm : Form
         }
 
         // We want new filename for our session view.
-        if (bSaveAs)
+        if (saveAs)
         {
             m_Depends.IsSavedSessionView = false;
             m_Depends.SessionFileName = string.Empty;
@@ -2744,7 +2800,7 @@ public partial class MainForm : Form
 
         try
         {
-            if (bUseCompression)
+            if (useCompression)
             {
                 bSaved = CUtils.SavePackedObjectToFile(fileName, m_Depends, typeof(CDepends), UpdateOperationStatus);
             }
@@ -2790,10 +2846,16 @@ public partial class MainForm : Form
         CModule module = (CModule)e.Node.Tag;
         if (module != null)
         {
+            PreloadSymbolForSelectedModule(module);
             BuildFunctionListForSelectedModule(module);
         }
     }
 
+    /// <summary>
+    /// Creates module entry for LVModules virtual listview (lower bottom view).
+    /// </summary>
+    /// <param name="module">The module to be displayed.</param>
+    /// <returns>Listview item.</returns>
     private ListViewItem LVCreateModuleEntry(CModule module)
     {
         //
@@ -2962,6 +3024,12 @@ public partial class MainForm : Form
         return lvItem;
     }
 
+    /// <summary>
+    /// Create function entry for LVImports/LVExports virtual listviews.
+    /// </summary>
+    /// <param name="function">Function information to be displayed.</param>
+    /// <param name="module">Module linked with the function.</param>
+    /// <returns>Listview item.</returns>
     private ListViewItem LVCreateFunctionEntry(CFunction function, CModule module)
     {
         ListViewItem lvItem = new();
@@ -2999,20 +3067,6 @@ public partial class MainForm : Form
         if (string.IsNullOrEmpty(functionName))
         {
             var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
-            if (moduleBase == IntPtr.Zero)
-            {
-                UpdateOperationStatus($"Please wait, loading symbols for \"{module.FileName}\"");
-
-                moduleBase = CSymbolResolver.LoadModule(module.FileName, 0);
-
-                UpdateOperationStatus(string.Empty);
-
-                if (moduleBase != IntPtr.Zero)
-                {
-                    CSymbolResolver.CacheSymModule(module.FileName, moduleBase);
-                }
-            }
-
             if (moduleBase != IntPtr.Zero)
             {
                 UInt64 address = Convert.ToUInt64(moduleBase) + function.Address;
@@ -3183,6 +3237,11 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// LVImports/LVExports virtual listview search handler.
+    /// </summary>
+    /// <param name="itemList"></param>
+    /// <param name="e"></param>
     private void LVFunctionsSearchForVirtualItem(List<CFunction> itemList, SearchForVirtualItemEventArgs e)
     {
         // Search by ordinal.
@@ -3227,16 +3286,31 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// LVImports virtual listview search handler.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void LVImportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
         LVFunctionsSearchForVirtualItem(m_CurrentImportsList, e);
     }
 
+    /// <summary>
+    /// LVExports virtual listview search handler.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void LVExportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
         LVFunctionsSearchForVirtualItem(m_CurrentExportsList, e);
     }
 
+    /// <summary>
+    /// LVModules virtual listview search handler.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void LVModulesSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
         foreach (var module in m_LoadedModulesList)
@@ -3249,6 +3323,14 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// LVImports/LVExports virtual listview sort handler.
+    /// </summary>
+    /// <param name="listView"></param>
+    /// <param name="columnIndex"></param>
+    /// <param name="sortOrder"></param>
+    /// <param name="data"></param>
+    /// <param name="cacheType"></param>
     private void LVFunctionsSort(ListView listView, int columnIndex, SortOrder sortOrder, List<CFunction> data, DisplayCacheType cacheType)
     {
         IComparer<CFunction> funcComparer = new CFunctionComparer(sortOrder, columnIndex);
@@ -3276,6 +3358,14 @@ public partial class MainForm : Form
         LVFunctionsSort(LVImports, columnIndex, LVImportsSortOrder, m_CurrentImportsList, DisplayCacheType.Imports);
     }
 
+    /// <summary>
+    /// LVModules virtual listview sort handler.
+    /// </summary>
+    /// <param name="listView"></param>
+    /// <param name="columnIndex"></param>
+    /// <param name="sortOrder"></param>
+    /// <param name="moduleList"></param>
+    /// <param name="cacheType"></param>
     private void LVModulesSort(ListView listView, int columnIndex, SortOrder sortOrder, List<CModule> moduleList, DisplayCacheType cacheType)
     {
         IComparer<CModule> modulesComparer = new CModuleComparer(sortOrder, columnIndex, m_Configuration.FullPaths);
@@ -3300,6 +3390,10 @@ public partial class MainForm : Form
         ProcessModuleEntry(ProcessModuleAction.OpenFileLocation);
     }
 
+    /// <summary>
+    /// Callback used to update information in the status bar.
+    /// </summary>
+    /// <param name="status"></param>
     private void UpdateOperationStatus(string status)
     {
         if (toolBarStatusLabel.Owner.InvokeRequired)

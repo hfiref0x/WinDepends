@@ -155,6 +155,8 @@ public static class CConsts
     public const string HalDll = "hal.dll";
 
     public const string DbgHelpDll = "dbghelp.dll";
+    public const string SymbolsDownloadLink = "*https://msdl.microsoft.com/download/symbols";
+    public const string SymbolsDefaultStoreDirectory = "WinDepends\\Symbols";
 
     //
     // WinDepends server app.

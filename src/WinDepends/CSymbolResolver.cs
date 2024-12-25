@@ -136,7 +136,7 @@ public static class CSymbolResolver
         public string Name;
     }
 
-    static readonly UInt32 MAX_SYM_NAME = 2000;
+    const UInt32 MAX_SYM_NAME = 2000;
     static readonly UInt32 SIZE_OF_SYMBOL_INFO = (uint)Marshal.SizeOf<SYMBOL_INFO>() - (MAX_SYM_NAME * 2);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
@@ -384,10 +384,10 @@ public static class CSymbolResolver
 
     public static string GetSymbolNameForAddress(UInt64 address, string moduleFileName)
     {
-        var moduleBase = CSymbolResolver.RetrieveCachedSymModule(moduleFileName);
+        var moduleBase = RetrieveCachedSymModule(moduleFileName);
         if (moduleBase != IntPtr.Zero)
         {
-            if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
+            if (QuerySymbolForAddress(address, out string symName))
             {
                 return symName;
             }

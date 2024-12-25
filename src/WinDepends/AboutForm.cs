@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 Nov 2024
+*  DATE:        22 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -18,7 +18,7 @@ using System.Diagnostics;
 
 namespace WinDepends;
 
-public partial class AboutForm : Form
+internal partial class AboutForm : Form
 {
     readonly bool escKeyEnabled;
 
@@ -38,7 +38,7 @@ public partial class AboutForm : Form
 
     private void AboutForm_Load(object sender, EventArgs e)
     {
-        Text = "About " + CConsts.ProgramName;
+        Text = $"About {CConsts.ProgramName}";
         AboutVersionLabel.Text = $"Version: {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild}";
         AboutNameLabel.Text = $"{CConsts.ProgramName} for Windows 10/11";
         AboutCopyrightLabel.Text = CConsts.CopyrightString;

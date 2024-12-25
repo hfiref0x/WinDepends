@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Dec 2024
+*  DATE:        22 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -895,9 +895,11 @@ public partial class ConfigurationForm : Form
                 {
                     m_CurrentConfiguration.SymbolsDllPath = folderBrowserDialog.SelectedPath;
                     dbghelpTextBox.Text = fileName;
-                } else
+                }
+                else
                 {
-                    MessageBox.Show($"The {CConsts.DbgHelpDll} was not found in the \"{folderBrowserDialog.SelectedPath}\" directory.");
+                    MessageBox.Show($"The {CConsts.DbgHelpDll} was not found in the \"{folderBrowserDialog.SelectedPath}\" directory.", 
+                        "Symbols dll", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
             }
@@ -923,5 +925,16 @@ public partial class ConfigurationForm : Form
             m_CurrentConfiguration.SymbolsHighlightColor = colorDialog.Color;
             panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
         }
+    }
+
+    private void ButtonSymbolsDefaults_Click(object sender, EventArgs e)
+    {
+        m_CurrentConfiguration.SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
+        m_CurrentConfiguration.SymbolsDllPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        m_CurrentConfiguration.SymbolsHighlightColor = Color.Yellow;
+
+        dbghelpTextBox.Text = Path.Combine(m_CurrentConfiguration.SymbolsDllPath, CConsts.DbgHelpDll);
+        symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
+        panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
     }
 }

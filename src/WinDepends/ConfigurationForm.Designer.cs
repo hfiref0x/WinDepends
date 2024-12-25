@@ -160,6 +160,7 @@
             browseFileDialog = new OpenFileDialog();
             folderBrowserDialog = new FolderBrowserDialog();
             colorDialog = new ColorDialog();
+            buttonSymbolsDefault = new Button();
             ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
             splitContainer2.Panel1.SuspendLayout();
             splitContainer2.Panel2.SuspendLayout();
@@ -1371,6 +1372,7 @@
             // 
             // groupBox16
             // 
+            groupBox16.Controls.Add(buttonSymbolsDefault);
             groupBox16.Controls.Add(buttonSymbolPickColor);
             groupBox16.Controls.Add(panel1);
             groupBox16.Controls.Add(buttonSymbolsBrowse);
@@ -1504,6 +1506,16 @@
             // 
             folderBrowserDialog.AddToRecent = false;
             folderBrowserDialog.ShowHiddenFiles = true;
+            // 
+            // buttonSymbolsDefault
+            // 
+            buttonSymbolsDefault.Location = new Point(348, 96);
+            buttonSymbolsDefault.Name = "buttonSymbolsDefault";
+            buttonSymbolsDefault.Size = new Size(94, 27);
+            buttonSymbolsDefault.TabIndex = 9;
+            buttonSymbolsDefault.Text = "Set Defaults";
+            buttonSymbolsDefault.UseVisualStyleBackColor = true;
+            buttonSymbolsDefault.Click += ButtonSymbolsDefaults_Click;
             // 
             // ConfigurationForm
             // 
@@ -1705,5 +1717,6 @@
         private Button buttonSymbolPickColor;
         private Panel panel1;
         private Label label11;
+        private Button buttonSymbolsDefault;
     }
 }

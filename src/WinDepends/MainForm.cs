@@ -1872,6 +1872,10 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Called when user spawns popup menu on LVImports/LVExports/LVModules virtual listviews.
+    /// </summary>
+    /// <param name="functionView">If true then selection is LVImports/LVExports virtual listview, LVModules otherwise.</param>
     void SetPopupMenuItemText(bool functionView = true)
     {
         ToolStripMenuItem menuItem;
@@ -1886,12 +1890,12 @@ public partial class MainForm : Form
             if (LVImports.Focused)
             {
                 selectedCount = LVImports.SelectedIndices.Count;
-                itemsCount = LVImports.VirtualListSize;
+                itemsCount = LVExports.VirtualListSize; // Number of items in the exports list.
             }
             else if (LVExports.Focused)
             {
                 selectedCount = LVExports.SelectedIndices.Count;
-                itemsCount = LVExports.VirtualListSize;
+                itemsCount = LVImports.VirtualListSize; // Number of items in the imports list.
             }
 
             MatchingFunctionPopupMenuItem.Enabled = (itemsCount > 0);

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Dec 2024
+*  DATE:        29 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -136,6 +136,7 @@ public static class CConsts
     public const string HandledFileExtensionsMsg = "Handled File Extensions|";
     public const string WinDependsFilter = "|WinDepends session view (*.wds)|*.wds|All files (*.*)|*.*";
     public const string ConfigBrowseFilter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*";
+    public const string DbgHelpBrowseFilter = "Dynamic Link Libraries (*.dll)|*.dll|All files (*.*)|*.*";
 
     public const string ShellIntegrationCommand = "file\\shell\\View in WinDepends";
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        21 Dec 2024
+*  DATE:        29 Dec 2024
 *
 *  MS Symbols resolver support class.
 *
@@ -277,8 +277,7 @@ public static class CSymbolResolver
         DllPath = dllPath;
         StorePath = storePath;
 
-        var moduleFileName = Path.Combine(DllPath, CConsts.DbgHelpDll);
-        DbgHelpModule = NativeMethods.LoadLibraryEx(moduleFileName, IntPtr.Zero, 0);
+        DbgHelpModule = NativeMethods.LoadLibraryEx(dllPath, IntPtr.Zero, 0);
         if (DbgHelpModule != IntPtr.Zero)
         {
             if (InitializeDelegates())

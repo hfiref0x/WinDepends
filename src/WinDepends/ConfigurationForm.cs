@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Dec 2024
+*  DATE:        29 Dec 2024
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -316,9 +316,9 @@ public partial class ConfigurationForm : Form
         serverAppLocationTextBox.Text = m_CurrentConfiguration.CoreServerAppLocation;
 
         symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
-        dbghelpTextBox.Text = Path.Combine(m_CurrentConfiguration.SymbolsDllPath, CConsts.DbgHelpDll);
+        dbghelpTextBox.Text = m_CurrentConfiguration.SymbolsDllPath;
 
-        panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
+        panelSymColor.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
 
         buttonApiSetBrowse.Enabled = m_CurrentConfiguration.UseApiSetSchemaFile;
         if (m_CurrentConfiguration.UseApiSetSchemaFile)
@@ -554,6 +554,10 @@ public partial class ConfigurationForm : Form
             uint selectedValue = CUtils.ParseMinAppAddressValue(cbMinAppAddress.SelectedItem.ToString());
             m_CurrentConfiguration.MinAppAddress = selectedValue;
         }
+
+        m_CurrentConfiguration.SymbolsDllPath = dbghelpTextBox.Text;
+        m_CurrentConfiguration.SymbolsStorePath = symbolsStoreTextBox.Text;
+        m_CurrentConfiguration.SymbolsHighlightColor = panelSymColor.BackColor;
     }
 
     private void ButtonBrowse_Click(object sender, EventArgs e)
@@ -886,35 +890,34 @@ public partial class ConfigurationForm : Form
 
     private void SymButtons_Click(object sender, EventArgs e)
     {
-        if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
-        {
-            if (sender == buttonDbghelpBrowse)
-            {
-                var fileName = Path.Combine(folderBrowserDialog.SelectedPath, CConsts.DbgHelpDll);
-                if (File.Exists(fileName))
-                {
-                    m_CurrentConfiguration.SymbolsDllPath = folderBrowserDialog.SelectedPath;
-                    dbghelpTextBox.Text = fileName;
-                }
-                else
-                {
-                    MessageBox.Show($"The {CConsts.DbgHelpDll} was not found in the \"{folderBrowserDialog.SelectedPath}\" directory.", 
-                        "Symbols dll", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-            }
-            else if (sender == buttonSymbolsBrowse)
-            {
-                m_CurrentConfiguration.SymbolsStorePath = folderBrowserDialog.SelectedPath;
-                symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
-            }
-            else
-            {
-                return;
-            }
+        string symDllPath = string.Empty, symStorePath = string.Empty;
 
+        if (sender == buttonSymbolsBrowse)
+        {
+            if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+            {
+                symStorePath = $"srv*{folderBrowserDialog.SelectedPath}{CConsts.SymbolsDownloadLink}";
+                symbolsStoreTextBox.Text = symStorePath;
+            }
+        }
+        else if (sender == buttonDbghelpBrowse)
+        {
+            browseFileDialog.Filter = CConsts.DbgHelpBrowseFilter;
+            if (browseFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                symDllPath = browseFileDialog.FileName;
+                dbghelpTextBox.Text = symDllPath;
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(symDllPath) && !string.IsNullOrEmpty(symStorePath))
+        {
             CSymbolResolver.ReleaseSymbolResolver();
-            CSymbolResolver.AllocateSymbolResolver(m_CurrentConfiguration.SymbolsDllPath, m_CurrentConfiguration.SymbolsStorePath);
+            CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath);
         }
     }
 
@@ -923,18 +926,14 @@ public partial class ConfigurationForm : Form
         if (colorDialog.ShowDialog() == DialogResult.OK)
         {
             m_CurrentConfiguration.SymbolsHighlightColor = colorDialog.Color;
-            panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
+            panelSymColor.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
         }
     }
 
     private void ButtonSymbolsDefaults_Click(object sender, EventArgs e)
     {
-        m_CurrentConfiguration.SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
-        m_CurrentConfiguration.SymbolsDllPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
-        m_CurrentConfiguration.SymbolsHighlightColor = Color.Yellow;
-
-        dbghelpTextBox.Text = Path.Combine(m_CurrentConfiguration.SymbolsDllPath, CConsts.DbgHelpDll);
-        symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
-        panel1.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
+        dbghelpTextBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
+        symbolsStoreTextBox.Text = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
+        panelSymColor.BackColor = Color.Yellow;
     }
 }

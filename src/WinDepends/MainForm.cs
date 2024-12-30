@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Dec 2024
+*  DATE:        29 Dec 2024
 *  
 *  Codename:    VasilEk
 *
@@ -33,6 +33,13 @@ enum ProcessModuleAction
     ShowProperties,
     ExternalViewer,
     OpenFileLocation
+}
+
+enum FileOpenResult
+{
+    Success,
+    Failure,
+    Cancelled
 }
 
 public partial class MainForm : Form
@@ -665,24 +672,9 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void MainForm_ElevatedDragDrop(System.Object sender, ElevatedDragDropEventArgs e)
     {
-        if (e.Files.Count > 0)
+        if (e.Files.Count > 0 && !string.IsNullOrEmpty(e.Files[0]))
         {
-            var fName = e.Files[0];
-            if (string.IsNullOrEmpty(fName))
-            {
-                return;
-            }
-
-            var fileExtension = Path.GetExtension(fName);
-            if (!string.IsNullOrEmpty(fileExtension) && fileExtension.Equals(CConsts.ShortcutFileExt, StringComparison.OrdinalIgnoreCase))
-            {
-                fName = NativeMethods.ResolveShortcutTarget(fName);
-            }
-
-            if (!string.IsNullOrEmpty(fName))
-            {
-                OpenInputFile(fName);
-            }
+            OpenInputFile(e.Files[0]);
         }
     }
 
@@ -1028,7 +1020,7 @@ public partial class MainForm : Form
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenInputFileInternal(string? fileName)
+    private FileOpenResult OpenInputFileInternal(string? fileName)
     {
         bool bResult = false;
 
@@ -1074,7 +1066,7 @@ public partial class MainForm : Form
                         //
                         // User cancelled file opening, return.
                         //
-                        return false;
+                        return FileOpenResult.Cancelled;
                     }
                 }
             }
@@ -1135,7 +1127,7 @@ public partial class MainForm : Form
             TVModules.Focus();
         }
 
-        return bResult;
+        return bResult ? FileOpenResult.Success : FileOpenResult.Failure;
     }
 
     /// <summary>
@@ -1152,8 +1144,26 @@ public partial class MainForm : Form
             MainToolBar.Enabled = false;
             TVModules.Enabled = false;
             LVModules.Enabled = false;
-            bResult = OpenInputFileInternal(fileName);
-            string logEvent = bResult ? $"Populating \"{fileName}\" has been completed" : $"There is an error while populating \"{fileName}\"";
+
+            //
+            // Check shortcut.
+            //
+            var resolvedFileName = fileName;
+            var fileExtension = Path.GetExtension(resolvedFileName);
+            if (!string.IsNullOrEmpty(fileExtension) && fileExtension.Equals(CConsts.ShortcutFileExt, StringComparison.OrdinalIgnoreCase))
+            {
+                resolvedFileName = NativeMethods.ResolveShortcutTarget(fileName);
+            }
+
+            var fileOpenResult = OpenInputFileInternal(resolvedFileName);
+            bResult = fileOpenResult == FileOpenResult.Success;
+            string logEvent = fileOpenResult switch
+            {
+                FileOpenResult.Success => $"Populating \"{resolvedFileName}\" has been completed",
+                FileOpenResult.Failure => $"There is an error while populating \"{resolvedFileName}\"",
+                _ => "Operation has been cancelled"
+            };
+
             UpdateOperationStatus(logEvent);
         }
         catch

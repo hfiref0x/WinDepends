@@ -164,6 +164,7 @@
             OpenDialog1 = new OpenFileDialog();
             StatusBar = new StatusStrip();
             toolBarStatusLabel = new ToolStripStatusLabel();
+            toolBarSymStatusLabel = new ToolStripStatusLabel();
             richEditPopupMenu = new ContextMenuStrip(components);
             richEditCopyTextMenuItem = new ToolStripMenuItem();
             richEditSelectAllMenuItem = new ToolStripMenuItem();
@@ -684,8 +685,8 @@
             // splitContainerFunctions.Panel2
             // 
             splitContainerFunctions.Panel2.Controls.Add(LVExports);
-            splitContainerFunctions.Size = new Size(576, 364);
-            splitContainerFunctions.SplitterDistance = 182;
+            splitContainerFunctions.Size = new Size(576, 362);
+            splitContainerFunctions.SplitterDistance = 181;
             splitContainerFunctions.TabIndex = 0;
             splitContainerFunctions.MouseDown += SplitContainer_MouseDown;
             splitContainerFunctions.MouseUp += SplitContainer_MouseUp;
@@ -699,7 +700,7 @@
             LVImports.Name = "LVImports";
             LVImports.ShowGroups = false;
             LVImports.ShowItemToolTips = true;
-            LVImports.Size = new Size(576, 182);
+            LVImports.Size = new Size(576, 181);
             LVImports.TabIndex = 0;
             LVImports.UseCompatibleStateImageBehavior = false;
             LVImports.View = View.Details;
@@ -747,7 +748,7 @@
             LVExports.Name = "LVExports";
             LVExports.ShowGroups = false;
             LVExports.ShowItemToolTips = true;
-            LVExports.Size = new Size(576, 178);
+            LVExports.Size = new Size(576, 177);
             LVExports.TabIndex = 1;
             LVExports.UseCompatibleStateImageBehavior = false;
             LVExports.View = View.Details;
@@ -1169,7 +1170,7 @@
             TVModules.Location = new Point(0, 0);
             TVModules.Name = "TVModules";
             TVModules.ShowNodeToolTips = true;
-            TVModules.Size = new Size(428, 364);
+            TVModules.Size = new Size(428, 362);
             TVModules.TabIndex = 0;
             TVModules.AfterSelect += TVModules_AfterSelect;
             TVModules.Click += TVModules_Click;
@@ -1344,8 +1345,8 @@
             // splitContainerMain.Panel2
             // 
             splitContainerMain.Panel2.Controls.Add(splitContainerBottom);
-            splitContainerMain.Size = new Size(1008, 658);
-            splitContainerMain.SplitterDistance = 364;
+            splitContainerMain.Size = new Size(1008, 656);
+            splitContainerMain.SplitterDistance = 362;
             splitContainerMain.TabIndex = 7;
             splitContainerMain.MouseDown += SplitContainer_MouseDown;
             splitContainerMain.MouseUp += SplitContainer_MouseUp;
@@ -1363,7 +1364,7 @@
             // splitContainerFile.Panel2
             // 
             splitContainerFile.Panel2.Controls.Add(splitContainerFunctions);
-            splitContainerFile.Size = new Size(1008, 364);
+            splitContainerFile.Size = new Size(1008, 362);
             splitContainerFile.SplitterDistance = 428;
             splitContainerFile.TabIndex = 0;
             splitContainerFile.MouseDown += SplitContainer_MouseDown;
@@ -1375,16 +1376,27 @@
             // 
             // StatusBar
             // 
-            StatusBar.Items.AddRange(new ToolStripItem[] { toolBarStatusLabel });
-            StatusBar.Location = new Point(0, 707);
+            StatusBar.Items.AddRange(new ToolStripItem[] { toolBarStatusLabel, toolBarSymStatusLabel });
+            StatusBar.Location = new Point(0, 705);
             StatusBar.Name = "StatusBar";
-            StatusBar.Size = new Size(1008, 22);
+            StatusBar.Size = new Size(1008, 24);
             StatusBar.TabIndex = 6;
             // 
             // toolBarStatusLabel
             // 
             toolBarStatusLabel.Name = "toolBarStatusLabel";
-            toolBarStatusLabel.Size = new Size(0, 17);
+            toolBarStatusLabel.Size = new Size(927, 19);
+            toolBarStatusLabel.Spring = true;
+            toolBarStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // toolBarSymStatusLabel
+            // 
+            toolBarSymStatusLabel.BorderSides = ToolStripStatusLabelBorderSides.Left | ToolStripStatusLabelBorderSides.Top | ToolStripStatusLabelBorderSides.Right | ToolStripStatusLabelBorderSides.Bottom;
+            toolBarSymStatusLabel.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            toolBarSymStatusLabel.Enabled = false;
+            toolBarSymStatusLabel.Name = "toolBarSymStatusLabel";
+            toolBarSymStatusLabel.Size = new Size(35, 19);
+            toolBarSymStatusLabel.Text = "SYM";
             // 
             // richEditPopupMenu
             // 
@@ -1861,5 +1873,6 @@
         private ToolStripMenuItem mainMenuConfigureSymbolsItem;
         private ToolStripMenuItem MenuDocumentationItem;
         private ToolStripSeparator toolStripMenuItem20;
+        private ToolStripStatusLabel toolBarSymStatusLabel;
     }
 }

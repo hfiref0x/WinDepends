@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CCONFIGMGR.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Dec 2024
+*  DATE:        22 Jan 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -129,7 +129,7 @@ public class CConfiguration
             UseApiSetSchemaFile = false;
 
             SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
-            SymbolsDllPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            SymbolsDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
             SymbolsHighlightColor = Color.Yellow;
 
             string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();

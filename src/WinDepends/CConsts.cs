@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CCONSTS.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Dec 2024
+*  DATE:        22 Jan 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,7 +20,7 @@ public static class CConsts
 {
     public const string ProgramName = "Windows Dependencies";
     public const string ShortProgramName = "WinDepends";
-    public const string CopyrightString = "© 2024 WinDepends Project Authors";
+    public const string CopyrightString = "© 2024 - 2025 WinDepends Project Authors";
 
     public const string NotAvailableMsg = "N/A";
     public const string NotBoundMsg = "Not bound";
@@ -33,7 +33,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2412;
+    public const uint VersionBuild = 2501;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -301,6 +301,8 @@ public enum ToolBarIconType
 public enum LogEventType
 {
     StartMessage,
+    SymInitOK,
+    SymInitFailed,
     FileOpenSession,
     FileOpenSessionError,
     FileSessionSave,

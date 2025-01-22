@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CSYMBOLRESOLVER.CS
 *
 *  VERSION:     1.00
 *  
-*  DATE:        29 Dec 2024
+*  DATE:        22 Jan 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -183,7 +183,6 @@ public static class CSymbolResolver
     #endregion
 
     // P/Invoke delegates
-
     static SymLoadModuleExDelegate SymLoadModuleEx;
     static SymUnloadModule64Delegate SymUnloadModule64;
     static SymInitializeDelegate SymInitialize;
@@ -192,10 +191,8 @@ public static class CSymbolResolver
     static SymCleanupDelegate SymCleanup;
     static SymFromAddrDelegate SymFromAddr;
     static UnDecorateSymbolNameDelegate UnDecorateSymbolName;
-
     static IntPtr DbgHelpModule { get; set; } = IntPtr.Zero;
     static bool SymbolsInitialized { get; set; }
-
     public static string DllPath { get; set; }
     public static string StorePath { get; set; }
 
@@ -247,32 +244,42 @@ public static class CSymbolResolver
     }
     private static bool InitializeDelegates()
     {
-        UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
-        SymLoadModuleEx = Marshal.GetDelegateForFunctionPointer<SymLoadModuleExDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymLoadModuleExW"));
-        SymUnloadModule64 = Marshal.GetDelegateForFunctionPointer<SymUnloadModule64Delegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymUnloadModule64"));
-        SymGetOptions = Marshal.GetDelegateForFunctionPointer<SymGetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymGetOptions"));
-        SymSetOptions = Marshal.GetDelegateForFunctionPointer<SymSetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymSetOptions"));
-        SymInitialize = Marshal.GetDelegateForFunctionPointer<SymInitializeDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymInitializeW"));
-        SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddrW"));
-        SymCleanup = Marshal.GetDelegateForFunctionPointer<SymCleanupDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymCleanup"));
+        bool bResult = false;
 
-        if (UnDecorateSymbolName == null
-            || SymLoadModuleEx == null
-            || SymUnloadModule64 == null
-            || SymGetOptions == null
-            || SymSetOptions == null
-            || SymInitialize == null
-            || SymCleanup == null
-            || SymFromAddr == null)
+        try
+        {
+            UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
+            SymLoadModuleEx = Marshal.GetDelegateForFunctionPointer<SymLoadModuleExDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymLoadModuleExW"));
+            SymUnloadModule64 = Marshal.GetDelegateForFunctionPointer<SymUnloadModule64Delegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymUnloadModule64"));
+            SymGetOptions = Marshal.GetDelegateForFunctionPointer<SymGetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymGetOptions"));
+            SymSetOptions = Marshal.GetDelegateForFunctionPointer<SymSetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymSetOptions"));
+            SymInitialize = Marshal.GetDelegateForFunctionPointer<SymInitializeDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymInitializeW"));
+            SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddrW"));
+            SymCleanup = Marshal.GetDelegateForFunctionPointer<SymCleanupDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymCleanup"));
+
+            if (UnDecorateSymbolName == null
+                || SymLoadModuleEx == null
+                || SymUnloadModule64 == null
+                || SymGetOptions == null
+                || SymSetOptions == null
+                || SymInitialize == null
+                || SymCleanup == null
+                || SymFromAddr == null)
+            {
+                ClearDelegates();
+            }
+
+            bResult = true;
+        }
+        catch
         {
             ClearDelegates();
-            return false;
         }
 
-        return true;
+        return bResult;
     }
 
-    public static void AllocateSymbolResolver(string dllPath, string storePath)
+    public static bool AllocateSymbolResolver(string dllPath, string storePath)
     {
         DllPath = dllPath;
         StorePath = storePath;
@@ -293,6 +300,7 @@ public static class CSymbolResolver
             }
         }
 
+        return SymbolsInitialized;
     }
 
     public static void ReleaseSymbolResolver()

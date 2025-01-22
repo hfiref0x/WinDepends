@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CCORECLIENT.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        22 Jan 2025
 *  
 *  Core Server communication class.
 *
@@ -22,8 +22,6 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 
 namespace WinDepends;
-
-public delegate void LogEventCallback(string? EventName, LogEventType LogEventType, string ExtraInformation = null);
 
 public enum ModuleInformationType
 {

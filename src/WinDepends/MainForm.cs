@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       MAINFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Dec 2024
+*  DATE:        22 Jan 2025
 *  
 *  Codename:    VasilEk
 *
@@ -132,27 +132,18 @@ public partial class MainForm : Form
     {
         InitializeComponent();
 
-        m_Configuration = CConfigManager.LoadConfiguration();
-        CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
-        CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
-        CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
-
-        /* var moduleBase = CSymbolResolver.LoadModule("C:\\symdll\\crypt32.dll", 0);
-         if (moduleBase != IntPtr.Zero)
-         {
-             UInt64 address = Convert.ToUInt64(moduleBase) + 0x6E270;
-             if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
-             {
-                 MessageBox.Show(symName);
-             }
-         }*/
-
         //
         // Add welcome message to the log.
         //
         LogEvent($"{CConsts.ProgramName} started, " +
             $"version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild} BETA",
             LogEventType.StartMessage);
+
+        m_Configuration = CConfigManager.LoadConfiguration();
+        CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
+        CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
+
+        bool bSymbolsAllocated = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
 
         //
         // Check for command line parameters.
@@ -176,6 +167,17 @@ public partial class MainForm : Form
             m_CoreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
         }
 
+        //
+        // Display this message after server initialization message.
+        //
+        if (bSymbolsAllocated)
+        {
+            LogEvent($"Debug symbols initialized using \"{m_Configuration.SymbolsDllPath}\", " +
+                $"store \"{m_Configuration.SymbolsStorePath}\"", LogEventType.SymInitOK);
+
+            toolBarSymStatusLabel.Enabled = true;
+        }
+
         LVExports.VirtualMode = true;
         LVExports.VirtualListSize = 0;
 
@@ -189,6 +191,11 @@ public partial class MainForm : Form
         m_ModulesHintForm = CreateHintForm(CConsts.HintFormLabelControl);
     }
 
+    /// <summary>
+    /// Creates a small borderless form used as tooltip.
+    /// </summary>
+    /// <param name="LabelName"></param>
+    /// <returns></returns>
     static Form CreateHintForm(string LabelName)
     {
         var resultForm = new Form
@@ -232,6 +239,13 @@ public partial class MainForm : Form
             }
         }
 
+        //
+        // Most important part of the entire function.
+        // Create module instance id (hash from filename) and look if it is already in list.
+        // If it - then link this item with new one as original instance.
+        // This allows us to exclude duplicate information gathering thus
+        // decreasing resource usage and increasing overall enumeration performance.
+        //
         module.InstanceId = module.GetHashCode();
 
         CModule origInstance = CUtils.GetModuleByHash(module.FileName, m_LoadedModulesList);
@@ -577,6 +591,10 @@ public partial class MainForm : Form
         GC.Collect();
     }
 
+    /// <summary>
+    /// Recursively update tree nodes respecting module display settings.
+    /// </summary>
+    /// <param name="startNode"></param>
     private void TreeViewUpdateNode(TreeNode startNode)
     {
         while (startNode != null)
@@ -841,10 +859,25 @@ public partial class MainForm : Form
                 break;
 
             //
+            // Symbols initialization message.
+            //
+            case LogEventType.SymInitOK:
+                loggedMessage = fileName;
+                boldText = true;
+                outputColor = Color.Blue;
+                break;
+            case LogEventType.SymInitFailed:
+                loggedMessage = fileName;
+                boldText = true;
+                outputColor = Color.Red;
+                break;
+
+            //
             // Session file messages.
             //
             case LogEventType.FileOpenSession:
                 loggedMessage = $"Session: File \"{fileName}\" has been opened.";
+                outputColor = Color.Blue;
                 break;
             case LogEventType.FileOpenSessionError:
                 loggedMessage = $"Error: Session file \"{fileName}\" could not be opened because \"{extraInformation}\"";
@@ -879,6 +912,7 @@ public partial class MainForm : Form
             //
             case LogEventType.CoreServerStartOK:
                 loggedMessage = $"Server: {extraInformation}";
+                outputColor = Color.Blue;
                 break;
             case LogEventType.CoreServerStartError:
                 loggedMessage = $"Error: Server initialization failed: \"{extraInformation}\"";
@@ -1316,6 +1350,12 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Displays configuration form as modal dialog with selected settings page index.
+    /// When user finishes work with configuration, depending on user choice apply 
+    /// the changed settings or do nothing.
+    /// </summary>
+    /// <param name="pageIndex">An index of page to be selected.</param>
     private void ShowConfigurationForm(int pageIndex)
     {
         bool is64bitFile = true;
@@ -1344,6 +1384,8 @@ public partial class MainForm : Form
                                                   is64bitFile,
                                                   m_Configuration,
                                                   m_CoreClient,
+                                                  LogEvent,
+                                                  UpdateSymbolsStatus,
                                                   pageIndex))
         {
             if (configForm.ShowDialog() == DialogResult.OK)
@@ -1933,6 +1975,12 @@ public partial class MainForm : Form
         SetPopupMenuItemText(false);
     }
 
+    /// <summary>
+    /// LVImport/LVExport list view MouseDown handler.
+    /// Depending on currently active list modify popup menu and show it to the user.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void LVFunctions_MouseDown(object sender, MouseEventArgs e)
     {
         if (e.Button == MouseButtons.Right)
@@ -3420,6 +3468,27 @@ public partial class MainForm : Form
         else
         {
             toolBarStatusLabel.Text = status;
+        }
+
+        Application.DoEvents();
+    }
+
+    /// <summary>
+    /// Callback used to update symbols state in the status bar.
+    /// </summary>
+    /// <param name="enabled"></param>
+    private void UpdateSymbolsStatus(bool enabled)
+    {
+        if (toolBarSymStatusLabel.Owner.InvokeRequired)
+        {
+            toolBarSymStatusLabel.Owner.BeginInvoke((MethodInvoker)delegate
+            {
+                toolBarSymStatusLabel.Enabled = enabled;
+            });
+        }
+        else
+        {
+            toolBarSymStatusLabel.Enabled = enabled;
         }
 
         Application.DoEvents();

@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CONFIGURATIONFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Dec 2024
+*  DATE:        22 Jan 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -29,14 +29,21 @@ public partial class ConfigurationForm : Form
     TreeNode m_UserDefinedDirectoryNodeUM;
     TreeNode m_UserDefinedDirectoryNodeKM;
     readonly int m_CurrentPageIndex;
+    readonly LogEventCallback m_LogEvent;
+    readonly UpdateSymbolsStatus m_UpdateSymbolsStatus;
 
-    public ConfigurationForm(string currentFileName, bool is64bitFile, CConfiguration currentConfiguration, CCoreClient coreClient, int pageIndex = 0)
+    public ConfigurationForm(string currentFileName, bool is64bitFile,
+        CConfiguration currentConfiguration, CCoreClient coreClient,
+        LogEventCallback logEventCallback, UpdateSymbolsStatus updateSymbolsStatusCallback,
+        int pageIndex = 0)
     {
         InitializeComponent();
         m_CurrentFileName = currentFileName;
         m_Is64bitFile = is64bitFile;
         m_CurrentConfiguration = currentConfiguration;
         m_CoreClient = coreClient;
+        m_LogEvent = logEventCallback;
+        m_UpdateSymbolsStatus = updateSymbolsStatusCallback;
         m_CurrentPageIndex = pageIndex;
     }
 
@@ -890,7 +897,8 @@ public partial class ConfigurationForm : Form
 
     private void SymButtons_Click(object sender, EventArgs e)
     {
-        string symDllPath = string.Empty, symStorePath = string.Empty;
+        bool bProcessed = false;
+        string symDllPath = dbghelpTextBox.Text, symStorePath = symbolsStoreTextBox.Text;
 
         if (sender == buttonSymbolsBrowse)
         {
@@ -898,6 +906,7 @@ public partial class ConfigurationForm : Form
             {
                 symStorePath = $"srv*{folderBrowserDialog.SelectedPath}{CConsts.SymbolsDownloadLink}";
                 symbolsStoreTextBox.Text = symStorePath;
+                bProcessed = true;
             }
         }
         else if (sender == buttonDbghelpBrowse)
@@ -907,9 +916,11 @@ public partial class ConfigurationForm : Form
             {
                 symDllPath = browseFileDialog.FileName;
                 dbghelpTextBox.Text = symDllPath;
+                bProcessed = true;
             }
         }
-        else
+
+        if (!bProcessed)
         {
             return;
         }
@@ -917,7 +928,18 @@ public partial class ConfigurationForm : Form
         if (!string.IsNullOrEmpty(symDllPath) && !string.IsNullOrEmpty(symStorePath))
         {
             CSymbolResolver.ReleaseSymbolResolver();
-            CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath);
+            if (CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath))
+            {
+                m_LogEvent($"Debug symbols initialized using \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogEventType.SymInitOK);
+                m_UpdateSymbolsStatus(true);
+            }
+            else
+            {
+                m_LogEvent($"Debug symbols initialization failed for \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogEventType.SymInitFailed);
+                m_UpdateSymbolsStatus(false);
+            }
         }
     }
 

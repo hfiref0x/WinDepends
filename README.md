@@ -3,28 +3,31 @@
 
 #### System Requirements
 
-+ Windows 10/11
+##### Windows Operating System:
++ Microsoft Windows 10/11 (Including Server variants)
++ Windows 8.1 (Not Officially Supported)
 
-(reportedly working on Windows 8.1, but we do not officially support it)
-
+##### Runtime Frameworks:
 + [.NET Desktop Runtime 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
-+ Administrative privilege is not required
 
-# Overview
 
-WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.com/) utility which for a long time was a "must-have" tool when it comes to Windows PE files analysis and building a hierarchical tree diagram of all dependent modules. Unfortunately, development of this tool stopped around the Windows Vista release, and since that time, Microsoft introduced a lot of new features "under the hood" of the loader that eventually broke Dependency Walker and made its use painful, especially on the newest Windows versions with tons of artificial DLLs, a.k.a. ApiSet contracts. Unfortunately, none of the existing "replacements" are even slightly comparable to the original in terms of implementation or features. That's why this project was born. It was in the mind for many years but has never had enough time or will to be implemented, until these days.
+# Project Overview
+
+WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.com/) utility, which for a long time was a "must-have" tool when it comes to Windows PE files analysis and building a hierarchical tree diagram of all dependent modules. Unfortunately, development of this tool stopped around the Windows Vista release, and since that time, Microsoft introduced a lot of new features "under the hood" of the loader that eventually broke Dependency Walker and made its use painful, especially on the newest Windows versions with tons of artificial DLLs, a.k.a. ApiSet contracts. Unfortunately, none of the existing "replacements" are even slightly comparable to the original in terms of implementation or features. That's why this project was born. It was in the mind for many years but has never had enough time or will to be implemented until these days.
 
 <img src="https://raw.githubusercontent.com/hfiref0x/WinDepends.Docs/master/help/img/MainWindowConsent.png" width="1010" />
 
-### Features
+### Utility Features
 
 * Scans any 32-bit or 64-bit Windows module (exe, dll, ocx, sys, etc.) and builds a hierarchical tree diagram of all dependent modules. For each module found, it lists all the functions that are exported by that module, and which of those functions are actually being called by other modules. Another view displays the minimum set of required files, along with detailed information about each file including a full path to the file, base address, version numbers, machine type, debug information, and more.
-*  Support delay-load dlls, ApiSet contracts (schema version 6, Win10/11), bound import, Side-by-Side modules.
-*  Support drag and drop, most recently used files list.
-*  Support configuration, external viewer, external help command, module path resolution, search order and PE loader relocations settings.
-*  C++ function name undecorating to provide human readable C++ function prototypes including function names, return types, and parameter types.
-*  Ability to save current session into a file and restore it back in program.
-*  Client-server architecture, client is a WinForms NET application providing GUI and server is a windowless C application responsible for parsing PE files.
+*  Supports delay-load dlls, ApiSet contracts, bound import, and Side-by-Side modules.
+   * Supported ApiSet schema versions are: V2 (Win7), V4 (Win8/8.1), V6 (Win10 and above) 
+*  Supports drag and drop with included most recently used files list.
+*  Supports custom configuration, external viewer, external help command, module path resolution, search order and PE loader relocations settings.
+*  Supports Microsoft Debug Symbols to provide more information on modules exports/imports.
+*  Supports C++ function name undecorating to provide human readable C++ function prototypes including function names, return types, and parameter types.
+*  Has an ability to save current session into a file and restore it back in program.
+*  Client-server architecture, client is a WinForms .NET application providing a graphical user interface while server is a windowless C application responsible for parsing PE files.
 
 ### Missing features / Known issues
 
@@ -48,16 +51,16 @@ There are no specific installation requirements, just copy this folder somewhere
 
 # Documentation and Help
 
-* Will be located on https://github.com/hfiref0x/WinDepends.Docs
+* Under development, will be located here https://github.com/hfiref0x/WinDepends.Docs
 
-# Build and Notes
+# Building and Other Information
 
 + Build platform is a Microsoft Visual Studio 2022 with latest SDK installed.
-+ Application (client) is written in C#, using Windows Forms and NET 8.0.
++ Application (client) is written in C#, using Windows Forms and .NET 8.0.
 + Server is written in C, with no special headers or SDK used.
 + Source code also include server test application (WinDepends.Core.Tests) and simple fuzzer (WinDepends.Core.Fuzz).
 
-We are not chasing the latest versions of frameworks, SDKs or language standards, so for example, if the .NET platform is updated, it will happen in the next LTS release (NET 10).
+We are not chasing the latest versions of frameworks, SDKs or language standards, so for example, if the .NET platform is updated, it will happen in the next LTS release (.NET 10).
 
 # License
 
@@ -65,4 +68,4 @@ MIT
 
 # Authors
 
-(c) 2024 WinDepends Project
+(c) 2024 -2025 WinDepends Project

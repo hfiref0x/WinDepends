@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       ABOUTFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Dec 2024
+*  DATE:        29 Jan 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -52,7 +52,7 @@ internal partial class AboutForm : Form
         try
         {
             linkLabel1.LinkVisited = true;
-            Process.Start(new ProcessStartInfo { FileName = "https://github.com/hfiref0x/WinDepends", UseShellExecute = true });
+            Process.Start(new ProcessStartInfo { FileName = CConsts.WinDependsHome, UseShellExecute = true });
         }
         catch { }
     }

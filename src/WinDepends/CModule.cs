@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CMODULE.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Dec 2024
+*  DATE:        29 Jan 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -440,9 +440,9 @@ public class CModuleData
     public uint ExtendedCharacteristics { get; set; }
     public ushort Subsystem { get; set; } = (ushort)System.Reflection.PortableExecutable.Subsystem.WindowsCui;
     public UInt64 PreferredBase { get; set; }
-    public UInt64 ActualBase { get; set; }
+   // public UInt64 ActualBase { get; set; } //unused, profiling artifact
     public uint VirtualSize { get; set; }
-    public uint LoadOrder { get; set; }
+   // public uint LoadOrder { get; set; } //unused, profiling artifact
     public string FileVersion { get; set; }
     public string ProductVersion { get; set; }
     public string ImageVersion { get; set; }
@@ -450,7 +450,6 @@ public class CModuleData
     public string OSVersion { get; set; }
     public string SubsystemVersion { get; set; }
     public List<uint> DebugDirTypes { get; set; } = [];
-    public bool DebugInfoPresent() => DebugDirTypes.Count > 0;
 
     //
     // Module exports.
@@ -475,9 +474,9 @@ public class CModuleData
         ExtendedCharacteristics = other.ExtendedCharacteristics;
         Subsystem = other.Subsystem;
         PreferredBase = other.PreferredBase;
-        ActualBase = other.ActualBase;
+       // ActualBase = other.ActualBase; //unused, profiling artifact
         VirtualSize = other.VirtualSize;
-        LoadOrder = other.LoadOrder;
+       // LoadOrder = other.LoadOrder; //unused, profiling artifact
         FileVersion = other.FileVersion;
         ProductVersion = other.ProductVersion;
         ImageVersion = other.ImageVersion;

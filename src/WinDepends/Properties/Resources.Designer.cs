@@ -88,7 +88,7 @@ namespace WinDepends.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Tue 12/17/2024  6:13:32.05 
+        ///   Looks up a localized string similar to Tue 01/28/2025 22:21:36.77 
         ///.
         /// </summary>
         internal static string BuildDate {
@@ -439,6 +439,15 @@ namespace WinDepends.Properties {
         internal static string Open_Module_Location {
             get {
                 return ResourceManager.GetString("Open Module Location", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open a new instance of WinDepends application.
+        /// </summary>
+        internal static string Open_New_Instance {
+            get {
+                return ResourceManager.GetString("Open New Instance", resourceCulture);
             }
         }
         

@@ -292,4 +292,7 @@
   <data name="Documentation" xml:space="preserve">
     <value>Open program documentation</value>
   </data>
+  <data name="Open New Instance" xml:space="preserve">
+    <value>Open a new instance of WinDepends application</value>
+  </data>
 </root>

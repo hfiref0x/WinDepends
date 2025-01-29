@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jan 2025
+*  DATE:        29 Jan 2025
 *  
 *  Codename:    VasilEk
 *
@@ -718,7 +718,7 @@ public partial class MainForm : Form
         // Create and load Most Recently Used files.
         //
         m_MRUList = new CMRUList(FileMenuItem,
-            FileMenuItem.DropDownItems.IndexOf(MenuCloseItem),
+            FileMenuItem.DropDownItems.IndexOf(MenuOpenNewInstance),
             m_Configuration.MRUList,
             m_Configuration.HistoryDepth,
             m_Configuration.HistoryShowFullPath,
@@ -873,10 +873,22 @@ public partial class MainForm : Form
                 break;
 
             //
+            // Generic message.
+            //
+            case LogEventType.FileOpen:
+                loggedMessage = $"File: Openning \"{fileName}\"";
+                outputColor = Color.Blue;
+                break;
+            case LogEventType.FileOpenSession:
+                loggedMessage = $"Session: Openning \"{fileName}\"";
+                outputColor = Color.Blue;
+                break;
+
+            //
             // Session file messages.
             //
-            case LogEventType.FileOpenSession:
-                loggedMessage = $"Session: File \"{fileName}\" has been opened.";
+            case LogEventType.FileOpenSessionOK:
+                loggedMessage = $"Session: \"{fileName}\" has been opened.";
                 outputColor = Color.Blue;
                 break;
             case LogEventType.FileOpenSessionError:
@@ -1013,7 +1025,7 @@ public partial class MainForm : Form
 
         if (sessionFile)
         {
-            LogEvent(fileName, LogEventType.FileOpenSession);
+            LogEvent(fileName, LogEventType.FileOpenSessionOK);
         }
 
         this.Text = programTitle;
@@ -1106,6 +1118,8 @@ public partial class MainForm : Form
             }
 
             CloseInputFile();
+
+            LogEvent(fileName, LogEventType.FileOpen);
 
             if (m_Configuration.ClearLogOnFileOpen)
             {
@@ -1229,6 +1243,8 @@ public partial class MainForm : Form
             // Deserialization failed, leaving.
             return false;
         }
+
+        LogEvent(fileName, LogEventType.FileOpenSession);
 
         if (m_Depends.RootModule != null)
         {
@@ -1491,7 +1507,7 @@ public partial class MainForm : Form
             var selectedItemIndex = LVModules.SelectedIndices[0];
             module = m_LoadedModulesList[selectedItemIndex];
         }
-        else if (TVModules.Focused)
+        else
         {
             module = TVModules.SelectedNode?.Tag as CModule;
         }
@@ -2581,7 +2597,7 @@ public partial class MainForm : Form
                 _ when FieldIndex == (int)ModulesColumns.Name && !fullPaths =>
                     string.Compare(Path.GetFileName(x.FileName), Path.GetFileName(y.FileName), StringComparison.Ordinal),
                 (int)ModulesColumns.Image => x.ModuleImageIndex.CompareTo(y.ModuleImageIndex),
-                (int)ModulesColumns.LoadOrder => x.ModuleData.LoadOrder.CompareTo(y.ModuleData.LoadOrder),
+               // (int)ModulesColumns.LoadOrder => x.ModuleData.LoadOrder.CompareTo(y.ModuleData.LoadOrder),//unused, profiling artifact
                 (int)ModulesColumns.LinkChecksum => x.ModuleData.LinkChecksum.CompareTo(y.ModuleData.LinkChecksum),
                 (int)ModulesColumns.RealChecksum => x.ModuleData.RealChecksum.CompareTo(y.ModuleData.RealChecksum),
                 (int)ModulesColumns.VirtualSize => x.ModuleData.VirtualSize.CompareTo(y.ModuleData.VirtualSize),
@@ -2922,7 +2938,7 @@ public partial class MainForm : Form
     {
         //
         // ModuleImage | Module | File TimeStamp | Link TimeStamp | FileSize | Attr. | LinkChecksum | Real Checksum | CPU
-        // Subsystem | Preffered Base | Actual Base | VirtualSize | LoadOrder | FileVer | ProductVer | ImageVer | LinkerVer | OSVer | SubsystemVer | 
+        // Subsystem | Preffered Base | VirtualSize | FileVer | ProductVer | ImageVer | LinkerVer | OSVer | SubsystemVer | 
         //
 
         //
@@ -3008,7 +3024,7 @@ public partial class MainForm : Form
             lvItem.SubItems.Add(value);
 
             // Debug Symbols
-            if (moduleData.DebugInfoPresent())
+            if (moduleData.DebugDirTypes.Count > 0)
             {
                 var sb = new StringBuilder();
                 foreach (var entry in moduleData.DebugDirTypes)
@@ -3068,12 +3084,12 @@ public partial class MainForm : Form
             lvItem.SubItems.Add($"0x{moduleData.PreferredBase.ToString(hexFormat)}");
 
             // Actual base (currently unused, profing artifact)
-            value = (module.ModuleData.ActualBase == UIntPtr.Zero) ? "Unknown" : $"0x{moduleData.ActualBase.ToString(hexFormat)}";
-            lvItem.SubItems.Add(value);
+           /* value = (module.ModuleData.ActualBase == UIntPtr.Zero) ? "Unknown" : $"0x{moduleData.ActualBase.ToString(hexFormat)}";
+            lvItem.SubItems.Add(value);*/
 
             lvItem.SubItems.Add($"0x{moduleData.VirtualSize:X8}");
 
-            lvItem.SubItems.Add(moduleData.LoadOrder.ToString()); //currently unused, profing artifact
+           // lvItem.SubItems.Add(moduleData.LoadOrder.ToString()); //currently unused, profing artifact
 
             // Versions
             lvItem.SubItems.Add(moduleData.FileVersion);
@@ -3681,5 +3697,23 @@ public partial class MainForm : Form
         {
             ShowConfigurationForm(Convert.ToInt32(menuItem.Tag));
         }
+    }
+
+    private void MenuNewInstance_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = Application.ExecutablePath, UseShellExecute = false });
+        }
+        catch { }
+    }
+
+    private void MenuDocumentation_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = CConsts.WinDependsDocs, UseShellExecute = true });
+        }
+        catch { }
     }
 }

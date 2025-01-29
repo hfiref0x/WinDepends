@@ -44,9 +44,7 @@
             chModuleSubsystem = new ColumnHeader();
             chModuleSymbols = new ColumnHeader();
             chModulePreferredBase = new ColumnHeader();
-            chModuleActualBase = new ColumnHeader();
             chModuleVirtualSize = new ColumnHeader();
-            chModuleLoadOrder = new ColumnHeader();
             chModuleFileVer = new ColumnHeader();
             chModuleProductVer = new ColumnHeader();
             chModuleImageVer = new ColumnHeader();
@@ -84,6 +82,7 @@
             MenuSaveItem = new ToolStripMenuItem();
             MenuSaveAsItem = new ToolStripMenuItem();
             MenuCloseItem = new ToolStripMenuItem();
+            MenuOpenNewInstance = new ToolStripMenuItem();
             toolStripMenuItem1 = new ToolStripSeparator();
             MenuExitItem = new ToolStripMenuItem();
             splitContainerFunctions = new SplitContainer();
@@ -242,7 +241,7 @@
             // 
             // LVModules
             // 
-            LVModules.Columns.AddRange(new ColumnHeader[] { chModuleImage, chModuleName, chModuleFTS, chModuleLTS, chModuleFileSize, chModuleAttr, chModuleLinkChecksum, chModuleRealChecksum, chModuleCPU, chModuleSubsystem, chModuleSymbols, chModulePreferredBase, chModuleActualBase, chModuleVirtualSize, chModuleLoadOrder, chModuleFileVer, chModuleProductVer, chModuleImageVer, chModuleLinkerVer, chModuleOSVer, chModuleSubsystemVer });
+            LVModules.Columns.AddRange(new ColumnHeader[] { chModuleImage, chModuleName, chModuleFTS, chModuleLTS, chModuleFileSize, chModuleAttr, chModuleLinkChecksum, chModuleRealChecksum, chModuleCPU, chModuleSubsystem, chModuleSymbols, chModulePreferredBase, chModuleVirtualSize, chModuleFileVer, chModuleProductVer, chModuleImageVer, chModuleLinkerVer, chModuleOSVer, chModuleSubsystemVer });
             LVModules.Dock = DockStyle.Fill;
             LVModules.FullRowSelect = true;
             LVModules.Location = new Point(0, 0);
@@ -322,20 +321,10 @@
             chModulePreferredBase.Text = "Preferred Base";
             chModulePreferredBase.Width = 120;
             // 
-            // chModuleActualBase
-            // 
-            chModuleActualBase.Text = "Actual Base";
-            chModuleActualBase.Width = 120;
-            // 
             // chModuleVirtualSize
             // 
             chModuleVirtualSize.Text = "Virtual Size";
             chModuleVirtualSize.Width = 100;
-            // 
-            // chModuleLoadOrder
-            // 
-            chModuleLoadOrder.Text = "Load Order";
-            chModuleLoadOrder.Width = 80;
             // 
             // chModuleFileVer
             // 
@@ -610,7 +599,7 @@
             // 
             // FileMenuItem
             // 
-            FileMenuItem.DropDownItems.AddRange(new ToolStripItem[] { MenuOpenItem, MenuSaveItem, MenuSaveAsItem, MenuCloseItem, toolStripMenuItem1, MenuExitItem });
+            FileMenuItem.DropDownItems.AddRange(new ToolStripItem[] { MenuOpenItem, MenuSaveItem, MenuSaveAsItem, MenuCloseItem, MenuOpenNewInstance, toolStripMenuItem1, MenuExitItem });
             FileMenuItem.Name = "FileMenuItem";
             FileMenuItem.Size = new Size(37, 20);
             FileMenuItem.Text = "&File";
@@ -621,9 +610,9 @@
             // MenuOpenItem
             // 
             MenuOpenItem.Name = "MenuOpenItem";
-            MenuOpenItem.ShortcutKeyDisplayString = "Ctrl+O";
+            MenuOpenItem.ShortcutKeyDisplayString = "";
             MenuOpenItem.ShortcutKeys = Keys.Control | Keys.O;
-            MenuOpenItem.Size = new Size(155, 22);
+            MenuOpenItem.Size = new Size(214, 22);
             MenuOpenItem.Text = "&Open...";
             MenuOpenItem.Click += OpenFileHandler;
             MenuOpenItem.MouseEnter += MainMenu_MouseEnter;
@@ -633,7 +622,7 @@
             // 
             MenuSaveItem.Name = "MenuSaveItem";
             MenuSaveItem.ShortcutKeys = Keys.Control | Keys.S;
-            MenuSaveItem.Size = new Size(155, 22);
+            MenuSaveItem.Size = new Size(214, 22);
             MenuSaveItem.Text = "&Save";
             MenuSaveItem.Click += MainMenuSave_Click;
             MenuSaveItem.MouseEnter += MainMenu_MouseEnter;
@@ -642,7 +631,7 @@
             // MenuSaveAsItem
             // 
             MenuSaveAsItem.Name = "MenuSaveAsItem";
-            MenuSaveAsItem.Size = new Size(155, 22);
+            MenuSaveAsItem.Size = new Size(214, 22);
             MenuSaveAsItem.Text = "Save &As...";
             MenuSaveAsItem.Click += MainMenuSaveAs_Click;
             MenuSaveAsItem.MouseEnter += MainMenu_MouseEnter;
@@ -651,21 +640,32 @@
             // MenuCloseItem
             // 
             MenuCloseItem.Name = "MenuCloseItem";
-            MenuCloseItem.Size = new Size(155, 22);
+            MenuCloseItem.Size = new Size(214, 22);
             MenuCloseItem.Text = "&Close";
             MenuCloseItem.Click += MenuCloseItem_Click;
             MenuCloseItem.MouseEnter += MainMenu_MouseEnter;
             MenuCloseItem.MouseLeave += MainMenu_MouseLeave;
             // 
+            // MenuOpenNewInstance
+            // 
+            MenuOpenNewInstance.Name = "MenuOpenNewInstance";
+            MenuOpenNewInstance.ShortcutKeyDisplayString = "";
+            MenuOpenNewInstance.ShortcutKeys = Keys.Control | Keys.I;
+            MenuOpenNewInstance.Size = new Size(214, 22);
+            MenuOpenNewInstance.Text = "Open &New Instance";
+            MenuOpenNewInstance.Click += MenuNewInstance_Click;
+            MenuOpenNewInstance.MouseEnter += MainMenu_MouseEnter;
+            MenuOpenNewInstance.MouseLeave += MainMenu_MouseLeave;
+            // 
             // toolStripMenuItem1
             // 
             toolStripMenuItem1.Name = "toolStripMenuItem1";
-            toolStripMenuItem1.Size = new Size(152, 6);
+            toolStripMenuItem1.Size = new Size(211, 6);
             // 
             // MenuExitItem
             // 
             MenuExitItem.Name = "MenuExitItem";
-            MenuExitItem.Size = new Size(155, 22);
+            MenuExitItem.Size = new Size(214, 22);
             MenuExitItem.Text = "&Exit";
             MenuExitItem.Click += MenuExitItem_Click;
             MenuExitItem.MouseEnter += MainMenu_MouseEnter;
@@ -1145,6 +1145,7 @@
             MenuDocumentationItem.Name = "MenuDocumentationItem";
             MenuDocumentationItem.Size = new Size(157, 22);
             MenuDocumentationItem.Text = "&Documentation";
+            MenuDocumentationItem.Click += MenuDocumentation_Click;
             MenuDocumentationItem.MouseEnter += MainMenu_MouseEnter;
             MenuDocumentationItem.MouseLeave += MainMenu_MouseLeave;
             // 
@@ -1385,7 +1386,7 @@
             // toolBarStatusLabel
             // 
             toolBarStatusLabel.Name = "toolBarStatusLabel";
-            toolBarStatusLabel.Size = new Size(927, 19);
+            toolBarStatusLabel.Size = new Size(958, 19);
             toolBarStatusLabel.Spring = true;
             toolBarStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -1723,9 +1724,7 @@
         private ColumnHeader chModuleSubsystem;
         private ColumnHeader chModuleSymbols;
         private ColumnHeader chModulePreferredBase;
-        private ColumnHeader chModuleActualBase;
         private ColumnHeader chModuleVirtualSize;
-        private ColumnHeader chModuleLoadOrder;
         private ColumnHeader chModuleFileVer;
         private ColumnHeader chModuleProductVer;
         private ColumnHeader chModuleImageVer;
@@ -1874,5 +1873,6 @@
         private ToolStripMenuItem MenuDocumentationItem;
         private ToolStripSeparator toolStripMenuItem20;
         private ToolStripStatusLabel toolBarSymStatusLabel;
+        private ToolStripMenuItem MenuOpenNewInstance;
     }
 }

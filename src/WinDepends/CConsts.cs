@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jan 2025
+*  DATE:        29 Jan 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -160,6 +160,12 @@ public static class CConsts
     public const string SymbolsDefaultStoreDirectory = "WinDepends\\Symbols";
 
     //
+    // Urls.
+    //
+    public const string WinDependsHome = "https://github.com/hfiref0x/WinDepends";
+    public const string WinDependsDocs = "https://github.com/hfiref0x/WinDepends.Docs";
+
+    //
     // WinDepends server app.
     //
     public const string WinDependsCoreApp = "WinDepends.Core";
@@ -250,9 +256,9 @@ public enum ModulesColumns : int
     Subsystem,
     Symbols,
     PrefferedBase,
-    ActualBase,
+  //  ActualBase, //unused, profiling artifact
     VirtualSize,
-    LoadOrder,
+  //  LoadOrder,  //unused, profiling artifact
     FileVer,
     ProductVer,
     ImageVer,
@@ -303,10 +309,12 @@ public enum LogEventType
     StartMessage,
     SymInitOK,
     SymInitFailed,
-    FileOpenSession,
+    FileOpenSessionOK,
     FileOpenSessionError,
     FileSessionSave,
     FileSessionSaveError,
+    FileOpen,
+    FileOpenSession,
     FileStats,
     CoreServerStartOK,
     CoreServerStartError,

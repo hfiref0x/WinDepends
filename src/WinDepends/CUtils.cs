@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jan 2025
+*  DATE:        04 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -19,6 +19,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
 using System.Reflection.PortableExecutable;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Security.Principal;
 
@@ -74,9 +75,12 @@ public static class SubSystemExtensions
     }
 }
 
+[DataContract]
 public struct PropertyElement(string name, string value)
 {
+    [DataMember]
     public string Name { get; set; } = name;
+    [DataMember]
     public string Value { get; set; } = value;
 }
 

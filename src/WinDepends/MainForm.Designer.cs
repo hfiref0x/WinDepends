@@ -1659,7 +1659,7 @@
             // SaveFileDialog1
             // 
             SaveFileDialog1.DefaultExt = "*.wds";
-            SaveFileDialog1.Filter = "WinDepends session view|*.wds";
+            SaveFileDialog1.Filter = "WinDepends session view|*.wds|WinDepends JSON text file|*.txt";
             // 
             // MainForm
             // 

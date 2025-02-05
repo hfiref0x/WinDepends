@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Jan 2025
+*  DATE:        04 Feb 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -17,6 +17,7 @@
 *
 *******************************************************************************/
 using System.Reflection.PortableExecutable;
+using System.Runtime.Serialization;
 
 namespace WinDepends;
 
@@ -425,35 +426,58 @@ public enum ModuleIconCompactType
     MappedModule64NoExec
 }
 
-[Serializable()]
+[DataContract]
 public class CModuleData
 {
+    [DataMember]
     public DateTime FileTimeStamp { get; set; }
+    [DataMember]
     public UInt32 LinkTimeStamp { get; set; }
+    [DataMember]
     public UInt64 FileSize { get; set; }
+    [DataMember]
     public FileAttributes Attributes { get; set; } = FileAttributes.Normal;
+    [DataMember]
     public uint LinkChecksum { get; set; }
+    [DataMember]
     public uint RealChecksum { get; set; }
+    [DataMember]
     public ushort Machine { get; set; } = (ushort)System.Reflection.PortableExecutable.Machine.Amd64;
+    [DataMember]
     public ushort Characteristics { get; set; } = (ushort)System.Reflection.PortableExecutable.Characteristics.ExecutableImage;
+    [DataMember]
     public ushort DllCharacteristics { get; set; }
+    [DataMember]
     public uint ExtendedCharacteristics { get; set; }
+    [DataMember]
     public ushort Subsystem { get; set; } = (ushort)System.Reflection.PortableExecutable.Subsystem.WindowsCui;
+    [DataMember]
     public UInt64 PreferredBase { get; set; }
-   // public UInt64 ActualBase { get; set; } //unused, profiling artifact
+    //[DataMember]
+    // public UInt64 ActualBase { get; set; } //unused, profiling artifact
+    [DataMember]
     public uint VirtualSize { get; set; }
-   // public uint LoadOrder { get; set; } //unused, profiling artifact
+    //[DataMember]
+    // public uint LoadOrder { get; set; } //unused, profiling artifact
+    [DataMember]
     public string FileVersion { get; set; }
+    [DataMember]
     public string ProductVersion { get; set; }
+    [DataMember]
     public string ImageVersion { get; set; }
+    [DataMember]
     public string LinkerVersion { get; set; }
+    [DataMember]
     public string OSVersion { get; set; }
+    [DataMember]
     public string SubsystemVersion { get; set; }
+    [DataMember]
     public List<uint> DebugDirTypes { get; set; } = [];
 
     //
     // Module exports.
     //
+    [DataMember]
     public List<CFunction> Exports { get; set; } = [];
 
     public CModuleData()
@@ -474,9 +498,9 @@ public class CModuleData
         ExtendedCharacteristics = other.ExtendedCharacteristics;
         Subsystem = other.Subsystem;
         PreferredBase = other.PreferredBase;
-       // ActualBase = other.ActualBase; //unused, profiling artifact
+        // ActualBase = other.ActualBase; //unused, profiling artifact
         VirtualSize = other.VirtualSize;
-       // LoadOrder = other.LoadOrder; //unused, profiling artifact
+        // LoadOrder = other.LoadOrder; //unused, profiling artifact
         FileVersion = other.FileVersion;
         ProductVersion = other.ProductVersion;
         ImageVersion = other.ImageVersion;
@@ -487,60 +511,71 @@ public class CModuleData
     }
 }
 
-[Serializable()]
+[DataContract]
 public class CModule
 {
     //
     // Unique instance id, representing module, generated as GetHashCode()
     //
+    [DataMember]
     public int InstanceId { get; set; }
-
     //
     // Original instance of module, if we are duplicate.
     //
+    [DataMember]
     public int OriginalInstanceId { get; set; }
-
+    [DataMember]
     public int ModuleImageIndex { get; set; }
-
+    [DataMember]
     public bool IsProcessed { get; set; }
-
+    [DataMember]
     public int Depth { get; set; }
-
+    [DataMember]
     public bool IsForward { get; set; }
+    [DataMember]
     public bool IsDelayLoad { get; set; }
+    [DataMember]
     public bool FileNotFound { get; set; }
+    [DataMember]
     public bool Invalid { get; set; }
+    [DataMember]
     public bool IsReproducibleBuild { get; set; }
+    [DataMember]
     public bool IsApiSetContract { get; set; }
+    [DataMember]
     public bool IsKernelModule { get; set; }
+    [DataMember]
     public bool ExportContainErrors { get; set; }
+    [DataMember]
     public bool OtherErrorsPresent { get; set; }
-
     //
     // Original module file name.
     //
+    [DataMember]
     public SearchOrderType FileNameResolvedBy { get; set; }
+    [DataMember]
     public string FileName { get; set; } = string.Empty;
+    [DataMember]
     public string RawFileName { get; set; } = string.Empty;
-
     //
     // PE headers information.
     //
+    [DataMember]
     public CModuleData ModuleData { get; set; }
-
     //
     // Base64 encoded manifest
     //
+    [DataMember]
     public string ManifestData { get; set; } = string.Empty;
-
     //
     // Parent module imports.
     //
+    [DataMember]
     public List<CFunction> ParentImports { get; set; } = [];
-
     //
     // List of modules that depends on us.
     //
+    [DataMember]
     public List<CModule> Dependents { get; set; } = [];
 
     public CModule()

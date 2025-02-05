@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Jan 2025
+*  DATE:        04 Feb 2025
 *  
 *  Codename:    VasilEk
 *
@@ -2597,7 +2597,7 @@ public partial class MainForm : Form
                 _ when FieldIndex == (int)ModulesColumns.Name && !fullPaths =>
                     string.Compare(Path.GetFileName(x.FileName), Path.GetFileName(y.FileName), StringComparison.Ordinal),
                 (int)ModulesColumns.Image => x.ModuleImageIndex.CompareTo(y.ModuleImageIndex),
-               // (int)ModulesColumns.LoadOrder => x.ModuleData.LoadOrder.CompareTo(y.ModuleData.LoadOrder),//unused, profiling artifact
+                // (int)ModulesColumns.LoadOrder => x.ModuleData.LoadOrder.CompareTo(y.ModuleData.LoadOrder),//unused, profiling artifact
                 (int)ModulesColumns.LinkChecksum => x.ModuleData.LinkChecksum.CompareTo(y.ModuleData.LinkChecksum),
                 (int)ModulesColumns.RealChecksum => x.ModuleData.RealChecksum.CompareTo(y.ModuleData.RealChecksum),
                 (int)ModulesColumns.VirtualSize => x.ModuleData.VirtualSize.CompareTo(y.ModuleData.VirtualSize),
@@ -2836,6 +2836,7 @@ public partial class MainForm : Form
     private void SaveSessionObjectToFile(bool saveAs, bool useCompression = true)
     {
         string fileName;
+        bool jsonOutput = false;
 
         if (m_Depends == null)
         {
@@ -2859,14 +2860,22 @@ public partial class MainForm : Form
 
             fileName = SaveFileDialog1.FileName;
 
-            // Save system information into file also.
-            if (m_Depends.SystemInformation.Count == 0)
+            if (SaveFileDialog1.FilterIndex == 2) //JSON output file.
             {
-                CUtils.CollectSystemInformation(m_Depends.SystemInformation);
+                useCompression = false;
+                jsonOutput = true;
             }
+            else // WDS optionally packed file.
+            {
+                // Save system information into file also.
+                if (m_Depends.SystemInformation.Count == 0)
+                {
+                    CUtils.CollectSystemInformation(m_Depends.SystemInformation);
+                }
 
-            m_Depends.IsSavedSessionView = true;
-            m_Depends.SessionFileName = fileName;
+                m_Depends.IsSavedSessionView = true;
+                m_Depends.SessionFileName = fileName;
+            }
         }
         else
         {
@@ -2889,8 +2898,11 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            m_Depends.IsSavedSessionView = false;
-            m_Depends.SessionFileName = string.Empty;
+            if (!jsonOutput)
+            {
+                m_Depends.IsSavedSessionView = false;
+                m_Depends.SessionFileName = string.Empty;
+            }
             if (ex.InnerException != null)
             {
                 LogEvent(fileName, LogEventType.FileSessionSaveError, ex.InnerException.Message);
@@ -3084,12 +3096,12 @@ public partial class MainForm : Form
             lvItem.SubItems.Add($"0x{moduleData.PreferredBase.ToString(hexFormat)}");
 
             // Actual base (currently unused, profing artifact)
-           /* value = (module.ModuleData.ActualBase == UIntPtr.Zero) ? "Unknown" : $"0x{moduleData.ActualBase.ToString(hexFormat)}";
-            lvItem.SubItems.Add(value);*/
+            /* value = (module.ModuleData.ActualBase == UIntPtr.Zero) ? "Unknown" : $"0x{moduleData.ActualBase.ToString(hexFormat)}";
+             lvItem.SubItems.Add(value);*/
 
             lvItem.SubItems.Add($"0x{moduleData.VirtualSize:X8}");
 
-           // lvItem.SubItems.Add(moduleData.LoadOrder.ToString()); //currently unused, profing artifact
+            // lvItem.SubItems.Add(moduleData.LoadOrder.ToString()); //currently unused, profing artifact
 
             // Versions
             lvItem.SubItems.Add(moduleData.FileVersion);

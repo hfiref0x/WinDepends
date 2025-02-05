@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Jan 2025
+*  DATE:        04 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -256,9 +256,9 @@ public enum ModulesColumns : int
     Subsystem,
     Symbols,
     PrefferedBase,
-  //  ActualBase, //unused, profiling artifact
+    //  ActualBase, //unused, profiling artifact
     VirtualSize,
-  //  LoadOrder,  //unused, profiling artifact
+    //  LoadOrder,  //unused, profiling artifact
     FileVer,
     ProductVer,
     ImageVer,

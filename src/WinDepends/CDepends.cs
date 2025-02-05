@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CDEPENDS.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        04 Feb 2025
 *  
 *  Implementation of base session class.
 *
@@ -16,20 +16,41 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Runtime.Serialization;
+
 namespace WinDepends;
 
-[Serializable()]
-public record LogEntry(string LoggedMessage, Color EntryColor);
+[DataContract]
+public record LogEntry
+{
+    [DataMember]
+    public string LoggedMessage { get; init; }
 
-[Serializable()]
+    [DataMember]
+    public Color EntryColor { get; init; }
+
+    public LogEntry(string loggedMessage, Color entryColor)
+    {
+        LoggedMessage = loggedMessage;
+        EntryColor = entryColor;
+    }
+}
+
+[DataContract]
 public class CDepends
 {
+    [DataMember]
     public bool IsSavedSessionView { get; set; }
+    [DataMember]
     public string SessionFileName { get; set; } = string.Empty;
+    [DataMember]
     public int SessionNodeMaxDepth { get; set; }
+    [DataMember]
     public CModule RootModule { get; set; }
+    [DataMember]
     public List<PropertyElement> SystemInformation { get; set; } = [];
 
+    [DataMember]
     public List<LogEntry> ModuleAnalysisLog { get; set; } = [];
 
     public CDepends()

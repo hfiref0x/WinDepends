@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CFUNCTION.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        21 Dec 2024
+*  DATE:        04 Feb 2025
 *  
 *  Implementation of CFunction related classes.
 *
@@ -16,6 +16,8 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+
+using System.Runtime.Serialization;
 
 namespace WinDepends;
 
@@ -65,17 +67,26 @@ public enum FunctionKind : ushort
     ExportForwardedOrdinal,
 }
 
-[Serializable()]
+[DataContract]
 public class CFunction
 {
+    [DataMember]
     public string RawName { get; set; } = string.Empty;
+    [DataMember]
     public string ForwardName { get; set; } = string.Empty;
+    [DataMember]
     public string UndecoratedName { get; set; } = string.Empty;
+    [DataMember]
     public UInt32 Ordinal { get; set; } = UInt32.MaxValue;
+    [DataMember]
     public UInt32 Hint { get; set; } = UInt32.MaxValue;
+    [DataMember]
     public UInt64 Address { get; set; }
+    [DataMember]
     public bool IsExportFunction { get; set; }
+    [DataMember]
     public bool IsNameFromSymbols { get; set; }
+    [DataMember]
     public FunctionKind Kind { get; set; } = FunctionKind.ImportUnresolvedFunction;
 
     public bool SnapByOrdinal() => (Ordinal != UInt32.MaxValue && string.IsNullOrEmpty(RawName));

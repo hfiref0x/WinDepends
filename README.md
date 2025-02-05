@@ -1,3 +1,5 @@
+[![Build status](https://ci.appveyor.com/api/projects/status/015k6sl9g3p6lfsm?svg=true)](https://ci.appveyor.com/project/hfiref0x/windepends)
+
 # WinDepends
 ## Windows Dependencies
 

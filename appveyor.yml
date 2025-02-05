@@ -1,0 +1,19 @@
+version: 1.0.{build}
+branches:
+  only:
+  - master
+image: Visual Studio 2022
+configuration: Release
+platform: Any CPU
+shallow_clone: true
+clone_folder: c:\projects\windepends
+environment:
+  DOTNET_SDK_VERSION: 8.0.401
+before_build:
+- ps: >-
+    nuget restore src\windepends.sln
+
+    dotnet build /version
+build:
+  project: src/WinDepends.sln
+  verbosity: minimal

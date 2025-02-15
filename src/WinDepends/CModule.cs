@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Feb 2025
+*  DATE:        15 Feb 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -825,9 +825,16 @@ public class CModule
 
     public byte[] GetManifestDataAsArray()
     {
-        if (!string.IsNullOrEmpty(ManifestData))
+        try
         {
-            return Convert.FromBase64String(ManifestData);
+            if (!string.IsNullOrEmpty(ManifestData))
+            {
+                return Convert.FromBase64String(ManifestData);
+            }
+        }
+        catch (FormatException)
+        {
+            return null;
         }
 
         return null;

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        22 Jan 2025
+*  DATE:        15 Feb 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -245,7 +245,6 @@ public static class CSymbolResolver
     private static bool InitializeDelegates()
     {
         bool bResult = false;
-
         try
         {
             UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
@@ -267,13 +266,18 @@ public static class CSymbolResolver
                 || SymFromAddr == null)
             {
                 ClearDelegates();
+                bResult = false;
+            }
+            else
+            {
+                bResult = true;
             }
 
-            bResult = true;
         }
         catch
         {
             ClearDelegates();
+            bResult = false;
         }
 
         return bResult;

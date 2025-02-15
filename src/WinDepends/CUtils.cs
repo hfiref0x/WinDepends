@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Feb 2025
+*  DATE:        15 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -217,7 +217,7 @@ public static class CUtils
                     // Set command value.
                     using (var subKey = regKey.CreateSubKey("command"))
                     {
-                        subKey?.SetValue("", $"\"{Application.ExecutablePath}\" %1", RegistryValueKind.String);
+                        subKey?.SetValue("", $"\"{Application.ExecutablePath}\" \"%1\"", RegistryValueKind.String);
                     }
 
                     // Set icon value.

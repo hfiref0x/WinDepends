@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Feb 15, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -802,12 +802,12 @@ BOOL get_imports(
         {
             DImportTable = (PIMAGE_DELAYLOAD_DESCRIPTOR)(context->module + di_dir_base);
 
-            if (DImportTable->DllNameRVA < ImageBase)
+            if (valid_image_range((DWORD_PTR)DImportTable->DllNameRVA, 1, ImageBase, ImageSize))
                 dioffset = 0;
             else
                 dioffset = ImageBase;
 
-            if (DImportTable->ImportNameTableRVA < ImageBase)
+            if (valid_image_range((DWORD_PTR)DImportTable->ImportNameTableRVA, 1, ImageBase, ImageSize))
                 dnoffset = 0;
             else
                 dnoffset = ImageBase;
@@ -853,7 +853,7 @@ LPBYTE pe32open(
     _In_opt_ pmodule_ctx context
 )
 {
-    BOOL                use_reloc;
+    BOOL                use_reloc, ImageFixed = TRUE;
     HANDLE              hf = INVALID_HANDLE_VALUE;
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
@@ -861,7 +861,7 @@ LPBYTE pe32open(
                         vsize, psize, tsize, status = 0, dwRealChecksum = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
-    int                 c, startAddress, min_app_address;
+    __int64             c, startAddress = RELOC_DEFAULT_APP_ADDRESS, min_app_address;
 
     PIMAGE_SECTION_HEADER       sections;
     BY_HANDLE_FILE_INFORMATION  fileinfo = { 0 };
@@ -1037,19 +1037,47 @@ LPBYTE pe32open(
 
         /* End of image validation. Begin image loading */
 
-        if (use_reloc) {
-            startAddress = min_app_address;
-        }
-        else {
-            startAddress = RELOC_DEFAULT_APP_ADDRESS;
+        switch (opt_file_hdr.opt_file_hdr64->Magic)
+        {
+        case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
+            get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
+            if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION)))
+            {
+                ImageFixed = FALSE;
+            }
+            else
+                startAddress = opt_file_hdr.opt_file_hdr32->ImageBase;
+
+            break;
+
+        case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
+            get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
+            if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION)))
+            {
+                ImageFixed = FALSE;
+            }
+            else
+                startAddress = opt_file_hdr.opt_file_hdr64->ImageBase;
+
+            break;
         }
 
-        // allocate image buffer below 4GB for x86-32 compatibility
-        for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
+        if (ImageFixed)
         {
-            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-            if (module)
-                break;
+            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)startAddress, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        }
+        else
+        {
+            if (use_reloc) {
+                startAddress = min_app_address;
+            }
+            // allocate image buffer below 4GB for x86-32 compatibility
+            for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
+            {
+                module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+                if (module)
+                    break;
+            }
         }
 
         if (!module)
@@ -1117,7 +1145,7 @@ LPBYTE pe32open(
             break;
         }
 
-        if (use_reloc) {
+        if ((!ImageFixed) && use_reloc) {
             switch (opt_file_hdr.opt_file_hdr64->Magic)
             {
             case IMAGE_NT_OPTIONAL_HDR32_MAGIC:

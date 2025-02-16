@@ -8,6 +8,7 @@
 ##### Windows Operating System:
 + Microsoft Windows 10/11 (Including Server variants)
 + Windows 8.1 (Not Officially Supported)
++ Windows 7 (Not Officially Supported, refer to https://github.com/hfiref0x/WinDepends/issues/11 for more info)
 
 ##### Runtime Frameworks:
 + [.NET Desktop Runtime 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)

@@ -635,7 +635,6 @@ _Success_(return != NULL) LPWSTR resolve_apiset_name(
                     return ResolvedNameBuffer;
                 }
                 else {
-                    *name_length = 0;
                     heap_free(NULL, ResolvedNameBuffer);
                     return NULL;
                 }

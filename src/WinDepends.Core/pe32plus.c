@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Feb 16, 2025
+*  Modified on: Feb 22, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -151,10 +151,9 @@ BOOL get_datadirs(
             return FALSE;
         }
 
-        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
-
         InitializeListHead(&msg_lh);
 
+        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
 
@@ -227,7 +226,7 @@ BOOL get_headers(
 )
 {
     LIST_ENTRY          msg_lh;
-    PIMAGE_DOS_HEADER   dos_hdr = (PIMAGE_DOS_HEADER)context->module;
+    PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
     BOOL                status = FALSE;
     WCHAR               *text = NULL, *manifest = NULL;
@@ -265,6 +264,7 @@ BOOL get_headers(
 
         InitializeListHead(&msg_lh);
 
+        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
         mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"headers\":");
@@ -532,7 +532,7 @@ BOOL get_exports(
 )
 {
     LIST_ENTRY          msg_lh;
-    PIMAGE_DOS_HEADER   dos_hdr = (PIMAGE_DOS_HEADER)context->module;
+    PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
     DWORD               dir_base = 0, dir_size = 0, i, * ptrs, * names, p, hint, ctr = 0, ImageSize = 0;
     WORD                *name_ordinals;
@@ -559,6 +559,7 @@ BOOL get_exports(
 
         InitializeListHead(&msg_lh);
 
+        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
 
@@ -664,7 +665,7 @@ BOOL get_exports(
 }
 
 /*
-void process_thunks_dbg(pmodule_ctx context, PBYTE module, SOCKET s, PIMAGE_THUNK_DATA32 thunk, DWORD64 flag, PULONG32 bound, DWORD_PTR offset)
+void process_thunks_dbg(pmodule_ctx context, PBYTE module, SOCKET s, PIMAGE_THUNK_DATA32 thunk, DWORD64 flag, PULONG32 bound)
 {
     DWORD   fhint, ordinal;
     char    *strfname;
@@ -682,11 +683,7 @@ void process_thunks_dbg(pmodule_ctx context, PBYTE module, SOCKET s, PIMAGE_THUN
         }
         else
         {
-            PIMAGE_IMPORT_BY_NAME fname;
-            if (thunk->u1.Function < offset)
-                fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
-            else
-                fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function - offset);
+            PIMAGE_IMPORT_BY_NAME fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             fhint = fname->Hint;
             strfname = (char*)&fname->Name;
             ordinal = MAXDWORD32;
@@ -708,8 +705,8 @@ BOOL get_imports(
     LIST_ENTRY                  msg_lh;
     PIMAGE_FILE_HEADER          nt_file_hdr;
     DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c;
-    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0, dnoffset, IModuleName, INameTable;
-    BOOL                        status = FALSE, img64 = FALSE, importPresent = FALSE;
+    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0, IModuleName, INameTable;
+    BOOL                        status = FALSE, importPresent = FALSE;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
     WCHAR                       text[4096];
@@ -735,7 +732,6 @@ BOOL get_imports(
 
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + ((PIMAGE_DOS_HEADER)context->module)->e_lfanew);
         opt_file_header.uptr = (PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER);
-
         switch (opt_file_header.opt_file_header32->Magic)
         {
         case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
@@ -747,7 +743,6 @@ BOOL get_imports(
             break;
 
         case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
-            img64 = TRUE;
             ImageBase = (DWORD_PTR)opt_file_header.opt_file_header64->ImageBase;
             ImageSize = opt_file_header.opt_file_header64->SizeOfImage;
             SizeOfHeaders = opt_file_header.opt_file_header64->SizeOfHeaders;
@@ -786,12 +781,12 @@ BOOL get_imports(
                         bound_table.uptr = context->module + SImportTable->FirstThunk;
                 }
 
-                if (img64)
-                    process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64, 0)
+                if (context->image_64bit)
+                    process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64)
                 else
 #pragma warning(push)
 #pragma warning(disable: 28182) // No.
-                    process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32, 0);
+                    process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32);
 #pragma warning(pop)
                 mlist_add(&msg_lh, L"]}");
             }
@@ -809,7 +804,6 @@ BOOL get_imports(
             {
                 IModuleName = DImportTable->DllNameRVA;
                 INameTable = DImportTable->ImportNameTableRVA;
-                dnoffset = 0;
 
                 if (context->image_fixed)
                 {
@@ -836,11 +830,11 @@ BOOL get_imports(
 
                 bound_table.uptr = NULL;
                 thunk_data.uptr = (LPVOID)INameTable;
-                if (img64)
-                    process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64, dnoffset)
+                if (context->image_64bit)
+                    process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64)
                 else
-                    //process_thunks_dbg(context->module, s, thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32, dnoffset);
-                    process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32, dnoffset);
+                    //process_thunks_dbg(context->module, s, thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32);
+                    process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32);
 
                 mlist_add(&msg_lh, L"]}");
             }
@@ -864,7 +858,7 @@ LPBYTE pe32open(
     _In_opt_ pmodule_ctx context
 )
 {
-    BOOL                use_reloc = FALSE, image_64bit = FALSE;
+    BOOL                use_reloc = FALSE;
     HANDLE              hf = INVALID_HANDLE_VALUE;
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
@@ -885,11 +879,13 @@ LPBYTE pe32open(
         return FALSE;
     }
 
-    context->image_fixed = TRUE;
     opt_file_hdr.uptr = NULL;
 
     __try
     {
+        context->image_fixed = TRUE;
+        context->image_64bit = FALSE;
+
         hf = CreateFile(context->filename, GENERIC_READ | SYNCHRONIZE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
         if (hf == INVALID_HANDLE_VALUE)
         {
@@ -983,13 +979,7 @@ LPBYTE pe32open(
             sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
-        /*
-        if (iobytes != szOptAndSections)
-        {
-            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
-            __leave;
-        }
-        */
+
         sections = (PIMAGE_SECTION_HEADER)((PBYTE)opt_file_hdr.opt_file_hdr64 + nt_file_hdr.SizeOfOptionalHeader);
 
         context->moduleMagic = opt_file_hdr.opt_file_hdr64->Magic;
@@ -1002,7 +992,7 @@ LPBYTE pe32open(
             __leave;
         }
 
-        image_64bit = (context->moduleMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
+        context->image_64bit = (context->moduleMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
 
         /* checking for sections continuity */
         if (nt_file_hdr.NumberOfSections == 0)
@@ -1047,9 +1037,9 @@ LPBYTE pe32open(
 
         /* End of image validation. Begin image loading */
 
-        startAddress = (image_64bit) ? RELOC_DEFAULT_APP_ADDRESS_64 : RELOC_DEFAULT_APP_ADDRESS_32;
+        startAddress = (context->image_64bit) ? RELOC_DEFAULT_APP_ADDRESS_64 : RELOC_DEFAULT_APP_ADDRESS_32;
 
-        if (image_64bit) {
+        if (context->image_64bit) {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
             if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
                 context->image_fixed = FALSE;
@@ -1141,7 +1131,7 @@ LPBYTE pe32open(
         }
 
         if ((!context->image_fixed) && use_reloc) {
-            if (image_64bit) {
+            if (context->image_64bit) {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
                 if (dir_base)
                     relocimage64(module, (LPVOID)(DWORD_PTR)opt_file_hdr.opt_file_hdr64->ImageBase,

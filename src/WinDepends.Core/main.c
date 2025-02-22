@@ -406,7 +406,7 @@ void test_api_setV6(PAPI_SET_NAMESPACE ApiSetNamespace)
     gsup.RtlInitUnicodeString(&Name, L"ext-ms-win-core-app-package-registration-l1-1-1");
     if (NT_SUCCESS(ApiSetResolveToHostV6(ApiSetNamespace, &Name, NULL, &Resolved)))
     {
-        StringCbCopyN(test, ARRAYSIZE(test), Resolved.Buffer, Resolved.Length);
+        StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
         wprintf(L"%s\r\n", test);
     }
 
@@ -416,7 +416,7 @@ void test_api_setV6(PAPI_SET_NAMESPACE ApiSetNamespace)
 
         if (NT_SUCCESS(ApiSetResolveToHostV6(ApiSetNamespace, &Name, NULL, &Resolved)))
         {
-            StringCbCopyN(test, ARRAYSIZE(test), Resolved.Buffer, Resolved.Length);
+            StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
             wprintf(L"APISET V6: %s --> %s\r\n", ToResolve6[i], test);
         }
     }
@@ -443,7 +443,7 @@ void test_api_setV4(PAPI_SET_NAMESPACE ApiSetNamespace)
 
         if (NT_SUCCESS(ApiSetResolveToHostV4(ApiSetNamespace, &Name, NULL, &Resolved)))
         {
-            StringCbCopyN(test, ARRAYSIZE(test), Resolved.Buffer, Resolved.Length);
+            StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
             wprintf(L"APISET V4: %s --> %s\r\n", ToResolve4[i], test);
         }
     }
@@ -476,7 +476,7 @@ void test_api_setV2(PAPI_SET_NAMESPACE ApiSetNamespace)
 
         if (NT_SUCCESS(ApiSetResolveToHostV2(ApiSetNamespace, &Name, NULL, &Resolved)))
         {
-            StringCbCopyN(test, ARRAYSIZE(test), Resolved.Buffer, Resolved.Length);
+            StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
             wprintf(L"APISET V2: %s --> %s\r\n", ToResolve2[i], test);
         }
     }

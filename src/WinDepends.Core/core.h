@@ -53,6 +53,7 @@ typedef struct {
     LARGE_INTEGER file_size;
     WORD moduleMagic;
 
+    BOOL image_64bit;
     BOOL image_fixed;
     BOOL use_reloc;
     BOOL enable_call_stats;

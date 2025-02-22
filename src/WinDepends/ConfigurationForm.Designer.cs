@@ -28,17 +28,17 @@
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode12 = new TreeNode("History");
-            TreeNode treeNode13 = new TreeNode("Main", new TreeNode[] { treeNode12 });
-            TreeNode treeNode14 = new TreeNode("Analysis (global)");
-            TreeNode treeNode15 = new TreeNode("ApiSets");
-            TreeNode treeNode16 = new TreeNode("External Function Help");
-            TreeNode treeNode17 = new TreeNode("External Module Viewer");
-            TreeNode treeNode18 = new TreeNode("Handled File Extensions");
-            TreeNode treeNode19 = new TreeNode("Module Search Order");
-            TreeNode treeNode20 = new TreeNode("Module Search Order (drivers)");
-            TreeNode treeNode21 = new TreeNode("Server");
-            TreeNode treeNode22 = new TreeNode("Symbols");
+            TreeNode treeNode23 = new TreeNode("History");
+            TreeNode treeNode24 = new TreeNode("Main", new TreeNode[] { treeNode23 });
+            TreeNode treeNode25 = new TreeNode("Analysis (global)");
+            TreeNode treeNode26 = new TreeNode("ApiSets");
+            TreeNode treeNode27 = new TreeNode("External Function Help");
+            TreeNode treeNode28 = new TreeNode("External Module Viewer");
+            TreeNode treeNode29 = new TreeNode("Handled File Extensions");
+            TreeNode treeNode30 = new TreeNode("Module Search Order");
+            TreeNode treeNode31 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode32 = new TreeNode("Server");
+            TreeNode treeNode33 = new TreeNode("Symbols");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
@@ -144,7 +144,8 @@
             labelServerStatus = new Label();
             label15 = new Label();
             tabSymbols = new TabPage();
-            groupBox16 = new GroupBox();
+            chBoxUseSymbols = new CheckBox();
+            groupBoxSymbols = new GroupBox();
             buttonSymbolsDefault = new Button();
             buttonSymbolPickColor = new Button();
             panelSymColor = new Panel();
@@ -155,7 +156,6 @@
             buttonDbghelpBrowse = new Button();
             dbghelpTextBox = new TextBox();
             label18 = new Label();
-            label17 = new Label();
             configCancel = new Button();
             configOK = new Button();
             browseFileDialog = new OpenFileDialog();
@@ -198,7 +198,7 @@
             groupBox7.SuspendLayout();
             groupBox12.SuspendLayout();
             tabSymbols.SuspendLayout();
-            groupBox16.SuspendLayout();
+            groupBoxSymbols.SuspendLayout();
             panelSymColor.SuspendLayout();
             SuspendLayout();
             // 
@@ -246,40 +246,40 @@
             TVSettings.HideSelection = false;
             TVSettings.Location = new Point(0, 0);
             TVSettings.Name = "TVSettings";
-            treeNode12.Name = "HistoryNode";
-            treeNode12.Tag = "11";
-            treeNode12.Text = "History";
-            treeNode13.Name = "MainWindowNode";
-            treeNode13.Tag = "10";
-            treeNode13.Text = "Main";
-            treeNode14.Name = "AnalysisNode";
-            treeNode14.Tag = "20";
-            treeNode14.Text = "Analysis (global)";
-            treeNode15.Name = "ApiSetsNode";
-            treeNode15.Tag = "30";
-            treeNode15.Text = "ApiSets";
-            treeNode16.Name = "xternalFunctionHelpNode";
-            treeNode16.Tag = "40";
-            treeNode16.Text = "External Function Help";
-            treeNode17.Name = "ExternalModuleViewerNode";
-            treeNode17.Tag = "50";
-            treeNode17.Text = "External Module Viewer";
-            treeNode18.Name = "ShellIntegrationNode";
-            treeNode18.Tag = "60";
-            treeNode18.Text = "Handled File Extensions";
-            treeNode19.Name = "SearchOrderNode";
-            treeNode19.Tag = "70";
-            treeNode19.Text = "Module Search Order";
-            treeNode20.Name = "SearchOrderDriverNode";
-            treeNode20.Tag = "80";
-            treeNode20.Text = "Module Search Order (drivers)";
-            treeNode21.Name = "ServerNode";
-            treeNode21.Tag = "90";
-            treeNode21.Text = "Server";
-            treeNode22.Name = "SymbolsNode";
-            treeNode22.Tag = "100";
-            treeNode22.Text = "Symbols";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode13, treeNode14, treeNode15, treeNode16, treeNode17, treeNode18, treeNode19, treeNode20, treeNode21, treeNode22 });
+            treeNode23.Name = "HistoryNode";
+            treeNode23.Tag = "11";
+            treeNode23.Text = "History";
+            treeNode24.Name = "MainWindowNode";
+            treeNode24.Tag = "10";
+            treeNode24.Text = "Main";
+            treeNode25.Name = "AnalysisNode";
+            treeNode25.Tag = "20";
+            treeNode25.Text = "Analysis (global)";
+            treeNode26.Name = "ApiSetsNode";
+            treeNode26.Tag = "30";
+            treeNode26.Text = "ApiSets";
+            treeNode27.Name = "xternalFunctionHelpNode";
+            treeNode27.Tag = "40";
+            treeNode27.Text = "External Function Help";
+            treeNode28.Name = "ExternalModuleViewerNode";
+            treeNode28.Tag = "50";
+            treeNode28.Text = "External Module Viewer";
+            treeNode29.Name = "ShellIntegrationNode";
+            treeNode29.Tag = "60";
+            treeNode29.Text = "Handled File Extensions";
+            treeNode30.Name = "SearchOrderNode";
+            treeNode30.Tag = "70";
+            treeNode30.Text = "Module Search Order";
+            treeNode31.Name = "SearchOrderDriverNode";
+            treeNode31.Tag = "80";
+            treeNode31.Text = "Module Search Order (drivers)";
+            treeNode32.Name = "ServerNode";
+            treeNode32.Tag = "90";
+            treeNode32.Text = "Server";
+            treeNode33.Name = "SymbolsNode";
+            treeNode33.Tag = "100";
+            treeNode33.Text = "Symbols";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode24, treeNode25, treeNode26, treeNode27, treeNode28, treeNode29, treeNode30, treeNode31, treeNode32, treeNode33 });
             TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
@@ -1362,7 +1362,8 @@
             // 
             // tabSymbols
             // 
-            tabSymbols.Controls.Add(groupBox16);
+            tabSymbols.Controls.Add(chBoxUseSymbols);
+            tabSymbols.Controls.Add(groupBoxSymbols);
             tabSymbols.Location = new Point(4, 5);
             tabSymbols.Name = "tabSymbols";
             tabSymbols.Size = new Size(480, 435);
@@ -1370,30 +1371,40 @@
             tabSymbols.Tag = "100";
             tabSymbols.UseVisualStyleBackColor = true;
             // 
-            // groupBox16
+            // chBoxUseSymbols
             // 
-            groupBox16.Controls.Add(buttonSymbolsDefault);
-            groupBox16.Controls.Add(buttonSymbolPickColor);
-            groupBox16.Controls.Add(panelSymColor);
-            groupBox16.Controls.Add(buttonSymbolsBrowse);
-            groupBox16.Controls.Add(symbolsStoreTextBox);
-            groupBox16.Controls.Add(label19);
-            groupBox16.Controls.Add(buttonDbghelpBrowse);
-            groupBox16.Controls.Add(dbghelpTextBox);
-            groupBox16.Controls.Add(label18);
-            groupBox16.Controls.Add(label17);
-            groupBox16.Location = new Point(6, 6);
-            groupBox16.Name = "groupBox16";
-            groupBox16.Size = new Size(468, 297);
-            groupBox16.TabIndex = 0;
-            groupBox16.TabStop = false;
-            groupBox16.Text = "Configure Symbols";
+            chBoxUseSymbols.AutoSize = true;
+            chBoxUseSymbols.Location = new Point(6, 10);
+            chBoxUseSymbols.Name = "chBoxUseSymbols";
+            chBoxUseSymbols.Size = new Size(400, 34);
+            chBoxUseSymbols.TabIndex = 10;
+            chBoxUseSymbols.Tag = "604";
+            chBoxUseSymbols.Text = "Use debug symbols (PDB) to resolve anonymous function names when\r\ndisplaying module import/export list";
+            chBoxUseSymbols.UseVisualStyleBackColor = true;
+            chBoxUseSymbols.Click += ChBox_Click;
+            // 
+            // groupBoxSymbols
+            // 
+            groupBoxSymbols.Controls.Add(buttonSymbolsDefault);
+            groupBoxSymbols.Controls.Add(buttonSymbolPickColor);
+            groupBoxSymbols.Controls.Add(panelSymColor);
+            groupBoxSymbols.Controls.Add(buttonSymbolsBrowse);
+            groupBoxSymbols.Controls.Add(symbolsStoreTextBox);
+            groupBoxSymbols.Controls.Add(label19);
+            groupBoxSymbols.Controls.Add(buttonDbghelpBrowse);
+            groupBoxSymbols.Controls.Add(dbghelpTextBox);
+            groupBoxSymbols.Controls.Add(label18);
+            groupBoxSymbols.Location = new Point(6, 50);
+            groupBoxSymbols.Name = "groupBoxSymbols";
+            groupBoxSymbols.Size = new Size(468, 208);
+            groupBoxSymbols.TabIndex = 0;
+            groupBoxSymbols.TabStop = false;
             // 
             // buttonSymbolsDefault
             // 
-            buttonSymbolsDefault.Location = new Point(348, 96);
+            buttonSymbolsDefault.Location = new Point(348, 155);
             buttonSymbolsDefault.Name = "buttonSymbolsDefault";
-            buttonSymbolsDefault.Size = new Size(94, 27);
+            buttonSymbolsDefault.Size = new Size(94, 23);
             buttonSymbolsDefault.TabIndex = 9;
             buttonSymbolsDefault.Text = "Set Defaults";
             buttonSymbolsDefault.UseVisualStyleBackColor = true;
@@ -1401,7 +1412,7 @@
             // 
             // buttonSymbolPickColor
             // 
-            buttonSymbolPickColor.Location = new Point(219, 246);
+            buttonSymbolPickColor.Location = new Point(219, 155);
             buttonSymbolPickColor.Name = "buttonSymbolPickColor";
             buttonSymbolPickColor.Size = new Size(75, 23);
             buttonSymbolPickColor.TabIndex = 8;
@@ -1412,7 +1423,7 @@
             // panelSymColor
             // 
             panelSymColor.Controls.Add(label11);
-            panelSymColor.Location = new Point(19, 243);
+            panelSymColor.Location = new Point(19, 152);
             panelSymColor.Name = "panelSymColor";
             panelSymColor.Size = new Size(194, 30);
             panelSymColor.TabIndex = 7;
@@ -1428,7 +1439,7 @@
             // 
             // buttonSymbolsBrowse
             // 
-            buttonSymbolsBrowse.Location = new Point(406, 199);
+            buttonSymbolsBrowse.Location = new Point(406, 108);
             buttonSymbolsBrowse.Name = "buttonSymbolsBrowse";
             buttonSymbolsBrowse.Size = new Size(36, 23);
             buttonSymbolsBrowse.TabIndex = 6;
@@ -1438,7 +1449,7 @@
             // 
             // symbolsStoreTextBox
             // 
-            symbolsStoreTextBox.Location = new Point(19, 199);
+            symbolsStoreTextBox.Location = new Point(19, 108);
             symbolsStoreTextBox.Name = "symbolsStoreTextBox";
             symbolsStoreTextBox.Size = new Size(378, 23);
             symbolsStoreTextBox.TabIndex = 5;
@@ -1446,7 +1457,7 @@
             // label19
             // 
             label19.AutoSize = true;
-            label19.Location = new Point(6, 176);
+            label19.Location = new Point(6, 85);
             label19.Name = "label19";
             label19.Size = new Size(82, 15);
             label19.TabIndex = 4;
@@ -1454,7 +1465,7 @@
             // 
             // buttonDbghelpBrowse
             // 
-            buttonDbghelpBrowse.Location = new Point(406, 144);
+            buttonDbghelpBrowse.Location = new Point(406, 53);
             buttonDbghelpBrowse.Name = "buttonDbghelpBrowse";
             buttonDbghelpBrowse.Size = new Size(36, 23);
             buttonDbghelpBrowse.TabIndex = 3;
@@ -1464,7 +1475,7 @@
             // 
             // dbghelpTextBox
             // 
-            dbghelpTextBox.Location = new Point(19, 144);
+            dbghelpTextBox.Location = new Point(19, 53);
             dbghelpTextBox.Name = "dbghelpTextBox";
             dbghelpTextBox.Size = new Size(378, 23);
             dbghelpTextBox.TabIndex = 2;
@@ -1472,20 +1483,11 @@
             // label18
             // 
             label18.AutoSize = true;
-            label18.Location = new Point(6, 120);
+            label18.Location = new Point(6, 29);
             label18.Name = "label18";
             label18.Size = new Size(98, 15);
             label18.TabIndex = 1;
             label18.Text = "Dbghelp.dll path:";
-            // 
-            // label17
-            // 
-            label17.AutoSize = true;
-            label17.Location = new Point(6, 33);
-            label17.Name = "label17";
-            label17.Size = new Size(426, 60);
-            label17.TabIndex = 0;
-            label17.Text = "WinDepends uses debug symbols (PDB) to resolve anonymous function names \r\nwhen displaying module import/export list.\r\n\r\n(Optional)";
             // 
             // configCancel
             // 
@@ -1590,8 +1592,9 @@
             groupBox12.ResumeLayout(false);
             groupBox12.PerformLayout();
             tabSymbols.ResumeLayout(false);
-            groupBox16.ResumeLayout(false);
-            groupBox16.PerformLayout();
+            tabSymbols.PerformLayout();
+            groupBoxSymbols.ResumeLayout(false);
+            groupBoxSymbols.PerformLayout();
             panelSymColor.ResumeLayout(false);
             panelSymColor.PerformLayout();
             ResumeLayout(false);
@@ -1706,8 +1709,7 @@
         private Label labelApiSetCount;
         private Label labelApiSetVersion;
         private TabPage tabSymbols;
-        private GroupBox groupBox16;
-        private Label label17;
+        private GroupBox groupBoxSymbols;
         private Button buttonSymbolsBrowse;
         private TextBox symbolsStoreTextBox;
         private Label label19;
@@ -1719,5 +1721,6 @@
         private Panel panelSymColor;
         private Label label11;
         private Button buttonSymbolsDefault;
+        private CheckBox chBoxUseSymbols;
     }
 }

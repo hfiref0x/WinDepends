@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Feb 15, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -89,9 +89,11 @@ DWORD WINAPI client_thread(
     
     StringCchPrintf(hello_msg, 
         ARRAYSIZE(hello_msg), 
-        L"WinDepends.Core %u.%u built at %S\r\n",
+        L"WinDepends.Core %u.%u.%u.%u built at %S\r\n",
         WINDEPENDS_SERVER_MAJOR_VERSION,
         WINDEPENDS_SERVER_MINOR_VERSION,
+        WINDEPENDS_SERVER_REVISION,
+        WINDEPENDS_SERVER_BUILD,
         __TIMESTAMP__);
 
     sendstring_plaintext_no_track(s, hello_msg);

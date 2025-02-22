@@ -291,6 +291,9 @@ public class CCoreFileInformation
 
     [DataMember(Name = "RealChecksum")]
     public uint RealChecksum { get; set; }
+
+    [DataMember(Name = "ImageFixed")]
+    public int ImageFixed { get; set; }
 }
 
 [DataContract]

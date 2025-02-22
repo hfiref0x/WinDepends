@@ -1394,10 +1394,12 @@
             // 
             toolBarSymStatusLabel.BorderSides = ToolStripStatusLabelBorderSides.Left | ToolStripStatusLabelBorderSides.Top | ToolStripStatusLabelBorderSides.Right | ToolStripStatusLabelBorderSides.Bottom;
             toolBarSymStatusLabel.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            toolBarSymStatusLabel.DoubleClickEnabled = true;
             toolBarSymStatusLabel.Enabled = false;
             toolBarSymStatusLabel.Name = "toolBarSymStatusLabel";
             toolBarSymStatusLabel.Size = new Size(35, 19);
             toolBarSymStatusLabel.Text = "SYM";
+            toolBarSymStatusLabel.DoubleClick += ToolBarSymStatus_DoubleClick;
             // 
             // richEditPopupMenu
             // 

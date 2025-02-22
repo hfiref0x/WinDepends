@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Feb 2025
+*  DATE:        22 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -33,7 +33,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2501;
+    public const uint VersionBuild = 2502;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -58,6 +58,7 @@ public static class CConsts
     public const int TagUseStats = 601;
     public const int TagAnalysisDefaultEnabled = 602;
     public const int TagPropagateSettingsEnabled = 603;
+    public const int TagUseSymbols = 604;
 
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;
@@ -309,6 +310,7 @@ public enum LogEventType
     StartMessage,
     SymInitOK,
     SymInitFailed,
+    SymCleanup,
     FileOpenSessionOK,
     FileOpenSessionError,
     FileSessionSave,

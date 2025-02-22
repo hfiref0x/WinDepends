@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Feb 2025
+*  DATE:        22 Feb 2025
 *  
 *  Codename:    VasilEk
 *
@@ -143,8 +143,12 @@ public partial class MainForm : Form
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
 
-        bool bSymbolsAllocated = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
+        bool bSymbolsAllocated = false;
 
+        if (m_Configuration.UseSymbols)
+        {
+            bSymbolsAllocated = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
+        }
         //
         // Check for command line parameters.
         //
@@ -862,6 +866,7 @@ public partial class MainForm : Form
             // Symbols initialization message.
             //
             case LogEventType.SymInitOK:
+            case LogEventType.SymCleanup:
                 loggedMessage = fileName;
                 boldText = true;
                 outputColor = Color.Blue;
@@ -1171,8 +1176,6 @@ public partial class MainForm : Form
         if (TVModules.Nodes.Count > 0)
         {
             TVModules.SelectedNode = TVModules.Nodes[0];
-            TVModules.SelectedNode.EnsureVisible();
-            TVModules.Focus();
         }
 
         return bResult ? FileOpenResult.Success : FileOpenResult.Failure;
@@ -1224,6 +1227,7 @@ public partial class MainForm : Form
             MainToolBar.Enabled = true;
             TVModules.Enabled = true;
             LVModules.Enabled = true;
+            TVModules.Focus();
         }
 
         return bResult;
@@ -1448,7 +1452,7 @@ public partial class MainForm : Form
 
     private void ConfigureMenuItem_Click(object sender, EventArgs e)
     {
-        ShowConfigurationForm(0);
+        ShowConfigurationForm(CConsts.IdxTabMain);
     }
 
     /// <summary>
@@ -1947,8 +1951,10 @@ public partial class MainForm : Form
     void SetPopupMenuItemText(bool functionView = true)
     {
         ToolStripMenuItem menuItem;
-        int selectedCount = 0, itemsCount = 0;
+        int selectedCount = 0;
         string menuText;
+        ListView lvSrc, lvDst;
+        List<CFunction> funcSrc;
 
         if (functionView)
         {
@@ -1958,15 +1964,22 @@ public partial class MainForm : Form
             if (LVImports.Focused)
             {
                 selectedCount = LVImports.SelectedIndices.Count;
-                itemsCount = LVExports.VirtualListSize; // Number of items in the exports list.
+
+                lvSrc = LVImports;
+                lvDst = LVExports;
+                funcSrc = m_CurrentImportsList;
             }
-            else if (LVExports.Focused)
+            else
             {
                 selectedCount = LVExports.SelectedIndices.Count;
-                itemsCount = LVImports.VirtualListSize; // Number of items in the imports list.
+
+                lvSrc = LVExports;
+                lvDst = LVImports;
+                funcSrc = m_CurrentExportsList;
             }
 
-            MatchingFunctionPopupMenuItem.Enabled = (itemsCount > 0);
+            ListViewItem lvResult = FindMatchingFunctionInList(lvSrc, lvDst, funcSrc);
+            MatchingFunctionPopupMenuItem.Enabled = lvResult != null;
         }
         else
         {
@@ -2005,7 +2018,20 @@ public partial class MainForm : Form
             ListViewItem item = listView.GetItemAt(e.X, e.Y);
             if (item != null)
             {
-                string viewType = (listView == LVImports) ? "Export" : "Import";
+                string viewType;
+                if (listView  == LVImports)
+                {
+                    viewType = "Export";
+                    LVImports.SelectedIndices.Clear();
+                    LVImports.SelectedIndices.Add(item.Index);
+                }
+                else
+                {
+                    LVExports.SelectedIndices.Clear();
+                    LVExports.SelectedIndices.Add(item.Index);
+                    viewType = "Import";
+                }
+
                 MatchingFunctionPopupMenuItem.Text = "Highlight Matching " + viewType + " Function";
                 functionPopupMenu.Show(Cursor.Position);
             }
@@ -2349,43 +2375,58 @@ public partial class MainForm : Form
         }
 
     }
+
     private void ResolveAPIsetsToolStripMenuItem_Click(object sender, EventArgs e)
     {
         m_Configuration.ResolveAPIsets = !m_Configuration.ResolveAPIsets;
         ResolveAPISetsToolButton.Checked = m_Configuration.ResolveAPIsets;
         UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
     }
+
+    private ListViewItem FindMatchingFunctionInList(ListView SourceList, ListView DestinationList, List<CFunction> FunctionsList)
+    {
+        if (SourceList.SelectedIndices.Count > 0)
+        {
+            int selectedIndex = SourceList.SelectedIndices[0];
+            if (selectedIndex >= 0 && selectedIndex < FunctionsList.Count)
+            {
+                m_SearchFunctionName = FunctionsList[selectedIndex].RawName;
+                m_SearchOrdinal = FunctionsList[selectedIndex].Ordinal;
+
+                return DestinationList.FindItemWithText(null);
+            }
+        }
+
+        return null;
+    }
+
     private void HighlightFunction_Click(object sender, EventArgs e)
     {
-        if (!(LVImports.Focused || LVExports.Focused))
+        ListView lvSrc, lvDst;
+        List<CFunction> funcSrc;
+
+        if (LVImports.Focused)
+        {
+            lvSrc = LVImports;
+            lvDst = LVExports;
+            funcSrc = m_CurrentImportsList;
+        } 
+        else if (LVExports.Focused)
+        {
+            funcSrc = m_CurrentExportsList;
+            lvSrc = LVExports;
+            lvDst = LVImports;
+        }
+        else
         {
             return;
         }
 
-        ListView lvSrc = LVImports.Focused ? LVImports : LVExports;
-        ListView lvDst = LVImports.Focused ? LVExports : LVImports;
-        List<CFunction> funcSrc = LVImports.Focused ? m_CurrentImportsList : m_CurrentExportsList;
-
-        if (lvSrc.SelectedIndices.Count <= 0)
-        {
-            return;
-        }
-
-        int selectedIndex = lvSrc.SelectedIndices[0];
-        if (selectedIndex < 0 || selectedIndex >= funcSrc.Count)
-        {
-            return;
-        }
-
-        m_SearchFunctionName = funcSrc[selectedIndex].RawName;
-        m_SearchOrdinal = funcSrc[selectedIndex].Ordinal;
-
-        lvDst.BeginUpdate();
-
-        lvDst.SelectedIndices.Clear();
-        ListViewItem lvResult = lvDst.FindItemWithText(null);
+        ListViewItem lvResult = FindMatchingFunctionInList(lvSrc, lvDst, funcSrc);
         if (lvResult != null)
         {
+            lvDst.BeginUpdate();
+            lvDst.SelectedIndices.Clear();
             lvResult.Selected = true;
             lvResult.EnsureVisible();
             lvDst.Focus();
@@ -2936,7 +2977,7 @@ public partial class MainForm : Form
         CModule module = (CModule)e.Node.Tag;
         if (module != null)
         {
-            PreloadSymbolForSelectedModule(module);
+            if (m_Configuration.UseSymbols) PreloadSymbolForSelectedModule(module);
             BuildFunctionListForSelectedModule(module);
         }
     }
@@ -3154,7 +3195,7 @@ public partial class MainForm : Form
         //
         // Nothing found, attempt to resolve using symbols.
         //
-        if (string.IsNullOrEmpty(functionName))
+        if (string.IsNullOrEmpty(functionName) && m_Configuration.UseSymbols)
         {
             var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
             if (moduleBase != IntPtr.Zero)
@@ -3728,4 +3769,10 @@ public partial class MainForm : Form
         }
         catch { }
     }
+
+    private void ToolBarSymStatus_DoubleClick(object sender, EventArgs e)
+    {
+        ShowConfigurationForm(CConsts.IdxTabSymbols);
+    }
+
 }

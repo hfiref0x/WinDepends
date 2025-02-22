@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Feb 16, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -708,7 +708,7 @@ BOOL get_imports(
     LIST_ENTRY                  msg_lh;
     PIMAGE_FILE_HEADER          nt_file_hdr;
     DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c;
-    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0, dnoffset, dioffset;
+    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0, dnoffset, IModuleName, INameTable;
     BOOL                        status = FALSE, img64 = FALSE, importPresent = FALSE;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
@@ -802,29 +802,40 @@ BOOL get_imports(
         {
             DImportTable = (PIMAGE_DELAYLOAD_DESCRIPTOR)(context->module + di_dir_base);
 
-            if (DImportTable->DllNameRVA < ImageBase)
-                dioffset = 0;
-            else
-                dioffset = ImageBase;
-
-            if (DImportTable->ImportNameTableRVA < ImageBase)
-                dnoffset = 0;
-            else
-                dnoffset = ImageBase;
-
             if (importPresent)
                 mlist_add(&msg_lh, L",");
 
             for (c = 0; DImportTable->DllNameRVA; ++DImportTable, ++c)
             {
+                IModuleName = DImportTable->DllNameRVA;
+                INameTable = DImportTable->ImportNameTableRVA;
+                dnoffset = 0;
+
+                if (context->image_fixed)
+                {
+                    if (DImportTable->Attributes.RvaBased)
+                    {
+                        IModuleName += ImageBase;
+                        INameTable += ImageBase;
+                    }
+                }
+                else
+                {
+                    if (DImportTable->Attributes.RvaBased)
+                    {
+                        IModuleName += (DWORD_PTR)context->module;
+                        INameTable += (DWORD_PTR)context->module;
+                    }
+                }
+
                 if (c > 0)
                     mlist_add(&msg_lh, L",");
 
-                StringCchPrintf(text, ARRAYSIZE(text), L"{\"name\":\"%S\",\"delay\":1,\"functions\":[", (char*)context->module + DImportTable->DllNameRVA - dioffset);
+                StringCchPrintf(text, ARRAYSIZE(text), L"{\"name\":\"%S\",\"delay\":1,\"functions\":[", (char*)IModuleName);
                 mlist_add(&msg_lh, text);
 
                 bound_table.uptr = NULL;
-                thunk_data.uptr = context->module + DImportTable->ImportNameTableRVA - dnoffset;
+                thunk_data.uptr = (LPVOID)INameTable;
                 if (img64)
                     process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64, dnoffset)
                 else
@@ -853,7 +864,7 @@ LPBYTE pe32open(
     _In_opt_ pmodule_ctx context
 )
 {
-    BOOL                use_reloc;
+    BOOL                use_reloc = FALSE, image_64bit = FALSE;
     HANDLE              hf = INVALID_HANDLE_VALUE;
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
@@ -861,7 +872,7 @@ LPBYTE pe32open(
                         vsize, psize, tsize, status = 0, dwRealChecksum = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
-    int                 c, startAddress, min_app_address;
+    __int64             c, startAddress, min_app_address;
 
     PIMAGE_SECTION_HEADER       sections;
     BY_HANDLE_FILE_INFORMATION  fileinfo = { 0 };
@@ -874,6 +885,7 @@ LPBYTE pe32open(
         return FALSE;
     }
 
+    context->image_fixed = TRUE;
     opt_file_hdr.uptr = NULL;
 
     __try
@@ -982,74 +994,97 @@ LPBYTE pe32open(
 
         context->moduleMagic = opt_file_hdr.opt_file_hdr64->Magic;
 
-        switch (opt_file_hdr.opt_file_hdr64->Magic)
+        /* checking against known image magic */
+        if (context->moduleMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC &&
+            context->moduleMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
         {
-        case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
-        case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
+            __leave;
+        }
+
+        image_64bit = (context->moduleMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
+
+        /* checking for sections continuity */
+        if (nt_file_hdr.NumberOfSections == 0)
         {
-            /* checking for sections continuity */
-            if (nt_file_hdr.NumberOfSections == 0)
-            {
-                vsize = PAGE_ALIGN(max((ULONG)dos_hdr.e_lfanew, opt_file_hdr.opt_file_hdr64->SizeOfImage));
-            }
-            else
-            {
-                vsize = sections[0].VirtualAddress;
-            }
+            vsize = PAGE_ALIGN(max((ULONG)dos_hdr.e_lfanew, opt_file_hdr.opt_file_hdr64->SizeOfImage));
+        }
+        else
+        {
+            vsize = sections[0].VirtualAddress;
+        }
 
-            for (c = 0; c < nt_file_hdr.NumberOfSections; ++c)
-            {
-                if (((sections[c].VirtualAddress % opt_file_hdr.opt_file_hdr64->SectionAlignment) != 0) ||
-                    (sections[c].VirtualAddress != vsize))
-                {
-                    sendstring_plaintext_no_track(s, WDEP_STATUS_415);
-                    __leave;
-                }
-
-                tsize = sections[c].Misc.VirtualSize;
-                psize = sections[c].SizeOfRawData;
-                if ((tsize | psize) == 0)
-                {
-                    sendstring_plaintext_no_track(s, WDEP_STATUS_415);
-                    __leave;
-                }
-
-                if (tsize == 0)
-                    tsize = psize;
-
-                vsize += ALIGN_UP(tsize, opt_file_hdr.opt_file_hdr64->SectionAlignment);
-            }
-
-            vsize = PAGE_ALIGN(vsize);
-
-            if (vsize != PAGE_ALIGN(opt_file_hdr.opt_file_hdr64->SizeOfImage))
+        for (c = 0; c < nt_file_hdr.NumberOfSections; ++c)
+        {
+            if (((sections[c].VirtualAddress % opt_file_hdr.opt_file_hdr64->SectionAlignment) != 0) ||
+                (sections[c].VirtualAddress != vsize))
             {
                 sendstring_plaintext_no_track(s, WDEP_STATUS_415);
                 __leave;
             }
-            break;
+
+            tsize = sections[c].Misc.VirtualSize;
+            psize = sections[c].SizeOfRawData;
+            if ((tsize | psize) == 0)
+            {
+                sendstring_plaintext_no_track(s, WDEP_STATUS_415);
+                __leave;
+            }
+
+            if (tsize == 0)
+                tsize = psize;
+
+            vsize += ALIGN_UP(tsize, opt_file_hdr.opt_file_hdr64->SectionAlignment);
         }
-        default:
+
+        vsize = PAGE_ALIGN(vsize);
+
+        if (vsize != PAGE_ALIGN(opt_file_hdr.opt_file_hdr64->SizeOfImage))
+        {
             sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
-            break;
         }
 
         /* End of image validation. Begin image loading */
 
-        if (use_reloc) {
-            startAddress = min_app_address;
+        startAddress = (image_64bit) ? RELOC_DEFAULT_APP_ADDRESS_64 : RELOC_DEFAULT_APP_ADDRESS_32;
+
+        if (image_64bit) {
+            get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
+            if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
+                context->image_fixed = FALSE;
+            }
+            else {
+                startAddress = opt_file_hdr.opt_file_hdr64->ImageBase;
+            }
         }
         else {
-            startAddress = RELOC_DEFAULT_APP_ADDRESS;
+            get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
+            if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
+                context->image_fixed = FALSE;
+            }
+            else {
+                startAddress = opt_file_hdr.opt_file_hdr32->ImageBase;
+            }
         }
 
-        // allocate image buffer below 4GB for x86-32 compatibility
-        for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
+        if (context->image_fixed)
         {
-            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-            if (module)
-                break;
+            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)startAddress, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        }
+        else
+        {
+            if (use_reloc) {
+                startAddress = min_app_address;
+            }
+
+            // allocate image buffer below 4GB for x86-32 compatibility
+            for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
+            {
+                module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+                if (module)
+                    break;
+            }
         }
 
         if (!module)
@@ -1061,78 +1096,62 @@ LPBYTE pe32open(
         iobytes = 0;
         memset(&ovl, 0, sizeof(ovl));
 
-        switch (opt_file_hdr.opt_file_hdr64->Magic)
+        if (nt_file_hdr.NumberOfSections == 0)
         {
-        case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
-        case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
+            psize = PAGE_ALIGN(
+                max((ULONG)dos_hdr.e_lfanew,
+                    opt_file_hdr.opt_file_hdr64->SizeOfImage));
+        }
+        else
         {
-            if (nt_file_hdr.NumberOfSections == 0)
-            {
-                psize = PAGE_ALIGN(
-                    max((ULONG)dos_hdr.e_lfanew,
-                        opt_file_hdr.opt_file_hdr64->SizeOfImage));
-            }
-            else
-            {
-                psize = ALIGN_UP(
-                    max((ULONG)dos_hdr.e_lfanew, opt_file_hdr.opt_file_hdr64->SizeOfHeaders),
-                    opt_file_hdr.opt_file_hdr64->FileAlignment);
-            }
+            psize = ALIGN_UP(
+                max((ULONG)dos_hdr.e_lfanew, opt_file_hdr.opt_file_hdr64->SizeOfHeaders),
+                opt_file_hdr.opt_file_hdr64->FileAlignment);
+        }
 
-            if (!ReadFile(hf, module, psize, &iobytes, &ovl))
+        if (!ReadFile(hf, module, psize, &iobytes, &ovl))
+        {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_403);
+            __leave;
+        }
+
+        for (c = 0; c < nt_file_hdr.NumberOfSections; ++c)
+        {
+
+            if (sections[c].PointerToRawData == 0)
+                continue;
+
+            memset(&ovl, 0, sizeof(ovl));
+            ovl.Offset = ALIGN_DOWN(sections[c].PointerToRawData, opt_file_hdr.opt_file_hdr64->FileAlignment);
+
+            tsize = sections[c].Misc.VirtualSize;
+            psize = sections[c].SizeOfRawData;
+
+            if (tsize == 0)
+                tsize = psize;
+            tsize = min(tsize, psize);
+            tsize = ALIGN_UP(tsize, opt_file_hdr.opt_file_hdr64->FileAlignment);
+
+            iobytes = 0;
+            if (!ReadFile(hf, module + sections[c].VirtualAddress, tsize, &iobytes, &ovl))
             {
                 sendstring_plaintext_no_track(s, WDEP_STATUS_403);
                 __leave;
             }
-
-            for (c = 0; c < nt_file_hdr.NumberOfSections; ++c)
-            {
-                
-                if (sections[c].PointerToRawData == 0)
-                    continue;
-
-                memset(&ovl, 0, sizeof(ovl));
-                ovl.Offset = ALIGN_DOWN(sections[c].PointerToRawData, opt_file_hdr.opt_file_hdr64->FileAlignment);
-
-                tsize = sections[c].Misc.VirtualSize;
-                psize = sections[c].SizeOfRawData;
-
-                if (tsize == 0)
-                    tsize = psize;
-                tsize = min(tsize, psize);
-                tsize = ALIGN_UP(tsize, opt_file_hdr.opt_file_hdr64->FileAlignment);
-
-                iobytes = 0;
-                if (!ReadFile(hf, module + sections[c].VirtualAddress, tsize, &iobytes, &ovl))
-                {
-                    sendstring_plaintext_no_track(s, WDEP_STATUS_403);
-                    __leave;
-                }
-            }
-            break;
-        }
-        default:
-            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
-            __leave;
-            break;
         }
 
-        if (use_reloc) {
-            switch (opt_file_hdr.opt_file_hdr64->Magic)
-            {
-            case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
-                get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
-                if (dir_base)
-                    relocimage64(module, (LPVOID)(ULONG_PTR)opt_file_hdr.opt_file_hdr32->ImageBase,
-                        (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
-                break;
-
-            case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
+        if ((!context->image_fixed) && use_reloc) {
+            if (image_64bit) {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
                 if (dir_base)
                     relocimage64(module, (LPVOID)(DWORD_PTR)opt_file_hdr.opt_file_hdr64->ImageBase,
                         (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
-                break;
+            }
+            else {
+                get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
+                if (dir_base)
+                    relocimage64(module, (LPVOID)(ULONG_PTR)opt_file_hdr.opt_file_hdr32->ImageBase,
+                        (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
             }
         }
 
@@ -1168,7 +1187,8 @@ LPBYTE pe32open(
             L"\"LastWriteTimeHigh\":%u,"
             L"\"FileSizeHigh\":%u,"
             L"\"FileSizeLow\":%u,"
-            L"\"RealChecksum\":%u}}\r\n",
+            L"\"RealChecksum\":%u,"
+            L"\"ImageFixed\":%i}}\r\n",
             fileinfo.dwFileAttributes,
             fileinfo.ftCreationTime.dwLowDateTime,
             fileinfo.ftCreationTime.dwHighDateTime,
@@ -1176,7 +1196,8 @@ LPBYTE pe32open(
             fileinfo.ftLastWriteTime.dwHighDateTime,
             fileinfo.nFileSizeHigh,
             fileinfo.nFileSizeLow,
-            dwRealChecksum
+            dwRealChecksum,
+            context->image_fixed
         );
         sendstring_plaintext(s, text, context);
     }

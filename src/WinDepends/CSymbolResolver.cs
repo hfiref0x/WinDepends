@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        15 Feb 2025
+*  DATE:        22 Feb 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -307,13 +307,15 @@ public static class CSymbolResolver
         return SymbolsInitialized;
     }
 
-    public static void ReleaseSymbolResolver()
+    public static bool ReleaseSymbolResolver()
     {
+        bool bResult = false;
+
         if (DbgHelpModule != IntPtr.Zero)
         {
             if (SymbolsInitialized)
             {
-                SymCleanup(CurrentProcess);
+                bResult = SymCleanup(CurrentProcess);
                 UnloadCachedSymModules();
             }
 
@@ -326,6 +328,8 @@ public static class CSymbolResolver
 
             SymbolsInitialized = false;
         }
+
+        return bResult;
     }
 
     /// <summary>

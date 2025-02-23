@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Feb 2025
+*  DATE:        22 Feb 2025
 *  
 *  Implementation of CFunction related classes.
 *
@@ -65,6 +65,34 @@ public enum FunctionKind : ushort
     ExportForwardedFunction,
     ExportForwardedCPlusPlusFunction,
     ExportForwardedOrdinal,
+}
+
+public struct FunctionHashObject
+{
+    public string FunctionName { get; set; }
+    public UInt32 FunctionOrdinal { get; set; }
+    public string ImportLibrary { get; set; }
+
+    public FunctionHashObject(string functionName, string importLibrary, UInt32 ordinal)
+    {
+        FunctionName = functionName;
+        ImportLibrary = importLibrary;
+        FunctionOrdinal = ordinal;
+    }
+
+    public int GenerateUniqueKey()
+    {
+        unchecked
+        {
+            int hash = FunctionName.GetHashCode(StringComparison.OrdinalIgnoreCase) + ImportLibrary.GetHashCode();
+
+            if (FunctionOrdinal != UInt32.MaxValue)
+            {
+                hash += FunctionOrdinal.GetHashCode();
+            }
+            return hash;
+        }
+    }
 }
 
 [DataContract]
@@ -162,7 +190,23 @@ public class CFunction
         return list.Exists(item => item.RawName.Equals(RawName, StringComparison.Ordinal));
     }
 
-    public bool ResolveFunctionKind(CModule module, List<CModule> modulesList)
+    public bool IsFunctionCalledAtLeastOnce(Dictionary<int, FunctionHashObject> parentImportsHashTable, CModule module, CFunction function, bool isOrdinal)
+    {
+        FunctionHashObject funcHashObject = new(module.FileName, function.RawName, function.Ordinal);
+        var uniqueKey = funcHashObject.GenerateUniqueKey();
+
+        funcHashObject.FunctionOrdinal = UInt32.MaxValue;
+        var uniqueKeyNoOrdinal = funcHashObject.GenerateUniqueKey();
+
+        if (parentImportsHashTable.ContainsKey(uniqueKey) ||
+            parentImportsHashTable.ContainsKey(uniqueKeyNoOrdinal))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public bool ResolveFunctionKind(CModule module, List<CModule> modulesList, Dictionary<int, FunctionHashObject> parentImportsHashTable)
     {
         FunctionKind newKind;
         List<CFunction> functionList;
@@ -170,6 +214,7 @@ public class CFunction
         bool isForward = IsForward();
         bool isCPlusPlusName = IsNameDecorated();
         bool bResolved;
+        bool bCalledAtLeastOnce;
 
         if (module == null)
         {
@@ -179,7 +224,10 @@ public class CFunction
 
         if (IsExportFunction)
         {
-            // Export function.
+            // Export function processing.
+
+            bCalledAtLeastOnce = IsFunctionCalledAtLeastOnce(parentImportsHashTable, module, this, isOrdinal);
+
             newKind = FunctionKind.ExportFunction;
 
             functionList = module.ParentImports;
@@ -194,7 +242,14 @@ public class CFunction
                 }
                 else
                 {
-                    newKind = isForward ? FunctionKind.ExportForwardedOrdinal : FunctionKind.ExportOrdinal;
+                    if (bCalledAtLeastOnce)
+                    {
+                        newKind = isForward ? FunctionKind.ExportForwardedOrdinalCalledAtLeastOnce : FunctionKind.ExportOrdinalCalledAtLeastOnce;
+                    }
+                    else
+                    {
+                        newKind = isForward ? FunctionKind.ExportForwardedOrdinal : FunctionKind.ExportOrdinal;
+                    }
                 }
 
             }
@@ -219,12 +274,28 @@ public class CFunction
                         newKind = isForward ? FunctionKind.ExportForwardedFunctionCalledByModuleInTree : FunctionKind.ExportFunctionCalledByModuleInTree;
                     }
                 }
+                else
+                {
+                    if (bCalledAtLeastOnce)
+                    {
+                        if (isCPlusPlusName)
+                        {
+                            newKind = isForward ? FunctionKind.ExportForwardedCPlusPlusFunctionCalledAtLeastOnce : FunctionKind.ExportCPlusPlusFunctionCalledAtLeastOnce;
+                        }
+                        else
+                        {
+                            newKind = isForward ? FunctionKind.ExportForwardedFunctionCalledAtLeastOnce : FunctionKind.ExportFunctionCalledAtLeastOnce;
+                        }
+                    }
+
+                }
             }
 
         }
         else
         {
-            // Import function.
+            // Import function processing.
+
             functionList = module.OriginalInstanceId != 0 ?
                     CUtils.InstanceIdToModule(module.OriginalInstanceId, modulesList)?.ModuleData.Exports : module.ModuleData.Exports;
 

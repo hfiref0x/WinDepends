@@ -122,6 +122,8 @@ public partial class MainForm : Form
     List<CFunction> m_CurrentExportsList = [];
     List<CFunction> m_CurrentImportsList = [];
 
+    Dictionary<int, FunctionHashObject> m_ParentImportsHashTable = [];
+
     readonly List<CModule> m_LoadedModulesList = [];
 
     SortOrder LVImportsSortOrder = SortOrder.Ascending;
@@ -330,7 +332,8 @@ public partial class MainForm : Form
 
                     m_CoreClient.GetModuleImportExportInformation(module,
                         m_Configuration.SearchOrderListUM,
-                        m_Configuration.SearchOrderListKM);
+                        m_Configuration.SearchOrderListKM,
+                        m_ParentImportsHashTable);
 
                     CCoreCallStats stats = null;
                     if (useStats)
@@ -1131,6 +1134,8 @@ public partial class MainForm : Form
                 reLog.Clear();
             }
 
+            m_ParentImportsHashTable.Clear();
+
             // Create new root object and output it submodules.
             m_Depends = new(fileName)
             {
@@ -1504,7 +1509,7 @@ public partial class MainForm : Form
     /// <param name="action">One of the ProcessModuleAction values.</param>
     private void ProcessModuleEntry(ProcessModuleAction action)
     {
-        CModule module = null;
+        CModule module;
 
         if (LVModules.Focused && LVModules.SelectedIndices.Count > 0)
         {
@@ -1951,7 +1956,7 @@ public partial class MainForm : Form
     void SetPopupMenuItemText(bool functionView = true)
     {
         ToolStripMenuItem menuItem;
-        int selectedCount = 0;
+        int selectedCount;
         string menuText;
         ListView lvSrc, lvDst;
         List<CFunction> funcSrc;
@@ -2019,7 +2024,7 @@ public partial class MainForm : Form
             if (item != null)
             {
                 string viewType;
-                if (listView  == LVImports)
+                if (listView == LVImports)
                 {
                     viewType = "Export";
                     LVImports.SelectedIndices.Clear();
@@ -2410,7 +2415,7 @@ public partial class MainForm : Form
             lvSrc = LVImports;
             lvDst = LVExports;
             funcSrc = m_CurrentImportsList;
-        } 
+        }
         else if (LVExports.Focused)
         {
             funcSrc = m_CurrentExportsList;
@@ -2621,7 +2626,7 @@ public partial class MainForm : Form
         {
             foreach (CFunction function in currentList)
             {
-                function.ResolveFunctionKind(module, modulesList);
+                function.ResolveFunctionKind(module, modulesList, m_ParentImportsHashTable);
             }
         }
     }

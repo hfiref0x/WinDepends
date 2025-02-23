@@ -43,7 +43,7 @@ public class CConfiguration
     public bool UseApiSetSchemaFile { get; set; }
     public bool UseRelocForImages { get; set; }
     public bool UseStats { get; set; }
-    public bool UseSymbols {  get; set; }
+    public bool UseSymbols { get; set; }
     public bool AnalysisSettingsUseAsDefault { get; set; }
     public bool PropagateSettingsOnDependencies { get; set; }
     public bool HighlightApiSet { get; set; }

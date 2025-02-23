@@ -601,7 +601,8 @@ public class CCoreClient : IDisposable
 
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
-                                                 List<SearchOrderType> searchOrderKM)
+                                                 List<SearchOrderType> searchOrderKM,
+                                                 Dictionary<int, FunctionHashObject> parentImportsHashTable)
     {
         //
         // Process exports.
@@ -719,6 +720,14 @@ public class CCoreClient : IDisposable
                 foreach (var func in entry.Function)
                 {
                     dependent.ParentImports.Add(new CFunction(func));
+
+                    FunctionHashObject funcHashObject = new(dependent.FileName, func.Name, func.Ordinal);
+
+                    var uniqueKey = funcHashObject.GenerateUniqueKey();
+                    if (!parentImportsHashTable.ContainsKey(uniqueKey))
+                    {
+                        parentImportsHashTable.Add(uniqueKey, funcHashObject);
+                    }
                 }
             }
         }

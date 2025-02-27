@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Feb 2025
+*  DATE:        27 Feb 2025
 *  
 *  Implementation of CFunction related classes.
 *
@@ -67,24 +67,17 @@ public enum FunctionKind : ushort
     ExportForwardedOrdinal,
 }
 
-public struct FunctionHashObject
+public struct FunctionHashObject(string functionName, string importLibrary, UInt32 ordinal)
 {
-    public string FunctionName { get; set; }
-    public UInt32 FunctionOrdinal { get; set; }
-    public string ImportLibrary { get; set; }
+    public string FunctionName { get; set; } = functionName;
+    public UInt32 FunctionOrdinal { get; set; } = ordinal;
+    public string ImportLibrary { get; set; } = importLibrary;
 
-    public FunctionHashObject(string functionName, string importLibrary, UInt32 ordinal)
-    {
-        FunctionName = functionName;
-        ImportLibrary = importLibrary;
-        FunctionOrdinal = ordinal;
-    }
-
-    public int GenerateUniqueKey()
+    public readonly int GenerateUniqueKey()
     {
         unchecked
         {
-            int hash = FunctionName.GetHashCode(StringComparison.OrdinalIgnoreCase) + ImportLibrary.GetHashCode();
+            int hash = FunctionName.GetHashCode() + ImportLibrary.GetHashCode(StringComparison.OrdinalIgnoreCase);
 
             if (FunctionOrdinal != UInt32.MaxValue)
             {
@@ -190,7 +183,8 @@ public class CFunction
         return list.Exists(item => item.RawName.Equals(RawName, StringComparison.Ordinal));
     }
 
-    public bool IsFunctionCalledAtLeastOnce(Dictionary<int, FunctionHashObject> parentImportsHashTable, CModule module, CFunction function, bool isOrdinal)
+    public static bool IsFunctionCalledAtLeastOnce(Dictionary<int, FunctionHashObject> parentImportsHashTable,
+        CModule module, CFunction function)
     {
         FunctionHashObject funcHashObject = new(module.FileName, function.RawName, function.Ordinal);
         var uniqueKey = funcHashObject.GenerateUniqueKey();
@@ -206,7 +200,8 @@ public class CFunction
         return false;
     }
 
-    public bool ResolveFunctionKind(CModule module, List<CModule> modulesList, Dictionary<int, FunctionHashObject> parentImportsHashTable)
+    public bool ResolveFunctionKind(CModule module, List<CModule> modulesList,
+        Dictionary<int, FunctionHashObject> parentImportsHashTable)
     {
         FunctionKind newKind;
         List<CFunction> functionList;
@@ -226,7 +221,7 @@ public class CFunction
         {
             // Export function processing.
 
-            bCalledAtLeastOnce = IsFunctionCalledAtLeastOnce(parentImportsHashTable, module, this, isOrdinal);
+            bCalledAtLeastOnce = IsFunctionCalledAtLeastOnce(parentImportsHashTable, module, this);
 
             newKind = FunctionKind.ExportFunction;
 

@@ -37,13 +37,13 @@
             labelAllocGran = new Label();
             chBoxUseReloc = new CheckBox();
             groupBox2 = new GroupBox();
+            label3 = new Label();
             chBoxPropagateSettings = new CheckBox();
             chBoxAnalysisDefaultEnabled = new CheckBox();
             groupBox13 = new GroupBox();
             chBoxUseStats = new CheckBox();
             label2 = new Label();
             textBoxFileName = new TextBox();
-            label3 = new Label();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             groupBox13.SuspendLayout();
@@ -120,7 +120,7 @@
             chBoxUseReloc.TabIndex = 0;
             chBoxUseReloc.Text = "Enable relocations when parsing images";
             chBoxUseReloc.UseVisualStyleBackColor = true;
-            chBoxUseReloc.CheckedChanged += chBoxUseReloc_CheckedChanged;
+            chBoxUseReloc.CheckedChanged += ChBoxUseReloc_CheckedChanged;
             // 
             // groupBox2
             // 
@@ -133,6 +133,15 @@
             groupBox2.TabIndex = 3;
             groupBox2.TabStop = false;
             groupBox2.Text = "Analysis";
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(9, 86);
+            label3.Name = "label3";
+            label3.Size = new Size(276, 15);
+            label3.TabIndex = 18;
+            label3.Text = "*You can reset this through program Configuration";
             // 
             // chBoxPropagateSettings
             // 
@@ -193,15 +202,6 @@
             textBoxFileName.ReadOnly = true;
             textBoxFileName.Size = new Size(285, 23);
             textBoxFileName.TabIndex = 11;
-            // 
-            // label3
-            // 
-            label3.AutoSize = true;
-            label3.Location = new Point(9, 86);
-            label3.Name = "label3";
-            label3.Size = new Size(276, 15);
-            label3.TabIndex = 18;
-            label3.Text = "*You can reset this through program Configuration";
             // 
             // FileOpenForm
             // 

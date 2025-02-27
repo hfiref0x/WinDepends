@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       FILEOPENFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Dec 2024
+*  DATE:        27 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -76,7 +76,7 @@ public partial class FileOpenForm : Form
         }
     }
 
-    private void chBoxUseReloc_CheckedChanged(object sender, EventArgs e)
+    private void ChBoxUseReloc_CheckedChanged(object sender, EventArgs e)
     {
         textBoxMinAppAddress.Enabled = chBoxUseReloc.Checked;
     }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Feb 2025
+*  DATE:        27 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -308,9 +308,8 @@ public enum ToolBarIconType
 public enum LogEventType
 {
     StartMessage,
-    SymInitOK,
     SymInitFailed,
-    SymCleanup,
+    SymStateChange,
     FileOpenSessionOK,
     FileOpenSessionError,
     FileSessionSave,

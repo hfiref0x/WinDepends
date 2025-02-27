@@ -194,6 +194,8 @@
             toolStripMenuItem9 = new ToolStripSeparator();
             externalHelpMenuItem = new ToolStripMenuItem();
             SaveFileDialog1 = new SaveFileDialog();
+            statusBarPopupMenu = new ContextMenuStrip(components);
+            symStateChangeMenuItem = new ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)splitContainerBottom).BeginInit();
             splitContainerBottom.Panel1.SuspendLayout();
             splitContainerBottom.Panel2.SuspendLayout();
@@ -217,6 +219,7 @@
             richEditPopupMenu.SuspendLayout();
             moduleViewPopupMenu.SuspendLayout();
             functionPopupMenu.SuspendLayout();
+            statusBarPopupMenu.SuspendLayout();
             SuspendLayout();
             // 
             // splitContainerBottom
@@ -1392,14 +1395,15 @@
             // 
             // toolBarSymStatusLabel
             // 
+            toolBarSymStatusLabel.AutoSize = false;
             toolBarSymStatusLabel.BorderSides = ToolStripStatusLabelBorderSides.Left | ToolStripStatusLabelBorderSides.Top | ToolStripStatusLabelBorderSides.Right | ToolStripStatusLabelBorderSides.Bottom;
             toolBarSymStatusLabel.DisplayStyle = ToolStripItemDisplayStyle.Text;
             toolBarSymStatusLabel.DoubleClickEnabled = true;
-            toolBarSymStatusLabel.Enabled = false;
             toolBarSymStatusLabel.Name = "toolBarSymStatusLabel";
             toolBarSymStatusLabel.Size = new Size(35, 19);
             toolBarSymStatusLabel.Text = "SYM";
             toolBarSymStatusLabel.DoubleClick += ToolBarSymStatus_DoubleClick;
+            toolBarSymStatusLabel.MouseDown += ToolBarSymStatus_MouseDown;
             // 
             // richEditPopupMenu
             // 
@@ -1663,6 +1667,22 @@
             SaveFileDialog1.DefaultExt = "*.wds";
             SaveFileDialog1.Filter = "WinDepends session view|*.wds|WinDepends JSON text file|*.txt";
             // 
+            // statusBarPopupMenu
+            // 
+            statusBarPopupMenu.Items.AddRange(new ToolStripItem[] { symStateChangeMenuItem });
+            statusBarPopupMenu.Name = "statusBarPopupMenu";
+            statusBarPopupMenu.Size = new Size(213, 48);
+            statusBarPopupMenu.Text = "Test";
+            statusBarPopupMenu.Opening += StatusBarPopupMenu_Opening;
+            // 
+            // symStateChangeMenuItem
+            // 
+            symStateChangeMenuItem.CheckOnClick = true;
+            symStateChangeMenuItem.Name = "symStateChangeMenuItem";
+            symStateChangeMenuItem.Size = new Size(212, 22);
+            symStateChangeMenuItem.Text = "Use Debug Symbols (PDB)";
+            symStateChangeMenuItem.Click += SymStateMenuItem_Click;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -1706,6 +1726,7 @@
             richEditPopupMenu.ResumeLayout(false);
             moduleViewPopupMenu.ResumeLayout(false);
             functionPopupMenu.ResumeLayout(false);
+            statusBarPopupMenu.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -1876,5 +1897,7 @@
         private ToolStripSeparator toolStripMenuItem20;
         private ToolStripStatusLabel toolBarSymStatusLabel;
         private ToolStripMenuItem MenuOpenNewInstance;
+        private ContextMenuStrip statusBarPopupMenu;
+        private ToolStripMenuItem symStateChangeMenuItem;
     }
 }

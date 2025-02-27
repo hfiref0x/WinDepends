@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Feb 2025
+*  DATE:        27 Feb 2025
 *  
 *  Codename:    VasilEk
 *
@@ -62,7 +62,7 @@ public partial class MainForm : Form
     /// <summary>
     /// Program settings.
     /// </summary>
-    readonly CConfiguration m_Configuration;
+    CConfiguration m_Configuration;
 
     /// <summary>
     /// Workaround for WinForms glitches.
@@ -122,7 +122,7 @@ public partial class MainForm : Form
     List<CFunction> m_CurrentExportsList = [];
     List<CFunction> m_CurrentImportsList = [];
 
-    Dictionary<int, FunctionHashObject> m_ParentImportsHashTable = [];
+    readonly Dictionary<int, FunctionHashObject> m_ParentImportsHashTable = [];
 
     readonly List<CModule> m_LoadedModulesList = [];
 
@@ -179,9 +179,9 @@ public partial class MainForm : Form
         if (bSymbolsAllocated)
         {
             LogEvent($"Debug symbols initialized using \"{m_Configuration.SymbolsDllPath}\", " +
-                $"store \"{m_Configuration.SymbolsStorePath}\"", LogEventType.SymInitOK);
+                $"store \"{m_Configuration.SymbolsStorePath}\"", LogEventType.SymStateChange);
 
-            toolBarSymStatusLabel.Enabled = true;
+            UpdateSymbolsStatus(true);
         }
 
         LVExports.VirtualMode = true;
@@ -868,8 +868,7 @@ public partial class MainForm : Form
             //
             // Symbols initialization message.
             //
-            case LogEventType.SymInitOK:
-            case LogEventType.SymCleanup:
+            case LogEventType.SymStateChange:
                 loggedMessage = fileName;
                 boldText = true;
                 outputColor = Color.Blue;
@@ -1375,6 +1374,51 @@ public partial class MainForm : Form
         }
     }
 
+    private void ApplySymbolsConfiguration()
+    {
+        if (m_Configuration.UseSymbols)
+        {
+            var symStorePath = m_Configuration.SymbolsStorePath;
+            var symDllPath = m_Configuration.SymbolsDllPath;
+
+            //
+            // Set defaults in case if nothing selected.
+            //
+            if (string.IsNullOrEmpty(symDllPath))
+            {
+                symDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
+                m_Configuration.SymbolsDllPath = symDllPath;
+            }
+            if (string.IsNullOrEmpty(symStorePath))
+            {
+                symStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
+                m_Configuration.SymbolsStorePath = symStorePath;
+            }
+
+            CSymbolResolver.ReleaseSymbolResolver();
+            if (CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath))
+            {
+                LogEvent($"Debug symbols initialized using \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogEventType.SymStateChange);
+                UpdateSymbolsStatus(true);
+            }
+            else
+            {
+                LogEvent($"Debug symbols initialization failed for \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogEventType.SymInitFailed);
+                UpdateSymbolsStatus(false);
+            }
+        }
+        else
+        {
+            if (CSymbolResolver.ReleaseSymbolResolver())
+            {
+                LogEvent($"Debug symbols deallocated", LogEventType.SymStateChange);
+                UpdateSymbolsStatus(false);
+            }
+        }
+    }
+
     /// <summary>
     /// Displays configuration form as modal dialog with selected settings page index.
     /// When user finishes work with configuration, depending on user choice apply 
@@ -1385,6 +1429,7 @@ public partial class MainForm : Form
     {
         bool is64bitFile = true;
         string currentFileName = string.Empty;
+        CConfiguration optConfig = new(m_Configuration);
         if (m_Depends != null)
         {
             is64bitFile = m_Depends.RootModule.Is64bitArchitecture();
@@ -1404,17 +1449,19 @@ public partial class MainForm : Form
         var bResolveAPISetsPrev = m_Configuration.ResolveAPIsets;
         var bHighlightAPISetsPrev = m_Configuration.HighlightApiSet;
         var bUseApiSetSchemaFilePrev = m_Configuration.UseApiSetSchemaFile;
+        var bUseSymbolsPrev = m_Configuration.UseSymbols;
 
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
-                                                  m_Configuration,
+                                                  optConfig,
                                                   m_CoreClient,
                                                   LogEvent,
-                                                  UpdateSymbolsStatus,
                                                   pageIndex))
         {
             if (configForm.ShowDialog() == DialogResult.OK)
             {
+                m_Configuration = optConfig;
+
                 //
                 // Re-display MRU list.
                 //
@@ -1449,6 +1496,11 @@ public partial class MainForm : Form
                 if (m_Configuration.UseApiSetSchemaFile != bUseApiSetSchemaFilePrev)
                 {
                     m_CoreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
+                }
+
+                if (m_Configuration.UseSymbols != bUseSymbolsPrev)
+                {
+                    ApplySymbolsConfiguration();
                 }
 
             }
@@ -3553,16 +3605,18 @@ public partial class MainForm : Form
     /// <param name="enabled"></param>
     private void UpdateSymbolsStatus(bool enabled)
     {
+        string text = (enabled) ? "SYM+" : "SYM-";
+
         if (toolBarSymStatusLabel.Owner.InvokeRequired)
         {
             toolBarSymStatusLabel.Owner.BeginInvoke((MethodInvoker)delegate
             {
-                toolBarSymStatusLabel.Enabled = enabled;
+                toolBarSymStatusLabel.ToolTipText = text;
             });
         }
         else
         {
-            toolBarSymStatusLabel.Enabled = enabled;
+            toolBarSymStatusLabel.ToolTipText = text;
         }
 
         Application.DoEvents();
@@ -3780,4 +3834,23 @@ public partial class MainForm : Form
         ShowConfigurationForm(CConsts.IdxTabSymbols);
     }
 
+    private void ToolBarSymStatus_MouseDown(object sender, MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Right)
+        {
+            statusBarPopupMenu.Show(StatusBar,
+                new Point(StatusBar.Width, StatusBar.Height - toolBarSymStatusLabel.Height), ToolStripDropDownDirection.AboveLeft);
+        }
+    }
+
+    private void SymStateMenuItem_Click(object sender, EventArgs e)
+    {
+        m_Configuration.UseSymbols = symStateChangeMenuItem.Checked;
+        ApplySymbolsConfiguration();
+    }
+
+    private void StatusBarPopupMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+    {
+        symStateChangeMenuItem.Checked = m_Configuration.UseSymbols;
+    }
 }

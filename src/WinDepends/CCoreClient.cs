@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jan 2025
+*  DATE:        27 Feb 2025
 *  
 *  Core Server communication class.
 *
@@ -722,12 +722,8 @@ public class CCoreClient : IDisposable
                     dependent.ParentImports.Add(new CFunction(func));
 
                     FunctionHashObject funcHashObject = new(dependent.FileName, func.Name, func.Ordinal);
-
                     var uniqueKey = funcHashObject.GenerateUniqueKey();
-                    if (!parentImportsHashTable.ContainsKey(uniqueKey))
-                    {
-                        parentImportsHashTable.Add(uniqueKey, funcHashObject);
-                    }
+                    parentImportsHashTable.TryAdd(uniqueKey, funcHashObject);
                 }
             }
         }

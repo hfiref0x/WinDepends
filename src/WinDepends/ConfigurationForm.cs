@@ -906,7 +906,6 @@ public partial class ConfigurationForm : Form
 
         }
         catch { }
-        ;
     }
 
     private void ButtonApiSetBrowse_Click(object sender, EventArgs e)

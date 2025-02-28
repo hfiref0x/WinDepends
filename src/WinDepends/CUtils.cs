@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Feb 2025
+*  DATE:        27 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -15,6 +15,7 @@
 *
 *******************************************************************************/
 using Microsoft.Win32;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
@@ -613,6 +614,7 @@ public static class CUtils
 
         return lastNode;
     }
+
     public static void SetClipboardData(string data)
     {
         if (!string.IsNullOrEmpty(data))
@@ -621,6 +623,7 @@ public static class CUtils
             Clipboard.SetText(data);
         }
     }
+
     public static UInt32 ParseMinAppAddressValue(string value)
     {
         try
@@ -663,6 +666,19 @@ public static class CUtils
         }
 
         return null;
+    }
+
+    public static void RunExternalCommand(string fileName, bool useShellExecute)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                UseShellExecute = useShellExecute
+            });
+        }
+        catch { }
     }
 
 }

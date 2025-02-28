@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        28 Feb 2025
 *  
 *  Codename:    VasilEk
 *
@@ -180,8 +180,6 @@ public partial class MainForm : Form
         {
             LogEvent($"Debug symbols initialized using \"{m_Configuration.SymbolsDllPath}\", " +
                 $"store \"{m_Configuration.SymbolsStorePath}\"", LogEventType.SymStateChange);
-
-            UpdateSymbolsStatus(true);
         }
 
         LVExports.VirtualMode = true;
@@ -1400,13 +1398,11 @@ public partial class MainForm : Form
             {
                 LogEvent($"Debug symbols initialized using \"{symDllPath}\", " +
                     $"store \"{symStorePath}\"", LogEventType.SymStateChange);
-                UpdateSymbolsStatus(true);
             }
             else
             {
                 LogEvent($"Debug symbols initialization failed for \"{symDllPath}\", " +
                     $"store \"{symStorePath}\"", LogEventType.SymInitFailed);
-                UpdateSymbolsStatus(false);
             }
         }
         else
@@ -1414,7 +1410,6 @@ public partial class MainForm : Form
             if (CSymbolResolver.ReleaseSymbolResolver())
             {
                 LogEvent($"Debug symbols deallocated", LogEventType.SymStateChange);
-                UpdateSymbolsStatus(false);
             }
         }
     }
@@ -3599,29 +3594,6 @@ public partial class MainForm : Form
         Application.DoEvents();
     }
 
-    /// <summary>
-    /// Callback used to update symbols state in the status bar.
-    /// </summary>
-    /// <param name="enabled"></param>
-    private void UpdateSymbolsStatus(bool enabled)
-    {
-        string text = (enabled) ? "SYM+" : "SYM-";
-
-        if (toolBarSymStatusLabel.Owner.InvokeRequired)
-        {
-            toolBarSymStatusLabel.Owner.BeginInvoke((MethodInvoker)delegate
-            {
-                toolBarSymStatusLabel.ToolTipText = text;
-            });
-        }
-        else
-        {
-            toolBarSymStatusLabel.ToolTipText = text;
-        }
-
-        Application.DoEvents();
-    }
-
     private void ViewRefreshItem_Click(object sender, EventArgs e)
     {
         if (m_Depends != null)
@@ -3813,20 +3785,12 @@ public partial class MainForm : Form
 
     private void MenuNewInstance_Click(object sender, EventArgs e)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo { FileName = Application.ExecutablePath, UseShellExecute = false });
-        }
-        catch { }
+        CUtils.RunExternalCommand(Application.ExecutablePath, false);
     }
 
     private void MenuDocumentation_Click(object sender, EventArgs e)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo { FileName = CConsts.WinDependsDocs, UseShellExecute = true });
-        }
-        catch { }
+        CUtils.RunExternalCommand(CConsts.WinDependsDocs, true);
     }
 
     private void ToolBarSymStatus_DoubleClick(object sender, EventArgs e)

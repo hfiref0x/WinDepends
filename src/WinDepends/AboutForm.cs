@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Jan 2025
+*  DATE:        28 Feb 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -14,8 +14,6 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
-using System.Diagnostics;
-
 namespace WinDepends;
 
 internal partial class AboutForm : Form
@@ -49,11 +47,7 @@ internal partial class AboutForm : Form
 
     private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
     {
-        try
-        {
-            linkLabel1.LinkVisited = true;
-            Process.Start(new ProcessStartInfo { FileName = CConsts.WinDependsHome, UseShellExecute = true });
-        }
-        catch { }
+        linkLabel1.LinkVisited = true;
+        CUtils.RunExternalCommand(CConsts.WinDependsHome, true);
     }
 }

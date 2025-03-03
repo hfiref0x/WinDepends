@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CSXSMANIFEST.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Dec 2024
+*  DATE:        03 Mar 2025
 *  
 *  Implementation of basic sxs manifest parser class.
 *
@@ -16,6 +16,7 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace WinDepends;
@@ -75,7 +76,7 @@ public class CSxsEntries : List<CSxsEntry>
     }
 }
 
-internal class CSxsManifest
+internal partial class CSxsManifest
 {
     public static CSxsEntries QueryInformationFromManifestFile(string fileName, string directoryName, out bool bAutoElevate)
     {
@@ -127,16 +128,7 @@ internal class CSxsManifest
             // 3. Blank lines.
 
             // Trim double quotes in attributes.
-            int startIndex = 0;
-            while ((startIndex = manifestText.IndexOf("\"\"", startIndex)) != -1)
-            {
-                int endIndex = manifestText.IndexOf("\"\"", startIndex + 2);
-                if (endIndex != -1)
-                {
-                    string capturedGroup = manifestText.Substring(startIndex + 2, endIndex - startIndex - 2);
-                    manifestText = manifestText.Remove(startIndex, endIndex - startIndex + 2).Insert(startIndex, "\"" + capturedGroup + "\"");
-                }
-            }
+            manifestText = SxsTrimDoubleQuotesRegex().Replace(manifestText, "\"$1\"");
 
             // Replace specific strings (garbage or bug).
             manifestText = manifestText.Replace("SXS_PROCESSOR_ARCHITECTURE", "\"amd64\"", StringComparison.OrdinalIgnoreCase)
@@ -196,4 +188,7 @@ internal class CSxsManifest
         return sxsEntries;
 
     }
+
+    [GeneratedRegex("\\\"\\\"([\\w\\d\\.]*)\\\"\\\"")]
+    private static partial Regex SxsTrimDoubleQuotesRegex();
 }

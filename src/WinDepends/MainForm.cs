@@ -1120,6 +1120,8 @@ public partial class MainForm : Form
                         return FileOpenResult.Cancelled;
                     }
                 }
+
+                Activate();
             }
 
             CloseInputFile();
@@ -1500,6 +1502,8 @@ public partial class MainForm : Form
 
             }
         }
+
+        Activate();
     }
 
     private void ConfigureMenuItem_Click(object sender, EventArgs e)

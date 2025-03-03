@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        03 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -33,7 +33,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2502;
+    public const uint VersionBuild = 2503;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;

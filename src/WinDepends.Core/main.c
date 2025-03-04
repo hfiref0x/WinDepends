@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Feb 15, 2025
+*  Modified on: Mar 04, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -521,7 +521,7 @@ void test_api_set()
 
 }
 
-#ifdef _DEBUG
+#if defined _DEBUG || defined _CONSOLE
 void main()
 {
 #else

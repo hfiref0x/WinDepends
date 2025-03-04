@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Feb 22, 2025
+*  Modified on: Mar 04, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -1058,23 +1058,17 @@ LPBYTE pe32open(
             }
         }
 
-        if (context->image_fixed)
-        {
-            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)startAddress, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-        }
-        else
-        {
-            if (use_reloc) {
-                startAddress = min_app_address;
-            }
 
-            // allocate image buffer below 4GB for x86-32 compatibility
-            for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
-            {
-                module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-                if (module)
-                    break;
-            }
+        if (!context->image_fixed && use_reloc) {
+            startAddress = min_app_address;
+        }
+
+        // allocate image buffer below 4GB for x86-32 compatibility
+        for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
+        {
+            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            if (module)
+                break;
         }
 
         if (!module)

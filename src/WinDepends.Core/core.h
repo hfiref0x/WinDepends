@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Feb 15, 2025
+*  Modified on: Mar 04, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -16,9 +16,7 @@
 #define _CORE_H_
 
 #define WIN32_LEAN_AND_MEAN
-#ifndef _DEBUG
-#define _NO_VERBOSE
-#endif
+
 
 #include <Windows.h>
 #include <WinSock2.h>
@@ -39,7 +37,7 @@
 #define WINDEPENDS_SERVER_MAJOR_VERSION 1
 #define WINDEPENDS_SERVER_MINOR_VERSION 0
 #define WINDEPENDS_SERVER_REVISION      0
-#define WINDEPENDS_SERVER_BUILD         2502
+#define WINDEPENDS_SERVER_BUILD         2503
 
 #define RELOC_DEFAULT_APP_ADDRESS_64 0x1000000
 #define RELOC_DEFAULT_APP_ADDRESS_32 0x400000
@@ -75,7 +73,7 @@ typedef struct {
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "Crypt32.lib")
 
-#ifdef _NO_VERBOSE
+#ifndef _CONSOLE
 #define printf
 #define wprintf
 #endif

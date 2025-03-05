@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Mar 2025
+*  DATE:        04 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -211,6 +211,10 @@ public static class CConsts
     /// </summary>
     public const string WDEP_STATUS_501 = "WDEP/1.0 501 Context not allocated\r\n";
     /// <summary>
+    /// Image buffer not allocated
+    /// </summary>
+    public const string WDEP_STATUS_502 = "WDEP/1.0 502 Image buffer not allocated\r\n";
+    /// <summary>
     /// Msg: Exception in get_datadirs routine
     /// </summary>
     public const string WDEP_STATUS_600 = "WDEP/1.0 600 Exception in get_datadirs routine\r\n";
@@ -305,33 +309,13 @@ public enum ToolBarIconType
     ResolveAPISets
 }
 
-public enum LogEventType
+public enum LogMessageType
 {
-    StartMessage,
-    SymInitFailed,
-    SymStateChange,
-    FileOpenSessionOK,
-    FileOpenSessionError,
-    FileSessionSave,
-    FileSessionSaveError,
-    FileOpen,
-    FileOpenSession,
-    FileStats,
-    CoreServerStartOK,
-    CoreServerStartError,
-    CoreServerReceiveError,
-    CoreServerSendError,
-    CoreServerDeserializeError,
-    ModuleProcessingError,
-    ModuleNotFound,
-    ModuleNotFoundExtApiSet,
-    DelayLoadModuleNotFound,
-    DelayLoadModuleNotFoundExtApiSet,
-    ModuleExportsError,
-    ModuleMachineMismatch,
-    ModuleLogFromSession,
-    ModuleOpenHardError,
-    MaxEventType
+    Normal = 0,
+    System,
+    ErrorOrWarning,
+    Information,
+    ContentDefined
 }
 
 public enum FileViewUpdateAction

@@ -31,6 +31,7 @@
 #define WDEP_STATUS_415 L"WDEP/1.0 415 Invalid file headers or signatures\r\n"
 #define WDEP_STATUS_500 L"WDEP/1.0 500 Can not allocate resources\r\n"
 #define WDEP_STATUS_501 L"WDEP/1.0 501 Context not allocated\r\n"
+#define WDEP_STATUS_502 L"WDEP/1.0 502 Image buffer not allocated\r\n"
 #define WDEP_STATUS_600 L"WDEP/1.0 600 Exception in get_datadirs routine\r\n"
 #define WDEP_STATUS_601 L"WDEP/1.0 601 Exception in get_headers routine\r\n"
 #define WDEP_STATUS_602 L"WDEP/1.0 602 Exception in get_imports routine\r\n"

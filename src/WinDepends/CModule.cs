@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        04 Mar 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -472,6 +472,11 @@ public class CModuleData
     [DataMember]
     public string SubsystemVersion { get; set; }
     [DataMember]
+    public uint ImageFixed { get; set; } = 0;
+    //
+    // Module debug directories.
+    //
+    [DataMember]
     public List<uint> DebugDirTypes { get; set; } = [];
 
     //
@@ -492,6 +497,7 @@ public class CModuleData
         Attributes = other.Attributes;
         LinkChecksum = other.LinkChecksum;
         RealChecksum = other.RealChecksum;
+        ImageFixed = other.ImageFixed;
         Machine = other.Machine;
         Characteristics = other.Characteristics;
         DllCharacteristics = other.DllCharacteristics;

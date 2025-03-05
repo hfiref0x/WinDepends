@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        04 Mar 2025
 *  
 *  Core Server communication class.
 *
@@ -32,13 +32,13 @@ public enum ModuleInformationType
     ApiSetName
 }
 
-public enum RequestSendStatus
+public enum ServerErrorStatus
 {
-    Okay,
-    ErrorServerNeedRestart,
-    ErrorNetworkStreamNotInitialized,
-    ErrorSocketException,
-    ErrorGeneralException
+    NoErrors = 0,
+    ServerNeedRestart,
+    NetworkStreamNotInitialized,
+    SocketException,
+    GeneralException
 }
 
 public enum ModuleOpenStatus
@@ -48,6 +48,7 @@ public enum ModuleOpenStatus
     ErrorSendCommand,
     ErrorReceivedDataInvalid,
     ErrorFileNotFound,
+    ErrorFileNotMapped,
     ErrorCannotReadFileHeaders,
     ErrorInvalidHeadersOrSignatures
 }
@@ -89,10 +90,11 @@ public class CCoreClient : IDisposable
     private Process ServerProcess;     // WinDepends.Core instance.
     public TcpClient ClientConnection;
     private NetworkStream DataStream;
-    readonly LogEventCallback LogEvent;
+    readonly AddLogMessageCallback AddLogMessage;
     private string serverApplication;
     public string IPAddress { get; }
     public int PortNumber { get; }
+    public ServerErrorStatus ErrorStatus { get; set; }
 
     public int ServerProcessId
     {
@@ -117,12 +119,14 @@ public class CCoreClient : IDisposable
         serverApplication = value;
     }
 
-    public CCoreClient(string serverApplication, string ipAddress, int portNumber, LogEventCallback logEventCallback)
+    public CCoreClient(string serverApplication, string ipAddress, int portNumber,
+                       AddLogMessageCallback logMessageCallback)
     {
-        LogEvent = logEventCallback;
+        AddLogMessage = logMessageCallback;
         SetServerApplication(serverApplication);
         IPAddress = ipAddress;
         PortNumber = portNumber;
+        ErrorStatus = ServerErrorStatus.NoErrors;
     }
 
     protected virtual void Dispose(bool disposing)
@@ -177,14 +181,7 @@ public class CCoreClient : IDisposable
 
     public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, bool preProcessData = false)
     {
-        // Communication failure, server need restart.
-        if (ClientConnection == null || !ClientConnection.Connected)
-        {
-            return null;
-        }
-
-        var status = SendRequest(command);
-        if (status != RequestSendStatus.Okay)
+        if (!SendRequest(command))
         {
             return null;
         }
@@ -219,17 +216,19 @@ public class CCoreClient : IDisposable
     /// </summary>
     /// <param name="message"></param>
     /// <returns></returns>
-    private RequestSendStatus SendRequest(string message)
+    private bool SendRequest(string message)
     {
         // Communication failure, server need restart.
         if (ClientConnection == null || !ClientConnection.Connected)
         {
-            return RequestSendStatus.ErrorServerNeedRestart;
+            ErrorStatus = ServerErrorStatus.ServerNeedRestart;
+            return false;
         }
 
         if (DataStream == null)
         {
-            return RequestSendStatus.ErrorNetworkStreamNotInitialized;
+            ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
+            return false;
         }
 
         try
@@ -239,18 +238,15 @@ public class CCoreClient : IDisposable
                 bw.Write(Encoding.Unicode.GetBytes(message));
             }
         }
-        catch (IOException ex)
-        {
-            LogEvent(null, LogEventType.CoreServerSendError, ex.Message);
-            return RequestSendStatus.ErrorSocketException;
-        }
         catch (Exception ex)
         {
-            LogEvent(null, LogEventType.CoreServerSendError, ex.Message);
-            return RequestSendStatus.ErrorGeneralException;
+            AddLogMessage($"Failed to send data to the server, error message: {ex.Message}", LogMessageType.ErrorOrWarning);
+            ErrorStatus = (ex is IOException) ? ServerErrorStatus.SocketException : ServerErrorStatus.GeneralException;
+            return false;
         }
 
-        return RequestSendStatus.Okay;
+        ErrorStatus = ServerErrorStatus.NoErrors;
+        return true;
     }
 
     /// <summary>
@@ -261,6 +257,7 @@ public class CCoreClient : IDisposable
     {
         if (DataStream == null)
         {
+            ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
             return null;
         }
 
@@ -300,7 +297,8 @@ public class CCoreClient : IDisposable
         }
         catch (Exception ex)
         {
-            LogEvent(null, LogEventType.CoreServerReceiveError, ex.Message);
+            AddLogMessage($"Receive data failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
+            ErrorStatus = ServerErrorStatus.GeneralException;
         }
         return null;
     }
@@ -319,7 +317,7 @@ public class CCoreClient : IDisposable
         }
         catch (Exception ex)
         {
-            LogEvent(null, LogEventType.CoreServerDeserializeError, ex.Message);
+            AddLogMessage($"Data deserialization failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
         }
 
         return deserializedObject;
@@ -349,7 +347,9 @@ public class CCoreClient : IDisposable
     /// Open Coff module and read for futher operations.
     /// </summary>
     /// <param name="module"></param>
-    /// <param name="fileOpenSettings"></param>
+    /// <param name="useStats"></param>
+    /// <param name="useReloc"></param>
+    /// <param name="minAppAddress"></param>
     /// <returns></returns>
     public ModuleOpenStatus OpenModule(ref CModule module, bool useStats, bool useReloc, uint minAppAddress)
     {
@@ -367,8 +367,7 @@ public class CCoreClient : IDisposable
 
         cmd += "\r\n";
 
-        var status = SendRequest(cmd);
-        if (status != RequestSendStatus.Okay)
+        if (!SendRequest(cmd))
         {
             return ModuleOpenStatus.ErrorSendCommand;
         }
@@ -397,7 +396,12 @@ public class CCoreClient : IDisposable
                 module.Invalid = true;
                 return ModuleOpenStatus.ErrorInvalidHeadersOrSignatures;
             }
-
+            else if (string.Equals(response, CConsts.WDEP_STATUS_502, StringComparison.InvariantCulture))
+            {
+                module.Invalid = true;
+                return ModuleOpenStatus.ErrorFileNotMapped;
+            }
+            module.Invalid = true;
             return ModuleOpenStatus.ErrorUnspecified;
         }
 
@@ -420,6 +424,7 @@ public class CCoreClient : IDisposable
 
             module.ModuleData.Attributes = (FileAttributes)fileInformation.FileAttributes;
             module.ModuleData.RealChecksum = fileInformation.RealChecksum;
+            module.ModuleData.ImageFixed = fileInformation.ImageFixed;
             module.ModuleData.FileSize = fileInformation.FileSizeLow | ((ulong)fileInformation.FileSizeHigh << 32);
 
             long fileTime = ((long)fileInformation.LastWriteTimeHigh << 32) | fileInformation.LastWriteTimeLow;
@@ -437,17 +442,17 @@ public class CCoreClient : IDisposable
     /// <returns></returns>
     public bool CloseModule()
     {
-        return SendRequest("close\r\n") == RequestSendStatus.Okay;
+        return SendRequest("close\r\n");
     }
 
     public bool ExitRequest()
     {
-        return SendRequest("exit\r\n") == RequestSendStatus.Okay;
+        return SendRequest("exit\r\n");
     }
 
     public bool ShudownRequest()
     {
-        return SendRequest("shutdown\r\n") == RequestSendStatus.Okay;
+        return SendRequest("shutdown\r\n");
     }
 
     public object GetModuleInformationByType(ModuleInformationType moduleInformationType, string parameters = null)
@@ -741,14 +746,7 @@ public class CCoreClient : IDisposable
 
         cmd += "\r\n";
 
-        var status = SendRequest(cmd);
-
-        if (status != RequestSendStatus.Okay || !IsRequestSuccessful())
-        {
-            return false;
-        }
-
-        return true;
+        return SendRequest(cmd) && IsRequestSuccessful();
     }
 
     private bool GetKnownDllsByType(string command, List<string> knownDllsList, out string knownDllsPath)
@@ -843,21 +841,18 @@ public class CCoreClient : IDisposable
             }
 
         }
-        catch (SocketException ex)
-        {
-            bFailure = true;
-            errMessage = ex.Message;
-        }
-        catch (FileNotFoundException ex)
-        {
-            bFailure = true;
-            errMessage = $"{ex.Message} was not found, make sure it exist or change path to it: " +
-                $"Main menu -> Options -> Configuration, select Server tab, specify server application location and then press Connect button.";
-        }
         catch (Exception ex)
         {
             bFailure = true;
-            errMessage = ex.Message;
+            if (ex is FileNotFoundException)
+            {
+                errMessage = $"{ex.Message} was not found, make sure it exist or change path to it: " +
+                    $"Main menu -> Options -> Configuration, select Server tab, specify server application location and then press Connect button.";
+            }
+            else
+            {
+                errMessage = ex.Message;
+            }
         }
 
         if (bFailure)
@@ -867,18 +862,21 @@ public class CCoreClient : IDisposable
                 ServerProcess.Kill();
                 ServerProcess = null;
             }
-            LogEvent(null, LogEventType.CoreServerStartError, errMessage);
+            ErrorStatus = ServerErrorStatus.GeneralException;
+            AddLogMessage($"Server failed to start, {errMessage}", LogMessageType.ErrorOrWarning);
         }
         else
         {
             CBufferChain idata = ReceiveReply();
             if (idata != null)
             {
-                LogEvent(null, LogEventType.CoreServerStartOK, new string(idata.Data));
+                ErrorStatus = ServerErrorStatus.NoErrors;
+                AddLogMessage($"Server has been started: {new string(idata.Data)}", LogMessageType.System);
             }
             else
             {
-                LogEvent(null, LogEventType.CoreServerStartError, "Missing server HELLO");
+                ErrorStatus = ServerErrorStatus.ServerNeedRestart;
+                AddLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
             }
         }
         return ServerProcess != null;

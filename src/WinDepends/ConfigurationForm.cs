@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        04 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -29,11 +29,9 @@ public partial class ConfigurationForm : Form
     TreeNode m_UserDefinedDirectoryNodeUM;
     TreeNode m_UserDefinedDirectoryNodeKM;
     readonly int m_CurrentPageIndex;
-    readonly LogEventCallback m_LogEvent;
 
     public ConfigurationForm(string currentFileName, bool is64bitFile,
         CConfiguration currentConfiguration, CCoreClient coreClient,
-        LogEventCallback logEventCallback,
         int pageIndex = 0)
     {
         InitializeComponent();
@@ -41,7 +39,6 @@ public partial class ConfigurationForm : Form
         m_Is64bitFile = is64bitFile;
         m_CurrentConfiguration = currentConfiguration;
         m_CoreClient = coreClient;
-        m_LogEvent = logEventCallback;
         m_CurrentPageIndex = pageIndex;
     }
 

@@ -1073,9 +1073,12 @@ LPBYTE pe32open(
 
         if (!module)
         {
-            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+            printf("Module is not allocated\r\n");
+            sendstring_plaintext_no_track(s, WDEP_STATUS_502);
             __leave;
         }
+
+        printf("Module allocated at 0x%p\r\n", module);
 
         iobytes = 0;
         memset(&ovl, 0, sizeof(ovl));
@@ -1172,7 +1175,7 @@ LPBYTE pe32open(
             L"\"FileSizeHigh\":%u,"
             L"\"FileSizeLow\":%u,"
             L"\"RealChecksum\":%u,"
-            L"\"ImageFixed\":%i}}\r\n",
+            L"\"ImageFixed\":%u}}\r\n",
             fileinfo.dwFileAttributes,
             fileinfo.ftCreationTime.dwLowDateTime,
             fileinfo.ftCreationTime.dwHighDateTime,
@@ -1181,7 +1184,7 @@ LPBYTE pe32open(
             fileinfo.nFileSizeHigh,
             fileinfo.nFileSizeLow,
             dwRealChecksum,
-            context->image_fixed
+            (DWORD)context->image_fixed
         );
         sendstring_plaintext(s, text, context);
     }

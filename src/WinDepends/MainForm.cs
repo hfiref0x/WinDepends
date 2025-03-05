@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Feb 2025
+*  DATE:        04 Mar 2025
 *  
 *  Codename:    VasilEk
 *
@@ -39,6 +39,7 @@ enum FileOpenResult
 {
     Success,
     Failure,
+    SuccessSession,
     Cancelled
 }
 
@@ -137,9 +138,9 @@ public partial class MainForm : Form
         //
         // Add welcome message to the log.
         //
-        LogEvent($"{CConsts.ProgramName} started, " +
+        AddLogMessage($"{CConsts.ProgramName} started, " +
             $"version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild} BETA",
-            LogEventType.StartMessage);
+            LogMessageType.ContentDefined, Color.Black, true);
 
         m_Configuration = CConfigManager.LoadConfiguration();
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
@@ -159,7 +160,7 @@ public partial class MainForm : Form
         //
         // Start server app.
         //       
-        m_CoreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, CConsts.CoreServerPort, LogEvent);
+        m_CoreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, CConsts.CoreServerPort, AddLogMessage);
         if (m_CoreClient.ConnectClient())
         {
             if (m_CoreClient.GetKnownDllsAll(CPathResolver.KnownDlls,
@@ -178,8 +179,8 @@ public partial class MainForm : Form
         //
         if (bSymbolsAllocated)
         {
-            LogEvent($"Debug symbols initialized using \"{m_Configuration.SymbolsDllPath}\", " +
-                $"store \"{m_Configuration.SymbolsStorePath}\"", LogEventType.SymStateChange);
+            AddLogMessage($"Debug symbols initialized using \"{m_Configuration.SymbolsDllPath}\", " +
+                $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
         }
 
         LVExports.VirtualMode = true;
@@ -317,7 +318,9 @@ public partial class MainForm : Form
                     module.IsProcessed = m_CoreClient.GetModuleHeadersInformation(module);
                     if (!module.IsProcessed)
                     {
-                        LogEvent(module.FileName, LogEventType.ModuleProcessingError);
+                        AddLogMessage($"Module \"{module.FileName}\" was not processed.",
+                            LogMessageType.ErrorOrWarning,
+                            null, true, true);
                     }
 
                     //
@@ -361,41 +364,60 @@ public partial class MainForm : Form
                         }
 
                         var statsData = $"[STATS {Path.GetFileName(module.FileName)}] Received: {sizeText}, \"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
-                        LogEvent(module.FileName, LogEventType.FileStats, statsData);
+                        AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
                     }
 
                     if (module.ExportContainErrors)
                     {
-                        LogEvent(module.FileName, LogEventType.ModuleExportsError);
+                        AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
+                            LogMessageType.ErrorOrWarning, null, true, true);
                     }
 
                     if (module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine)
                     {
                         module.OtherErrorsPresent = true;
-                        LogEvent(module.FileName, LogEventType.ModuleMachineMismatch);
+                        AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
+                            LogMessageType.ErrorOrWarning, null, true, true);
+                    }
+
+                    if (module.ModuleData.ImageFixed != 0 && module.Is64bitArchitecture())
+                    {
+                        module.OtherErrorsPresent = true;
+                        AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations but is 64-bit architecture.",
+                            LogMessageType.ErrorOrWarning, null, true, true);
                     }
                     break;
 
                 case ModuleOpenStatus.ErrorUnspecified:
-                    LogEvent(module.FileName, LogEventType.ModuleOpenHardError);
+                    AddLogMessage($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
+                        null, true, true);
                     break;
                 case ModuleOpenStatus.ErrorSendCommand:
-                    LogEvent(module.FileName, LogEventType.ModuleOpenHardError, "Send command failure.");
+                    AddLogMessage($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                        null, true, true);
                     break;
                 case ModuleOpenStatus.ErrorReceivedDataInvalid:
-                    LogEvent(module.FileName, LogEventType.ModuleOpenHardError, "Received data is invalid.");
+                    AddLogMessage($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                        null, true, true);
+                    break;
+                case ModuleOpenStatus.ErrorFileNotMapped:
+                    AddLogMessage($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                        null, true, true);
                     break;
                 case ModuleOpenStatus.ErrorCannotReadFileHeaders:
-                    LogEvent(module.FileName, LogEventType.ModuleOpenHardError, "Cannot read file headers.");
+                    AddLogMessage($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                        null, true, true);
                     break;
                 case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
                     if (module.IsDelayLoad)
                     {
-                        LogEvent(module.FileName, LogEventType.ModuleOpenHardError, "Delay-load module has invalid headers or signatures.");
+                        AddLogMessage($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
+                            null, true, true);
                     }
                     else
                     {
-                        LogEvent(module.FileName, LogEventType.ModuleOpenHardError, "Module has invalid headers or signatures.");
+                        AddLogMessage($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
+                            null, true, true);
                     }
                     break;
 
@@ -405,14 +427,33 @@ public partial class MainForm : Form
                     // API-* are mandatory to load, while EXT-* are not.
                     bool bExtApiSet = module.IsApiSetContract && module.RawFileName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
 
+                    string messageText;
+                    LogMessageType messageType = bExtApiSet ? LogMessageType.Information : LogMessageType.ErrorOrWarning;
+
                     if (module.IsDelayLoad)
                     {
-                        LogEvent(module.FileName, bExtApiSet ? LogEventType.DelayLoadModuleNotFoundExtApiSet : LogEventType.DelayLoadModuleNotFound);
+                        if (bExtApiSet)
+                        {
+                            messageText = $"Delay-load extension apiset module \"{module.FileName}\" was not found.";
+                        }
+                        else
+                        {
+                            messageText = $"Delay-load dependency module \"{module.FileName}\" was not found.";
+                        }
                     }
                     else
                     {
-                        LogEvent(module.FileName, bExtApiSet ? LogEventType.ModuleNotFoundExtApiSet : LogEventType.ModuleNotFound);
+                        if (bExtApiSet)
+                        {
+                            messageText = $"Extension apiset  module \"{module.FileName}\" was not found.";
+                        }
+                        else
+                        {
+                            messageText = $"Required implicit or forwarded dependency \"{module.FileName}\" was not found.";
+                        }
                     }
+
+                    AddLogMessage(messageText, messageType, null, true, true);
                     break;
             }
 
@@ -828,182 +869,54 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Output log entry restored from session object (saved file).
+    /// Adds message to the log.
     /// </summary>
-    /// <param name="loggedMessage"></param>
+    /// <param name="message"></param>
+    /// <param name="messageType"></param>
     /// <param name="color"></param>
-    public void LogEventFromSession(string loggedMessage, Color color)
+    /// <param name="useBold"></param>
+    /// <param name="moduleMessage"></param>
+    public void AddLogMessage(string message, LogMessageType messageType,
+        Color? color = null, bool useBold = false, bool moduleMessage = false)
     {
-        reLog.AppendText($"{loggedMessage}", color, true, true);
-    }
+        Color outputColor = Color.Black;
+        bool boldText = false;
 
-    /// <summary>
-    /// Output event to the log.
-    /// </summary>
-    /// <param name="fileName">Optional. Filename to be added to the log.</param>
-    /// <param name="eventType">Type of event.</param>
-    /// <param name="extraInformation">Additional information to be added to the log.</param>
-    public void LogEvent(string? fileName, LogEventType eventType, string extraInformation = null)
-    {
-        Color outputColor = Color.Blue;
-        bool boldText = true;
-        bool newLine = true;
-        string logDateTime = $"[{DateTime.Now.ToString("HH:mm:ss.fff", System.Globalization.DateTimeFormatInfo.InvariantInfo)}] ";
-
-        string loggedMessage;
-
-        switch (eventType)
+        switch (messageType)
         {
-            //
-            // Intro text.
-            //
-            case LogEventType.StartMessage:
-                loggedMessage = fileName;
-                boldText = true;
-                outputColor = Color.Black;
-                break;
-
-            //
-            // Symbols initialization message.
-            //
-            case LogEventType.SymStateChange:
-                loggedMessage = fileName;
-                boldText = true;
-                outputColor = Color.Blue;
-                break;
-            case LogEventType.SymInitFailed:
-                loggedMessage = fileName;
+            case LogMessageType.ErrorOrWarning:
                 boldText = true;
                 outputColor = Color.Red;
                 break;
 
-            //
-            // Generic message.
-            //
-            case LogEventType.FileOpen:
-                loggedMessage = $"File: Openning \"{fileName}\"";
-                outputColor = Color.Blue;
+            case LogMessageType.Information:
+                boldText = true;
                 break;
-            case LogEventType.FileOpenSession:
-                loggedMessage = $"Session: Openning \"{fileName}\"";
+
+            case LogMessageType.System:
+                boldText = true;
                 outputColor = Color.Blue;
                 break;
 
-            //
-            // Session file messages.
-            //
-            case LogEventType.FileOpenSessionOK:
-                loggedMessage = $"Session: \"{fileName}\" has been opened.";
-                outputColor = Color.Blue;
-                break;
-            case LogEventType.FileOpenSessionError:
-                loggedMessage = $"Error: Session file \"{fileName}\" could not be opened because \"{extraInformation}\"";
-                outputColor = Color.Red;
-                break;
-            case LogEventType.FileSessionSave:
-                loggedMessage = $"Information: File \"{fileName}\" has been saved.";
-                break;
-            case LogEventType.FileSessionSaveError:
-                loggedMessage = $"Error: Session file \"{fileName}\" cound not be saved because \"{extraInformation}\"";
-                outputColor = Color.Red;
+            case LogMessageType.ContentDefined:
+                boldText = useBold;
+                outputColor = color ?? Color.Black;
                 break;
 
-            //
-            // Stats command output.
-            //
-            case LogEventType.FileStats:
-                loggedMessage = extraInformation;
-                outputColor = Color.Purple;
-                break;
-
-            //
-            // Message restored from the session object (saved file).
-            //
-            case LogEventType.ModuleLogFromSession:
-                loggedMessage = extraInformation;
-                outputColor = Color.Red;
-                break;
-
-            //
-            // Server messages.
-            //
-            case LogEventType.CoreServerStartOK:
-                loggedMessage = $"Server: {extraInformation}";
-                outputColor = Color.Blue;
-                break;
-            case LogEventType.CoreServerStartError:
-                loggedMessage = $"Error: Server initialization failed: \"{extraInformation}\"";
-                outputColor = Color.Red;
-                break;
-            case LogEventType.CoreServerReceiveError:
-                loggedMessage = $"Error: Failed to receive data from the server \"{extraInformation}\"";
-                outputColor = Color.Red;
-                break;
-            case LogEventType.CoreServerSendError:
-                loggedMessage = $"Error: Failed to send data to the server \"{extraInformation}\"";
-                outputColor = Color.Red;
-                break;
-            case LogEventType.CoreServerDeserializeError:
-                loggedMessage = $"Error: Failed to deserialize data received from the server \"{extraInformation}\"";
-                outputColor = Color.Red;
-                break;
-
-            //
-            // Module messages.
-            //
-            case LogEventType.ModuleProcessingError:
-                loggedMessage = $"Error: Module \"{fileName}\" was not processed.";
-                outputColor = Color.Red;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.DelayLoadModuleNotFound:
-                loggedMessage = $"Warning: Delay-load dependency module \"{fileName}\" was not found.";
-                outputColor = Color.Red;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.DelayLoadModuleNotFoundExtApiSet:
-                loggedMessage = $"Note: Delay-load extension apiset module \"{fileName}\" was not found.";
-                outputColor = Color.Black;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.ModuleOpenHardError:
-                loggedMessage = $"Error: \"{fileName}\" analysis failed. {extraInformation}";
-                outputColor = Color.Red;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.ModuleNotFoundExtApiSet:
-                loggedMessage = $"Note: Extension apiset  module \"{fileName}\" was not found.";
-                outputColor = Color.Black;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.ModuleNotFound:
-                loggedMessage = $"Error: Required implicit or forwarded dependency \"{fileName}\" was not found.";
-                outputColor = Color.Red;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.ModuleMachineMismatch:
-                loggedMessage = $"Error: Module \"{fileName}\" with different CPU type was found.";
-                outputColor = Color.Red;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-            case LogEventType.ModuleExportsError:
-                loggedMessage = $"Warning: Module \"{fileName}\" contain export errors.";
-                outputColor = Color.Red;
-                m_Depends.ModuleAnalysisLog.Add(new LogEntry(loggedMessage, outputColor));
-                break;
-
-
+            case LogMessageType.Normal:
             default:
-                loggedMessage = fileName;
-                outputColor = Color.Black;
-                boldText = false;
                 break;
         }
 
-        reLog.AppendText($"{logDateTime}{loggedMessage}", outputColor, boldText, newLine);
+        if (moduleMessage)
+        {
+            m_Depends.ModuleAnalysisLog.Add(new LogEntry(message, outputColor));
+        }
+
+        reLog.AppendText(message, outputColor, boldText);
     }
 
-    private void UpdateControlsAndLogOpenEvent(bool sessionFile, string fileName)
+    private void PostOpenFileUpdateControls(string fileName)
     {
         string programTitle = CConsts.ProgramName;
         if (CUtils.IsAdministrator)
@@ -1027,12 +940,6 @@ public partial class MainForm : Form
 
         m_MRUList.AddFile(fileName);
         programTitle += $" [{Path.GetFileName(fileName)}]";
-
-        if (sessionFile)
-        {
-            LogEvent(fileName, LogEventType.FileOpenSessionOK);
-        }
-
         this.Text = programTitle;
     }
 
@@ -1126,7 +1033,7 @@ public partial class MainForm : Form
 
             CloseInputFile();
 
-            LogEvent(fileName, LogEventType.FileOpen);
+            AddLogMessage($"Openning \"{fileName}\" for analysis.", LogMessageType.Information);
 
             if (m_Configuration.ClearLogOnFileOpen)
             {
@@ -1166,7 +1073,7 @@ public partial class MainForm : Form
 
         if (bResult)
         {
-            UpdateControlsAndLogOpenEvent(bSessionFile, fileName);
+            PostOpenFileUpdateControls(fileName);
 
             if (m_Configuration.AutoExpands)
             {
@@ -1181,6 +1088,9 @@ public partial class MainForm : Form
         {
             TVModules.SelectedNode = TVModules.Nodes[0];
         }
+
+        if (bResult && bSessionFile)
+            return FileOpenResult.SuccessSession;
 
         return bResult ? FileOpenResult.Success : FileOpenResult.Failure;
     }
@@ -1212,18 +1122,38 @@ public partial class MainForm : Form
 
             var fileOpenResult = OpenInputFileInternal(resolvedFileName);
             bResult = fileOpenResult == FileOpenResult.Success;
-            string logEvent = fileOpenResult switch
-            {
-                FileOpenResult.Success => $"Populating \"{resolvedFileName}\" has been completed",
-                FileOpenResult.Failure => $"There is an error while populating \"{resolvedFileName}\"",
-                _ => "Operation has been cancelled"
-            };
 
+            string logEvent;
+            LogMessageType messageType;
+
+            switch (fileOpenResult)
+            {
+                case FileOpenResult.SuccessSession:
+                    logEvent = $"Session file \"{resolvedFileName}\" has been opened.";
+                    messageType = LogMessageType.System;
+                    break;
+                case FileOpenResult.Success:
+                    logEvent = $"Analysis of \"{resolvedFileName}\" has been completed.";
+                    messageType = LogMessageType.Information;
+                    break;
+                case FileOpenResult.Failure:
+                    logEvent = $"There is an error while processing \"{resolvedFileName}\" file.";
+                    messageType = LogMessageType.ErrorOrWarning;
+                    break;
+                case FileOpenResult.Cancelled:
+                default:
+                    logEvent = "Operation has been cancelled.";
+                    messageType = LogMessageType.Normal;
+                    break;
+            }
+
+            AddLogMessage(logEvent, messageType);
             UpdateOperationStatus(logEvent);
         }
         catch
         {
-            UpdateOperationStatus($"There is an exception error while populating \"{fileName}\"");
+            AddLogMessage($"There is an error while processing \"{fileName}\" file.",
+                LogMessageType.ErrorOrWarning);
         }
         finally
         {
@@ -1252,7 +1182,7 @@ public partial class MainForm : Form
             return false;
         }
 
-        LogEvent(fileName, LogEventType.FileOpenSession);
+        AddLogMessage($"Openning session file \"{fileName}\"", LogMessageType.System);
 
         if (m_Depends.RootModule != null)
         {
@@ -1261,7 +1191,8 @@ public partial class MainForm : Form
             // Restore important module related warnings/errors in the log.
             foreach (var entry in m_Depends.ModuleAnalysisLog)
             {
-                LogEventFromSession(entry.LoggedMessage, entry.EntryColor);
+                AddLogMessage(entry.LoggedMessage, LogMessageType.ContentDefined,
+                    entry.EntryColor, true, false);
             }
         }
         else
@@ -1398,20 +1329,20 @@ public partial class MainForm : Form
             CSymbolResolver.ReleaseSymbolResolver();
             if (CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath))
             {
-                LogEvent($"Debug symbols initialized using \"{symDllPath}\", " +
-                    $"store \"{symStorePath}\"", LogEventType.SymStateChange);
+                AddLogMessage($"Debug symbols initialized using \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogMessageType.Information);
             }
             else
             {
-                LogEvent($"Debug symbols initialization failed for \"{symDllPath}\", " +
-                    $"store \"{symStorePath}\"", LogEventType.SymInitFailed);
+                AddLogMessage($"Debug symbols initialization failed for \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogMessageType.ErrorOrWarning);
             }
         }
         else
         {
             if (CSymbolResolver.ReleaseSymbolResolver())
             {
-                LogEvent($"Debug symbols deallocated", LogEventType.SymStateChange);
+                AddLogMessage($"Debug symbols deallocated", LogMessageType.Information);
             }
         }
     }
@@ -1452,7 +1383,6 @@ public partial class MainForm : Form
                                                   is64bitFile,
                                                   optConfig,
                                                   m_CoreClient,
-                                                  LogEvent,
                                                   pageIndex))
         {
             if (configForm.ShowDialog() == DialogResult.OK)
@@ -2911,14 +2841,20 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            string exceptionMessage;
+
             if (ex.InnerException != null)
             {
-                LogEvent(fileName, LogEventType.FileOpenSessionError, ex.InnerException.Message);
+                exceptionMessage = ex.InnerException.Message;
             }
             else
             {
-                LogEvent(fileName, LogEventType.FileOpenSessionError, ex.Message);
+                exceptionMessage = ex.Message;
             }
+
+            AddLogMessage($"Error: Session file \"{fileName}\" could not be opened because \"" +
+                $"{exceptionMessage}\"",
+                LogMessageType.ErrorOrWarning);
         }
 
         UpdateOperationStatus(string.Empty);
@@ -3000,19 +2936,25 @@ public partial class MainForm : Form
                 m_Depends.IsSavedSessionView = false;
                 m_Depends.SessionFileName = string.Empty;
             }
+
+            string exceptionMessage;
+
             if (ex.InnerException != null)
             {
-                LogEvent(fileName, LogEventType.FileSessionSaveError, ex.InnerException.Message);
+                exceptionMessage = ex.InnerException.Message;
             }
             else
             {
-                LogEvent(fileName, LogEventType.FileSessionSaveError, ex.Message);
+                exceptionMessage = ex.Message;
             }
+
+            AddLogMessage($"Error: Session file \"{fileName}\" could not be saved because \"" +
+                $"{exceptionMessage}\"", LogMessageType.ErrorOrWarning);
         }
 
         if (bSaved)
         {
-            LogEvent(fileName, LogEventType.FileSessionSave);
+            AddLogMessage($"Information: File \"{fileName}\" has been saved.", LogMessageType.System);
         }
 
         UpdateOperationStatus(string.Empty);

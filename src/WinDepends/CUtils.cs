@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        04 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -28,7 +28,8 @@ namespace WinDepends;
 
 public delegate void UpdateLoadStatusCallback(string status);
 public delegate void UpdateSymbolsStatus(bool enabled);
-public delegate void LogEventCallback(string? EventName, LogEventType LogEventType, string ExtraInformation = null);
+public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
+    Color? color = null, bool useBold = false, bool moduleMessage = false);
 
 /// <summary>
 /// Machine extension to return friendly name of constants.

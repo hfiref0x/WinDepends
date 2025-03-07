@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Dec 07, 2024
+*  Modified on: Mar 07, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -29,7 +29,6 @@ typedef enum {
     ce_apisetmapsrc,
     ce_apisetnsinfo,
     ce_callstats,
-    ce_servstats,
     ce_unknown = 0xffff
 } cmd_entry_type;
 
@@ -63,13 +62,6 @@ void cmd_set_apisetmap_src(
 void cmd_callstats(
     _In_ SOCKET s,
     _In_opt_ pmodule_ctx context
-);
-
-void cmd_servstats(
-    _In_ SOCKET s,
-    _In_ long long threadsCount,
-    _In_ long long socketsCreated,
-    _In_ long long socketsClosed
 );
 
 pmodule_ctx cmd_open(

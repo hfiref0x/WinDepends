@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Mar 2025
+*  DATE:        07 Mar 2025
 *  
 *  Core Server communication class.
 *
@@ -93,7 +93,7 @@ public class CCoreClient : IDisposable
     readonly AddLogMessageCallback AddLogMessage;
     private string serverApplication;
     public string IPAddress { get; }
-    public int PortNumber { get; }
+    public int Port { get; set; }
     public ServerErrorStatus ErrorStatus { get; set; }
 
     public int ServerProcessId
@@ -119,13 +119,12 @@ public class CCoreClient : IDisposable
         serverApplication = value;
     }
 
-    public CCoreClient(string serverApplication, string ipAddress, int portNumber,
+    public CCoreClient(string serverApplication, string ipAddress,
                        AddLogMessageCallback logMessageCallback)
     {
         AddLogMessage = logMessageCallback;
         SetServerApplication(serverApplication);
         IPAddress = ipAddress;
-        PortNumber = portNumber;
         ErrorStatus = ServerErrorStatus.NoErrors;
     }
 
@@ -162,11 +161,20 @@ public class CCoreClient : IDisposable
         {
             return false;
         }
-
         string response = new(idata.Data);
+
 #pragma warning disable CA1309 // Use ordinal string comparison
-        return string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.InvariantCulture);
+        if (string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.InvariantCulture))
 #pragma warning restore CA1309 // Use ordinal string comparison
+        {
+            return true;
+        }
+
+        if (response.StartsWith(CConsts.WDEP_STATUS_600, StringComparison.InvariantCulture))
+        {
+            CheckExceptionInReply(response);
+        }
+        return false;
     }
 
     public static bool IsModuleNameApiSetContract(string moduleName)
@@ -177,6 +185,19 @@ public class CCoreClient : IDisposable
         }
 
         return moduleName.StartsWith("API-", StringComparison.OrdinalIgnoreCase) || moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void CheckExceptionInReply(string response)
+    {
+        CBufferChain idata = ReceiveReply();
+        if (!IsNullOrEmptyResponse(idata))
+        {
+            string result = idata.BufferToString();
+            if (!string.IsNullOrEmpty(result))
+            {
+                AddLogMessage(result, LogMessageType.ErrorOrWarning);
+            }
+        }
     }
 
     public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, bool preProcessData = false)
@@ -520,15 +541,6 @@ public class CCoreClient : IDisposable
         return null;
     }
 
-    public CCoreServStats GetCoreServStats()
-    {
-        var rootObject = (CCoreServStatsRoot)SendCommandAndReceiveReplyAsObjectJSON("servstats\r\n", typeof(CCoreServStatsRoot));
-        if (rootObject != null)
-            return rootObject.ServStats;
-
-        return null;
-    }
-
     public bool GetModuleHeadersInformation(CModule module)
     {
         if (module == null)
@@ -732,7 +744,6 @@ public class CCoreClient : IDisposable
                 }
             }
         }
-
     }
 
     public bool SetApiSetSchemaNamespaceUse(string fileName)
@@ -789,56 +800,56 @@ public class CCoreClient : IDisposable
         try
         {
             string fileName = GetServerApplication();
-            string processName = Path.GetFileNameWithoutExtension(fileName);
 
-            Process[] processList = Process.GetProcessesByName(processName);
-
-            foreach (Process process in processList)
+            if (!File.Exists(fileName))
             {
-                try
-                {
-                    var name = Path.GetFileName(process.MainModule.FileName);
-                    if (Path.GetFileName(fileName).Equals(name))
-                    {
-                        ServerProcess = process;
-                        break;
-                    }
-
-                }
-                catch
-                {
-                }
-
+                throw new FileNotFoundException(fileName);
             }
 
-            if (ServerProcess == null)
-            {
-                if (!File.Exists(fileName))
-                {
-                    throw new FileNotFoundException(fileName);
-                }
+            int startAttempts = 5;
+            int portNumber;
+            Random rnd = new(Process.GetCurrentProcess().Id);
 
+            do
+            {
+                portNumber = rnd.Next(49152, ushort.MaxValue);
                 ProcessStartInfo processInfo = new()
                 {
                     FileName = $"\"{fileName}\"",
+                    Arguments = $"port {portNumber}",
                     UseShellExecute = false
                 };
-                ServerProcess = Process.Start(processInfo);
-            }
 
-            if (ServerProcess == null)
-            {
-                throw new Exception("Core process start failure");
-            }
-            else
-            {
-                ClientConnection = new();
-                ClientConnection.Connect(IPAddress, PortNumber);
-                if (ClientConnection.Connected)
+                ServerProcess = Process.Start(processInfo);
+
+                if (ServerProcess == null)
                 {
-                    DataStream = ClientConnection.GetStream();
+                    throw new Exception("Core process start failure");
                 }
-            }
+                else
+                {
+                    if (ServerProcess.HasExited)
+                    {
+                        if (ServerProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
+                        {
+                            throw new Exception("Exception while starting core process");
+                        }
+                    }
+                    else
+                    {
+                        ClientConnection = new();
+                        ClientConnection.Connect(IPAddress, portNumber);
+                        if (ClientConnection.Connected)
+                        {
+                            DataStream = ClientConnection.GetStream();
+                            Port = portNumber;
+                            break;
+                        }
+
+                    }
+                }
+
+            } while (--startAttempts > 0);
 
         }
         catch (Exception ex)

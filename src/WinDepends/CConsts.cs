@@ -172,11 +172,17 @@ public static class CConsts
     public const string WinDependsCoreApp = "WinDepends.Core";
 
     public const string CoreServerAddress = "127.0.0.1";
-    public const int CoreServerPort = 8209;
     public const int CoreServerChainSizeMax = 32762;
 
     public const string HintFormLabelControl = "HintLabel";
     public const string CategoryUserDefinedDirectory = "The user defined directory";
+
+    public const int SERVER_ERROR_SUCCESS = 0;
+    public const int SERVER_ERROR_WSASTARTUP = 1;
+    public const int SERVER_ERROR_SOCKETINIT = 2;
+    public const int SERVER_ERROR_INVALIDIP = 3;
+    public const int SERVER_ERROR_BIND = 4;
+    public const int SERVER_ERROR_LISTEN = 5;
 
     /// <summary>
     /// Msg: OK
@@ -215,21 +221,9 @@ public static class CConsts
     /// </summary>
     public const string WDEP_STATUS_502 = "WDEP/1.0 502 Image buffer not allocated\r\n";
     /// <summary>
-    /// Msg: Exception in get_datadirs routine
+    /// Unhandled exception reported to the client
     /// </summary>
-    public const string WDEP_STATUS_600 = "WDEP/1.0 600 Exception in get_datadirs routine\r\n";
-    /// <summary>
-    /// Msg: Exception in get_headers routine
-    /// </summary>
-    public const string WDEP_STATUS_601 = "WDEP/1.0 601 Exception in get_headers routine\r\n";
-    /// <summary>
-    /// Msg: Exception in get_imports routine
-    /// </summary>
-    public const string WDEP_STATUS_602 = "WDEP/1.0 602 Exception in get_imports routine\r\n";
-    /// <summary>
-    /// Msg: Exception in get_exports routine
-    /// </summary>
-    public const string WDEP_STATUS_603 = "WDEP/1.0 603 Exception in get_exports routine\r\n";
+    public const string WDEP_STATUS_600 = "WDEP/1.0 600 Exception\r\n";
 }
 
 /// <summary>

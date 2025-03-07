@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Mar 04, 2025
+*  Modified on: Mar 07, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -35,6 +35,49 @@ DWORD ALIGN_UP(DWORD p, DWORD a)
 DWORD ALIGN_DOWN(DWORD p, DWORD a)
 {
     return p - (p % a);
+}
+
+typedef enum _exception_location {
+    ex_headers,
+    ex_datadirs,
+    ex_imports,
+    ex_exports
+} exception_location;
+
+VOID report_exception_to_client(
+    _In_ SOCKET s,
+    _In_ exception_location location,
+    _In_ DWORD exception_code
+)
+{
+    WCHAR text[512];
+    LPWSTR exlocation;
+
+    switch (location) {
+    case ex_headers:
+        exlocation = L"file headers";
+        break;
+    case ex_datadirs:
+        exlocation = L"data directories";
+        break;
+    case ex_imports:
+        exlocation = L"imports";
+        break;
+    case ex_exports:
+        exlocation = L"exports";
+        break;
+    default:
+        exlocation = L"module";
+        break;
+    }
+
+    StringCchPrintf(text, ARRAYSIZE(text),
+        L"%sAn unhandled exception (0x%lX) occurred while %s processing.\r\n",
+        WDEP_STATUS_600,
+        exception_code,
+        exlocation);
+
+    sendstring_plaintext_no_track(s, text);
 }
 
 BOOL relocimage64(
@@ -145,13 +188,13 @@ BOOL get_datadirs(
 
     __try {
 
+        InitializeListHead(&msg_lh);
+
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
         }
-
-        InitializeListHead(&msg_lh);
 
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
@@ -214,7 +257,7 @@ BOOL get_datadirs(
     {
         printf("exception in get_datadirs\r\n");
         mlist_traverse(&msg_lh, mlist_free, s, NULL);
-        sendstring_plaintext_no_track(s, WDEP_STATUS_600);
+        report_exception_to_client(s, ex_datadirs, GetExceptionCode());
     }
 
     return status;
@@ -244,6 +287,8 @@ BOOL get_headers(
 
     __try
     {
+        InitializeListHead(&msg_lh);
+
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
@@ -261,8 +306,6 @@ BOOL get_headers(
             sendstring_plaintext_no_track(s, WDEP_STATUS_500);
             __leave;
         }
-
-        InitializeListHead(&msg_lh);
 
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
@@ -517,7 +560,7 @@ BOOL get_headers(
     {
         printf("exception in get_headers\r\n");
         mlist_traverse(&msg_lh, mlist_free, s, NULL);
-        sendstring_plaintext_no_track(s, WDEP_STATUS_601);
+        report_exception_to_client(s, ex_headers, GetExceptionCode());
     }
 
     if (text != NULL) {
@@ -551,13 +594,15 @@ BOOL get_exports(
 
     __try
     {
+        InitializeListHead(&msg_lh);
+
+        //*(PBYTE)(NULL) = 0;
+
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
         }
-
-        InitializeListHead(&msg_lh);
 
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
@@ -658,7 +703,7 @@ BOOL get_exports(
     {
         printf("exception in get_exports\r\n");
         mlist_traverse(&msg_lh, mlist_free, s, NULL);
-        sendstring_plaintext_no_track(s, WDEP_STATUS_603);
+        report_exception_to_client(s, ex_exports, GetExceptionCode());
     }
 
     return status;
@@ -722,13 +767,15 @@ BOOL get_imports(
 
     __try
     {
+        InitializeListHead(&msg_lh);
+
+        //*(PBYTE)(NULL) = 0;
+
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
         }
-
-        InitializeListHead(&msg_lh);
 
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + ((PIMAGE_DOS_HEADER)context->module)->e_lfanew);
         opt_file_header.uptr = (PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER);
@@ -847,7 +894,7 @@ BOOL get_imports(
     {
         printf("exception in get_imports\r\n");
         mlist_traverse(&msg_lh, mlist_free, s, NULL);
-        sendstring_plaintext_no_track(s, WDEP_STATUS_602);
+        report_exception_to_client(s, ex_imports, GetExceptionCode());
     }
 
     return status;

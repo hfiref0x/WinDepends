@@ -28,17 +28,17 @@
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode45 = new TreeNode("History");
-            TreeNode treeNode46 = new TreeNode("Main", new TreeNode[] { treeNode45 });
-            TreeNode treeNode47 = new TreeNode("Analysis (global)");
-            TreeNode treeNode48 = new TreeNode("ApiSets");
-            TreeNode treeNode49 = new TreeNode("External Function Help");
-            TreeNode treeNode50 = new TreeNode("External Module Viewer");
-            TreeNode treeNode51 = new TreeNode("Handled File Extensions");
-            TreeNode treeNode52 = new TreeNode("Module Search Order");
-            TreeNode treeNode53 = new TreeNode("Module Search Order (drivers)");
-            TreeNode treeNode54 = new TreeNode("Server");
-            TreeNode treeNode55 = new TreeNode("Symbols");
+            TreeNode treeNode12 = new TreeNode("History");
+            TreeNode treeNode13 = new TreeNode("Main", new TreeNode[] { treeNode12 });
+            TreeNode treeNode14 = new TreeNode("Analysis (global)");
+            TreeNode treeNode15 = new TreeNode("ApiSets");
+            TreeNode treeNode16 = new TreeNode("External Function Help");
+            TreeNode treeNode17 = new TreeNode("External Module Viewer");
+            TreeNode treeNode18 = new TreeNode("Handled File Extensions");
+            TreeNode treeNode19 = new TreeNode("Module Search Order");
+            TreeNode treeNode20 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode21 = new TreeNode("Server");
+            TreeNode treeNode22 = new TreeNode("Symbols");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
@@ -134,11 +134,7 @@
             groupBox12 = new GroupBox();
             labelSrvPid = new Label();
             label7 = new Label();
-            label21 = new Label();
-            labelSrvTotalSocketsClosed = new Label();
-            label20 = new Label();
-            labelSrvTotalSocketsCreated = new Label();
-            labelSrvTotalThreads = new Label();
+            labelSrvPort = new Label();
             label16 = new Label();
             buttonServerConnect = new Button();
             labelServerStatus = new Label();
@@ -246,40 +242,40 @@
             TVSettings.HideSelection = false;
             TVSettings.Location = new Point(0, 0);
             TVSettings.Name = "TVSettings";
-            treeNode45.Name = "HistoryNode";
-            treeNode45.Tag = "11";
-            treeNode45.Text = "History";
-            treeNode46.Name = "MainWindowNode";
-            treeNode46.Tag = "10";
-            treeNode46.Text = "Main";
-            treeNode47.Name = "AnalysisNode";
-            treeNode47.Tag = "20";
-            treeNode47.Text = "Analysis (global)";
-            treeNode48.Name = "ApiSetsNode";
-            treeNode48.Tag = "30";
-            treeNode48.Text = "ApiSets";
-            treeNode49.Name = "xternalFunctionHelpNode";
-            treeNode49.Tag = "40";
-            treeNode49.Text = "External Function Help";
-            treeNode50.Name = "ExternalModuleViewerNode";
-            treeNode50.Tag = "50";
-            treeNode50.Text = "External Module Viewer";
-            treeNode51.Name = "ShellIntegrationNode";
-            treeNode51.Tag = "60";
-            treeNode51.Text = "Handled File Extensions";
-            treeNode52.Name = "SearchOrderNode";
-            treeNode52.Tag = "70";
-            treeNode52.Text = "Module Search Order";
-            treeNode53.Name = "SearchOrderDriverNode";
-            treeNode53.Tag = "80";
-            treeNode53.Text = "Module Search Order (drivers)";
-            treeNode54.Name = "ServerNode";
-            treeNode54.Tag = "90";
-            treeNode54.Text = "Server";
-            treeNode55.Name = "SymbolsNode";
-            treeNode55.Tag = "100";
-            treeNode55.Text = "Symbols";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode46, treeNode47, treeNode48, treeNode49, treeNode50, treeNode51, treeNode52, treeNode53, treeNode54, treeNode55 });
+            treeNode12.Name = "HistoryNode";
+            treeNode12.Tag = "11";
+            treeNode12.Text = "History";
+            treeNode13.Name = "MainWindowNode";
+            treeNode13.Tag = "10";
+            treeNode13.Text = "Main";
+            treeNode14.Name = "AnalysisNode";
+            treeNode14.Tag = "20";
+            treeNode14.Text = "Analysis (global)";
+            treeNode15.Name = "ApiSetsNode";
+            treeNode15.Tag = "30";
+            treeNode15.Text = "ApiSets";
+            treeNode16.Name = "xternalFunctionHelpNode";
+            treeNode16.Tag = "40";
+            treeNode16.Text = "External Function Help";
+            treeNode17.Name = "ExternalModuleViewerNode";
+            treeNode17.Tag = "50";
+            treeNode17.Text = "External Module Viewer";
+            treeNode18.Name = "ShellIntegrationNode";
+            treeNode18.Tag = "60";
+            treeNode18.Text = "Handled File Extensions";
+            treeNode19.Name = "SearchOrderNode";
+            treeNode19.Tag = "70";
+            treeNode19.Text = "Module Search Order";
+            treeNode20.Name = "SearchOrderDriverNode";
+            treeNode20.Tag = "80";
+            treeNode20.Text = "Module Search Order (drivers)";
+            treeNode21.Name = "ServerNode";
+            treeNode21.Tag = "90";
+            treeNode21.Text = "Server";
+            treeNode22.Name = "SymbolsNode";
+            treeNode22.Tag = "100";
+            treeNode22.Text = "Symbols";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode13, treeNode14, treeNode15, treeNode16, treeNode17, treeNode18, treeNode19, treeNode20, treeNode21, treeNode22 });
             TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
@@ -1243,18 +1239,14 @@
             // 
             groupBox12.Controls.Add(labelSrvPid);
             groupBox12.Controls.Add(label7);
-            groupBox12.Controls.Add(label21);
-            groupBox12.Controls.Add(labelSrvTotalSocketsClosed);
-            groupBox12.Controls.Add(label20);
-            groupBox12.Controls.Add(labelSrvTotalSocketsCreated);
-            groupBox12.Controls.Add(labelSrvTotalThreads);
+            groupBox12.Controls.Add(labelSrvPort);
             groupBox12.Controls.Add(label16);
             groupBox12.Controls.Add(buttonServerConnect);
             groupBox12.Controls.Add(labelServerStatus);
             groupBox12.Controls.Add(label15);
             groupBox12.Location = new Point(6, 94);
             groupBox12.Name = "groupBox12";
-            groupBox12.Size = new Size(468, 183);
+            groupBox12.Size = new Size(468, 133);
             groupBox12.TabIndex = 0;
             groupBox12.TabStop = false;
             // 
@@ -1276,59 +1268,23 @@
             label7.TabIndex = 12;
             label7.Text = "Process Id: ";
             // 
-            // label21
+            // labelSrvPort
             // 
-            label21.AutoSize = true;
-            label21.Location = new Point(25, 142);
-            label21.Name = "label21";
-            label21.Size = new Size(117, 15);
-            label21.TabIndex = 8;
-            label21.Text = "Total Sockets Closed:";
-            // 
-            // labelSrvTotalSocketsClosed
-            // 
-            labelSrvTotalSocketsClosed.AutoSize = true;
-            labelSrvTotalSocketsClosed.Location = new Point(175, 142);
-            labelSrvTotalSocketsClosed.Name = "labelSrvTotalSocketsClosed";
-            labelSrvTotalSocketsClosed.Size = new Size(13, 15);
-            labelSrvTotalSocketsClosed.TabIndex = 7;
-            labelSrvTotalSocketsClosed.Text = "0";
-            // 
-            // label20
-            // 
-            label20.AutoSize = true;
-            label20.Location = new Point(25, 115);
-            label20.Name = "label20";
-            label20.Size = new Size(122, 15);
-            label20.TabIndex = 6;
-            label20.Text = "Total Sockets Created:";
-            // 
-            // labelSrvTotalSocketsCreated
-            // 
-            labelSrvTotalSocketsCreated.AutoSize = true;
-            labelSrvTotalSocketsCreated.Location = new Point(175, 115);
-            labelSrvTotalSocketsCreated.Name = "labelSrvTotalSocketsCreated";
-            labelSrvTotalSocketsCreated.Size = new Size(13, 15);
-            labelSrvTotalSocketsCreated.TabIndex = 5;
-            labelSrvTotalSocketsCreated.Text = "0";
-            // 
-            // labelSrvTotalThreads
-            // 
-            labelSrvTotalThreads.AutoSize = true;
-            labelSrvTotalThreads.Location = new Point(175, 89);
-            labelSrvTotalThreads.Name = "labelSrvTotalThreads";
-            labelSrvTotalThreads.Size = new Size(13, 15);
-            labelSrvTotalThreads.TabIndex = 4;
-            labelSrvTotalThreads.Text = "0";
+            labelSrvPort.AutoSize = true;
+            labelSrvPort.Location = new Point(175, 89);
+            labelSrvPort.Name = "labelSrvPort";
+            labelSrvPort.Size = new Size(13, 15);
+            labelSrvPort.TabIndex = 4;
+            labelSrvPort.Text = "0";
             // 
             // label16
             // 
             label16.AutoSize = true;
             label16.Location = new Point(25, 89);
             label16.Name = "label16";
-            label16.Size = new Size(123, 15);
+            label16.Size = new Size(67, 15);
             label16.TabIndex = 3;
-            label16.Text = "Total Threads Created:";
+            label16.Text = "Server port:";
             // 
             // buttonServerConnect
             // 
@@ -1686,12 +1642,8 @@
         private Button buttonServerConnect;
         private Label labelServerStatus;
         private Label label15;
-        private Label labelSrvTotalThreads;
+        private Label labelSrvPort;
         private Label label16;
-        private Label label21;
-        private Label labelSrvTotalSocketsClosed;
-        private Label label20;
-        private Label labelSrvTotalSocketsCreated;
         private GroupBox groupBox7;
         private Button buttonBrowseServerApp;
         private TextBox serverAppLocationTextBox;

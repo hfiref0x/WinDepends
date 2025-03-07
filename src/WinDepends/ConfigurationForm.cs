@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Mar 2025
+*  DATE:        07 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -219,14 +219,7 @@ public partial class ConfigurationForm : Form
         labelServerStatus.Text = "Connected";
         labelServerStatus.ForeColor = Color.Green;
         buttonServerConnect.Text = "Reconnect";
-
-        CCoreServStats srvStats = m_CoreClient.GetCoreServStats();
-        if (srvStats != null)
-        {
-            labelSrvTotalSocketsCreated.Text = srvStats.SocketsCreated.ToString();
-            labelSrvTotalSocketsClosed.Text = srvStats.SocketsClosed.ToString();
-            labelSrvTotalThreads.Text = srvStats.ThreadsCount.ToString();
-        }
+        labelSrvPort.Text = m_CoreClient.Port.ToString();
     }
 
     private void ShowApiSetNamespaceInformation()

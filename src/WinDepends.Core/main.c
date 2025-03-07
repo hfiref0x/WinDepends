@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Mar 04, 2025
+*  Modified on: Mar 07, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -13,10 +13,10 @@
 #include "core.h"
 #include "pe32plus.h"
 
-#define APP_PORT        8209
-#define APP_ADDR        "127.0.0.1"
-#define APP_MAXUSERS    32
-#define APP_KEEPALIVE   1
+#define APP_PORT_DEFAULT    8209
+#define APP_ADDR            "127.0.0.1"
+#define APP_MAXUSERS        1
+#define APP_KEEPALIVE       1
 
 static long g_threads = 0;
 static long long g_client_sockets_created = 0;
@@ -227,16 +227,6 @@ DWORD WINAPI client_thread(
                 break;
 
                 //
-                // Return global server stats.
-                //
-            case ce_servstats:
-                cmd_servstats(s,
-                    InterlockedCompareExchange(&g_threads, 0, 0),
-                    InterlockedCompareExchange64(&g_client_sockets_created, 0, 0),
-                    InterlockedCompareExchange64(&g_client_sockets_closed, 0, 0));
-                break;
-
-                //
                 // Unknown command handler.
                 //
             case ce_unknown:
@@ -352,8 +342,9 @@ DWORD WINAPI server_watchdog_thread(
 #ifdef _DEBUG
     INT timeout = 60;
 #else
-    INT timeout = 30;
+    INT timeout = 10;
 #endif
+
     do {
 
         Sleep(1000);
@@ -369,7 +360,11 @@ DWORD WINAPI server_watchdog_thread(
             }
         }
         else {
-            timeout = 30;
+#ifdef _DEBUG
+            timeout = 60;
+#else
+            timeout = 10;
+#endif
         }
 
     } while (TRUE);
@@ -377,148 +372,26 @@ DWORD WINAPI server_watchdog_thread(
     return 0;
 }
 
-void test_api_setV6(PAPI_SET_NAMESPACE ApiSetNamespace)
+u_short select_server_port(
+    VOID
+)
 {
-    LPWSTR ToResolve6[] = {
-       L"hui-ms-win-core-app-l1-2-3.dll",
-        L"api-ms-win-nevedomaya-ebanaya-hyinua-l1-1-3.dll",
-        L"api-ms-win-core-appinit-l1-1-0.dll",
-        L"api-ms-win-core-com-private-l1-2-0",
-        L"ext-ms-win-fs-clfs-l1-1-0.dll",
-        L"ext-ms-win-core-app-package-registration-l1-1-1",
-        L"ext-ms-win-shell-ntshrui-l1-1-0.dll",
-        NULL,
-        L"api-ms-win-core-psapi-l1-1-0.dll",
-        L"api-ms-win-core-enclave-l1-1-1.dll",
-        L"api-ms-onecoreuap-print-render-l1-1-0.dll",
-        L"api-ms-win-deprecated-apis-advapi-l1-1-0.dll",
-        L"api-ms-win-core-com-l2-1-1"
-    };
+    ULONG   param_length = 0;
+    WCHAR   option_buffer[32];
+    LPCWSTR params = GetCommandLineW();
 
-    UNICODE_STRING Name, Resolved;
-    WCHAR test[2000];
-
-    SIZE_T length = 0;
-    LPWSTR name = resolve_apiset_name(L"ext-ms-win-core-app-package-registration-l1-1-1", NULL, &length);
-    if (name) {
-        wprintf(L"DLL: %s\r\n", name);
-    }
-    gsup.RtlInitUnicodeString(&Name, L"ext-ms-win-core-app-package-registration-l1-1-1");
-    if (NT_SUCCESS(ApiSetResolveToHostV6(ApiSetNamespace, &Name, NULL, &Resolved)))
+    if (get_params_option(
+        params,
+        L"port",
+        TRUE,
+        option_buffer,
+        ARRAYSIZE(option_buffer),
+        &param_length))
     {
-        StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
-        wprintf(L"%s\r\n", test);
+        return (u_short)strtoul_w(option_buffer);
     }
 
-    for (ULONG i = 0; i < RTL_NUMBER_OF(ToResolve6); i++) {
-
-        gsup.RtlInitUnicodeString(&Name, ToResolve6[i]);
-
-        if (NT_SUCCESS(ApiSetResolveToHostV6(ApiSetNamespace, &Name, NULL, &Resolved)))
-        {
-            StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
-            wprintf(L"APISET V6: %s --> %s\r\n", ToResolve6[i], test);
-        }
-    }
-}
-
-void test_api_setV4(PAPI_SET_NAMESPACE ApiSetNamespace)
-{
-    LPWSTR ToResolve4[] = {
-        L"API-MS-WIN-CORE-PROCESSTHREADS-L1-1-2.DLL",
-        L"API-MS-WIN-CORE-KERNEL32-PRIVATE-L1-1-1.DLL",
-        L"API-MS-WIN-CORE-PRIVATEPROFILE-L1-1-1.DLL",
-        L"API-MS-WIN-CORE-SHUTDOWN-L1-1-1.DLL",
-        L"API-MS-WIN-SERVICE-PRIVATE-L1-1-1.DLL",
-        L"EXT-MS-WIN-MF-PAL-L1-1-0.DLL",
-        L"EXT-MS-WIN-NTUSER-UICONTEXT-EXT-L1-1-0.DLL"
-    };
-
-    UNICODE_STRING Name, Resolved;
-    WCHAR test[2000];
-
-    for (ULONG i = 0; i < RTL_NUMBER_OF(ToResolve4); i++) {
-
-        gsup.RtlInitUnicodeString(&Name, ToResolve4[i]);
-
-        if (NT_SUCCESS(ApiSetResolveToHostV4(ApiSetNamespace, &Name, NULL, &Resolved)))
-        {
-            StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
-            wprintf(L"APISET V4: %s --> %s\r\n", ToResolve4[i], test);
-        }
-    }
-}
-
-void test_api_setV2(PAPI_SET_NAMESPACE ApiSetNamespace)
-{
-    LPWSTR ToResolve2[] = {
-        L"API-MS-Win-Core-Console-L1-1-0",
-        L"API-MS-Win-Security-Base-L1-1-0",
-        L"API-MS-Win-Core-Profile-L1-1-0.DLL",
-        L"API-MS-Win-Core-Util-L1-1-0",
-        L"API-MS-Win-Service-winsvc-L1-1-0",
-        L"API-MS-Win-Core-ProcessEnvironment-L1-1-0",
-        L"API-MS-Win-Core-Localization-L1-1-0.DLL",
-        L"API-MS-Win-Security-LSALookup-L1-1-0",
-        L"API-MS-Win-Service-Core-L1-1-0",
-        L"API-MS-Win-Service-Management-L1-1-0",
-        L"API-MS-Win-Service-Management-L2-1-0",
-        L"API-MS-Win-Core-RtlSupport-L1-1-0",
-        L"API-MS-Win-Core-Interlocked-L1-1-0.DLL"
-    };
-
-    UNICODE_STRING Name, Resolved;
-    WCHAR test[2000];
-
-    for (ULONG i = 0; i < RTL_NUMBER_OF(ToResolve2); i++) {
-
-        gsup.RtlInitUnicodeString(&Name, ToResolve2[i]);
-
-        if (NT_SUCCESS(ApiSetResolveToHostV2(ApiSetNamespace, &Name, NULL, &Resolved)))
-        {
-            StringCbCopyN(test, sizeof(test), Resolved.Buffer, Resolved.Length);
-            wprintf(L"APISET V2: %s --> %s\r\n", ToResolve2[i], test);
-        }
-    }
-}
-
-void test_api_set()
-{
-    PAPI_SET_NAMESPACE ApiSetNamespace;
-
-    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV6.dll");
-    if (ApiSetNamespace) {
-        gsup.ApiSetMap = ApiSetNamespace;
-    }
-    else
-    {
-        return;
-    }
-
-    test_api_setV6(ApiSetNamespace);
-
-    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV4.dll");
-    if (ApiSetNamespace) {
-        gsup.ApiSetMap = ApiSetNamespace;
-    }
-    else
-    {
-        return;
-    }
-
-    test_api_setV4(ApiSetNamespace);
-
-    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV2.dll");
-    if (ApiSetNamespace) {
-        gsup.ApiSetMap = ApiSetNamespace;
-    }
-    else
-    {
-        return;
-    }
-
-    test_api_setV2(ApiSetNamespace);
-
+    return APP_PORT_DEFAULT;
 }
 
 #if defined _DEBUG || defined _CONSOLE
@@ -538,7 +411,7 @@ int CALLBACK WinMain(
     UNREFERENCED_PARAMETER(nCmdShow);
 #endif
     HANDLE      th;
-    DWORD       tid;
+    DWORD       tid, error_code = ERROR_SUCCESS;
     WORD        wVersionRequested;
     WSADATA     wsadat = { 0 };
     int         wsaerr, e;
@@ -546,10 +419,13 @@ int CALLBACK WinMain(
  
     struct sockaddr_in app_saddr = { 0 };
 
+    u_short     server_port;
+
     printf("Starting WinDepends.Core . . .\r\n");
 
     utils_init();
-    //test_api_set();
+
+    server_port = select_server_port();
 
     th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)server_watchdog_thread, NULL, 0, &tid);
     if (!th) {
@@ -561,7 +437,7 @@ int CALLBACK WinMain(
     if (wsaerr != 0)
     {
         printf("Failed to initialize Winsock.\r\n");
-        ExitProcess(1);
+        ExitProcess(SERVER_ERROR_WSASTARTUP);
     }
 
     g_appsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -574,26 +450,30 @@ int CALLBACK WinMain(
         e = setsockopt(g_appsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
         if (e != 0) {
             printf("Socket init error.\r\n");
+            error_code = SERVER_ERROR_SOCKETINIT;
             break;
         }
 
         app_saddr.sin_family = AF_INET;
-        app_saddr.sin_port = htons(APP_PORT);
+        app_saddr.sin_port = htons(server_port);
         e = inet_pton(AF_INET, APP_ADDR, &app_saddr.sin_addr);
         if (e != 1) {
             printf("Invalid IP address.\r\n");
+            error_code = SERVER_ERROR_INVALIDIP;
             break;
         }
 
         e = bind(g_appsocket, (const struct sockaddr*)&app_saddr, sizeof(app_saddr));
         if (e != 0) {
             printf("Failed to start server. Can not bind to address.\r\n");
+            error_code = SERVER_ERROR_BIND;
             break;
         }
 
         e = listen(g_appsocket, SOMAXCONN);
         if (e != 0) {
             printf("Unable to listen socket.\r\n");
+            error_code = SERVER_ERROR_LISTEN;
             break;
         }
 
@@ -607,5 +487,5 @@ int CALLBACK WinMain(
 
     printf("Goodbye!\r\n");
     WSACleanup();
-    ExitProcess(0);
+    ExitProcess(error_code);
 }

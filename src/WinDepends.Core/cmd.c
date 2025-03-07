@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Dec 07, 2024
+*  Modified on: Mar 07, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -31,8 +31,7 @@ cmd_entry cmds[] = {
     {L"apisetresolve", 13, ce_apisetresolve },
     {L"apisetmapsrc", 12, ce_apisetmapsrc },
     {L"apisetnsinfo", 12, ce_apisetnsinfo },
-    {L"callstats", 9, ce_callstats },
-    {L"servstats", 9, ce_servstats }
+    {L"callstats", 9, ce_callstats }
 };
 
 cmd_entry_type get_command_entry(
@@ -108,36 +107,6 @@ void cmd_callstats(
 
         sendstring_plaintext_no_track(s, buffer);
     }
-}
-
-/*
-* cmd_servstats
-*
-* Purpose:
-*
-* Global server stats.
-*
-*/
-void cmd_servstats(
-    _In_ SOCKET s,
-    _In_ long long threadsCount,
-    _In_ long long socketsCreated,
-    _In_ long long socketsClosed
-)
-{
-    WCHAR buffer[512];
-
-    StringCchPrintf(buffer, ARRAYSIZE(buffer),
-        L"%s{\"servstats\":{"
-        L"\"threadsCount\":%I64d,"
-        L"\"socketsCreated\":%I64d,"
-        L"\"socketsClosed\":%I64d}}\r\n",
-        WDEP_STATUS_OK,
-        threadsCount,
-        socketsCreated,
-        socketsClosed);
-
-    sendstring_plaintext_no_track(s, buffer);
 }
 
 /*

@@ -160,7 +160,7 @@ public partial class MainForm : Form
         //
         // Start server app.
         //       
-        m_CoreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, CConsts.CoreServerPort, AddLogMessage);
+        m_CoreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AddLogMessage);
         if (m_CoreClient.ConnectClient())
         {
             if (m_CoreClient.GetKnownDllsAll(CPathResolver.KnownDlls,
@@ -316,12 +316,6 @@ public partial class MainForm : Form
                 case ModuleOpenStatus.Okay:
 
                     module.IsProcessed = m_CoreClient.GetModuleHeadersInformation(module);
-                    if (!module.IsProcessed)
-                    {
-                        AddLogMessage($"Module \"{module.FileName}\" was not processed.",
-                            LogMessageType.ErrorOrWarning,
-                            null, true, true);
-                    }
 
                     //
                     // If this is root module, setup resolver.
@@ -385,6 +379,13 @@ public partial class MainForm : Form
                         module.OtherErrorsPresent = true;
                         AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations but is 64-bit architecture.",
                             LogMessageType.ErrorOrWarning, null, true, true);
+                    }
+
+                    if (!module.IsProcessed)
+                    {
+                        AddLogMessage($"Module \"{module.FileName}\" was not fully processed.",
+                            LogMessageType.ErrorOrWarning,
+                            null, true, true);
                     }
                     break;
 

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Feb 22, 2025
+*  Modified on: Mar 04, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -32,10 +32,7 @@
 #define WDEP_STATUS_500 L"WDEP/1.0 500 Can not allocate resources\r\n"
 #define WDEP_STATUS_501 L"WDEP/1.0 501 Context not allocated\r\n"
 #define WDEP_STATUS_502 L"WDEP/1.0 502 Image buffer not allocated\r\n"
-#define WDEP_STATUS_600 L"WDEP/1.0 600 Exception in get_datadirs routine\r\n"
-#define WDEP_STATUS_601 L"WDEP/1.0 601 Exception in get_headers routine\r\n"
-#define WDEP_STATUS_602 L"WDEP/1.0 602 Exception in get_imports routine\r\n"
-#define WDEP_STATUS_603 L"WDEP/1.0 603 Exception in get_exports routine\r\n"
+#define WDEP_STATUS_600 L"WDEP/1.0 600 Exception\r\n"
 
 #define get_pe_dirbase_size(hdr, index, base, size) if (hdr->NumberOfRvaAndSizes > index) {base = hdr->DataDirectory[index].VirtualAddress; size = hdr->DataDirectory[index].Size;}
 #define define_3264_union(type, name) union name##__ {LPVOID uptr; type##32 *name##32; type##64 *name##64;} name;

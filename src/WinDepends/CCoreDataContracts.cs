@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CCOREDATACONTRACTS.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        07 Dec 2024
+*  DATE:        07 Mar 2025
 *  
 *  Core Server reply structures (JSON serialized).
 *
@@ -205,32 +205,6 @@ public class CCoreKnownDllsRoot
 {
     [DataMember(Name = "knowndlls")]
     public CCoreKnownDlls KnownDlls { get; set; }
-}
-
-/*
- *  CCoreServStats.
- * 
-*/
-
-[DataContract]
-public class CCoreServStats
-{
-
-    [DataMember(Name = "threadsCount")]
-    public UInt64 ThreadsCount { get; set; }
-
-    [DataMember(Name = "socketsCreated")]
-    public UInt64 SocketsCreated { get; set; }
-
-    [DataMember(Name = "socketsClosed")]
-    public UInt64 SocketsClosed { get; set; }
-}
-
-[DataContract]
-public class CCoreServStatsRoot
-{
-    [DataMember(Name = "servstats")]
-    public CCoreServStats ServStats { get; set; }
 }
 
 /*

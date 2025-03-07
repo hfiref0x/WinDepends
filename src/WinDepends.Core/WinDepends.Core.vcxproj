@@ -362,6 +362,7 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="mlist.c" />
     <ClCompile Include="pe32plus.c" />
+    <ClCompile Include="tests.c" />
     <ClCompile Include="util.c" />
     <ClCompile Include="vsverinfo.c" />
   </ItemGroup>
@@ -373,6 +374,7 @@
     <ClInclude Include="ntdll.h" />
     <ClInclude Include="pe32plus.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="tests.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="vsverinfo.h" />
   </ItemGroup>

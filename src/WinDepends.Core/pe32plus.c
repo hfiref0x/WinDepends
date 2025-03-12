@@ -1106,13 +1106,15 @@ LPBYTE pe32open(
         }
 
 
-        if (!context->image_fixed && use_reloc) {
+        printf("use_reloc %li min_app_address %li\r\n", context->use_reloc, context->min_app_address);
+        if (/*!context->image_fixed &&*/ use_reloc) {
             startAddress = min_app_address;
         }
 
         // allocate image buffer below 4GB for x86-32 compatibility
         for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
         {
+            printf("Module base %llX\r\n", startAddress);
             module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             if (module)
                 break;

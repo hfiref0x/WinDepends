@@ -403,6 +403,39 @@ pmodule_ctx cmd_open(
         }
 
         param_length = 0;
+        RtlSecureZeroMemory(&option_buffer, sizeof(option_buffer));
+
+        //
+        // Read reloc command and value if both present.
+        //
+        if (get_params_option(
+            params,
+            L"reloc",
+            TRUE,
+            option_buffer,
+            ARRAYSIZE(option_buffer),
+            &param_length))
+        {
+            context->use_reloc = TRUE;
+            context->min_app_address = strtoul_w(option_buffer);
+        }
+
+        //
+        // Read usestats command.
+        //
+        param_length = 0;
+        context->enable_call_stats = get_params_option(
+            params,
+            L"use_stats",
+            FALSE,
+            NULL,
+            0,
+            &param_length);
+
+        //
+        // pe32open take place here.
+        //
+        param_length = 0;
         if (get_params_option(
             params,
             L"file",
@@ -423,30 +456,6 @@ pmodule_ctx cmd_open(
             }
 
             context->module = pe32open(s, context);
-        }
-
-        param_length = 0;
-        context->enable_call_stats = get_params_option(
-            params,
-            L"use_stats",
-            FALSE,
-            NULL,
-            0,
-            &param_length);
-
-        param_length = 0;
-        RtlSecureZeroMemory(&option_buffer, sizeof(option_buffer));
-
-        if (get_params_option(
-            params,
-            L"reloc",
-            TRUE,
-            option_buffer,
-            ARRAYSIZE(option_buffer),
-            &param_length))
-        {
-            context->use_reloc = TRUE;
-            context->min_app_address = strtoul_w(option_buffer);
         }
 
         bResult = TRUE;

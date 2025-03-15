@@ -37,21 +37,6 @@
 #define get_pe_dirbase_size(hdr, index, base, size) if (hdr->NumberOfRvaAndSizes > index) {base = hdr->DataDirectory[index].VirtualAddress; size = hdr->DataDirectory[index].Size;}
 #define define_3264_union(type, name) union name##__ {LPVOID uptr; type##32 *name##32; type##64 *name##64;} name;
 
-#define process_thunks(thunk, flag, bound) \
-    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++bound, ++i) { \
-        DWORD fhint, ordinal; ULONG64 fbound = 0; char *strfname;\
-        if ((ULONG_PTR)bound > 0x10000) fbound = *bound; \
-        if ((thunk->u1.Function & flag) != 0)  \
-        { strfname = ""; fhint = MAXDWORD32; ordinal = IMAGE_ORDINAL64(thunk->u1.Ordinal); } \
-        else \
-        { \
-           PIMAGE_IMPORT_BY_NAME fname = (PIMAGE_IMPORT_BY_NAME)(context->module + thunk->u1.Function); \
-           fhint = fname->Hint; strfname = (char*)&fname->Name; ordinal = MAXDWORD32; \
-        } \
-        if (i > 0) mlist_add(&msg_lh, L","); \
-        StringCchPrintf(text, ARRAYSIZE(text), L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}", ordinal, fhint, strfname, fbound); \
-        mlist_add(&msg_lh, text); }
-
 #define valid_image_range(range_start, range_size, image_base, image_size) \
     (((range_size) <= (image_size)) && ((range_start) >= (image_base)) && ((range_start) <= (image_base + image_size)) && ((range_start + range_size) <= (image_base + image_size)))
 

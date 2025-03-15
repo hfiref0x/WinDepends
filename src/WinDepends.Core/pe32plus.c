@@ -709,38 +709,103 @@ BOOL get_exports(
     return status;
 }
 
-/*
-void process_thunks_dbg(pmodule_ctx context, PBYTE module, SOCKET s, PIMAGE_THUNK_DATA32 thunk, DWORD64 flag, PULONG32 bound)
+static void process_thunks64(
+    PBYTE                   module,
+    PIMAGE_THUNK_DATA64     thunk,
+    PULONG64                bound_table,
+    PWCHAR                  buffer,
+    SIZE_T                  cchbuffer,
+    PLIST_ENTRY             msg_lh,
+    BOOL                    rvabased
+)
 {
-    DWORD   fhint, ordinal;
-    char    *strfname;
-    ULONG64 fbound = 0;
-    WCHAR   text[4096];
+    DWORD       fhint = 0, ordinal = 0;
+    ULONG64     fbound = 0;
+    char* strfname = NULL;
 
-    for (; thunk->u1.AddressOfData; ++thunk, ++bound)
+    PIMAGE_IMPORT_BY_NAME fname = NULL;
+
+    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++bound_table, ++i)
     {
-        if ((ULONG_PTR)bound > 0x10000) fbound = *bound;
-        if ((thunk->u1.Function & flag) != 0)
+        if ((ULONG_PTR)bound_table > 0x10000)
+            fbound = *bound_table;
+
+        if ((thunk->u1.Function & IMAGE_ORDINAL_FLAG64) != 0)
         {
             strfname = "";
             fhint = MAXDWORD32;
-            ordinal = IMAGE_ORDINAL64(thunk->u1.Ordinal);
+            ordinal = IMAGE_ORDINAL32(thunk->u1.Ordinal);
         }
         else
         {
-            PIMAGE_IMPORT_BY_NAME fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
+            if (rvabased)
+                fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
+            else
+                fname = (PIMAGE_IMPORT_BY_NAME)thunk->u1.Function;
+
+            fhint = fname->Hint;
+            strfname = (char*)&fname->Name;
+            ordinal = MAXDWORD32;
+        }
+
+        if (i > 0)
+            mlist_add(msg_lh, L",");
+
+        StringCchPrintf(buffer, cchbuffer,
+            L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
+            ordinal, fhint, strfname, fbound);
+        mlist_add(msg_lh, buffer);
+    }
+}
+
+static void process_thunks32(
+    PBYTE                   module,
+    PIMAGE_THUNK_DATA32     thunk,
+    PULONG32                bound_table,
+    PWCHAR                  buffer,
+    SIZE_T                  cchbuffer,
+    PLIST_ENTRY             msg_lh,
+    BOOL                    rvabased
+)
+{
+    DWORD       fhint = 0, ordinal = 0;
+    ULONG64     fbound = 0;
+    char        *strfname = NULL;
+
+    PIMAGE_IMPORT_BY_NAME fname = NULL;
+
+    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++bound_table, ++i)
+    {
+        if ((ULONG_PTR)bound_table > 0x10000)
+            fbound = *bound_table;
+        
+        if ((thunk->u1.Function & IMAGE_ORDINAL_FLAG32) != 0)
+        {
+            strfname = "";
+            fhint = MAXDWORD32;
+            ordinal = IMAGE_ORDINAL32(thunk->u1.Ordinal);
+        }
+        else
+        {
+            if (rvabased)
+                fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
+            else
+                fname = (PIMAGE_IMPORT_BY_NAME)(DWORD_PTR)thunk->u1.Function;
+
             fhint = fname->Hint;
             strfname = (char*)&fname->Name;
             ordinal = MAXDWORD32;
         }
         
-        StringCchPrintf(text, ARRAYSIZE(text),
+        if (i > 0)
+            mlist_add(msg_lh, L",");
+
+        StringCchPrintf(buffer, cchbuffer,
             L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
             ordinal, fhint, strfname, fbound);
-        sendstring_plaintext(s, text, context);
+        mlist_add(msg_lh, buffer);
     }
 }
-*/
 
 BOOL get_imports(
     _In_ SOCKET s,
@@ -750,7 +815,8 @@ BOOL get_imports(
     LIST_ENTRY                  msg_lh;
     PIMAGE_FILE_HEADER          nt_file_hdr;
     DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c;
-    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0, IModuleName, INameTable;
+    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0,
+                                IModuleName, INameTable, delta;
     BOOL                        status = FALSE, importPresent = FALSE;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
@@ -813,7 +879,9 @@ BOOL get_imports(
                 if (c > 0)
                     mlist_add(&msg_lh, L",");
 
-                StringCchPrintf(text, ARRAYSIZE(text), L"{\"name\":\"%S\",\"delay\":0,\"functions\":[", (char*)context->module + SImportTable->Name);
+                StringCchPrintf(text, ARRAYSIZE(text),
+                    L"{\"name\":\"%S\",\"delay\":0,\"functions\":[",
+                    (char*)context->module + SImportTable->Name);
                 mlist_add(&msg_lh, text);
 
                 bound_table.uptr = NULL;
@@ -824,17 +892,17 @@ BOOL get_imports(
                 else
                 {
                     thunk_data.uptr = context->module + SImportTable->OriginalFirstThunk;
-                    if (SImportTable->TimeDateStamp)
-                        bound_table.uptr = context->module + SImportTable->FirstThunk;
                 }
+                if (SImportTable->TimeDateStamp)
+                    bound_table.uptr = context->module + SImportTable->FirstThunk;
 
                 if (context->image_64bit)
-                    process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64)
+                    process_thunks64(context->module, thunk_data.thunk_data64,
+                        bound_table.bound_table64, text, ARRAYSIZE(text), &msg_lh, TRUE);
                 else
-#pragma warning(push)
-#pragma warning(disable: 28182) // No.
-                    process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32);
-#pragma warning(pop)
+                    process_thunks32(context->module, thunk_data.thunk_data32,
+                        bound_table.bound_table32, text, ARRAYSIZE(text), &msg_lh, TRUE);
+
                 mlist_add(&msg_lh, L"]}");
             }
             status = TRUE;           
@@ -852,21 +920,19 @@ BOOL get_imports(
                 IModuleName = DImportTable->DllNameRVA;
                 INameTable = DImportTable->ImportNameTableRVA;
 
-                if (context->image_fixed)
+                if (DImportTable->Attributes.RvaBased)
                 {
-                    if (DImportTable->Attributes.RvaBased)
+                    if (context->image_fixed)
                     {
-                        IModuleName += ImageBase;
-                        INameTable += ImageBase;
+                        delta = ImageBase;
                     }
-                }
-                else
-                {
-                    if (DImportTable->Attributes.RvaBased)
+                    else
                     {
-                        IModuleName += (DWORD_PTR)context->module;
-                        INameTable += (DWORD_PTR)context->module;
+                        delta = (DWORD_PTR)context->module;
                     }
+
+                    IModuleName += delta;
+                    INameTable += delta;
                 }
 
                 if (c > 0)
@@ -878,10 +944,11 @@ BOOL get_imports(
                 bound_table.uptr = NULL;
                 thunk_data.uptr = (LPVOID)INameTable;
                 if (context->image_64bit)
-                    process_thunks(thunk_data.thunk_data64, IMAGE_ORDINAL_FLAG64, bound_table.bound_table64)
+                    process_thunks64(context->module, thunk_data.thunk_data64,
+                        bound_table.bound_table64, text, ARRAYSIZE(text), &msg_lh, DImportTable->Attributes.RvaBased);
                 else
-                    //process_thunks_dbg(context->module, s, thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32);
-                    process_thunks(thunk_data.thunk_data32, IMAGE_ORDINAL_FLAG32, bound_table.bound_table32);
+                    process_thunks32(context->module, thunk_data.thunk_data32,
+                        bound_table.bound_table32, text, ARRAYSIZE(text), &msg_lh, DImportTable->Attributes.RvaBased);
 
                 mlist_add(&msg_lh, L"]}");
             }

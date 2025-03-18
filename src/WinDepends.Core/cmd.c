@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Mar 07, 2025
+*  Modified on: Mar 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -402,22 +402,39 @@ pmodule_ctx cmd_open(
             break;
         }
 
+        context->allocation_granularity = gsup.dwAllocationGranularity;
+
         param_length = 0;
         RtlSecureZeroMemory(&option_buffer, sizeof(option_buffer));
 
         //
-        // Read reloc command and value if both present.
+        // Read process_relocs command.
         //
         if (get_params_option(
             params,
-            L"reloc",
+            L"process_relocs",
+            FALSE,
+            NULL,
+            0,
+            &param_length))
+        {
+            context->process_relocs = TRUE;
+        }
+
+        //
+        // Read enable_custom_image_base command and set value.
+        //
+        if (get_params_option(
+            params,
+            L"custom_image_base",
             TRUE,
             option_buffer,
             ARRAYSIZE(option_buffer),
             &param_length))
         {
-            context->use_reloc = TRUE;
-            context->min_app_address = strtoul_w(option_buffer);
+            context->process_relocs = TRUE;
+            context->enable_custom_image_base = TRUE;
+            context->custom_image_base = strtoul_w(option_buffer);
         }
 
         //

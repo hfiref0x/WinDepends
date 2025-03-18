@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Mar 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -566,6 +566,24 @@ void utils_init()
         return;
     }
 
+    BOOL bWow64 = FALSE;
+    gsup.dwAllocationGranularity = PAGE_GRANULARITY;
+
+    if (IsWow64Process(GetCurrentProcess(), &bWow64)) {
+
+        SYSTEM_INFO si;
+
+        if (bWow64) {
+            GetNativeSystemInfo(&si);
+        }
+        else {
+            GetSystemInfo(&si);
+        }
+
+        gsup.dwAllocationGranularity = si.dwAllocationGranularity;
+
+    }
+
     if (build_knowndlls_list(FALSE) &&
         build_knowndlls_list(TRUE))
     {
@@ -574,7 +592,8 @@ void utils_init()
 
 }
 
-_Success_(return != NULL) LPWSTR resolve_apiset_name(
+_Success_(return != NULL)
+LPWSTR resolve_apiset_name(
     _In_ LPCWSTR apiset_name,
     _In_opt_ LPCWSTR parent_name,
     _Out_ SIZE_T * name_length

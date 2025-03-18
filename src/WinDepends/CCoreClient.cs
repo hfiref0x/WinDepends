@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        07 Mar 2025
+*  DATE:        17 Mar 2025
 *  
 *  Core Server communication class.
 *
@@ -286,9 +286,9 @@ public class CCoreClient : IDisposable
         {
             using (BinaryReader br = new(DataStream, Encoding.Unicode, true))
             {
-                CBufferChain buf = new(), buf0;
-                char prev = '\0';
-                buf0 = buf;
+                CBufferChain bufferChain = new(), currentBuffer;
+                char previousChar = '\0';
+                currentBuffer = bufferChain;
 
                 while (true)
                 {
@@ -296,23 +296,25 @@ public class CCoreClient : IDisposable
                     {
                         try
                         {
-                            buf.Data[i] = br.ReadChar();
+                            bufferChain.Data[i] = br.ReadChar();
                         }
                         catch
                         {
-                            return buf0;
+                            return currentBuffer;
                         }
 
-                        buf.DataSize++;
+                        bufferChain.DataSize++;
 
-                        if (buf.Data[i] == '\n' && prev == '\r')
-                            return buf0;
+                        if (bufferChain.Data[i] == '\n' && previousChar == '\r')
+                        {
+                            return currentBuffer;
+                        }
 
-                        prev = buf.Data[i];
+                        previousChar = bufferChain.Data[i];
                     }
 
-                    buf.Next = new();
-                    buf = buf.Next;
+                    bufferChain.Next = new();
+                    bufferChain = bufferChain.Next;
                 }
             }
         }
@@ -369,10 +371,11 @@ public class CCoreClient : IDisposable
     /// </summary>
     /// <param name="module"></param>
     /// <param name="useStats"></param>
-    /// <param name="useReloc"></param>
-    /// <param name="minAppAddress"></param>
+    /// <param name="processRelocs"></param>
+    /// <param name="useCustomImageBase"></param>
+    /// <param name="customImageBase"></param>
     /// <returns></returns>
-    public ModuleOpenStatus OpenModule(ref CModule module, bool useStats, bool useReloc, uint minAppAddress)
+    public ModuleOpenStatus OpenModule(ref CModule module, bool useStats, bool processRelocs, bool useCustomImageBase, uint customImageBase)
     {
         string cmd = $"open file \"{module.FileName}\"";
 
@@ -381,9 +384,14 @@ public class CCoreClient : IDisposable
             cmd += " use_stats";
         }
 
-        if (useReloc)
+        if (processRelocs)
         {
-            cmd += $" reloc {minAppAddress}";
+            cmd += $" process_relocs";
+        }
+
+        if (useCustomImageBase)
+        {
+            cmd += $" custom_image_base {customImageBase}";
         }
 
         cmd += "\r\n";
@@ -900,7 +908,7 @@ public class CCoreClient : IDisposable
             return;
         }
 
-        ExitRequest();
+        ShudownRequest();
 
         DataStream?.Close();
     }

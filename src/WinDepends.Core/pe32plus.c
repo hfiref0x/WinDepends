@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Mar 07, 2025
+*  Modified on: Mar 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -972,15 +972,14 @@ LPBYTE pe32open(
     _In_opt_ pmodule_ctx context
 )
 {
-    BOOL                use_reloc = FALSE;
     HANDLE              hf = INVALID_HANDLE_VALUE;
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
     DWORD               iobytes, dwSignature = 0, szOptAndSections,
-                        vsize, psize, tsize, status = 0, dwRealChecksum = 0, dir_base = 0, dir_size = 0;
+                        vsize, psize, tsize, status = 0, dwRealChecksum = 0, dwLastError = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
-    __int64             c, startAddress, min_app_address;
+    __int64             c, image_base;
 
     PIMAGE_SECTION_HEADER       sections;
     BY_HANDLE_FILE_INFORMATION  fileinfo = { 0 };
@@ -1013,8 +1012,6 @@ LPBYTE pe32open(
             __leave;
         }
 
-        use_reloc = context->use_reloc;
-        min_app_address = context->min_app_address;
         context->file_size.LowPart = fileinfo.nFileSizeLow;
         context->file_size.HighPart = fileinfo.nFileSizeHigh;
 
@@ -1031,7 +1028,7 @@ LPBYTE pe32open(
         }
 
         iobytes = 0;
-        memset(&ovl, 0, sizeof(ovl));
+        RtlSecureZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew;
         if (!ReadFile(hf, &dwSignature, sizeof(dwSignature), &iobytes, &ovl))
         {
@@ -1045,7 +1042,7 @@ LPBYTE pe32open(
         }
 
         iobytes = 0;
-        memset(&ovl, 0, sizeof(ovl));
+        RtlSecureZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature);
         if (!ReadFile(hf, &nt_file_hdr, sizeof(nt_file_hdr), &iobytes, &ovl))
         {
@@ -1059,7 +1056,7 @@ LPBYTE pe32open(
         }
 
         iobytes = 0;
-        memset(&ovl, 0, sizeof(ovl));
+        RtlSecureZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature) + IMAGE_SIZEOF_FILE_HEADER;
 
 #pragma region CHECKSUM
@@ -1080,8 +1077,10 @@ LPBYTE pe32open(
         szOptAndSections = nt_file_hdr.SizeOfOptionalHeader + nt_file_hdr.NumberOfSections * IMAGE_SIZEOF_SECTION_HEADER;
         if (szOptAndSections < PAGE_SIZE)
             szOptAndSections = PAGE_SIZE;
-        opt_file_hdr.opt_file_hdr64 = VirtualAllocEx(
-            GetCurrentProcess(), NULL, szOptAndSections, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+        opt_file_hdr.opt_file_hdr64 = VirtualAllocEx(GetCurrentProcess(), NULL, szOptAndSections, 
+            MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
         if (!opt_file_hdr.opt_file_hdr64)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_500);
@@ -1151,7 +1150,7 @@ LPBYTE pe32open(
 
         /* End of image validation. Begin image loading */
 
-        startAddress = (context->image_64bit) ? RELOC_DEFAULT_APP_ADDRESS_64 : RELOC_DEFAULT_APP_ADDRESS_32;
+        image_base = (context->image_64bit) ? DEFAULT_APP_ADDRESS_64 : DEFAULT_APP_ADDRESS_32;
 
         if (context->image_64bit) {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
@@ -1159,7 +1158,7 @@ LPBYTE pe32open(
                 context->image_fixed = FALSE;
             }
             else {
-                startAddress = opt_file_hdr.opt_file_hdr64->ImageBase;
+                image_base = opt_file_hdr.opt_file_hdr64->ImageBase;
             }
         }
         else {
@@ -1168,36 +1167,53 @@ LPBYTE pe32open(
                 context->image_fixed = FALSE;
             }
             else {
-                startAddress = opt_file_hdr.opt_file_hdr32->ImageBase;
+                image_base = opt_file_hdr.opt_file_hdr32->ImageBase;
             }
         }
 
+        printf("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: %li\r\n\timage_fixed: %li\r\n", 
+            context->process_relocs, 
+            context->enable_custom_image_base, 
+            context->custom_image_base, 
+            context->image_fixed);
+        
+        if (context->enable_custom_image_base) {
 
-        printf("use_reloc %li min_app_address %li\r\n", context->use_reloc, context->min_app_address);
-        if (/*!context->image_fixed &&*/ use_reloc) {
-            startAddress = min_app_address;
+            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)context->custom_image_base, vsize,
+                MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+            dwLastError = GetLastError();
+
         }
+        else {
 
-        // allocate image buffer below 4GB for x86-32 compatibility
-        for (c = startAddress; c < RELOC_MAX_APP_ADDRESS; c += RELOC_PAGE_GRANULARITY)
-        {
-            printf("Module base %llX\r\n", startAddress);
-            module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-            if (module)
-                break;
+            // allocate image buffer below 4GB for x86-32 compatibility
+            for (c = image_base; c < MAX_APP_ADDRESS; c += context->allocation_granularity)
+            {
+                printf("pe32open: module base at 0x%llX\r\n", image_base);
+
+                module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize,
+                    MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+                dwLastError = GetLastError();
+
+                if (module)
+                    break;
+            }
+
         }
 
         if (!module)
         {
-            printf("Module is not allocated\r\n");
+            printf("pe32open: module is not allocated, GetLastError 0x%lX\r\n", dwLastError);
             sendstring_plaintext_no_track(s, WDEP_STATUS_502);
             __leave;
         }
 
-        printf("Module allocated at 0x%p\r\n", module);
+        printf("pe32open: module allocated at 0x%p\r\n", module);
 
         iobytes = 0;
-        memset(&ovl, 0, sizeof(ovl));
+        RtlSecureZeroMemory(&ovl, sizeof(ovl));
 
         if (nt_file_hdr.NumberOfSections == 0)
         {
@@ -1224,7 +1240,7 @@ LPBYTE pe32open(
             if (sections[c].PointerToRawData == 0)
                 continue;
 
-            memset(&ovl, 0, sizeof(ovl));
+            RtlSecureZeroMemory(&ovl, sizeof(ovl));
             ovl.Offset = ALIGN_DOWN(sections[c].PointerToRawData, opt_file_hdr.opt_file_hdr64->FileAlignment);
 
             tsize = sections[c].Misc.VirtualSize;
@@ -1243,7 +1259,7 @@ LPBYTE pe32open(
             }
         }
 
-        if ((!context->image_fixed) && use_reloc) {
+        if ((!context->image_fixed) && context->process_relocs) {
             if (context->image_64bit) {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
                 if (dir_base)

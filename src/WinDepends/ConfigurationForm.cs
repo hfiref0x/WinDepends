@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        07 Mar 2025
+*  DATE:        17 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -136,11 +136,11 @@ public partial class ConfigurationForm : Form
     private bool SelectComboBoxItemByUintValue(uint value)
     {
         string hexValue = "0x" + value.ToString("X");
-        for (int i = 0; i < cbMinAppAddress.Items.Count; i++)
+        for (int i = 0; i < cbCustomImageBase.Items.Count; i++)
         {
-            if (cbMinAppAddress.Items[i].ToString() == hexValue)
+            if (cbCustomImageBase.Items[i].ToString() == hexValue)
             {
-                cbMinAppAddress.SelectedIndex = i;
+                cbCustomImageBase.SelectedIndex = i;
                 return true;
             }
         }
@@ -297,8 +297,12 @@ public partial class ConfigurationForm : Form
         chBoxUpperCase.Checked = m_CurrentConfiguration.UppperCaseModuleNames;
         chBoxCompressSessionFiles.Checked = m_CurrentConfiguration.CompressSessionFiles;
         chBoxClearLogOnFileOpen.Checked = m_CurrentConfiguration.ClearLogOnFileOpen;
-        chBoxUseReloc.Checked = m_CurrentConfiguration.UseRelocForImages;
-        cbMinAppAddress.Enabled = m_CurrentConfiguration.UseRelocForImages;
+        cbCustomImageBase.Enabled = m_CurrentConfiguration.UseCustomImageBase;
+        if (m_CurrentConfiguration.UseCustomImageBase)
+        {
+            m_CurrentConfiguration.ProcessRelocsForImage = true;
+        }
+        chBoxProcessRelocs.Checked = m_CurrentConfiguration.ProcessRelocsForImage;
         chBoxUseStats.Checked = m_CurrentConfiguration.UseStats;
         chBoxAnalysisDefaultEnabled.Checked = m_CurrentConfiguration.AnalysisSettingsUseAsDefault;
         chBoxPropagateSettings.Checked = m_CurrentConfiguration.PropagateSettingsOnDependencies;
@@ -371,13 +375,13 @@ public partial class ConfigurationForm : Form
         //
         // Reloc settings.
         //
-        cbMinAppAddress.Items.Clear();
-        cbMinAppAddress.Items.Add($"0x{CUtils.MinAppAddress:X}");
-        cbMinAppAddress.Items.Add($"0x{CConsts.DefaultAppStartAddress:X}");
-        if (!SelectComboBoxItemByUintValue(m_CurrentConfiguration.MinAppAddress))
+        cbCustomImageBase.Items.Clear();
+        cbCustomImageBase.Items.Add($"0x{CUtils.MinAppAddress:X}");
+        cbCustomImageBase.Items.Add($"0x{CConsts.DefaultAppStartAddress:X}");
+        if (!SelectComboBoxItemByUintValue(m_CurrentConfiguration.CustomImageBase))
         {
-            var i = cbMinAppAddress.Items.Add($"0x{m_CurrentConfiguration.MinAppAddress:X}");
-            cbMinAppAddress.SelectedIndex = i;
+            var i = cbCustomImageBase.Items.Add($"0x{m_CurrentConfiguration.CustomImageBase:X}");
+            cbCustomImageBase.SelectedIndex = i;
         }
 
         labelAllocGran.Text = $"0x{CUtils.AllocationGranularity:X}";
@@ -461,9 +465,18 @@ public partial class ConfigurationForm : Form
                 m_CurrentConfiguration.HighlightApiSet = checkBox.Checked;
                 break;
 
-            case CConsts.TagUseRelocForImages:
-                m_CurrentConfiguration.UseRelocForImages = checkBox.Checked;
-                cbMinAppAddress.Enabled = checkBox.Checked;
+            case CConsts.TagProcessRelocsForImage:
+                m_CurrentConfiguration.ProcessRelocsForImage = checkBox.Checked;
+                break;
+
+            case CConsts.TagUseCustomImageBase:
+                m_CurrentConfiguration.UseCustomImageBase = checkBox.Checked;
+                if (m_CurrentConfiguration.UseCustomImageBase)
+                {
+                    m_CurrentConfiguration.ProcessRelocsForImage = true;
+                    chBoxProcessRelocs.Checked = true;
+                }
+                cbCustomImageBase.Enabled = checkBox.Checked;
                 break;
 
             case CConsts.TagUseStats:
@@ -552,10 +565,10 @@ public partial class ConfigurationForm : Form
             m_CurrentConfiguration.UserSearchOrderDirectoriesKM,
             m_UserDefinedDirectoryNodeKM);
 
-        if (m_CurrentConfiguration.UseRelocForImages && cbMinAppAddress.SelectedItem != null)
+        if (m_CurrentConfiguration.UseCustomImageBase && cbCustomImageBase.SelectedItem != null)
         {
-            uint selectedValue = CUtils.ParseMinAppAddressValue(cbMinAppAddress.SelectedItem.ToString());
-            m_CurrentConfiguration.MinAppAddress = selectedValue;
+            uint selectedValue = CUtils.ParseMinAppAddressValue(cbCustomImageBase.SelectedItem.ToString());
+            m_CurrentConfiguration.CustomImageBase = selectedValue;
         }
 
         if (m_CurrentConfiguration.UseSymbols)
@@ -818,19 +831,19 @@ public partial class ConfigurationForm : Form
     {
         if (e.KeyCode == Keys.Enter)
         {
-            if (!string.IsNullOrEmpty(cbMinAppAddress.Text))
+            if (!string.IsNullOrEmpty(cbCustomImageBase.Text))
             {
-                var selectedValue = CUtils.ParseMinAppAddressValue(cbMinAppAddress.Text);
+                var selectedValue = CUtils.ParseMinAppAddressValue(cbCustomImageBase.Text);
                 var stringValue = $"0x{selectedValue:X}";
 
-                for (int i = 0; i < cbMinAppAddress.Items.Count; i++)
+                for (int i = 0; i < cbCustomImageBase.Items.Count; i++)
                 {
-                    if (stringValue == cbMinAppAddress.Items[i].ToString())
+                    if (stringValue == cbCustomImageBase.Items[i].ToString())
                     {
                         return;
                     }
                 }
-                cbMinAppAddress.SelectedIndex = cbMinAppAddress.Items.Add(stringValue);
+                cbCustomImageBase.SelectedIndex = cbCustomImageBase.Items.Add(stringValue);
             }
         }
     }

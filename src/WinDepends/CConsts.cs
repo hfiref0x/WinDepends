@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Mar 2025
+*  DATE:        17 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -54,11 +54,12 @@ public static class CConsts
     public const int TagCompressSessionFiles = 400;
     public const int TagUseApiSetSchemaFile = 500;
     public const int TagHighlightApiSet = 501;
-    public const int TagUseRelocForImages = 600;
+    public const int TagProcessRelocsForImage = 600;
     public const int TagUseStats = 601;
     public const int TagAnalysisDefaultEnabled = 602;
     public const int TagPropagateSettingsEnabled = 603;
     public const int TagUseSymbols = 604;
+    public const int TagUseCustomImageBase = 605;
 
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;

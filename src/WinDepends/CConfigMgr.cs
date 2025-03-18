@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jan 2025
+*  DATE:        17 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -15,6 +15,7 @@
 *
 *******************************************************************************/
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 
 namespace WinDepends;
 
@@ -22,50 +23,85 @@ namespace WinDepends;
 /// CConfiguration.
 /// Class contains settings for the entire program.
 /// </summary>
-[Serializable()]
+[DataContract]
 public class CConfiguration
 {
+    [DataMember]
     public bool UppperCaseModuleNames { get; set; }
+    [DataMember]
     public bool ShowToolBar { get; set; }
+    [DataMember]
     public bool ShowStatusBar { get; set; }
+    [DataMember]
     public int SortColumnExports { get; set; }
+    [DataMember]
     public int SortColumnImports { get; set; }
+    [DataMember]
     public int SortColumnModules { get; set; }
+    [DataMember]
     public int ModuleNodeDepthMax { get; set; }
+    [DataMember]
     public bool ViewUndecorated { get; set; }
+    [DataMember]
     public bool ResolveAPIsets { get; set; }
+    [DataMember]
     public bool FullPaths { get; set; }
+    [DataMember]
     public bool AutoExpands { get; set; }
+    [DataMember]
     public bool EscKeyEnabled { get; set; }
+    [DataMember]
     public bool CompressSessionFiles { get; set; }
+    [DataMember]
     public bool HistoryShowFullPath { get; set; }
+    [DataMember]
     public bool ClearLogOnFileOpen { get; set; }
+    [DataMember]
     public bool UseApiSetSchemaFile { get; set; }
-    public bool UseRelocForImages { get; set; }
+    [DataMember]
     public bool UseStats { get; set; }
+    [DataMember]
     public bool UseSymbols { get; set; }
+    [DataMember]
+    public bool ProcessRelocsForImage { get; set; }
+    [DataMember]
+    public bool UseCustomImageBase { get; set; }
+    [DataMember]
     public bool AnalysisSettingsUseAsDefault { get; set; }
+    [DataMember]
     public bool PropagateSettingsOnDependencies { get; set; }
+    [DataMember]
     public bool HighlightApiSet { get; set; }
+    [DataMember]
     public int HistoryDepth { get; set; }
+    [DataMember]
     public string ApiSetSchemaFile { get; set; }
+    [DataMember]
     public string ExternalViewerCommand { get; set; }
+    [DataMember]
     public string ExternalViewerArguments { get; set; }
+    [DataMember]
     public string ExternalFunctionHelpURL { get; set; }
+    [DataMember]
     public string CoreServerAppLocation { get; set; }
+    [DataMember]
     public string SymbolsDllPath { get; set; }
+    [DataMember]
     public string SymbolsStorePath { get; set; }
-
-    public uint MinAppAddress { get; set; }
+    [DataMember]
+    public uint CustomImageBase { get; set; }
+    [DataMember]
     public Color SymbolsHighlightColor { get; set; }
-
+    [DataMember]
     public List<SearchOrderType> SearchOrderListUM { get; set; }
+    [DataMember]
     public List<SearchOrderType> SearchOrderListKM { get; set; }
+    [DataMember]
     public List<string> UserSearchOrderDirectoriesUM { get; set; }
+    [DataMember]
     public List<string> UserSearchOrderDirectoriesKM { get; set; }
-
+    [DataMember]
     public List<string> MRUList { get; set; }
-
     public CConfiguration()
     {
     }
@@ -88,9 +124,10 @@ public class CConfiguration
         HistoryShowFullPath = other.HistoryShowFullPath;
         ClearLogOnFileOpen = other.ClearLogOnFileOpen;
         UseApiSetSchemaFile = other.UseApiSetSchemaFile;
-        UseRelocForImages = other.UseRelocForImages;
+        ProcessRelocsForImage = other.ProcessRelocsForImage;
         UseStats = other.UseStats;
         UseSymbols = other.UseSymbols;
+        UseCustomImageBase = other.UseCustomImageBase;
         AnalysisSettingsUseAsDefault = other.AnalysisSettingsUseAsDefault;
         PropagateSettingsOnDependencies = other.PropagateSettingsOnDependencies;
         HighlightApiSet = other.HighlightApiSet;
@@ -102,14 +139,32 @@ public class CConfiguration
         CoreServerAppLocation = other.CoreServerAppLocation;
         SymbolsDllPath = other.SymbolsDllPath;
         SymbolsStorePath = other.SymbolsStorePath;
-        MinAppAddress = other.MinAppAddress;
+        CustomImageBase = other.CustomImageBase;
         SymbolsHighlightColor = other.SymbolsHighlightColor;
 
-        SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM);
-        SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM);
-        UserSearchOrderDirectoriesUM = new List<string>(other.UserSearchOrderDirectoriesUM);
-        UserSearchOrderDirectoriesKM = new List<string>(other.UserSearchOrderDirectoriesKM);
-        MRUList = new List<string>(other.MRUList);
+        SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM ??
+        [
+            SearchOrderType.WinSXS,
+            SearchOrderType.KnownDlls,
+            SearchOrderType.ApplicationDirectory,
+            SearchOrderType.System32Directory,
+            SearchOrderType.SystemDirectory,
+            SearchOrderType.WindowsDirectory,
+            SearchOrderType.EnvironmentPathDirectories,
+            SearchOrderType.UserDefinedDirectory
+        ]);
+
+        SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM ??
+        [
+            SearchOrderType.System32Directory,
+            SearchOrderType.SystemDriversDirectory,
+            SearchOrderType.ApplicationDirectory,
+            SearchOrderType.UserDefinedDirectory
+        ]);
+
+        UserSearchOrderDirectoriesUM = new List<string>(other.UserSearchOrderDirectoriesUM ?? []);
+        UserSearchOrderDirectoriesKM = new List<string>(other.UserSearchOrderDirectoriesKM ?? []);
+        MRUList = new List<string>(other.MRUList ?? []);
     }
 
     public CConfiguration(bool bSetDefault)
@@ -127,8 +182,10 @@ public class CConfiguration
             ExternalViewerCommand = Application.ExecutablePath;
             ExternalViewerArguments = "\"%1\"";
             ExternalFunctionHelpURL = CConsts.ExternalFunctionHelpURL;
-            MinAppAddress = CConsts.DefaultAppStartAddress;
+            CustomImageBase = CConsts.DefaultAppStartAddress;
             UseApiSetSchemaFile = false;
+            ProcessRelocsForImage = true;
+            UseCustomImageBase = false;
 
             SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
             SymbolsDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
@@ -179,15 +236,7 @@ static class CConfigManager
 
         try
         {
-            var result = (CConfiguration)CUtils.LoadPackedObjectFromFile(fileName, typeof(CConfiguration), null);
-            if (result == null)
-            {
-                return new CConfiguration(true);
-            }
-            else
-            {
-                return result;
-            }
+            return (CConfiguration)CUtils.LoadPackedObjectFromFile(fileName, typeof(CConfiguration), null) ?? new CConfiguration(true);
         }
         catch
         {

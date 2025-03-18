@@ -49,6 +49,8 @@ typedef struct _SUP_CONTEXT {
     BOOL EnableCallStats;
     LARGE_INTEGER PerformanceFrequency;
 
+    DWORD dwAllocationGranularity;
+
     pfnNtOpenSymbolicLinkObject NtOpenSymbolicLinkObject;
     pfnNtOpenDirectoryObject NtOpenDirectoryObject;
     pfnNtQueryDirectoryObject NtQueryDirectoryObject;

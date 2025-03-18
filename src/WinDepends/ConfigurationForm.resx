@@ -118,7 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="label13.Text" xml:space="preserve">
-    <value>Select min. application address or specify your value and press ENTER.
+    <value>Select image base address or specify your value and press ENTER.
 Value must be aligned on the system allocation granularity.
 If your value is in incorrect format or there is an other error, default value
 will be used instead.</value>

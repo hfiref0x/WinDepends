@@ -32,10 +32,11 @@
             buttonOK = new Button();
             buttonCancel = new Button();
             groupBox1 = new GroupBox();
+            chBoxUseCustomImageBase = new CheckBox();
             label1 = new Label();
-            textBoxMinAppAddress = new TextBox();
+            textBoxCustomImageBase = new TextBox();
             labelAllocGran = new Label();
-            chBoxUseReloc = new CheckBox();
+            chBoxProcessRelocs = new CheckBox();
             groupBox2 = new GroupBox();
             label3 = new Label();
             chBoxPropagateSettings = new CheckBox();
@@ -52,9 +53,9 @@
             // buttonOK
             // 
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(112, 374);
+            buttonOK.Location = new Point(112, 387);
             buttonOK.Name = "buttonOK";
-            buttonOK.Size = new Size(75, 23);
+            buttonOK.Size = new Size(75, 24);
             buttonOK.TabIndex = 0;
             buttonOK.Text = "OK";
             buttonOK.UseVisualStyleBackColor = true;
@@ -63,71 +64,82 @@
             // buttonCancel
             // 
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(193, 374);
+            buttonCancel.Location = new Point(193, 387);
             buttonCancel.Name = "buttonCancel";
-            buttonCancel.Size = new Size(75, 23);
+            buttonCancel.Size = new Size(75, 24);
             buttonCancel.TabIndex = 1;
             buttonCancel.Text = "Cancel";
             buttonCancel.UseVisualStyleBackColor = true;
             // 
             // groupBox1
             // 
+            groupBox1.Controls.Add(chBoxUseCustomImageBase);
             groupBox1.Controls.Add(label1);
-            groupBox1.Controls.Add(textBoxMinAppAddress);
+            groupBox1.Controls.Add(textBoxCustomImageBase);
             groupBox1.Controls.Add(labelAllocGran);
-            groupBox1.Controls.Add(chBoxUseReloc);
+            groupBox1.Controls.Add(chBoxProcessRelocs);
             groupBox1.Location = new Point(12, 44);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(346, 142);
+            groupBox1.Size = new Size(346, 151);
             groupBox1.TabIndex = 2;
             groupBox1.TabStop = false;
             groupBox1.Text = "Loader";
             // 
+            // chBoxUseCustomImageBase
+            // 
+            chBoxUseCustomImageBase.AutoSize = true;
+            chBoxUseCustomImageBase.Location = new Point(9, 55);
+            chBoxUseCustomImageBase.Name = "chBoxUseCustomImageBase";
+            chBoxUseCustomImageBase.Size = new Size(151, 19);
+            chBoxUseCustomImageBase.TabIndex = 14;
+            chBoxUseCustomImageBase.Text = "Use custom image base";
+            chBoxUseCustomImageBase.UseVisualStyleBackColor = true;
+            chBoxUseCustomImageBase.Click += ChBoxUseCustomImageBase;
+            // 
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(9, 60);
+            label1.Location = new Point(9, 83);
             label1.Name = "label1";
-            label1.Size = new Size(127, 15);
+            label1.Size = new Size(97, 15);
             label1.TabIndex = 13;
-            label1.Text = "Min. app address (hex)";
+            label1.Text = "Image base (hex)";
             // 
-            // textBoxMinAppAddress
+            // textBoxCustomImageBase
             // 
-            textBoxMinAppAddress.Location = new Point(142, 57);
-            textBoxMinAppAddress.MaxLength = 8;
-            textBoxMinAppAddress.Name = "textBoxMinAppAddress";
-            textBoxMinAppAddress.Size = new Size(186, 23);
-            textBoxMinAppAddress.TabIndex = 12;
-            textBoxMinAppAddress.Text = "0";
-            textBoxMinAppAddress.KeyPress += TextBoxMinAppAddress_KeyPress;
+            textBoxCustomImageBase.Location = new Point(142, 80);
+            textBoxCustomImageBase.MaxLength = 8;
+            textBoxCustomImageBase.Name = "textBoxCustomImageBase";
+            textBoxCustomImageBase.Size = new Size(186, 23);
+            textBoxCustomImageBase.TabIndex = 12;
+            textBoxCustomImageBase.Text = "0";
+            textBoxCustomImageBase.KeyPress += TextBoxMinAppAddress_KeyPress;
             // 
             // labelAllocGran
             // 
             labelAllocGran.AutoSize = true;
-            labelAllocGran.Location = new Point(9, 90);
+            labelAllocGran.Location = new Point(9, 113);
             labelAllocGran.Name = "labelAllocGran";
             labelAllocGran.Size = new Size(25, 15);
             labelAllocGran.TabIndex = 11;
             labelAllocGran.Text = "0x0";
             // 
-            // chBoxUseReloc
+            // chBoxProcessRelocs
             // 
-            chBoxUseReloc.AutoSize = true;
-            chBoxUseReloc.Location = new Point(9, 31);
-            chBoxUseReloc.Name = "chBoxUseReloc";
-            chBoxUseReloc.Size = new Size(237, 19);
-            chBoxUseReloc.TabIndex = 0;
-            chBoxUseReloc.Text = "Enable relocations when parsing images";
-            chBoxUseReloc.UseVisualStyleBackColor = true;
-            chBoxUseReloc.CheckedChanged += ChBoxUseReloc_CheckedChanged;
+            chBoxProcessRelocs.AutoSize = true;
+            chBoxProcessRelocs.Location = new Point(9, 31);
+            chBoxProcessRelocs.Name = "chBoxProcessRelocs";
+            chBoxProcessRelocs.Size = new Size(241, 19);
+            chBoxProcessRelocs.TabIndex = 0;
+            chBoxProcessRelocs.Text = "Process relocations while parsing images";
+            chBoxProcessRelocs.UseVisualStyleBackColor = true;
             // 
             // groupBox2
             // 
             groupBox2.Controls.Add(label3);
             groupBox2.Controls.Add(chBoxPropagateSettings);
             groupBox2.Controls.Add(chBoxAnalysisDefaultEnabled);
-            groupBox2.Location = new Point(12, 255);
+            groupBox2.Location = new Point(12, 264);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new Size(348, 113);
             groupBox2.TabIndex = 3;
@@ -168,7 +180,7 @@
             // groupBox13
             // 
             groupBox13.Controls.Add(chBoxUseStats);
-            groupBox13.Location = new Point(12, 192);
+            groupBox13.Location = new Point(12, 201);
             groupBox13.Name = "groupBox13";
             groupBox13.Size = new Size(346, 57);
             groupBox13.TabIndex = 9;
@@ -208,7 +220,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
-            ClientSize = new Size(370, 409);
+            ClientSize = new Size(370, 418);
             Controls.Add(textBoxFileName);
             Controls.Add(label2);
             Controls.Add(groupBox13);
@@ -241,9 +253,9 @@
         private Button buttonOK;
         private Button buttonCancel;
         private GroupBox groupBox1;
-        private CheckBox chBoxUseReloc;
+        private CheckBox chBoxProcessRelocs;
         private Label labelAllocGran;
-        private TextBox textBoxMinAppAddress;
+        private TextBox textBoxCustomImageBase;
         private Label label1;
         private GroupBox groupBox2;
         private CheckBox chBoxPropagateSettings;
@@ -253,5 +265,6 @@
         private Label label2;
         private TextBox textBoxFileName;
         private Label label3;
+        private CheckBox chBoxUseCustomImageBase;
     }
 }

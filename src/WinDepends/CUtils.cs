@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Mar 2025
+*  DATE:        17 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -88,11 +88,12 @@ public struct PropertyElement(string name, string value)
 
 public class CFileOpenSettings(CConfiguration configuration)
 {
-    public bool UseRelocForImages { get; set; } = configuration.UseRelocForImages;
+    public bool ProcessRelocsForImage { get; set; } = configuration.ProcessRelocsForImage;
     public bool UseStats { get; set; } = configuration.UseStats;
     public bool AnalysisSettingsUseAsDefault { get; set; } = configuration.AnalysisSettingsUseAsDefault;
     public bool PropagateSettingsOnDependencies { get; set; } = configuration.PropagateSettingsOnDependencies;
-    public uint MinAppAddress { get; set; } = configuration.MinAppAddress;
+    public bool UseCustomImageBase { get; set; } = configuration.UseCustomImageBase;
+    public uint CustomImageBase { get; set; } = configuration.CustomImageBase;
 }
 
 public record TooltipInfo(Control Control, string AssociatedText);

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Mar 07, 2025
+*  Modified on: Mar 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -421,7 +421,11 @@ int CALLBACK WinMain(
 
     u_short     server_port;
 
+#ifdef _CONSOLE
+    printf("Starting WinDepends.Core, verbose mode\r\n");
+#else
     printf("Starting WinDepends.Core . . .\r\n");
+#endif
 
     utils_init();
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        17 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -33,14 +33,18 @@ public partial class FileOpenForm : Form
 
     private void FileOpenForm_Load(object sender, EventArgs e)
     {
-        chBoxUseReloc.Checked = settings.UseRelocForImages;
-        textBoxMinAppAddress.Enabled = chBoxUseReloc.Checked;
-        textBoxMinAppAddress.Text = settings.MinAppAddress.ToString("X");
+        chBoxProcessRelocs.Checked = settings.ProcessRelocsForImage;
+        chBoxUseCustomImageBase.Checked = settings.UseCustomImageBase;
+
+        textBoxCustomImageBase.Enabled = settings.UseCustomImageBase;
+        textBoxCustomImageBase.Text = settings.CustomImageBase.ToString("X");
+        labelAllocGran.Enabled = settings.UseCustomImageBase;
+
         textBoxFileName.Text = displayedFileName;
         chBoxUseStats.Checked = settings.UseStats;
         chBoxPropagateSettings.Checked = settings.PropagateSettingsOnDependencies;
         chBoxAnalysisDefaultEnabled.Checked = settings.AnalysisSettingsUseAsDefault;
-        labelAllocGran.Text = $"Min. app. address will be aligned to system allocation\r\ngranularity: 0x{CUtils.AllocationGranularity:X}";
+        labelAllocGran.Text = $"Value will be aligned to allocation granularity:\r\n0x{CUtils.AllocationGranularity:X}";
     }
 
     private void FileOpenForm_KeyDown(object sender, KeyEventArgs e)
@@ -53,13 +57,13 @@ public partial class FileOpenForm : Form
 
     private void ButtonOK_Click(object sender, EventArgs e)
     {
-        settings.UseRelocForImages = chBoxUseReloc.Checked;
+        settings.ProcessRelocsForImage = chBoxProcessRelocs.Checked;
         settings.PropagateSettingsOnDependencies = chBoxPropagateSettings.Checked;
         settings.AnalysisSettingsUseAsDefault = chBoxAnalysisDefaultEnabled.Checked;
         settings.UseStats = chBoxUseStats.Checked;
-        if (settings.UseRelocForImages)
+        if (settings.UseCustomImageBase)
         {
-            settings.MinAppAddress = CUtils.ParseMinAppAddressValue(textBoxMinAppAddress.Text);
+            settings.CustomImageBase = CUtils.ParseMinAppAddressValue(textBoxCustomImageBase.Text);
         }
     }
 
@@ -76,8 +80,10 @@ public partial class FileOpenForm : Form
         }
     }
 
-    private void ChBoxUseReloc_CheckedChanged(object sender, EventArgs e)
+    private void ChBoxUseCustomImageBase(object sender, EventArgs e)
     {
-        textBoxMinAppAddress.Enabled = chBoxUseReloc.Checked;
+        textBoxCustomImageBase.Enabled = chBoxUseCustomImageBase.Checked;
+        labelAllocGran.Enabled = chBoxUseCustomImageBase.Checked;
     }
+
 }

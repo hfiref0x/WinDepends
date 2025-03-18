@@ -74,11 +74,12 @@
             groupBox13 = new GroupBox();
             chBoxUseStats = new CheckBox();
             groupBox11 = new GroupBox();
+            chBoxCustomImageBase = new CheckBox();
             labelAllocGran = new Label();
             label14 = new Label();
             label13 = new Label();
-            cbMinAppAddress = new ComboBox();
-            chBoxUseReloc = new CheckBox();
+            cbCustomImageBase = new ComboBox();
+            chBoxProcessRelocs = new CheckBox();
             tabApiSet = new TabPage();
             groupBox15 = new GroupBox();
             labelApiSetCount = new Label();
@@ -579,7 +580,7 @@
             // 
             groupBox14.Controls.Add(chBoxPropagateSettings);
             groupBox14.Controls.Add(chBoxAnalysisDefaultEnabled);
-            groupBox14.Location = new Point(6, 268);
+            groupBox14.Location = new Point(6, 309);
             groupBox14.Name = "groupBox14";
             groupBox14.Size = new Size(468, 100);
             groupBox14.TabIndex = 10;
@@ -613,7 +614,7 @@
             // groupBox13
             // 
             groupBox13.Controls.Add(chBoxUseStats);
-            groupBox13.Location = new Point(6, 205);
+            groupBox13.Location = new Point(6, 246);
             groupBox13.Name = "groupBox13";
             groupBox13.Size = new Size(468, 57);
             groupBox13.TabIndex = 8;
@@ -634,22 +635,35 @@
             // 
             // groupBox11
             // 
+            groupBox11.Controls.Add(chBoxCustomImageBase);
             groupBox11.Controls.Add(labelAllocGran);
             groupBox11.Controls.Add(label14);
             groupBox11.Controls.Add(label13);
-            groupBox11.Controls.Add(cbMinAppAddress);
-            groupBox11.Controls.Add(chBoxUseReloc);
+            groupBox11.Controls.Add(cbCustomImageBase);
+            groupBox11.Controls.Add(chBoxProcessRelocs);
             groupBox11.Location = new Point(6, 6);
             groupBox11.Name = "groupBox11";
-            groupBox11.Size = new Size(468, 193);
+            groupBox11.Size = new Size(468, 234);
             groupBox11.TabIndex = 7;
             groupBox11.TabStop = false;
             groupBox11.Text = "Loader";
             // 
+            // chBoxCustomImageBase
+            // 
+            chBoxCustomImageBase.AutoSize = true;
+            chBoxCustomImageBase.Location = new Point(19, 57);
+            chBoxCustomImageBase.Name = "chBoxCustomImageBase";
+            chBoxCustomImageBase.Size = new Size(131, 19);
+            chBoxCustomImageBase.TabIndex = 10;
+            chBoxCustomImageBase.Tag = "605";
+            chBoxCustomImageBase.Text = "Custom image base";
+            chBoxCustomImageBase.UseVisualStyleBackColor = true;
+            chBoxCustomImageBase.Click += ChBox_Click;
+            // 
             // labelAllocGran
             // 
             labelAllocGran.AutoSize = true;
-            labelAllocGran.Location = new Point(188, 92);
+            labelAllocGran.Location = new Point(188, 121);
             labelAllocGran.Name = "labelAllocGran";
             labelAllocGran.Size = new Size(25, 15);
             labelAllocGran.TabIndex = 9;
@@ -658,7 +672,7 @@
             // label14
             // 
             label14.AutoSize = true;
-            label14.Location = new Point(19, 92);
+            label14.Location = new Point(19, 121);
             label14.Name = "label14";
             label14.Size = new Size(163, 15);
             label14.TabIndex = 8;
@@ -667,33 +681,33 @@
             // label13
             // 
             label13.AutoSize = true;
-            label13.Location = new Point(19, 116);
+            label13.Location = new Point(19, 148);
             label13.Name = "label13";
             label13.Size = new Size(389, 60);
             label13.TabIndex = 7;
             label13.Text = resources.GetString("label13.Text");
             // 
-            // cbMinAppAddress
+            // cbCustomImageBase
             // 
-            cbMinAppAddress.Enabled = false;
-            cbMinAppAddress.FormattingEnabled = true;
-            cbMinAppAddress.Location = new Point(19, 57);
-            cbMinAppAddress.Name = "cbMinAppAddress";
-            cbMinAppAddress.Size = new Size(237, 23);
-            cbMinAppAddress.TabIndex = 6;
-            cbMinAppAddress.KeyUp += CbMinAppAddressKeyUp;
+            cbCustomImageBase.Enabled = false;
+            cbCustomImageBase.FormattingEnabled = true;
+            cbCustomImageBase.Location = new Point(19, 86);
+            cbCustomImageBase.Name = "cbCustomImageBase";
+            cbCustomImageBase.Size = new Size(237, 23);
+            cbCustomImageBase.TabIndex = 6;
+            cbCustomImageBase.KeyUp += CbMinAppAddressKeyUp;
             // 
-            // chBoxUseReloc
+            // chBoxProcessRelocs
             // 
-            chBoxUseReloc.AutoSize = true;
-            chBoxUseReloc.Location = new Point(19, 32);
-            chBoxUseReloc.Name = "chBoxUseReloc";
-            chBoxUseReloc.Size = new Size(237, 19);
-            chBoxUseReloc.TabIndex = 5;
-            chBoxUseReloc.Tag = "600";
-            chBoxUseReloc.Text = "Enable relocations when parsing images";
-            chBoxUseReloc.UseVisualStyleBackColor = true;
-            chBoxUseReloc.Click += ChBox_Click;
+            chBoxProcessRelocs.AutoSize = true;
+            chBoxProcessRelocs.Location = new Point(19, 32);
+            chBoxProcessRelocs.Name = "chBoxProcessRelocs";
+            chBoxProcessRelocs.Size = new Size(241, 19);
+            chBoxProcessRelocs.TabIndex = 5;
+            chBoxProcessRelocs.Tag = "600";
+            chBoxProcessRelocs.Text = "Process relocations while parsing images";
+            chBoxProcessRelocs.UseVisualStyleBackColor = true;
+            chBoxProcessRelocs.Click += ChBox_Click;
             // 
             // tabApiSet
             // 
@@ -1622,8 +1636,8 @@
         private CheckBox chBoxHighlightApiSet;
         private TabPage tabAnalysis;
         private GroupBox groupBox11;
-        private CheckBox chBoxUseReloc;
-        private ComboBox cbMinAppAddress;
+        private CheckBox chBoxProcessRelocs;
+        private ComboBox cbCustomImageBase;
         private Label label13;
         private Label label14;
         private Label labelAllocGran;
@@ -1674,5 +1688,6 @@
         private Label label11;
         private Button buttonSymbolsDefault;
         private CheckBox chBoxUseSymbols;
+        private CheckBox chBoxCustomImageBase;
     }
 }

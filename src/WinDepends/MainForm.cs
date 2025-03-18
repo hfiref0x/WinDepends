@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Mar 2025
+*  DATE:        17 Mar 2025
 *  
 *  Codename:    VasilEk
 *
@@ -223,6 +223,156 @@ public partial class MainForm : Form
         return resultForm;
     }
 
+    private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, bool useStats, bool currentModuleIsRoot)
+    {
+        switch (openStatus)
+        {
+            case ModuleOpenStatus.Okay:
+
+                module.IsProcessed = m_CoreClient.GetModuleHeadersInformation(module);
+
+                //
+                // If this is root module, setup resolver.
+                //
+                if (currentModuleIsRoot)
+                {
+                    CPathResolver.QueryFileInformation(module);
+                }
+
+                m_CoreClient.GetModuleImportExportInformation(module,
+                    m_Configuration.SearchOrderListUM,
+                    m_Configuration.SearchOrderListKM,
+                    m_ParentImportsHashTable);
+
+                CCoreCallStats stats = null;
+                if (useStats)
+                {
+                    stats = m_CoreClient.GetCoreCallStats();
+                }
+
+                m_CoreClient.CloseModule();
+
+                //
+                // Display statistics.
+                //
+                if (m_Configuration.UseStats && stats != null)
+                {
+                    string sizeText;
+                    if (stats.TotalBytesSent >= 1024 * 1024)
+                    {
+                        sizeText = $"{stats.TotalBytesSent / (1024 * 1024)} MB";
+                    }
+                    else if (stats.TotalBytesSent >= 1024)
+                    {
+                        sizeText = $"{stats.TotalBytesSent / 1024} KB";
+                    }
+                    else
+                    {
+                        sizeText = $"{stats.TotalBytesSent} byte";
+                    }
+
+                    var statsData = $"[STATS {Path.GetFileName(module.FileName)}] Received: {sizeText}, \"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
+                    AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
+                }
+
+                if (module.ExportContainErrors)
+                {
+                    AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
+                        LogMessageType.ErrorOrWarning, null, true, true);
+                }
+
+                if (module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine)
+                {
+                    module.OtherErrorsPresent = true;
+                    AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
+                        LogMessageType.ErrorOrWarning, null, true, true);
+                }
+
+                if (module.ModuleData.ImageFixed != 0 && module.Is64bitArchitecture())
+                {
+                    module.OtherErrorsPresent = true;
+                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations but is 64-bit architecture.",
+                        LogMessageType.ErrorOrWarning, null, true, true);
+                }
+
+                if (!module.IsProcessed)
+                {
+                    AddLogMessage($"Module \"{module.FileName}\" was not fully processed.",
+                        LogMessageType.ErrorOrWarning,
+                        null, true, true);
+                }
+                break;
+
+            case ModuleOpenStatus.ErrorUnspecified:
+                AddLogMessage($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
+                    null, true, true);
+                break;
+            case ModuleOpenStatus.ErrorSendCommand:
+                AddLogMessage($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                    null, true, true);
+                break;
+            case ModuleOpenStatus.ErrorReceivedDataInvalid:
+                AddLogMessage($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                    null, true, true);
+                break;
+            case ModuleOpenStatus.ErrorFileNotMapped:
+                AddLogMessage($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                    null, true, true);
+                break;
+            case ModuleOpenStatus.ErrorCannotReadFileHeaders:
+                AddLogMessage($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                    null, true, true);
+                break;
+            case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
+                if (module.IsDelayLoad)
+                {
+                    AddLogMessage($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
+                        null, true, true);
+                }
+                else
+                {
+                    AddLogMessage($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
+                        null, true, true);
+                }
+                break;
+
+            case ModuleOpenStatus.ErrorFileNotFound:
+
+                // In case if this is ApiSets failure.
+                // API-* are mandatory to load, while EXT-* are not.
+                bool bExtApiSet = module.IsApiSetContract && module.RawFileName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
+
+                string messageText;
+                LogMessageType messageType = bExtApiSet ? LogMessageType.Information : LogMessageType.ErrorOrWarning;
+
+                if (module.IsDelayLoad)
+                {
+                    if (bExtApiSet)
+                    {
+                        messageText = $"Delay-load extension apiset module \"{module.FileName}\" was not found.";
+                    }
+                    else
+                    {
+                        messageText = $"Delay-load dependency module \"{module.FileName}\" was not found.";
+                    }
+                }
+                else
+                {
+                    if (bExtApiSet)
+                    {
+                        messageText = $"Extension apiset  module \"{module.FileName}\" was not found.";
+                    }
+                    else
+                    {
+                        messageText = $"Required implicit or forwarded dependency \"{module.FileName}\" was not found.";
+                    }
+                }
+
+                AddLogMessage(messageText, messageType, null, true, true);
+                break;
+        }
+    }
+
     /// <summary>
     /// Insert module entry to TVModules treeview.
     /// </summary>
@@ -286,9 +436,10 @@ public partial class MainForm : Form
         //
         if (origInstance == null)
         {
-            bool useReloc = false;
+            bool processRelocs = false;
             bool useStats = false;
-            uint minAppAddress = 0;
+            bool useCustomImageBase = false;
+            uint customImageBase = 0;
 
             //
             // If this is not a root node.
@@ -297,167 +448,22 @@ public partial class MainForm : Form
             {
                 if (fileOpenSettings.PropagateSettingsOnDependencies)
                 {
-                    useReloc = fileOpenSettings.UseRelocForImages;
-                    minAppAddress = fileOpenSettings.MinAppAddress;
+                    processRelocs = fileOpenSettings.ProcessRelocsForImage;
+                    customImageBase = fileOpenSettings.CustomImageBase;
                     useStats = fileOpenSettings.UseStats;
+                    useCustomImageBase = fileOpenSettings.UseCustomImageBase;
                 }
             }
             else
             {
-                useReloc = fileOpenSettings.UseRelocForImages;
-                minAppAddress = fileOpenSettings.MinAppAddress;
+                processRelocs = fileOpenSettings.ProcessRelocsForImage;
+                customImageBase = fileOpenSettings.CustomImageBase;
                 useStats = fileOpenSettings.UseStats;
+                useCustomImageBase = fileOpenSettings.UseCustomImageBase;
             }
 
-            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module, useStats, useReloc, minAppAddress);
-
-            switch (openStatus)
-            {
-                case ModuleOpenStatus.Okay:
-
-                    module.IsProcessed = m_CoreClient.GetModuleHeadersInformation(module);
-
-                    //
-                    // If this is root module, setup resolver.
-                    //
-                    if (currentModuleIsRoot)
-                    {
-                        CPathResolver.QueryFileInformation(module);
-                    }
-
-                    m_CoreClient.GetModuleImportExportInformation(module,
-                        m_Configuration.SearchOrderListUM,
-                        m_Configuration.SearchOrderListKM,
-                        m_ParentImportsHashTable);
-
-                    CCoreCallStats stats = null;
-                    if (useStats)
-                    {
-                        stats = m_CoreClient.GetCoreCallStats();
-                    }
-
-                    m_CoreClient.CloseModule();
-
-                    //
-                    // Display statistics.
-                    //
-                    if (m_Configuration.UseStats && stats != null)
-                    {
-                        string sizeText;
-                        if (stats.TotalBytesSent >= 1024 * 1024)
-                        {
-                            sizeText = $"{stats.TotalBytesSent / (1024 * 1024)} MB";
-                        }
-                        else if (stats.TotalBytesSent >= 1024)
-                        {
-                            sizeText = $"{stats.TotalBytesSent / 1024} KB";
-                        }
-                        else
-                        {
-                            sizeText = $"{stats.TotalBytesSent} byte";
-                        }
-
-                        var statsData = $"[STATS {Path.GetFileName(module.FileName)}] Received: {sizeText}, \"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
-                        AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
-                    }
-
-                    if (module.ExportContainErrors)
-                    {
-                        AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
-                            LogMessageType.ErrorOrWarning, null, true, true);
-                    }
-
-                    if (module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine)
-                    {
-                        module.OtherErrorsPresent = true;
-                        AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
-                            LogMessageType.ErrorOrWarning, null, true, true);
-                    }
-
-                    if (module.ModuleData.ImageFixed != 0 && module.Is64bitArchitecture())
-                    {
-                        module.OtherErrorsPresent = true;
-                        AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations but is 64-bit architecture.",
-                            LogMessageType.ErrorOrWarning, null, true, true);
-                    }
-
-                    if (!module.IsProcessed)
-                    {
-                        AddLogMessage($"Module \"{module.FileName}\" was not fully processed.",
-                            LogMessageType.ErrorOrWarning,
-                            null, true, true);
-                    }
-                    break;
-
-                case ModuleOpenStatus.ErrorUnspecified:
-                    AddLogMessage($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
-                        null, true, true);
-                    break;
-                case ModuleOpenStatus.ErrorSendCommand:
-                    AddLogMessage($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                        null, true, true);
-                    break;
-                case ModuleOpenStatus.ErrorReceivedDataInvalid:
-                    AddLogMessage($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                        null, true, true);
-                    break;
-                case ModuleOpenStatus.ErrorFileNotMapped:
-                    AddLogMessage($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                        null, true, true);
-                    break;
-                case ModuleOpenStatus.ErrorCannotReadFileHeaders:
-                    AddLogMessage($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                        null, true, true);
-                    break;
-                case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
-                    if (module.IsDelayLoad)
-                    {
-                        AddLogMessage($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                            null, true, true);
-                    }
-                    else
-                    {
-                        AddLogMessage($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                            null, true, true);
-                    }
-                    break;
-
-                case ModuleOpenStatus.ErrorFileNotFound:
-
-                    // In case if this is ApiSets failure.
-                    // API-* are mandatory to load, while EXT-* are not.
-                    bool bExtApiSet = module.IsApiSetContract && module.RawFileName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
-
-                    string messageText;
-                    LogMessageType messageType = bExtApiSet ? LogMessageType.Information : LogMessageType.ErrorOrWarning;
-
-                    if (module.IsDelayLoad)
-                    {
-                        if (bExtApiSet)
-                        {
-                            messageText = $"Delay-load extension apiset module \"{module.FileName}\" was not found.";
-                        }
-                        else
-                        {
-                            messageText = $"Delay-load dependency module \"{module.FileName}\" was not found.";
-                        }
-                    }
-                    else
-                    {
-                        if (bExtApiSet)
-                        {
-                            messageText = $"Extension apiset  module \"{module.FileName}\" was not found.";
-                        }
-                        else
-                        {
-                            messageText = $"Required implicit or forwarded dependency \"{module.FileName}\" was not found.";
-                        }
-                    }
-
-                    AddLogMessage(messageText, messageType, null, true, true);
-                    break;
-            }
-
+            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module, useStats, processRelocs, useCustomImageBase, customImageBase);
+            HandleModuleOpenStatus(module, openStatus, useStats, currentModuleIsRoot);
         }
 
         //
@@ -1014,8 +1020,9 @@ public partial class MainForm : Form
                         if (fileOpenSettings.AnalysisSettingsUseAsDefault)
                         {
                             m_Configuration.UseStats = fileOpenSettings.UseStats;
-                            m_Configuration.UseRelocForImages = fileOpenSettings.UseRelocForImages;
-                            m_Configuration.MinAppAddress = fileOpenSettings.MinAppAddress;
+                            m_Configuration.ProcessRelocsForImage = fileOpenSettings.ProcessRelocsForImage;
+                            m_Configuration.UseCustomImageBase = fileOpenSettings.UseCustomImageBase;
+                            m_Configuration.CustomImageBase = fileOpenSettings.CustomImageBase;
                             m_Configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
                             m_Configuration.AnalysisSettingsUseAsDefault = true;
                         }
@@ -2853,7 +2860,7 @@ public partial class MainForm : Form
                 exceptionMessage = ex.Message;
             }
 
-            AddLogMessage($"Error: Session file \"{fileName}\" could not be opened because \"" +
+            AddLogMessage($"Session file \"{fileName}\" could not be opened because \"" +
                 $"{exceptionMessage}\"",
                 LogMessageType.ErrorOrWarning);
         }

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Mar 04, 2025
+*  Modified on: Mar 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -46,10 +46,10 @@
 #define SERVER_ERROR_BIND       4
 #define SERVER_ERROR_LISTEN     5
 
-#define RELOC_DEFAULT_APP_ADDRESS_64 0x1000000
-#define RELOC_DEFAULT_APP_ADDRESS_32 0x400000
-#define RELOC_MAX_APP_ADDRESS 0x40000000
-#define RELOC_PAGE_GRANULARITY 0x10000
+#define DEFAULT_APP_ADDRESS_64 0x1000000
+#define DEFAULT_APP_ADDRESS_32 0x400000
+#define MAX_APP_ADDRESS 0x40000000
+#define PAGE_GRANULARITY 0x10000
 
 typedef struct {
     unsigned char* module;
@@ -60,10 +60,12 @@ typedef struct {
 
     BOOL image_64bit;
     BOOL image_fixed;
-    BOOL use_reloc;
+    BOOL process_relocs;
+    BOOL enable_custom_image_base;
     BOOL enable_call_stats;
 
-    int min_app_address;
+    int custom_image_base;
+    DWORD allocation_granularity;
 
     LARGE_INTEGER start_count;
     DWORD64 total_bytes_sent;

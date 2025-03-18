@@ -71,7 +71,10 @@ public class CMRUList
             menuBase.DropDownItems.Insert(++itemIndex, menuItems[i]);
         }
 
-        LoadFiles();
+        if (FileList != null)
+        {
+            LoadFiles();
+        }
         ShowFiles();
     }
 

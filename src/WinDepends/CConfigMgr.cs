@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        18 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -236,7 +236,22 @@ static class CConfigManager
 
         try
         {
-            return (CConfiguration)CUtils.LoadPackedObjectFromFile(fileName, typeof(CConfiguration), null) ?? new CConfiguration(true);
+            CConfiguration confObj = (CConfiguration)CUtils.LoadPackedObjectFromFile(fileName, typeof(CConfiguration), null);
+
+            //
+            // Test configuration if it loaded, these lists cannot be null, if they are - configuration is broken, reset it.
+            //
+            if (confObj == null || confObj.MRUList == null || confObj.SearchOrderListUM == null || confObj.SearchOrderListKM == null)
+            {
+                return new CConfiguration(true);
+            }
+
+            if (confObj.ModuleNodeDepthMax < CConsts.ModuleNodeDepthMin)
+            {
+                confObj.ModuleNodeDepthMax = CConsts.ModuleNodeDepthDefault;
+            }
+
+            return confObj;
         }
         catch
         {

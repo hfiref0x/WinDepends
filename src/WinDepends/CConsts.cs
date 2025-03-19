@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        18 Mar 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -38,6 +38,7 @@ public static class CConsts
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
 
+    public const int ModuleNodeDepthMin = 1;
     public const int ModuleNodeDepthDefault = 2;
 
     public const int TagUseESC = 100;

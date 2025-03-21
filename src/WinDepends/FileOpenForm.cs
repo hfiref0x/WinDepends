@@ -60,6 +60,7 @@ public partial class FileOpenForm : Form
         settings.ProcessRelocsForImage = chBoxProcessRelocs.Checked;
         settings.PropagateSettingsOnDependencies = chBoxPropagateSettings.Checked;
         settings.AnalysisSettingsUseAsDefault = chBoxAnalysisDefaultEnabled.Checked;
+        settings.UseCustomImageBase = chBoxUseCustomImageBase.Checked;
         settings.UseStats = chBoxUseStats.Checked;
         if (settings.UseCustomImageBase)
         {

@@ -295,10 +295,10 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true);
                 }
 
-                if (module.ModuleData.ImageFixed != 0 && module.Is64bitArchitecture())
+                if (module.ModuleData.ImageFixed != 0)
                 {
                     module.OtherErrorsPresent = true;
-                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations but is 64-bit architecture.",
+                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations.",
                         LogMessageType.ErrorOrWarning, null, true, true);
                 }
 

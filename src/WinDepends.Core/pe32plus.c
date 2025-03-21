@@ -922,11 +922,11 @@ BOOL get_imports(
 
                 if (DImportTable->Attributes.RvaBased)
                 {
-                    if (context->image_fixed)
+                    /*if (context->image_fixed)
                     {
                         delta = ImageBase;
                     }
-                    else
+                    else*/
                     {
                         delta = (DWORD_PTR)context->module;
                     }
@@ -1157,21 +1157,21 @@ LPBYTE pe32open(
             if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
                 context->image_fixed = FALSE;
             }
-            else {
+            /*else {
                 image_base = opt_file_hdr.opt_file_hdr64->ImageBase;
-            }
+            }*/
         }
         else {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
             if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
                 context->image_fixed = FALSE;
             }
-            else {
+            /*else {
                 image_base = opt_file_hdr.opt_file_hdr32->ImageBase;
-            }
+            }*/
         }
 
-        printf("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: %li\r\n\timage_fixed: %li\r\n", 
+        printf("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: 0x%lX\r\n\timage_fixed: %li\r\n", 
             context->process_relocs, 
             context->enable_custom_image_base, 
             context->custom_image_base, 

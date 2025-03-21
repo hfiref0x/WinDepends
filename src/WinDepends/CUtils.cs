@@ -134,7 +134,6 @@ public static class CUtils
     public static ushort SystemProcessorArchitecture { get; private set; }
     public static IntPtr MinAppAddress { get; private set; }
     public static IntPtr MaxAppAddress { get; private set; }
-
     public static UInt32 AllocationGranularity { get; private set; }
     static CUtils()
     {
@@ -443,7 +442,7 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Serialize object, compress it with GZIP and save to file.
+    /// Serialize object, compress it with Brotli algorithm and save to file.
     /// </summary>
     /// <param name="fileName"></param>
     /// <param name="pbjectInstance"></param>

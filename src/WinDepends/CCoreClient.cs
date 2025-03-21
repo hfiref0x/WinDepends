@@ -715,7 +715,7 @@ public class CCoreClient : IDisposable
 
                     if (cachedName == null)
                     {
-                        var resolvedNameRoot = (CCoreResolvedFileNameRoot)GetModuleInformationByType(ModuleInformationType.ApiSetName, 
+                        var resolvedNameRoot = (CCoreResolvedFileNameRoot)GetModuleInformationByType(ModuleInformationType.ApiSetName,
                             module, moduleName);
 
                         if (resolvedNameRoot != null && resolvedNameRoot.FileName != null)

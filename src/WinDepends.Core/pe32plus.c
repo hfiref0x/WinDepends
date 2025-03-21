@@ -1190,7 +1190,7 @@ LPBYTE pe32open(
             // allocate image buffer below 4GB for x86-32 compatibility
             for (c = image_base; c < MAX_APP_ADDRESS; c += context->allocation_granularity)
             {
-                printf("pe32open: module base at 0x%llX\r\n", image_base);
+                printf("pe32open: module base at 0x%llX\r\n", c);
 
                 module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize,
                     MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);

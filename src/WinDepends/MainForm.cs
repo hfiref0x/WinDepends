@@ -93,6 +93,11 @@ public partial class MainForm : Form
     readonly string[] CommandLineArgs;
 
     /// <summary>
+    /// Flag to let the others know when WinDepends application is shutting down.
+    /// </summary>
+    bool ShutdownInProgress;
+
+    /// <summary>
     /// Log search releated variables.
     /// </summary>
     public RichTextBoxFinds LogFindOptions { get; set; }
@@ -134,6 +139,8 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+
+        ShutdownInProgress = false;
 
         //
         // Add welcome message to the log.
@@ -888,6 +895,9 @@ public partial class MainForm : Form
     {
         Color outputColor = Color.Black;
         bool boldText = false;
+
+        if (ShutdownInProgress)
+            return;
 
         switch (messageType)
         {
@@ -3533,6 +3543,9 @@ public partial class MainForm : Form
     /// <param name="status"></param>
     private void UpdateOperationStatus(string status)
     {
+        if (ShutdownInProgress)
+            return;
+
         if (toolBarStatusLabel.Owner.InvokeRequired)
         {
             toolBarStatusLabel.Owner.BeginInvoke((MethodInvoker)delegate
@@ -3770,5 +3783,10 @@ public partial class MainForm : Form
     private void StatusBarPopupMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
     {
         symStateChangeMenuItem.Checked = m_Configuration.UseSymbols;
+    }
+
+    private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+    {
+        ShutdownInProgress = true;
     }
 }

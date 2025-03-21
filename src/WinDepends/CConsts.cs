@@ -41,6 +41,9 @@ public static class CConsts
     public const int ModuleNodeDepthMin = 1;
     public const int ModuleNodeDepthDefault = 2;
 
+    public const int MinPortNumber = 49152;
+    public const int MaxPortNumber = ushort.MaxValue;
+
     public const int TagUseESC = 100;
     public const int TagAutoExpand = 120;
     public const int TagFullPaths = 121;

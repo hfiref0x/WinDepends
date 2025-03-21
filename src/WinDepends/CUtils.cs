@@ -121,6 +121,7 @@ internal static class RichTextBoxExtensions
 
         box.Select(oldLength, text.Length);
         box.SelectionFont = new Font(box.Font, bold ? FontStyle.Bold : FontStyle.Regular);
+        box.SelectionLength = 0;
     }
 }
 

@@ -154,7 +154,7 @@ public class CCoreClient : IDisposable
     /// Checks if the server reply indicate success.
     /// </summary>
     /// <returns></returns>
-    public bool IsRequestSuccessful()
+    public bool IsRequestSuccessful(CModule module = null)
     {
         CBufferChain idata = ReceiveReply();
         if (IsNullOrEmptyResponse(idata))
@@ -172,7 +172,7 @@ public class CCoreClient : IDisposable
 
         if (response.StartsWith(CConsts.WDEP_STATUS_600, StringComparison.InvariantCulture))
         {
-            CheckExceptionInReply(response);
+            CheckExceptionInReply(module);
         }
         return false;
     }
@@ -187,27 +187,35 @@ public class CCoreClient : IDisposable
         return moduleName.StartsWith("API-", StringComparison.OrdinalIgnoreCase) || moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
     }
 
-    public void CheckExceptionInReply(string response)
+    public void CheckExceptionInReply(CModule module)
     {
         CBufferChain idata = ReceiveReply();
         if (!IsNullOrEmptyResponse(idata))
         {
-            string result = idata.BufferToString();
-            if (!string.IsNullOrEmpty(result))
+            string exInfo = idata.BufferToString();
+            if (!string.IsNullOrEmpty(exInfo))
             {
-                AddLogMessage(result, LogMessageType.ErrorOrWarning);
+                var logMsg = exInfo;
+                if (module != null)
+                {
+                    module.OtherErrorsPresent = true;
+                    if (!string.IsNullOrEmpty(module.FileName))
+                        logMsg += Path.GetFileName(module.FileName);
+                }
+                AddLogMessage(logMsg, LogMessageType.ErrorOrWarning);
             }
         }
     }
 
-    public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, bool preProcessData = false)
+    public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, CModule module,
+                                                         bool preProcessData = false)
     {
         if (!SendRequest(command))
         {
             return null;
         }
 
-        if (!IsRequestSuccessful())
+        if (!IsRequestSuccessful(module))
         {
             return null;
         }
@@ -484,7 +492,7 @@ public class CCoreClient : IDisposable
         return SendRequest("shutdown\r\n");
     }
 
-    public object GetModuleInformationByType(ModuleInformationType moduleInformationType, string parameters = null)
+    public object GetModuleInformationByType(ModuleInformationType moduleInformationType, CModule module, string parameters = null)
     {
         string cmd;
         bool preProcessData = false;
@@ -518,7 +526,7 @@ public class CCoreClient : IDisposable
                 return null;
         }
 
-        return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, preProcessData);
+        return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, module, preProcessData);
     }
 
     /*
@@ -532,7 +540,7 @@ public class CCoreClient : IDisposable
     public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo()
     {
         string cmd = "apisetnsinfo\r\n";
-        var rootObject = (CCoreApiSetNamespaceInfoRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreApiSetNamespaceInfoRoot));
+        var rootObject = (CCoreApiSetNamespaceInfoRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreApiSetNamespaceInfoRoot), null);
         if (rootObject != null)
             return rootObject.Namespace;
 
@@ -542,7 +550,7 @@ public class CCoreClient : IDisposable
     public CCoreCallStats GetCoreCallStats()
     {
         string cmd = "callstats\r\n";
-        var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreCallStatsRoot));
+        var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreCallStatsRoot), null);
         if (rootObject != null)
             return rootObject.CallStats;
 
@@ -556,7 +564,7 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        var dataObject = (CCoreStructsRoot)GetModuleInformationByType(ModuleInformationType.Headers);
+        var dataObject = (CCoreStructsRoot)GetModuleInformationByType(ModuleInformationType.Headers, module);
         if (dataObject == null)
         {
             return false;
@@ -633,7 +641,7 @@ public class CCoreClient : IDisposable
         // Process exports.
         //
         CCoreExports rawExports;
-        CCoreExportsRoot exportsObject = (CCoreExportsRoot)GetModuleInformationByType(ModuleInformationType.Exports);
+        CCoreExportsRoot exportsObject = (CCoreExportsRoot)GetModuleInformationByType(ModuleInformationType.Exports, module);
         if (exportsObject != null && exportsObject.Export != null)
         {
             rawExports = exportsObject.Export;
@@ -667,7 +675,7 @@ public class CCoreClient : IDisposable
         // Process imports.
         //
         CCoreImports rawImports;
-        CCoreImportsRoot importsObject = (CCoreImportsRoot)GetModuleInformationByType(ModuleInformationType.Imports);
+        CCoreImportsRoot importsObject = (CCoreImportsRoot)GetModuleInformationByType(ModuleInformationType.Imports, module);
         if (importsObject != null && importsObject.Import != null)
         {
             rawImports = importsObject.Import;
@@ -707,7 +715,8 @@ public class CCoreClient : IDisposable
 
                     if (cachedName == null)
                     {
-                        var resolvedNameRoot = (CCoreResolvedFileNameRoot)GetModuleInformationByType(ModuleInformationType.ApiSetName, moduleName);
+                        var resolvedNameRoot = (CCoreResolvedFileNameRoot)GetModuleInformationByType(ModuleInformationType.ApiSetName, 
+                            module, moduleName);
 
                         if (resolvedNameRoot != null && resolvedNameRoot.FileName != null)
                         {
@@ -770,7 +779,7 @@ public class CCoreClient : IDisposable
 
     private bool GetKnownDllsByType(string command, List<string> knownDllsList, out string knownDllsPath)
     {
-        CCoreKnownDllsRoot rootObject = (CCoreKnownDllsRoot)SendCommandAndReceiveReplyAsObjectJSON(command, typeof(CCoreKnownDllsRoot), true);
+        CCoreKnownDllsRoot rootObject = (CCoreKnownDllsRoot)SendCommandAndReceiveReplyAsObjectJSON(command, typeof(CCoreKnownDllsRoot), null, true);
         if (rootObject != null && rootObject.KnownDlls != null)
         {
             knownDllsList.Clear();
@@ -816,11 +825,11 @@ public class CCoreClient : IDisposable
 
             int startAttempts = 5;
             int portNumber;
-            Random rnd = new(Process.GetCurrentProcess().Id);
+            Random rnd = new(Environment.ProcessId);
 
             do
             {
-                portNumber = rnd.Next(49152, ushort.MaxValue);
+                portNumber = rnd.Next(CConsts.MinPortNumber, CConsts.MaxPortNumber);
                 ProcessStartInfo processInfo = new()
                 {
                     FileName = $"\"{fileName}\"",

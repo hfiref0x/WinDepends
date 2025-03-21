@@ -67,12 +67,12 @@ VOID report_exception_to_client(
         exlocation = L"exports";
         break;
     default:
-        exlocation = L"module";
+        exlocation = L"data";
         break;
     }
 
     StringCchPrintf(text, ARRAYSIZE(text),
-        L"%sAn unhandled exception (0x%lX) occurred while %s processing.\r\n",
+        L"%sAn unhandled exception (0x%lX) occurred while processing %s of \r\n",
         WDEP_STATUS_600,
         exception_code,
         exlocation);

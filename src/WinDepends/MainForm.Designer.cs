@@ -1671,7 +1671,7 @@
             // 
             statusBarPopupMenu.Items.AddRange(new ToolStripItem[] { symStateChangeMenuItem });
             statusBarPopupMenu.Name = "statusBarPopupMenu";
-            statusBarPopupMenu.Size = new Size(213, 48);
+            statusBarPopupMenu.Size = new Size(213, 26);
             statusBarPopupMenu.Text = "Test";
             statusBarPopupMenu.Opening += StatusBarPopupMenu_Opening;
             // 
@@ -1697,6 +1697,7 @@
             MinimumSize = new Size(640, 480);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
+            FormClosing += MainForm_FormClosing;
             FormClosed += MainForm_FormClosed;
             Load += MainForm_Load;
             KeyDown += MainForm_KeyDown;

@@ -3,7 +3,7 @@
 *
 *  Created on: Dec 06, 2024
 *
-*  Modified on: Dec 06, 2024
+*  Modified on: Mar 21, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -90,7 +90,7 @@ ApiSetpSearchForApiSetV6(
         }
     }
 
-    if (high < low) {
+    if (high < low || FoundEntry == NULL) {
         return NULL;
     }
 
@@ -368,7 +368,7 @@ ApiSetResolveToHostV4(
             break;
         }
 
-        if (IS_API_SET_EMPTY_VALUE_ENTRY_V4(HostLibraryEntry)) {
+        if (HostLibraryEntry == NULL || IS_API_SET_EMPTY_VALUE_ENTRY_V4(HostLibraryEntry)) {
             return STATUS_APISET_NOT_HOSTED;
         }
 

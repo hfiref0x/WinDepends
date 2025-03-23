@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Mar 18, 2025
+*  Modified on: Mar 21, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -27,7 +27,8 @@
 #include <DbgHelp.h>
 
 #pragma warning(push)
-#pragma warning(disable: 4005)
+#pragma warning(disable: 4005) //Macro redefinition due to it already being defined somewhere else in the project which causes the above warning.
+#pragma warning(disable: 6320) //Exception-filter expression is the constant EXCEPTION_EXECUTE_HANDLER. This might mask exceptions that were not intended to be handled.
 #include <ntstatus.h>
 #pragma warning(pop)
 

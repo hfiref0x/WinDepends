@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 27, 2024
 *
-*  Modified on: Dec 06, 2024
+*  Modified on: Mar 21, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -108,7 +108,7 @@ typedef struct _API_SET_NAMESPACE_ARRAY_V2 {
 } API_SET_NAMESPACE_ARRAY_V2, * PAPI_SET_NAMESPACE_ARRAY_V2;
 
 #define API_SET_NAMESPACE_ENTRY_V2(ApiSetNamespace, Index) \
-  (((PAPI_SET_NAMESPACE_ARRAY_V2)(ApiSetNamespace))->Array + Index)
+  (((PAPI_SET_NAMESPACE_ARRAY_V2)(ApiSetNamespace))->Array + (Index))
 
 //
 // API Set Schema Version 4
@@ -152,7 +152,7 @@ typedef struct _API_SET_NAMESPACE_ARRAY_V4 {
     (ValueEntry->NameOffset == 0) && (ValueEntry->NameLength == 0))
 
 #define API_SET_NAMESPACE_ENTRY_V4(ApiSetNamespace, Index) \
-    ((PAPI_SET_NAMESPACE_ENTRY_V4)(((PAPI_SET_NAMESPACE_ARRAY_V4)(ApiSetNamespace))->Array + Index))
+    ((PAPI_SET_NAMESPACE_ENTRY_V4)(((PAPI_SET_NAMESPACE_ARRAY_V4)(ApiSetNamespace))->Array + (Index)))
 
 #define API_SET_NAMESPACE_ENTRY_NAME_V4(ApiSetNamespace, NamespaceEntry) \
     ((PWCHAR)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_NAMESPACE_ENTRY_V4)(NamespaceEntry))->NameOffset))
@@ -161,7 +161,7 @@ typedef struct _API_SET_NAMESPACE_ARRAY_V4 {
     ((PAPI_SET_VALUE_ARRAY_V4)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_NAMESPACE_ENTRY_V4)(NamespaceEntry))->DataOffset))
 
 #define API_SET_VALUE_ENTRY_V4(ApiSetNamespace, ResolvedValueArray, Index) \
-    ((PAPI_SET_VALUE_ENTRY_V4)(((PAPI_SET_VALUE_ARRAY_V4)(ResolvedValueArray))->Array + Index))
+    ((PAPI_SET_VALUE_ENTRY_V4)(((PAPI_SET_VALUE_ARRAY_V4)(ResolvedValueArray))->Array + (Index)))
 
 #define API_SET_VALUE_ENTRY_NAME_V4(ApiSetNamespace, ApiSetValueEntry) \
     ((WCHAR*)((ULONG_PTR)(ApiSetNamespace) + ((PAPI_SET_VALUE_ENTRY_V4)(ApiSetValueEntry))->NameOffset))

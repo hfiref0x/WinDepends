@@ -141,7 +141,7 @@ BOOL get_datadirs(
     PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
     BOOL                status = FALSE;
-    WCHAR               text[1024];
+    WCHAR               text[WDEP_MSG_LENGTH_SMALL];
     DWORD               dir_limit, c;
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
@@ -546,7 +546,7 @@ BOOL get_exports(
     WORD                *name_ordinals;
     BOOL                status = FALSE, names_valid;
     char                *fname, *forwarder;
-    WCHAR               text[4096];
+    WCHAR               text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_EXPORT_DIRECTORY ExportTable;
 
@@ -687,7 +687,7 @@ static void process_thunks64(
     DWORD       fhint = 0, ordinal = 0;
     ULONG64     fbound = 0;
     char        *strfname = NULL;
-    WCHAR       msg_text[4096];
+    WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_IMPORT_BY_NAME fname = NULL;
 
@@ -768,7 +768,7 @@ static void process_thunks32(
     DWORD       fhint = 0, ordinal = 0;
     ULONG64     fbound = 0;
     char        *strfname = NULL;
-    WCHAR       msg_text[4096];
+    WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_IMPORT_BY_NAME fname = NULL;
 
@@ -849,7 +849,7 @@ BOOL get_imports(
     BOOL                        status = FALSE, importPresent = FALSE;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
-    WCHAR                       msg_text[4096];
+    WCHAR                       msg_text[WDEP_MSG_LENGTH_BIG];
 
     define_3264_union(IMAGE_THUNK_DATA, thunk_data);
     define_3264_union(ULONG, bound_table);
@@ -1005,19 +1005,19 @@ LPBYTE pe32open(
     HANDLE              hf = INVALID_HANDLE_VALUE;
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
-    DWORD               iobytes, dwSignature = 0, szOptAndSections,
+    DWORD               iobytes = 0, dwSignature = 0, szOptAndSections,
                         vsize, psize, tsize, status = 0, dwRealChecksum = 0, dwLastError = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
     __int64             c, image_base;
 
-    PIMAGE_SECTION_HEADER       sections;
+    PIMAGE_SECTION_HEADER       sections = NULL;
     BY_HANDLE_FILE_INFORMATION  fileinfo = { 0 };
-    WCHAR                       text[4096];
+    WCHAR                       text[WDEP_MSG_LENGTH_BIG];
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
-    if (context == NULL) {
+    if (context == NULL || context->filename == NULL) {
         sendstring_plaintext_no_track(s, WDEP_STATUS_501);
         return FALSE;
     }
@@ -1029,13 +1029,16 @@ LPBYTE pe32open(
         context->image_fixed = TRUE;
         context->image_64bit = FALSE;
 
+        // Open input file
         hf = CreateFile(context->filename, GENERIC_READ | SYNCHRONIZE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
         if (hf == INVALID_HANDLE_VALUE)
         {
+            printf("pe32open: CreateFile failed with error 0x%lX\n", GetLastError());
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             __leave;
         }
 
+        // Get file information
         if (!GetFileInformationByHandle(hf, &fileinfo))
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
@@ -1045,19 +1048,21 @@ LPBYTE pe32open(
         context->file_size.LowPart = fileinfo.nFileSizeLow;
         context->file_size.HighPart = fileinfo.nFileSizeHigh;
 
-        iobytes = 0;
+        // Read DOS header
         if (!ReadFile(hf, &dos_hdr, sizeof(dos_hdr), &iobytes, NULL))
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
-        if ((iobytes != sizeof(dos_hdr)) || (dos_hdr.e_magic != IMAGE_DOS_SIGNATURE) || (dos_hdr.e_lfanew <= 0))
+
+        // Validate DOS header
+        if ((iobytes != sizeof(dos_hdr)) || (dos_hdr.e_magic != IMAGE_DOS_SIGNATURE) 
+            || (dos_hdr.e_lfanew <= 0) || ((DWORD)dos_hdr.e_lfanew >= fileinfo.nFileSizeLow))
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
-        iobytes = 0;
         RtlSecureZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew;
         if (!ReadFile(hf, &dwSignature, sizeof(dwSignature), &iobytes, &ovl))
@@ -1065,13 +1070,15 @@ LPBYTE pe32open(
             sendstring_plaintext_no_track(s, WDEP_STATUS_403);
             __leave;
         }
+
+        // Validate PE signature
         if ((iobytes != sizeof(dwSignature)) || (dwSignature != IMAGE_NT_SIGNATURE))
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
-        iobytes = 0;
+        // Read COFF header
         RtlSecureZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature);
         if (!ReadFile(hf, &nt_file_hdr, sizeof(nt_file_hdr), &iobytes, &ovl))
@@ -1085,17 +1092,17 @@ LPBYTE pe32open(
             __leave;
         }
 
-        iobytes = 0;
-        RtlSecureZeroMemory(&ovl, sizeof(ovl));
+       RtlSecureZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature) + IMAGE_SIZEOF_FILE_HEADER;
 
 #pragma region CHECKSUM
+        // Calculate checksum via memory mapping
         HANDLE hm = CreateFileMapping(hf, NULL, PAGE_READONLY, 0, 0, NULL);
-        if (hm)
+        if (hm != NULL)
         {
             PVOID mapping = MapViewOfFile(hm, FILE_MAP_READ, 0, 0, 0);
             CloseHandle(hm);
-            if (mapping)
+            if (mapping != NULL)
             {
                 opt_file_hdr.opt_file_hdr64 = (PIMAGE_OPTIONAL_HEADER64)((PBYTE)mapping + ovl.Offset);
                 dwRealChecksum = calc_mapped_file_chksum(mapping, fileinfo.nFileSizeLow, (PUSHORT)&opt_file_hdr.opt_file_hdr64->CheckSum);
@@ -1104,6 +1111,7 @@ LPBYTE pe32open(
         }
 #pragma endregion
 
+        // Allocate memory for optional header and sections
         szOptAndSections = nt_file_hdr.SizeOfOptionalHeader + nt_file_hdr.NumberOfSections * IMAGE_SIZEOF_SECTION_HEADER;
         if (szOptAndSections < PAGE_SIZE)
             szOptAndSections = PAGE_SIZE;
@@ -1117,6 +1125,7 @@ LPBYTE pe32open(
             __leave;
         }
 
+        // Read optional header and section headers
         if (!ReadFile(hf, opt_file_hdr.opt_file_hdr64, szOptAndSections, &iobytes, &ovl))
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_403);
@@ -1125,9 +1134,8 @@ LPBYTE pe32open(
 
         sections = (PIMAGE_SECTION_HEADER)((PBYTE)opt_file_hdr.opt_file_hdr64 + nt_file_hdr.SizeOfOptionalHeader);
 
+        // Validate PE magic number
         context->moduleMagic = opt_file_hdr.opt_file_hdr64->Magic;
-
-        /* checking against known image magic */
         if (context->moduleMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC &&
             context->moduleMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
         {
@@ -1137,10 +1145,27 @@ LPBYTE pe32open(
 
         context->image_64bit = (context->moduleMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
 
+        // Validate section and file alignment
+        DWORD sec_align, file_align;
+        if (context->image_64bit) {
+            sec_align = opt_file_hdr.opt_file_hdr64->SectionAlignment;
+            file_align = opt_file_hdr.opt_file_hdr64->FileAlignment;
+        }
+        else {
+            sec_align = opt_file_hdr.opt_file_hdr32->SectionAlignment;
+            file_align = opt_file_hdr.opt_file_hdr32->FileAlignment;
+        }
+
+        if ((sec_align | file_align) == 0) {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_415);
+            __leave;
+        }
+
         /* checking for sections continuity */
         if (nt_file_hdr.NumberOfSections == 0)
         {
-            vsize = PAGE_ALIGN(max((ULONG)dos_hdr.e_lfanew, opt_file_hdr.opt_file_hdr64->SizeOfImage));
+            vsize = PAGE_ALIGN(max((ULONG)dos_hdr.e_lfanew, 
+                opt_file_hdr.opt_file_hdr64->SizeOfImage));
         }
         else
         {
@@ -1164,9 +1189,7 @@ LPBYTE pe32open(
                 __leave;
             }
 
-            if (tsize == 0)
-                tsize = psize;
-
+            if (tsize == 0) tsize = psize;
             vsize += ALIGN_UP(tsize, opt_file_hdr.opt_file_hdr64->SectionAlignment);
         }
 
@@ -1184,7 +1207,7 @@ LPBYTE pe32open(
 
         if (context->image_64bit) {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
-            if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
+            if (dir_base && dir_size >= sizeof(IMAGE_BASE_RELOCATION)) {
                 context->image_fixed = FALSE;
             }
             /*else {
@@ -1193,7 +1216,7 @@ LPBYTE pe32open(
         }
         else {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
-            if ((dir_base) && (dir_size >= sizeof(IMAGE_BASE_RELOCATION))) {
+            if (dir_base && dir_size >= sizeof(IMAGE_BASE_RELOCATION)) {
                 context->image_fixed = FALSE;
             }
             /*else {
@@ -1233,8 +1256,7 @@ LPBYTE pe32open(
 
         }
 
-        if (!module)
-        {
+        if (!module) {
             printf("pe32open: module is not allocated, GetLastError 0x%lX\r\n", dwLastError);
             sendstring_plaintext_no_track(s, WDEP_STATUS_502);
             __leave;
@@ -1242,9 +1264,8 @@ LPBYTE pe32open(
 
         printf("pe32open: module allocated at 0x%p\r\n", module);
 
-        iobytes = 0;
+        // Read PE headers into memory
         RtlSecureZeroMemory(&ovl, sizeof(ovl));
-
         if (nt_file_hdr.NumberOfSections == 0)
         {
             psize = PAGE_ALIGN(
@@ -1264,9 +1285,9 @@ LPBYTE pe32open(
             __leave;
         }
 
+        // Read sections into memory
         for (c = 0; c < nt_file_hdr.NumberOfSections; ++c)
         {
-
             if (sections[c].PointerToRawData == 0)
                 continue;
 
@@ -1275,13 +1296,10 @@ LPBYTE pe32open(
 
             tsize = sections[c].Misc.VirtualSize;
             psize = sections[c].SizeOfRawData;
-
-            if (tsize == 0)
-                tsize = psize;
+            if (tsize == 0) tsize = psize;
             tsize = min(tsize, psize);
             tsize = ALIGN_UP(tsize, opt_file_hdr.opt_file_hdr64->FileAlignment);
 
-            iobytes = 0;
             if (!ReadFile(hf, module + sections[c].VirtualAddress, tsize, &iobytes, &ovl))
             {
                 sendstring_plaintext_no_track(s, WDEP_STATUS_403);
@@ -1289,19 +1307,27 @@ LPBYTE pe32open(
             }
         }
 
+        // Process relocations if needed
         if ((!context->image_fixed) && context->process_relocs) {
+
+            BOOL relocs_processed = FALSE;
+
             if (context->image_64bit) {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
-                if (dir_base)
-                    relocimage(module, (LPVOID)(DWORD_PTR)opt_file_hdr.opt_file_hdr64->ImageBase,
+                if (dir_base) {
+                    relocs_processed = relocimage(module, (LPVOID)(DWORD_PTR)opt_file_hdr.opt_file_hdr64->ImageBase,
                         (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
+                }
             }
             else {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
-                if (dir_base)
-                    relocimage(module, (LPVOID)(ULONG_PTR)opt_file_hdr.opt_file_hdr32->ImageBase,
+                if (dir_base) {
+                    relocs_processed = relocimage(module, (LPVOID)(ULONG_PTR)opt_file_hdr.opt_file_hdr32->ImageBase,
                         (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
+                }
             }
+
+            printf("pe32open: module relocation result %li\r\n", relocs_processed);
         }
 
         status = 1;
@@ -1312,14 +1338,14 @@ LPBYTE pe32open(
             printf("exception in pe32open\r\n");
         }
 
-        if ((module) && (!status))
-        {
+        if (!status && module) {
             VirtualFreeEx(GetCurrentProcess(), module, 0, MEM_RELEASE);
             module = NULL;
         }
 
-        if (opt_file_hdr.opt_file_hdr64)
+        if (opt_file_hdr.opt_file_hdr64) {
             VirtualFreeEx(GetCurrentProcess(), opt_file_hdr.opt_file_hdr64, 0, MEM_RELEASE);
+        }
 
         if (hf != INVALID_HANDLE_VALUE)
             CloseHandle(hf);

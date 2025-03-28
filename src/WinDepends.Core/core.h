@@ -53,6 +53,9 @@
 #define MAX_APP_ADDRESS         0x40000000
 #define PAGE_GRANULARITY        0x10000
 
+#define WDEP_MSG_LENGTH_BIG     4096
+#define WDEP_MSG_LENGTH_SMALL   1024
+
 typedef struct {
     unsigned char* module;
     wchar_t* filename;

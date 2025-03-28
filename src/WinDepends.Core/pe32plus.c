@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Mar 21, 2025
+*  Modified on: Mar 28, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -37,50 +37,15 @@ DWORD ALIGN_DOWN(DWORD p, DWORD a)
     return p - (p % a);
 }
 
-typedef enum _exception_location {
-    ex_headers,
-    ex_datadirs,
-    ex_imports,
-    ex_exports
-} exception_location;
-
-VOID report_exception_to_client(
-    _In_ SOCKET s,
-    _In_ exception_location location,
-    _In_ DWORD exception_code
-)
-{
-    WCHAR text[512];
-    LPWSTR exlocation;
-
-    switch (location) {
-    case ex_headers:
-        exlocation = L"file headers";
-        break;
-    case ex_datadirs:
-        exlocation = L"data directories";
-        break;
-    case ex_imports:
-        exlocation = L"imports";
-        break;
-    case ex_exports:
-        exlocation = L"exports";
-        break;
-    default:
-        exlocation = L"data";
-        break;
-    }
-
-    StringCchPrintf(text, ARRAYSIZE(text),
-        L"%sAn unhandled exception (0x%lX) occurred while processing %s of \r\n",
-        WDEP_STATUS_600,
-        exception_code,
-        exlocation);
-
-    sendstring_plaintext_no_track(s, text);
-}
-
-BOOL relocimage64(
+/*
+* relocimage
+*
+* Purpose:
+*
+* Send exception information to the client.
+*
+*/
+BOOL relocimage(
     _In_ LPVOID MappedView,
     _In_ LPVOID RebaseFrom,
     _In_ PIMAGE_BASE_RELOCATION RelData,
@@ -983,29 +948,19 @@ BOOL get_imports(
             {
                 IModuleName = DImportTable->DllNameRVA;
                 INameTable = DImportTable->ImportNameTableRVA;
+                delta = (DWORD_PTR)context->module;
 
-                printf("get_imports: DImportTable->Attributes.RvaBased %lu\r\n", DImportTable->Attributes.RvaBased);
+                printf("get_imports: DImportTable->Attributes.RvaBased %lu, delta 0x%llX\r\n", 
+                    DImportTable->Attributes.RvaBased,
+                    delta);
 
-                if (DImportTable->Attributes.RvaBased)
-                {
-                    /*if (context->image_fixed)
-                    {
-                        delta = ImageBase;
-                    }
-                    else*/
-                    {
-                        delta = (DWORD_PTR)context->module;
-                    }
-
+                if (DImportTable->Attributes.RvaBased) {
                     IModuleName += delta;
                     INameTable += delta;
                 } 
                 else {
-
                     IModuleName = DImportTable->DllNameRVA - (DWORD_PTR)ImageBase;
                     INameTable = DImportTable->ImportNameTableRVA - (DWORD_PTR)ImageBase;
-                    delta = (DWORD_PTR)context->module;
-
                     IModuleName += delta;
                     INameTable += delta;
                 }
@@ -1338,13 +1293,13 @@ LPBYTE pe32open(
             if (context->image_64bit) {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
                 if (dir_base)
-                    relocimage64(module, (LPVOID)(DWORD_PTR)opt_file_hdr.opt_file_hdr64->ImageBase,
+                    relocimage(module, (LPVOID)(DWORD_PTR)opt_file_hdr.opt_file_hdr64->ImageBase,
                         (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
             }
             else {
                 get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
                 if (dir_base)
-                    relocimage64(module, (LPVOID)(ULONG_PTR)opt_file_hdr.opt_file_hdr32->ImageBase,
+                    relocimage(module, (LPVOID)(ULONG_PTR)opt_file_hdr.opt_file_hdr32->ImageBase,
                         (PIMAGE_BASE_RELOCATION)(module + dir_base), dir_size);
             }
         }

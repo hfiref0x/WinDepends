@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Dec 02, 2024
+*  Modified on: Mar 28, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -15,16 +15,8 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
-typedef struct _GLOBAL_STATS {
-    LARGE_INTEGER startCount;
-    DWORD64 totalBytesSent;
-    DWORD64 totalSendCalls;
-    DWORD64 totalTimeSpent;
-} GLOBAL_STATS, * PGLOBAL_STATS;
-
 typedef struct _SUP_PATH_ELEMENT_ENTRY {
     struct _SUP_PATH_ELEMENT_ENTRY* Next;
-    DWORD Hash;
     PWSTR Element;
 } SUP_PATH_ELEMENT_ENTRY, * PSUP_PATH_ELEMENT_ENTRY;
 
@@ -75,7 +67,7 @@ InitializeListHead(
 
 _Must_inspect_result_
 BOOLEAN
-CFORCEINLINE
+FORCEINLINE
 IsListEmpty(
     _In_ const LIST_ENTRY* ListHead
 )
@@ -125,9 +117,10 @@ _Success_(return != NULL) LPWSTR resolve_apiset_name(
     _Out_ SIZE_T * name_length
 );
 
-unsigned long strtoul_w(wchar_t* s);
-wchar_t* _filepath_w(const wchar_t* fname, wchar_t* fpath);
-wchar_t* _filename_w(const wchar_t* f);
+unsigned long strtoul_w(_In_ wchar_t* s);
+wchar_t* _filepath_w(
+    _In_ const wchar_t* fname, 
+    _In_ wchar_t* fpath);
 
 DWORD calc_mapped_file_chksum(
     _In_ PVOID base_address,
@@ -160,7 +153,19 @@ LPVOID heap_malloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
 LPVOID heap_calloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
 BOOL heap_free(_In_opt_ HANDLE heap, _In_ LPVOID memory);
 
-int ex_filter(unsigned int code, struct _EXCEPTION_POINTERS* ep);
-int ex_filter_dbg(WCHAR* fileName, unsigned int code, struct _EXCEPTION_POINTERS* ep);
+int ex_filter(_In_ unsigned int code, _In_ struct _EXCEPTION_POINTERS* ep);
+int ex_filter_dbg(_In_ WCHAR* fileName, _In_ unsigned int code, _In_ struct _EXCEPTION_POINTERS* ep);
+
+typedef enum _exception_location {
+    ex_headers,
+    ex_datadirs,
+    ex_imports,
+    ex_exports
+} exception_location;
+
+VOID report_exception_to_client(
+    _In_ SOCKET s,
+    _In_ exception_location location,
+    _In_ DWORD exception_code);
 
 #endif _UTIL_H_

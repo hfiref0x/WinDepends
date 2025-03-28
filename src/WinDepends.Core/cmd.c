@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Mar 18, 2025
+*  Modified on: Mar 28, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -204,7 +204,8 @@ void cmd_apisetnamespace_info(
     _In_ SOCKET s
 )
 {
-    ULONG version, count;
+    BOOL bUnknown = FALSE;
+    ULONG version = 0, count = 0;
     PAPI_SET_NAMESPACE ApiSetNamespace;
     WCHAR buffer[200];
 
@@ -220,32 +221,44 @@ void cmd_apisetnamespace_info(
         return;
     }
 
-    ApiSetNamespace = (PAPI_SET_NAMESPACE)gsup.ApiSetMap;
-    ApiSet.Data = gsup.ApiSetMap;
-    version = ApiSetNamespace->Version;
+    __try {
 
-    switch (ApiSetNamespace->Version) {
+        ApiSetNamespace = (PAPI_SET_NAMESPACE)gsup.ApiSetMap;
+        ApiSet.Data = gsup.ApiSetMap;
+        version = ApiSetNamespace->Version;
 
-    case API_SET_SCHEMA_VERSION_V2:
-        count = ApiSet.v2->Count;
-        break;
+        switch (ApiSetNamespace->Version) {
 
-    case API_SET_SCHEMA_VERSION_V4:
-        count = ApiSet.v4->Count;
-        break;
+        case API_SET_SCHEMA_VERSION_V2:
+            count = ApiSet.v2->Count;
+            break;
 
-    case API_SET_SCHEMA_VERSION_V6:
-        count = ApiSet.v6->Count;
-        break;
+        case API_SET_SCHEMA_VERSION_V4:
+            count = ApiSet.v4->Count;
+            break;
 
-    default:
-        sendstring_plaintext_no_track(s, WDEP_STATUS_208);
-        return;
+        case API_SET_SCHEMA_VERSION_V6:
+            count = ApiSet.v6->Count;
+            break;
+
+        default:
+            bUnknown = TRUE;
+            __leave;
+        }
     }
-
-    RtlSecureZeroMemory(buffer, sizeof(buffer));
-    StringCchPrintf(buffer, ARRAYSIZE(buffer), L"%ws{\"apisetns\":{\"version\":%u, \"count\":%lu}}\r\n", WDEP_STATUS_OK, version, count);
-    sendstring_plaintext_no_track(s, buffer);
+    __finally {
+        buffer[0] = 0;
+        if (bUnknown) {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_208);
+        }
+        else {
+            StringCchPrintf(buffer, ARRAYSIZE(buffer),
+                L"%ws{\"apisetns\":{\"version\":%u, \"count\":%lu}}\r\n",
+                WDEP_STATUS_OK, 
+                version, count);
+            sendstring_plaintext_no_track(s, buffer);
+        }
+    }
 }
 
 /*

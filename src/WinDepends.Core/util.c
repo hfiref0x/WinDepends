@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Mar 18, 2025
+*  Modified on: Mar 28, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -69,7 +69,11 @@ BOOL ex_write_dump(
     return bResult;
 }
 
-int ex_filter_dbg(WCHAR *fileName, unsigned int code, struct _EXCEPTION_POINTERS* ep)
+int ex_filter_dbg(
+    _In_ WCHAR *fileName, 
+    _In_ unsigned int code, 
+    _In_ struct _EXCEPTION_POINTERS* ep
+)
 {
     if (code == EXCEPTION_ACCESS_VIOLATION)
     {
@@ -82,7 +86,10 @@ int ex_filter_dbg(WCHAR *fileName, unsigned int code, struct _EXCEPTION_POINTERS
     };
 }
 
-int ex_filter(unsigned int code, struct _EXCEPTION_POINTERS* ep)
+int ex_filter(
+    _In_ unsigned int code, 
+    _In_ struct _EXCEPTION_POINTERS* ep
+)
 {
     UNREFERENCED_PARAMETER(ep);
 
@@ -157,7 +164,7 @@ int sendstring_plaintext(
     return (result >= 0);
 }
 
-__forceinline wchar_t locase_w(wchar_t c)
+__forceinline wchar_t locase_w(_In_ wchar_t c)
 {
     if ((c >= 'A') && (c <= 'Z'))
         return c + 0x20;
@@ -167,11 +174,12 @@ __forceinline wchar_t locase_w(wchar_t c)
 
 #define ULONG_MAX_VALUE 0xffffffffUL
 
-__forceinline int _isdigit_w(wchar_t x) {
+__forceinline int _isdigit_w(_In_ wchar_t x) {
     return ((x >= L'0') && (x <= L'9'));
 }
 
-unsigned long strtoul_w(wchar_t* s)
+unsigned long strtoul_w(
+    _In_ wchar_t* s)
 {
     unsigned long long	a = 0;
     wchar_t			c;
@@ -194,7 +202,9 @@ unsigned long strtoul_w(wchar_t* s)
     return (unsigned long)a;
 }
 
-wchar_t* _filepath_w(const wchar_t* fname, wchar_t* fpath)
+wchar_t* _filepath_w(
+    _In_ const wchar_t* fname, 
+    _In_ wchar_t* fpath)
 {
     wchar_t* p = (wchar_t*)fname, * p0 = (wchar_t*)fname, * p1 = (wchar_t*)fpath;
 
@@ -217,22 +227,10 @@ wchar_t* _filepath_w(const wchar_t* fname, wchar_t* fpath)
     return fpath;
 }
 
-wchar_t* _filename_w(const wchar_t* f)
-{
-    wchar_t* p = (wchar_t*)f;
-
-    if (!f)
-        return NULL;
-
-    while (*f != L'\0') {
-        if (*f == L'\\')
-            p = (wchar_t*)f + 1;
-        f++;
-    }
-    return p;
-}
-
-USHORT chk_sum(ULONG partial_sum, PUSHORT source, ULONG length)
+USHORT chk_sum(
+    _In_ ULONG partial_sum, 
+    _In_ PUSHORT source, 
+    _In_ ULONG length)
 {
     while (length--)
     {
@@ -240,25 +238,6 @@ USHORT chk_sum(ULONG partial_sum, PUSHORT source, ULONG length)
         partial_sum = (partial_sum >> 16) + (partial_sum & 0xffff);
     }
     return (USHORT)(((partial_sum >> 16) + partial_sum) & 0xffff);
-}
-
-/*
-* sdbm_hash_string
-*
-* Purpose:
-*
-* Create sdbm hash for given string.
-*
-*/
-ULONG sdbm_hash_string(PCWSTR String, ULONG Length)
-{
-    ULONG hash_value = 0, n_chars = Length;
-    PCWSTR string_buffer = String;
-
-    while (n_chars-- != 0)
-        hash_value = (hash_value * 65599) + *string_buffer++;
-
-    return hash_value;
 }
 
 /*
@@ -286,6 +265,14 @@ DWORD calc_mapped_file_chksum(
     return (ULONG)partial_sum + file_length;
 }
 
+/*
+* build_knowndlls_list
+*
+* Purpose:
+*
+* Read and remember KnownDlls list from object directory.
+*
+*/
 BOOL build_knowndlls_list(
     _In_ BOOL IsWow64
 )
@@ -402,7 +389,6 @@ BOOL build_knowndlls_list(
                     if (dllEntry->Element) {
 
                         RtlCopyMemory(dllEntry->Element, pDirInfo->Name.Buffer, pDirInfo->Name.Length);
-                        dllEntry->Hash = sdbm_hash_string(dllEntry->Element, pDirInfo->Name.Length / sizeof(WCHAR));
                         dllEntry->Next = dllsHead->Next;
 
                         // Remember max filename size.
@@ -444,30 +430,14 @@ BOOL build_knowndlls_list(
     return bResult;
 }
 
-PSUP_PATH_ELEMENT_ENTRY find_entry_by_file_name(
-    _In_ LPCWSTR file_name,
-    _In_ BOOL is_wow_list
-)
-{
-    PSUP_PATH_ELEMENT_ENTRY dll_entry, dlls_head;
-    DWORD file_name_hash;
-
-    dlls_head = (is_wow_list) ? &gsup.KnownDlls32Head : &gsup.KnownDllsHead;
-
-    file_name_hash = sdbm_hash_string(file_name, (ULONG)wcslen(file_name));
-
-    dll_entry = dlls_head->Next;
-
-    while (dll_entry != NULL) {
-        if (dll_entry->Hash == file_name_hash) {
-            return dll_entry;
-        }
-        dll_entry = dll_entry->Next;
-    }
-
-    return NULL;
-}
-
+/*
+* load_apiset_namespace
+*
+* Purpose:
+*
+* Query apiset table from schema dll.
+*
+*/
 PVOID load_apiset_namespace(
     _In_ LPCWSTR apiset_schema_dll
 )
@@ -592,6 +562,14 @@ void utils_init()
 
 }
 
+/*
+* resolve_apiset_name
+*
+* Purpose:
+*
+* Lookup apiset target dll by contract name.
+*
+*/
 _Success_(return != NULL)
 LPWSTR resolve_apiset_name(
     _In_ LPCWSTR apiset_name,
@@ -669,6 +647,14 @@ LPWSTR resolve_apiset_name(
     return NULL;
 }
 
+/*
+* get_manifest
+*
+* Purpose:
+*
+* Read SxS manifest from the file resource and return it as base64 encoded array.
+*
+*/
 LPVOID get_manifest(
     _In_ HMODULE module
 )
@@ -708,6 +694,14 @@ LPVOID get_manifest(
     return NULL;
 }
 
+/*
+* get_params_token
+*
+* Purpose:
+*
+* Query tokens from parameters string.
+*
+*/
 _Success_(return) BOOL get_params_token(
     _In_ LPCWSTR params,
     _In_ ULONG token_index,
@@ -772,6 +766,14 @@ zero_term_exit:
     return (plen < buffer_length) ? TRUE : FALSE;
 }
 
+/*
+* get_params_option
+*
+* Purpose:
+*
+* Query parameters options by name and type.
+*
+*/
 _Success_(return) BOOL get_params_option(
     _In_ LPCWSTR params,
     _In_ LPCWSTR option_name,
@@ -825,4 +827,48 @@ _Success_(return) BOOL get_params_option(
     }
 
     return FALSE;
+}
+
+/*
+* report_exception_to_client
+*
+* Purpose:
+*
+* Send exception information to the client.
+*
+*/
+VOID report_exception_to_client(
+    _In_ SOCKET s,
+    _In_ exception_location location,
+    _In_ DWORD exception_code
+)
+{
+    WCHAR text[512];
+    LPWSTR exlocation;
+
+    switch (location) {
+    case ex_headers:
+        exlocation = L"file headers";
+        break;
+    case ex_datadirs:
+        exlocation = L"data directories";
+        break;
+    case ex_imports:
+        exlocation = L"imports";
+        break;
+    case ex_exports:
+        exlocation = L"exports";
+        break;
+    default:
+        exlocation = L"data";
+        break;
+    }
+
+    StringCchPrintf(text, ARRAYSIZE(text),
+        L"%sAn unhandled exception (0x%lX) occurred while processing %s of \r\n",
+        WDEP_STATUS_600,
+        exception_code,
+        exlocation);
+
+    sendstring_plaintext_no_track(s, text);
 }

@@ -23,6 +23,7 @@
 #include <WS2tcpip.h>
 #include <stdio.h>
 #include <strsafe.h>
+#include <intsafe.h>
 #include <wincrypt.h>
 #include <DbgHelp.h>
 

@@ -240,6 +240,7 @@ BOOL get_headers(
     WCHAR               *text = NULL, *manifest = NULL;
     ULONG               textsize = 16384, i;
     DWORD               dir_base = 0, dir_size = 0, dllchars_ex = 0, image_size = 0;
+    DWORD               hdr_chars, hdr_subsystem;
 
     PIMAGE_DEBUG_DIRECTORY  pdbg = NULL;
 
@@ -277,6 +278,8 @@ BOOL get_headers(
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
         mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"headers\":");
 
+        hdr_chars = nt_file_hdr->Characteristics;
+
         StringCchPrintf(text, textsize,
             L"{\"ImageFileHeader\":{"
             L"\"Machine\":%u,"
@@ -301,6 +304,7 @@ BOOL get_headers(
         {
         case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
             image_size = opt_file_hdr.opt_file_hdr32->SizeOfImage;
+            hdr_subsystem = opt_file_hdr.opt_file_hdr32->Subsystem;
 
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_DEBUG, dir_base, dir_size);
 
@@ -373,6 +377,7 @@ BOOL get_headers(
 
         case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
             image_size = opt_file_hdr.opt_file_hdr64->SizeOfImage;
+            hdr_subsystem = opt_file_hdr.opt_file_hdr64->Subsystem;
 
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_DEBUG, dir_base, dir_size);
 
@@ -509,13 +514,18 @@ BOOL get_headers(
         
         mlist_add(&msg_lh, text);
 
-        manifest = get_manifest((HMODULE)context->module);
-        if (manifest)
+        // Query create process manifest, skip dlls and native images
+        if ((hdr_chars & IMAGE_FILE_DLL) == 0 &&
+            hdr_subsystem != IMAGE_SUBSYSTEM_NATIVE)
         {
-            mlist_add(&msg_lh, L",\"manifest\":\"");
-            mlist_add(&msg_lh, manifest);
-            mlist_add(&msg_lh, L"\"");
-            heap_free(NULL, manifest);
+            manifest = get_manifest((HMODULE)context->module);
+            if (manifest)
+            {
+                mlist_add(&msg_lh, L",\"manifest\":\"");
+                mlist_add(&msg_lh, manifest);
+                mlist_add(&msg_lh, L"\"");
+                heap_free(NULL, manifest);
+            }
         }
 
         mlist_add(&msg_lh, L"}}\r\n");

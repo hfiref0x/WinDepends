@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        28 Mar 2025
 *  
 *  Codename:    VasilEk
 *
@@ -153,12 +153,9 @@ public partial class MainForm : Form
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
 
-        bool bSymbolsAllocated = false;
+        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, 
+                m_Configuration.SymbolsStorePath, m_Configuration.UseSymbols);
 
-        if (m_Configuration.UseSymbols)
-        {
-            bSymbolsAllocated = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
-        }
         //
         // Check for command line parameters.
         //
@@ -184,10 +181,16 @@ public partial class MainForm : Form
         //
         // Display this message after server initialization message.
         //
-        if (bSymbolsAllocated)
+        switch (dbghelpInit)
         {
-            AddLogMessage($"Debug symbols initialized using \"{m_Configuration.SymbolsDllPath}\", " +
-                $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
+            case 1:
+                AddLogMessage($"DBGHELP initialized using \"{m_Configuration.SymbolsDllPath}\", " +
+                    $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
+                break;
+            case 2:
+                AddLogMessage($"DBGHELP initialized (undecoration only) using \"{m_Configuration.SymbolsDllPath}\", " +
+                    $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
+                break;
         }
 
         LVExports.VirtualMode = true;
@@ -1345,16 +1348,23 @@ public partial class MainForm : Form
             }
 
             CSymbolResolver.ReleaseSymbolResolver();
-            if (CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath))
+            int result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, m_Configuration.UseSymbols);
+            switch (result)
             {
-                AddLogMessage($"Debug symbols initialized using \"{symDllPath}\", " +
-                    $"store \"{symStorePath}\"", LogMessageType.Information);
+                case 0:
+                    AddLogMessage($"DBGHELP initialization failed for \"{symDllPath}\", " +
+                        $"store \"{symStorePath}\"", LogMessageType.ErrorOrWarning);
+                    break;
+                case 1:
+                    AddLogMessage($"DBGHELP initialized using \"{symDllPath}\", " +
+                        $"store \"{symStorePath}\"", LogMessageType.Information);
+                    break;
+                case 2:
+                    AddLogMessage($"DBGHELP initialized (undecoration only) using \"{symDllPath}\", " +
+                        $"store \"{symStorePath}\"", LogMessageType.Information);
+                    break;
             }
-            else
-            {
-                AddLogMessage($"Debug symbols initialization failed for \"{symDllPath}\", " +
-                    $"store \"{symStorePath}\"", LogMessageType.ErrorOrWarning);
-            }
+
         }
         else
         {
@@ -3171,6 +3181,16 @@ public partial class MainForm : Form
         return lvItem;
     }
 
+    private string TryUndecorateFunction(bool viewUndecorated, CFunction function)
+    {
+        if (!CSymbolResolver.UndecorationReady)
+        {
+            return function.RawName;
+        }
+
+        return viewUndecorated && function.IsNameDecorated() ? function.UndecorateFunctionName() : function.RawName;
+    }
+
     /// <summary>
     /// Create function entry for LVImports/LVExports virtual listviews.
     /// </summary>
@@ -3200,12 +3220,12 @@ public partial class MainForm : Form
             var resolvedFunction = module.ResolveFunctionForOrdinal(function.Ordinal);
             if (resolvedFunction != null)
             {
-                functionName = m_Configuration.ViewUndecorated && resolvedFunction.IsNameDecorated() ? resolvedFunction.UndecorateFunctionName() : resolvedFunction.RawName;
+                functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, resolvedFunction);
             }
         }
         else
         {
-            functionName = m_Configuration.ViewUndecorated && function.IsNameDecorated() ? function.UndecorateFunctionName() : function.RawName;
+            functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, function);
         }
 
         //
@@ -3221,7 +3241,7 @@ public partial class MainForm : Form
                 {
                     function.IsNameFromSymbols = true;
                     function.RawName = symName;
-                    functionName = m_Configuration.ViewUndecorated && function.IsNameDecorated() ? function.UndecorateFunctionName() : function.RawName;
+                    functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, function);
                 }
             }
         }

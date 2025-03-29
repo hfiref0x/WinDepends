@@ -472,7 +472,7 @@ public class CModuleData
     [DataMember]
     public string SubsystemVersion { get; set; }
     [DataMember]
-    public uint ImageFixed { get; set; } = 0;
+    public uint ImageFixed { get; set; } = 0;    
     //
     // Module debug directories.
     //
@@ -520,8 +520,11 @@ public class CModuleData
 [DataContract]
 public class CModule
 {
+    [DataMember]
+    public Guid ModuleGuid { get; set; }
+
     //
-    // Unique instance id, representing module, generated as GetHashCode()
+    //  Module instance id, representing module, generated as GetHashCode()
     //
     [DataMember]
     public int InstanceId { get; set; }
@@ -586,10 +589,12 @@ public class CModule
 
     public CModule()
     {
+        ModuleGuid = Guid.NewGuid();
     }
 
     public CModule(string moduleFileName)
     {
+        ModuleGuid = Guid.NewGuid();
         RawFileName = moduleFileName;
         FileName = moduleFileName;
         ModuleData = new()
@@ -600,6 +605,7 @@ public class CModule
 
     public CModule(string moduleFileName, string rawModuleFileName, SearchOrderType fileNameResolvedBy, bool isApiSetContract)
     {
+        ModuleGuid = Guid.NewGuid();
         RawFileName = rawModuleFileName;
         FileName = moduleFileName;
         FileNameResolvedBy = fileNameResolvedBy;

@@ -652,7 +652,7 @@ LPWSTR resolve_apiset_name(
 *
 * Purpose:
 *
-* Read SxS manifest from the file resource and return it as base64 encoded array.
+* Read SxS create process manifest from the file resource and return it as base64 encoded array.
 *
 */
 LPVOID get_manifest(
@@ -663,29 +663,56 @@ LPVOID get_manifest(
     DWORD   sz_manifest, cch_encoded = 0;
     HGLOBAL p_manifest;
     LPVOID  encoded;
+    SIZE_T  buffer_size = 0;
+
+    if (module == NULL) {
+        return NULL;
+    }
 
     do {
         h_manifest = FindResource(module, CREATEPROCESS_MANIFEST_RESOURCE_ID, RT_MANIFEST);
-        if (h_manifest == NULL)
+        if (h_manifest == NULL) {
+            printf("get_manifest: FindResource failed: 0x%08X\r\n", GetLastError());
             break;
+        }
 
         sz_manifest = SizeofResource(module, h_manifest);
-        if (sz_manifest == 0)
+        if (sz_manifest == 0) {
+            printf("get_manifest: SizeofResource failed: 0x%08X\r\n", GetLastError());
             break;
+        }
 
         p_manifest = LoadResource(module, h_manifest);
-        if (p_manifest == NULL)
+        if (p_manifest == NULL) {
+            printf("get_manifest: LoadResource failed: 0x%08X\r\n", GetLastError());
             break;
+        }
 
-        if (CryptBinaryToString(p_manifest, sz_manifest, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &cch_encoded))
+        if (!CryptBinaryToString(p_manifest, sz_manifest,
+            CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+            NULL,
+            &cch_encoded))
         {
-            encoded = heap_calloc(NULL, cch_encoded * sizeof(WCHAR));
-            if (encoded)
+            printf("get_manifest: CryptBinaryToString (1) failed: 0x%08X\r\n", GetLastError());
+            break;
+        }
+
+        if (FAILED(SizeTMult(cch_encoded, sizeof(WCHAR), &buffer_size))) {
+            printf("get_manifest: arithmetic overflow\r\n");
+            break;
+        }
+
+        encoded = heap_calloc(NULL, buffer_size);
+        if (encoded) {
+            if (CryptBinaryToString(p_manifest, sz_manifest,
+                CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+                encoded, &cch_encoded))
             {
-                if (CryptBinaryToString(p_manifest, sz_manifest, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, encoded, &cch_encoded))
-                    return encoded;
-                else
-                    heap_free(NULL, encoded);
+                return encoded;
+            }
+            else {
+                printf("get_manifest: CryptBinaryToString (2) failed: 0x%08X\r\n", GetLastError());
+                heap_free(NULL, encoded);
             }
         }
 

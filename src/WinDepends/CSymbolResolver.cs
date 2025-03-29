@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        27 Feb 2025
+*  DATE:        28 Mar 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -16,6 +16,7 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using Microsoft.VisualBasic;
 using Microsoft.Win32.SafeHandles;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
@@ -193,6 +194,7 @@ public static class CSymbolResolver
     static UnDecorateSymbolNameDelegate UnDecorateSymbolName;
     static IntPtr DbgHelpModule { get; set; } = IntPtr.Zero;
     static bool SymbolsInitialized { get; set; }
+    public static bool UndecorationReady { get; set; }
     public static string DllPath { get; set; }
     public static string StorePath { get; set; }
 
@@ -231,23 +233,41 @@ public static class CSymbolResolver
         }
     }
 
-    private static void ClearDelegates()
+    private static void ClearSymbolsDelegates()
     {
         SymLoadModuleEx = null;
         SymUnloadModule64 = null;
         SymInitialize = null;
         SymCleanup = null;
         SymFromAddr = null;
-        UnDecorateSymbolName = null;
         SymSetOptions = null;
         SymGetOptions = null;
     }
-    private static bool InitializeDelegates()
+
+    private static void ClearUndecorateDelegate()
+    {
+        UnDecorateSymbolName = null;
+    }
+
+    private static bool InitializeUndecorateDelegate()
+    {
+        try
+        {
+            UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
+        }
+        catch
+        {
+            UnDecorateSymbolName = null;
+        }
+
+        return (UnDecorateSymbolName != null);
+    }
+
+    private static bool InitializeSymbolsDelegates()
     {
         bool bResult;
         try
         {
-            UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
             SymLoadModuleEx = Marshal.GetDelegateForFunctionPointer<SymLoadModuleExDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymLoadModuleExW"));
             SymUnloadModule64 = Marshal.GetDelegateForFunctionPointer<SymUnloadModule64Delegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymUnloadModule64"));
             SymGetOptions = Marshal.GetDelegateForFunctionPointer<SymGetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymGetOptions"));
@@ -256,8 +276,7 @@ public static class CSymbolResolver
             SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddrW"));
             SymCleanup = Marshal.GetDelegateForFunctionPointer<SymCleanupDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymCleanup"));
 
-            if (UnDecorateSymbolName == null
-                || SymLoadModuleEx == null
+            if (SymLoadModuleEx == null
                 || SymUnloadModule64 == null
                 || SymGetOptions == null
                 || SymSetOptions == null
@@ -265,7 +284,7 @@ public static class CSymbolResolver
                 || SymCleanup == null
                 || SymFromAddr == null)
             {
-                ClearDelegates();
+                ClearSymbolsDelegates();
                 bResult = false;
             }
             else
@@ -276,35 +295,44 @@ public static class CSymbolResolver
         }
         catch
         {
-            ClearDelegates();
+            ClearSymbolsDelegates();
             bResult = false;
         }
 
         return bResult;
     }
 
-    public static bool AllocateSymbolResolver(string dllPath, string storePath)
+    public static int AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
     {
         DllPath = dllPath;
         StorePath = storePath;
 
         DbgHelpModule = NativeMethods.LoadLibraryEx(dllPath, IntPtr.Zero, 0);
-        if (DbgHelpModule != IntPtr.Zero)
+        UndecorationReady = DbgHelpModule != IntPtr.Zero && InitializeUndecorateDelegate();
+
+        if (useSymbols && DbgHelpModule != IntPtr.Zero && InitializeSymbolsDelegates())
         {
-            if (InitializeDelegates())
-            {
-                var symOptions = SymGetOptions();
+            //
+            // No SYMOPT_UNDNAME as we have a special GUI option for it.
+            //
+            SymSetOptions(
+                (SymGetOptions() |
+                 SYMOPT_DEFERRED_LOADS |
+                 SYMOPT_FAIL_CRITICAL_ERRORS |
+                 SYMOPT_PUBLICS_ONLY
+                ) & ~SYMOPT_UNDNAME);
 
-                //
-                // No SYMOPT_UNDNAME as we have a special GUI option for it.
-                //
-                SymSetOptions((symOptions | SYMOPT_DEFERRED_LOADS | SYMOPT_FAIL_CRITICAL_ERRORS | SYMOPT_PUBLICS_ONLY) & ~SYMOPT_UNDNAME);
-
-                SymbolsInitialized = SymInitialize(CurrentProcess, StorePath, false);
-            }
+            SymbolsInitialized = SymInitialize(CurrentProcess, StorePath, false);
         }
 
-        return SymbolsInitialized;
+        if (useSymbols)
+        {
+            return SymbolsInitialized ? 1 : 0;
+        }
+        else
+        {
+            return UndecorationReady ? 2 : 0;
+        }
     }
 
     public static bool ReleaseSymbolResolver()
@@ -324,8 +352,10 @@ public static class CSymbolResolver
             NativeMethods.FreeLibrary(DbgHelpModule);
             DbgHelpModule = IntPtr.Zero;
 
-            ClearDelegates();
+            ClearUndecorateDelegate();
+            UndecorationReady = false;
 
+            ClearSymbolsDelegates();
             SymbolsInitialized = false;
         }
 
@@ -339,7 +369,7 @@ public static class CSymbolResolver
     /// <returns></returns>
     internal static string UndecorateFunctionName(string functionName)
     {
-        if (UnDecorateSymbolName == null)
+        if (!UndecorationReady)
         {
             return functionName;
         }

@@ -36,7 +36,7 @@ internal static class Program
         currentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandler);
 
         ApplicationConfiguration.Initialize();
-        Application.SetHighDpiMode(HighDpiMode.SystemAware);
+        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.Run(new MainForm());
     }

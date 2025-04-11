@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        11 Apr 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -16,6 +16,7 @@
 *******************************************************************************/
 using Microsoft.Win32;
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
@@ -285,6 +286,46 @@ public static class CUtils
         {
             return null;
         }
+    }
+
+    static internal void ScaleToolStripImages(ToolStrip toolStrip, int originalWidth = 16, int originalHeight = 15)
+    {
+        float scalingFactor;
+        using (Graphics g = toolStrip.CreateGraphics())
+        {
+            scalingFactor = g.DpiX / 96f; // Get current DPI scaling
+        }
+
+        if (scalingFactor <= 1.5f) return; // Skip if scaling not needed
+
+        Bitmap originalStrip = Properties.Resources.ToolBarIcons;
+
+        for (int i = 0; i < toolStrip.Items.Count; i++)
+        {
+            var item = toolStrip.Items[i];
+            if (item.Image == null) continue;
+
+            Rectangle srcRect = new Rectangle(i * originalWidth, 0, originalWidth, originalHeight);
+            Bitmap icon = originalStrip.Clone(srcRect, originalStrip.PixelFormat);
+
+            int newWidth = (int)(originalWidth * scalingFactor);
+            int newHeight = (int)(originalHeight * scalingFactor);
+
+            Bitmap scaledIcon = new Bitmap(newWidth, newHeight);
+            using (Graphics g = Graphics.FromImage(scaledIcon))
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.DrawImage(icon, 0, 0, newWidth, newHeight);
+            }
+
+            item.Image = scaledIcon;
+            item.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+        }
+
+        toolStrip.ImageScalingSize = new Size(
+            (int)(originalWidth * scalingFactor),
+            (int)(originalHeight * scalingFactor)
+        );
     }
 
     /// <summary>

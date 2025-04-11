@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Mar 2025
+*  DATE:        11 Apr 2025
 *  
 *  Codename:    VasilEk
 *
@@ -153,7 +153,7 @@ public partial class MainForm : Form
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
 
-        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, 
+        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath,
                 m_Configuration.SymbolsStorePath, m_Configuration.UseSymbols);
 
         //
@@ -796,8 +796,10 @@ public partial class MainForm : Form
         //
         // Toolbar images setup.
         //
+
         MainToolBar.ImageList = CUtils.CreateImageList(Properties.Resources.ToolBarIcons,
             CConsts.ToolBarIconsHeigth, CConsts.ToolBarIconsWidth, Color.Silver);
+        CUtils.ScaleToolStripImages(MainToolBar);
 
         if (MainToolBar.ImageList != null)
         {
@@ -3808,5 +3810,12 @@ public partial class MainForm : Form
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
         ShutdownInProgress = true;
+    }
+
+    private void MainForm_DpiChanged(object sender, DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        CUtils.ScaleToolStripImages(MainToolBar);
+        PerformLayout();
     }
 }

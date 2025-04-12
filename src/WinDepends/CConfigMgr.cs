@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Mar 2025
+*  DATE:        11 Apr 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -91,6 +91,8 @@ public class CConfiguration
     [DataMember]
     public uint CustomImageBase { get; set; }
     [DataMember]
+    public ToolBarThemeType ToolBarTheme { get; set; }
+    [DataMember]
     public Color SymbolsHighlightColor { get; set; }
     [DataMember]
     public List<SearchOrderType> SearchOrderListUM { get; set; }
@@ -140,6 +142,7 @@ public class CConfiguration
         SymbolsDllPath = other.SymbolsDllPath;
         SymbolsStorePath = other.SymbolsStorePath;
         CustomImageBase = other.CustomImageBase;
+        ToolBarTheme = other.ToolBarTheme;
         SymbolsHighlightColor = other.SymbolsHighlightColor;
 
         SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM ??
@@ -186,6 +189,7 @@ public class CConfiguration
             UseApiSetSchemaFile = false;
             ProcessRelocsForImage = true;
             UseCustomImageBase = false;
+            ToolBarTheme = ToolBarThemeType.Classic;
 
             SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
             SymbolsDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);

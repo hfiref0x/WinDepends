@@ -406,7 +406,7 @@
             // label8
             // 
             label8.AutoSize = true;
-            label8.Location = new Point(196, 118);
+            label8.Location = new Point(216, 114);
             label8.Name = "label8";
             label8.Size = new Size(100, 15);
             label8.TabIndex = 15;
@@ -414,7 +414,7 @@
             // 
             // nodeMaxDepthUpDown
             // 
-            nodeMaxDepthUpDown.Location = new Point(138, 114);
+            nodeMaxDepthUpDown.Location = new Point(158, 110);
             nodeMaxDepthUpDown.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nodeMaxDepthUpDown.Name = "nodeMaxDepthUpDown";
             nodeMaxDepthUpDown.Size = new Size(52, 23);
@@ -425,7 +425,7 @@
             // label9
             // 
             label9.AutoSize = true;
-            label9.Location = new Point(19, 118);
+            label9.Location = new Point(19, 114);
             label9.Name = "label9";
             label9.Size = new Size(112, 15);
             label9.TabIndex = 13;
@@ -539,7 +539,7 @@
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(126, 41);
+            label2.Location = new Point(136, 41);
             label2.Name = "label2";
             label2.Size = new Size(39, 15);
             label2.TabIndex = 4;
@@ -547,7 +547,7 @@
             // 
             // historyUpDown
             // 
-            historyUpDown.Location = new Point(68, 36);
+            historyUpDown.Location = new Point(78, 36);
             historyUpDown.Maximum = new decimal(new int[] { 64, 0, 0, 0 });
             historyUpDown.Name = "historyUpDown";
             historyUpDown.Size = new Size(52, 23);
@@ -558,7 +558,7 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(23, 41);
+            label1.Location = new Point(23, 38);
             label1.Name = "label1";
             label1.Size = new Size(39, 15);
             label1.TabIndex = 2;
@@ -1026,7 +1026,7 @@
             // columnHeader1
             // 
             columnHeader1.Text = "Extension";
-            columnHeader1.Width = 80;
+            columnHeader1.Width = 180;
             // 
             // columnHeader2
             // 

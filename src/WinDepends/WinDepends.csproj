@@ -16,7 +16,7 @@
     <Title>Windows Dependencies</Title>
     <Company>UG North</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <FileVersion>1.0.0.2503</FileVersion>
+    <FileVersion>1.0.0.2504</FileVersion>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <AnalysisLevel>latest</AnalysisLevel>
   </PropertyGroup>

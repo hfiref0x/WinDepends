@@ -62,6 +62,7 @@ There are no specific installation requirements, just copy this folder somewhere
 + Application (client) is written in C#, using Windows Forms and .NET 8.0.
 + Server is written in C, with no special headers or SDK used.
 + Source code also include server test application (WinDepends.Core.Tests) and simple fuzzer (WinDepends.Core.Fuzz).
++ Toolbar images are from https://icons8.com/ collection.
 
 We are not chasing the latest versions of frameworks, SDKs or language standards, so for example, if the .NET platform is updated, it will happen in the next LTS release (.NET 10).
 

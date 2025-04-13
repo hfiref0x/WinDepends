@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 Mar 2025
+*  DATE:        11 Apr 2025
 *  
 *  Codename:    VasilEk
 *
@@ -153,7 +153,7 @@ public partial class MainForm : Form
         CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
 
-        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath, 
+        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath,
                 m_Configuration.SymbolsStorePath, m_Configuration.UseSymbols);
 
         //
@@ -759,6 +759,31 @@ public partial class MainForm : Form
         }
     }
 
+    bool CreateOrUpdateToolbarImageStrip()
+    {
+        int imageHeigth, imageWidth;
+        bool useClassic = (m_Configuration.ToolBarTheme == ToolBarThemeType.Classic);
+        Color transparencyColor = useClassic ? Color.Silver : Color.White;
+
+        if (useClassic)
+        {
+            imageHeigth = CConsts.ToolBarIconsHeigthClassic;
+            imageWidth = CConsts.ToolBarIconsWidthClassic;
+        }
+        else
+        {
+            imageHeigth = CConsts.ToolBarIconsHeigth;
+            imageWidth = CConsts.ToolBarIconsWidth;
+        }
+
+        Size desiredSize = new Size(imageWidth, imageHeigth);
+        float scalingFactor = CUtils.GetDpiScalingFactor();
+        MainToolBar.ImageScalingSize = CUtils.CalculateToolBarImageSize(useClassic, scalingFactor, desiredSize);
+        CUtils.LoadToolbarImages(MainToolBar, new Size(imageWidth, imageHeigth), useClassic, transparencyColor);
+
+        return (MainToolBar.ImageList != null);
+    }
+
     /// <summary>
     /// MainForm load (Create) event.
     /// </summary>
@@ -796,10 +821,7 @@ public partial class MainForm : Form
         //
         // Toolbar images setup.
         //
-        MainToolBar.ImageList = CUtils.CreateImageList(Properties.Resources.ToolBarIcons,
-            CConsts.ToolBarIconsHeigth, CConsts.ToolBarIconsWidth, Color.Silver);
-
-        if (MainToolBar.ImageList != null)
+        if (CreateOrUpdateToolbarImageStrip())
         {
             OpenToolButton.ImageIndex = (int)ToolBarIconType.OpenFile;
             SaveToolButton.ImageIndex = (int)ToolBarIconType.SaveFile;
@@ -3808,5 +3830,36 @@ public partial class MainForm : Form
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
         ShutdownInProgress = true;
+    }
+
+    private void MainForm_DpiChanged(object sender, DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        PerformLayout();
+    }
+
+    private void ToolBarTheme_Click(object sender, EventArgs e)
+    {
+        ToolStripMenuItem menuItem = sender as ToolStripMenuItem;
+        int tag = Convert.ToInt32(menuItem.Tag);
+
+        if (tag == CConsts.TagTbUseClassic)
+        {
+            m_Configuration.ToolBarTheme = ToolBarThemeType.Classic;
+            mainMenuModernToolbar.Checked = false;
+        }
+        else if (tag == CConsts.TagTbUseModern)
+        {
+            m_Configuration.ToolBarTheme = ToolBarThemeType.Modern;
+            mainMenuClassicToolbar.Checked = false;
+        }
+
+        CreateOrUpdateToolbarImageStrip();
+    }
+
+    private void MainMenuToolBarTheme_OnDropDownOpening(object sender, EventArgs e)
+    {
+        mainMenuClassicToolbar.Checked = m_Configuration.ToolBarTheme == ToolBarThemeType.Classic;
+        mainMenuModernToolbar.Checked = m_Configuration.ToolBarTheme == ToolBarThemeType.Modern;
     }
 }

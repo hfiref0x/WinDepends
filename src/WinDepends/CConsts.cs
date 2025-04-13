@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Mar 2025
+*  DATE:        11 Apr 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -33,7 +33,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2503;
+    public const uint VersionBuild = 2504;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -65,6 +65,9 @@ public static class CConsts
     public const int TagUseSymbols = 604;
     public const int TagUseCustomImageBase = 605;
 
+    public const int TagTbUseClassic = 1000;
+    public const int TagTbUseModern = 1001;
+
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;
     public const int FunctionIconsHeigth = 14;
@@ -72,11 +75,19 @@ public static class CConsts
     public const int ModuleIconsHeight = 15;
     public const int ModuleIconsWidth = 26;
 
-    public const int ToolBarIconsHeigth = 16;
-    public const int ToolBarIconsWidth = 15;
+    public const int ToolBarIconsHeigth = 48;
+    public const int ToolBarIconsWidth = 48;
+
+    public const int ToolBarIconsHeigthClassic = 15;
+    public const int ToolBarIconsWidthClassic = 16;
 
     public const int SearchOrderIconsWidth = 18;
     public const int SearchOrderIconsHeigth = 17;
+
+    public const int ToolBarImageMax = 11;
+
+    public const float DefaultDPIValue = 96f;
+    public const float DpiScaleFactor150 = 1.5f;
 
     public const string SearchOrderUserValue = "SearchOrderUserValue";
 
@@ -360,6 +371,12 @@ public enum SearchOrderType : uint
     SystemDriversDirectory,
     UserDefinedDirectory,
     None = 0xfff
+}
+
+public enum ToolBarThemeType : uint
+{
+    Classic = 0,
+    Modern = 1
 }
 
 /// <summary>

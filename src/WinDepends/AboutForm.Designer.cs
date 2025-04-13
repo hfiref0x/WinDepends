@@ -51,7 +51,7 @@
             // button1
             // 
             button1.DialogResult = DialogResult.OK;
-            button1.Location = new Point(267, 321);
+            button1.Location = new Point(276, 321);
             button1.Name = "button1";
             button1.Size = new Size(99, 25);
             button1.TabIndex = 0;
@@ -63,9 +63,9 @@
             groupBox2.Controls.Add(AboutAssemblyLabel);
             groupBox2.Controls.Add(AboutBuildLabel);
             groupBox2.Controls.Add(AboutVersionLabel);
-            groupBox2.Location = new Point(8, 136);
+            groupBox2.Location = new Point(12, 139);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(358, 107);
+            groupBox2.Size = new Size(363, 107);
             groupBox2.TabIndex = 2;
             groupBox2.TabStop = false;
             groupBox2.Text = "Build information";
@@ -102,9 +102,9 @@
             AboutCopyrightLabel.AutoSize = true;
             AboutCopyrightLabel.Location = new Point(56, 32);
             AboutCopyrightLabel.Name = "AboutCopyrightLabel";
-            AboutCopyrightLabel.Size = new Size(106, 15);
+            AboutCopyrightLabel.Size = new Size(141, 15);
             AboutCopyrightLabel.TabIndex = 3;
-            AboutCopyrightLabel.Text = "Copyright (C) 2024";
+            AboutCopyrightLabel.Text = "Copyright (C) 2024 - 2025";
             // 
             // pictureBox2
             // 
@@ -129,7 +129,7 @@
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(56, 52);
+            label2.Location = new Point(56, 57);
             label2.Name = "label2";
             label2.Size = new Size(257, 15);
             label2.TabIndex = 8;
@@ -138,9 +138,9 @@
             // groupBox1
             // 
             groupBox1.Controls.Add(AboutOSLabel);
-            groupBox1.Location = new Point(8, 249);
+            groupBox1.Location = new Point(12, 252);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(358, 63);
+            groupBox1.Size = new Size(363, 63);
             groupBox1.TabIndex = 9;
             groupBox1.TabStop = false;
             groupBox1.Text = "Operation system";
@@ -156,7 +156,7 @@
             // linkLabel1
             // 
             linkLabel1.AutoSize = true;
-            linkLabel1.Location = new Point(56, 112);
+            linkLabel1.Location = new Point(56, 118);
             linkLabel1.Name = "linkLabel1";
             linkLabel1.Size = new Size(284, 15);
             linkLabel1.TabIndex = 10;
@@ -167,16 +167,16 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(56, 72);
+            label1.Location = new Point(56, 77);
             label1.Name = "label1";
-            label1.Size = new Size(308, 15);
+            label1.Size = new Size(238, 15);
             label1.TabIndex = 11;
-            label1.Text = "Based on \"Dependency Walker\" created by Steve P. Miller";
+            label1.Text = "Based on software created by Steve P. Miller";
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(56, 92);
+            label3.Location = new Point(56, 97);
             label3.Name = "label3";
             label3.Size = new Size(230, 15);
             label3.TabIndex = 12;
@@ -186,7 +186,7 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(374, 358);
+            ClientSize = new Size(385, 358);
             Controls.Add(label3);
             Controls.Add(label1);
             Controls.Add(linkLabel1);

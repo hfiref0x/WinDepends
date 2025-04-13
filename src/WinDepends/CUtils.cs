@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        11 Apr 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -16,6 +16,8 @@
 *******************************************************************************/
 using Microsoft.Win32;
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
@@ -681,6 +683,124 @@ public static class CUtils
             });
         }
         catch { }
+    }
+
+    public static Bitmap ByteArrayToBitmap(byte[] byteArray)
+    {
+        using (MemoryStream ms = new MemoryStream(byteArray))
+        {
+            // Create a Bitmap from the MemoryStream and return it
+            return new Bitmap(ms);
+        }
+    }
+
+    public static float GetDpiScalingFactor()
+    {
+        using (Graphics g = Graphics.FromHwnd(IntPtr.Zero))
+        {
+            return g.DpiX / CConsts.DefaultDPIValue;
+        }
+    }
+
+    public static Size CalculateToolBarImageSize(bool useClassic, float scalingFactor, Size baseSize)
+    {
+        if (useClassic && scalingFactor > CConsts.DpiScaleFactor150)
+        {
+            return new Size(
+                (int)(baseSize.Width * scalingFactor),
+                (int)(baseSize.Height * scalingFactor)
+            );
+        }
+        return baseSize;
+    }
+
+    public static List<Bitmap> ProcessImageStrip(bool useClassic, float scalingFactor, Color transparencyColor, Size desiredImageSize)
+    {
+        Bitmap sourceStrip = useClassic
+            ? Properties.Resources.ToolBarIcons
+            : CUtils.ByteArrayToBitmap(Properties.Resources.ToolBarIconsNew);
+
+        Size originalSize = desiredImageSize;
+
+        return (useClassic && scalingFactor > CConsts.DpiScaleFactor150)
+            ? SplitAndScaleImageStrip(sourceStrip, originalSize, scalingFactor, transparencyColor)
+            : SplitImageStrip(sourceStrip, originalSize, transparencyColor);
+    }
+
+    public static List<Bitmap> SplitImageStrip(Bitmap strip, Size imageSize, Color transparencyColor)
+    {
+        List<Bitmap> images = new List<Bitmap>();
+        for (int i = 0; i < CConsts.ToolBarImageMax; i++)
+        {
+            Rectangle rect = new Rectangle(i * imageSize.Width, 0, imageSize.Width, imageSize.Height);
+            Bitmap image = strip.Clone(rect, strip.PixelFormat);
+            image.MakeTransparent(transparencyColor);
+            images.Add(image);
+        }
+        return images;
+    }
+
+    public static List<Bitmap> SplitAndScaleImageStrip(Bitmap strip, Size originalSize,
+                                           float scaleFactor, Color transparencyColor)
+    {
+        List<Bitmap> scaledImages = new List<Bitmap>();
+        Size scaledSize = new Size(
+            (int)(originalSize.Width * scaleFactor),
+            (int)(originalSize.Height * scaleFactor)
+        );
+
+        for (int i = 0; i < CConsts.ToolBarImageMax; i++)
+        {
+            Rectangle rect = new Rectangle(
+                i * originalSize.Width,
+                0,
+                originalSize.Width,
+                originalSize.Height
+            );
+
+            using (Bitmap originalImage = strip.Clone(rect, strip.PixelFormat))
+            {
+                originalImage.MakeTransparent(transparencyColor);
+
+                Bitmap scaledImage = new Bitmap(scaledSize.Width, scaledSize.Height,
+                                              PixelFormat.Format32bppArgb);
+                using (Graphics g = Graphics.FromImage(scaledImage))
+                {
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(originalImage, 0, 0, scaledSize.Width, scaledSize.Height);
+                }
+                scaledImages.Add(scaledImage);
+            }
+        }
+        return scaledImages;
+    }
+
+    public static void LoadToolbarImages(ToolStrip toolStrip, Size desiredImageSize, bool useClassic, Color transparencyColor)
+    {
+        float scalingFactor = GetDpiScalingFactor();
+
+        // Dispose previous ImageList if exists
+        if (toolStrip.ImageList != null)
+        {
+            toolStrip.ImageList.Dispose();
+            toolStrip.ImageList = null;
+        }
+
+        // Create and configure new ImageList
+        var imageList = new ImageList
+        {
+            ColorDepth = ColorDepth.Depth32Bit,
+            ImageSize = CalculateToolBarImageSize(useClassic, scalingFactor, desiredImageSize)
+        };
+
+        // Get appropriate image strip
+        var images = ProcessImageStrip(useClassic, scalingFactor, transparencyColor, desiredImageSize);
+
+        imageList.Images.AddRange(images
+            .OrderBy(img => (ToolBarIconType)images.IndexOf(img))
+            .ToArray());
+
+        toolStrip.ImageList = imageList;
     }
 
 }

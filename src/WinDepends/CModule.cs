@@ -472,7 +472,7 @@ public class CModuleData
     [DataMember]
     public string SubsystemVersion { get; set; }
     [DataMember]
-    public uint ImageFixed { get; set; } = 0;    
+    public uint ImageFixed { get; set; } = 0;
     //
     // Module debug directories.
     //

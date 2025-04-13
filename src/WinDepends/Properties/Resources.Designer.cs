@@ -88,12 +88,21 @@ namespace WinDepends.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Tue 01/28/2025 22:21:36.77 
+        ///   Looks up a localized string similar to Fri 04/11/2025 19:31:32.82 
         ///.
         /// </summary>
         internal static string BuildDate {
             get {
                 return ResourceManager.GetString("BuildDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use tool bar images from original Dependency Walker.
+        /// </summary>
+        internal static string Classic__Dependency_Walker_ {
+            get {
+                return ResourceManager.GetString("Classic (Dependency Walker)", resourceCulture);
             }
         }
         
@@ -387,6 +396,15 @@ namespace WinDepends.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Use new tool bar images (better for higher screen resolutions).
+        /// </summary>
+        internal static string Modern__WinDepends_ {
+            get {
+                return ResourceManager.GetString("Modern (WinDepends)", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
         internal static System.Drawing.Bitmap ModuleIcons {
@@ -558,6 +576,16 @@ namespace WinDepends.Properties {
             get {
                 object obj = ResourceManager.GetObject("ToolBarIcons", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] ToolBarIconsNew {
+            get {
+                object obj = ResourceManager.GetObject("ToolBarIconsNew", resourceCulture);
+                return ((byte[])(obj));
             }
         }
         

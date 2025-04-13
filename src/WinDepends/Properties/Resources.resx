@@ -295,4 +295,13 @@
   <data name="Open New Instance" xml:space="preserve">
     <value>Open a new instance of WinDepends application</value>
   </data>
+  <data name="ToolBarIconsNew" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\res\ToolBarIconsNew.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="Classic (Dependency Walker)" xml:space="preserve">
+    <value>Use tool bar images from original Dependency Walker</value>
+  </data>
+  <data name="Modern (WinDepends)" xml:space="preserve">
+    <value>Use new tool bar images (better for higher screen resolutions)</value>
+  </data>
 </root>

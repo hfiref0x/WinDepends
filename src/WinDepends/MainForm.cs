@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Apr 2025
+*  DATE:        13 Apr 2025
 *  
 *  Codename:    VasilEk
 *
@@ -183,6 +183,14 @@ public partial class MainForm : Form
         //
         switch (dbghelpInit)
         {
+            case -1:
+                AddLogMessage($"DBGHELP is not initialized, dll \"{m_Configuration.SymbolsDllPath}\" is not loaded", 
+                    LogMessageType.ErrorOrWarning);
+                break;
+            case 0:
+                AddLogMessage($"DBGHELP initialization failed for \"{m_Configuration.SymbolsDllPath}\", " +
+                    $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.ErrorOrWarning);
+                break;
             case 1:
                 AddLogMessage($"DBGHELP initialized using \"{m_Configuration.SymbolsDllPath}\", " +
                     $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
@@ -761,27 +769,24 @@ public partial class MainForm : Form
 
     bool CreateOrUpdateToolbarImageStrip()
     {
-        int imageHeigth, imageWidth;
-        bool useClassic = (m_Configuration.ToolBarTheme == ToolBarThemeType.Classic);
-        Color transparencyColor = useClassic ? Color.Silver : Color.White;
+        bool useClassic = m_Configuration.ToolBarTheme == ToolBarThemeType.Classic;
 
-        if (useClassic)
-        {
-            imageHeigth = CConsts.ToolBarIconsHeigthClassic;
-            imageWidth = CConsts.ToolBarIconsWidthClassic;
-        }
-        else
-        {
-            imageHeigth = CConsts.ToolBarIconsHeigth;
-            imageWidth = CConsts.ToolBarIconsWidth;
-        }
+        Size desiredSize = useClassic
+            ? new Size(CConsts.ToolBarIconsWidthClassic, CConsts.ToolBarIconsHeigthClassic)
+            : new Size(CConsts.ToolBarIconsWidth, CConsts.ToolBarIconsHeigth);
 
-        Size desiredSize = new Size(imageWidth, imageHeigth);
-        float scalingFactor = CUtils.GetDpiScalingFactor();
-        MainToolBar.ImageScalingSize = CUtils.CalculateToolBarImageSize(useClassic, scalingFactor, desiredSize);
-        CUtils.LoadToolbarImages(MainToolBar, new Size(imageWidth, imageHeigth), useClassic, transparencyColor);
+        MainToolBar.ImageScalingSize = CUtils.CalculateToolBarImageSize(
+            useClassic,
+            CUtils.GetDpiScalingFactor(), 
+            desiredSize);
 
-        return (MainToolBar.ImageList != null);
+        CUtils.LoadToolbarImages(
+            MainToolBar, 
+            desiredSize, 
+            useClassic,
+            useClassic ? Color.Silver : Color.White);
+
+        return MainToolBar.ImageList != null;
     }
 
     /// <summary>
@@ -1373,6 +1378,10 @@ public partial class MainForm : Form
             int result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, m_Configuration.UseSymbols);
             switch (result)
             {
+                case -1:
+                    AddLogMessage($"DBGHELP is not initialized, dll \"{symDllPath}\" is not loaded",
+                        LogMessageType.ErrorOrWarning);
+                    break;
                 case 0:
                     AddLogMessage($"DBGHELP initialization failed for \"{symDllPath}\", " +
                         $"store \"{symStorePath}\"", LogMessageType.ErrorOrWarning);

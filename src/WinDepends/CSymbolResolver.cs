@@ -307,6 +307,11 @@ public static class CSymbolResolver
         StorePath = storePath;
 
         DbgHelpModule = NativeMethods.LoadLibraryEx(dllPath, IntPtr.Zero, 0);
+        if (DbgHelpModule == IntPtr.Zero)
+        {
+            return -1;
+        }
+
         UndecorationReady = DbgHelpModule != IntPtr.Zero && InitializeUndecorateDelegate();
 
         if (useSymbols && DbgHelpModule != IntPtr.Zero && InitializeSymbolsDelegates())

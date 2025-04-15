@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Apr 2025
+*  DATE:        14 Apr 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -22,9 +22,11 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Security.Principal;
+using static WinDepends.NativeMethods;
 
 namespace WinDepends;
 
@@ -146,7 +148,7 @@ public static class CUtils
         }
 
         var systemInfo = new NativeMethods.SYSTEM_INFO();
-        NativeMethods.GetSystemInfo(ref systemInfo);
+        NativeMethods.GetSystemInfo(out systemInfo);
         SystemProcessorArchitecture = systemInfo.wProcessorArchitecture;
         MinAppAddress = systemInfo.lpMinimumApplicationAddress;
         MaxAppAddress = systemInfo.lpMaximumApplicationAddress;
@@ -183,23 +185,17 @@ public static class CUtils
     /// <returns>Returns true if the given file association present, false otherwise</returns>
     static internal bool GetAssoc(string extension)
     {
-        bool result;
-
         string extKeyName = $"{extension}{CConsts.ShellIntegrationCommand}";
 
         try
         {
-            using (var regKey = Registry.ClassesRoot.OpenSubKey(extKeyName, false))
-            {
-                result = regKey != null;
-            }
+            using var regKey = Registry.ClassesRoot.OpenSubKey(extKeyName, false);
+            return regKey is not null;
         }
         catch
         {
-            result = false;
+            return false;
         }
-
-        return result;
     }
 
     /// <summary>
@@ -209,33 +205,26 @@ public static class CUtils
     /// <returns></returns>
     static internal bool SetAssoc(string extension)
     {
-        bool result = true;
-
         string extKeyName = $"{extension}{CConsts.ShellIntegrationCommand}";
 
         try
         {
-            using (var regKey = Registry.ClassesRoot.CreateSubKey(extKeyName, true))
-            {
-                if (regKey != null)
-                {
-                    // Set command value.
-                    using (var subKey = regKey.CreateSubKey("command"))
-                    {
-                        subKey?.SetValue("", $"\"{Application.ExecutablePath}\" \"%1\"", RegistryValueKind.String);
-                    }
+            using var regKey = Registry.ClassesRoot.CreateSubKey(extKeyName, true);
+            if (regKey is null) return false;
 
-                    // Set icon value.
-                    regKey.SetValue("Icon", $"\"{Application.ExecutablePath}\", 0", RegistryValueKind.String);
-                }
-            }
+            // Create and configure command subkey
+            using var commandKey = regKey.CreateSubKey("command");
+            commandKey?.SetValue("", $"\"{Application.ExecutablePath}\" \"%1\"", RegistryValueKind.String);
+
+            // Set icon directly in the main key
+            regKey.SetValue("Icon", $"\"{Application.ExecutablePath}\", 0", RegistryValueKind.String);
+
+            return true;
         }
         catch
         {
-            result = false;
+            return false;
         }
-
-        return result;
     }
 
     /// <summary>
@@ -244,36 +233,40 @@ public static class CUtils
     /// <param name="extension"></param>
     static internal bool RemoveAssoc(string extension)
     {
-        bool result = true;
         string keyName = $"{extension}{CConsts.ShellIntegrationCommand}";
 
         try
         {
-            using (var regKey = Registry.ClassesRoot.OpenSubKey(keyName))
-            {
-                if (regKey != null)
-                {
-                    Registry.ClassesRoot.DeleteSubKeyTree(keyName, false);
-                }
-            }
+            Registry.ClassesRoot.DeleteSubKeyTree(keyName);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            // Key doesn't exist - consider removal successful
+            return true;
         }
         catch
         {
             return false;
         }
-
-        return result;
     }
 
     /// <summary>
     /// Create imagelist from given bitmap
     /// </summary>
     /// <param name="bigImage"></param>
+    /// <param name="smallImageWidth"></param>
+    /// <param name="smallImageHeight"></param>
+    /// <param name="transparentColor"></param>
     /// <returns></returns>
-    static internal ImageList CreateImageList(Bitmap bigImage, int smallImageWidth, int smallImageHeight, Color transparentColor)
+    static internal ImageList? CreateImageList(Bitmap bigImage, int smallImageWidth, int smallImageHeight, Color transparentColor)
     {
         try
         {
+            // Validate strip dimensions before processing
+            if (bigImage.Width % smallImageWidth != 0 || bigImage.Height != smallImageHeight)
+                return null;
+
             var imageList = new ImageList
             {
                 TransparentColor = transparentColor,
@@ -290,24 +283,21 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Get currently running framework version.
+    /// Gets the version of the currently running .NET runtime
     /// </summary>
-    /// <returns></returns>
+    /// <returns>Runtime version string in .NET 8.0+ compatible format</returns>
     static internal string GetRunningFrameworkVersion()
     {
-        var envVersion = Environment.Version.ToString();
-        var assemblyObject = typeof(Object).GetTypeInfo().Assembly;
+        // For .NET 5+ (including .NET 8+), use the official runtime identification
+        var description = RuntimeInformation.FrameworkDescription;
 
-        if (assemblyObject != null)
+        // Trim the ".NET " prefix if present
+        if (description.StartsWith(".NET "))
         {
-            var attr = assemblyObject.GetCustomAttribute<AssemblyFileVersionAttribute>();
-            if (attr != null)
-            {
-                envVersion = attr.Version;
-            }
+            return description.Substring(5);
         }
 
-        return envVersion;
+        return description;
     }
 
     /// <summary>
@@ -317,10 +307,44 @@ public static class CUtils
     /// <returns></returns>
     static internal string TimeSince1970ToString(uint timeStamp)
     {
-        DateTime ts = new(1970, 1, 1, 0, 0, 0);
-        ts = ts.AddSeconds(timeStamp);
-        ts += TimeZoneInfo.Utc.GetUtcOffset(ts);
-        return ts.ToString(CConsts.DateTimeFormat24Hours);
+        return DateTimeOffset.FromUnixTimeSeconds(timeStamp)
+                        .ToLocalTime()
+                        .ToString(CConsts.DateTimeFormat24Hours, CultureInfo.InvariantCulture);
+    }
+
+    private static void AddRegistryValue(List<PropertyElement> list, string name,
+        string keyPath, string valueName)
+    {
+        using var key = Registry.LocalMachine.OpenSubKey(keyPath);
+        var value = key?.GetValue(valueName)?.ToString();
+        if (!string.IsNullOrEmpty(value))
+        {
+            list.Add(new(name, $"{value}"));
+        }
+    }
+
+    private static void AddMemoryInformation(List<PropertyElement> list, MEMORYSTATUSEX mem)
+    {
+        list.Add(new("Memory Load", $"\t{mem.dwMemoryLoad}%"));
+
+        AddMemoryEntry(list, "Physical Memory", mem.ullTotalPhys, mem.ullAvailPhys);
+        AddMemoryEntry(list, "Page File Memory", mem.ullTotalPageFile, mem.ullAvailPageFile);
+        AddMemoryEntry(list, "Virtual Memory", mem.ullTotalVirtual, mem.ullAvailVirtual);
+    }
+
+    private static void AddMemoryEntry(List<PropertyElement> list, string prefix,
+        ulong total, ulong free)
+    {
+        list.Add(new($"{prefix} Total", $"{total:N0}"));
+        list.Add(new($"{prefix} Used", $"{(total - free):N0}"));
+        list.Add(new($"{prefix} Free", $"{free:N0}"));
+    }
+
+    private static void AddAddressInfo(List<PropertyElement> list, string name,
+        IntPtr address, string format)
+    {
+        list.Add(new(name,
+            $"0x{address.ToString(format)} ({address.ToInt64():N0})"));
     }
 
     /// <summary>
@@ -329,183 +353,182 @@ public static class CUtils
     /// <param name="systemInformation"></param>
     static internal void CollectSystemInformation(List<PropertyElement> systemInformation)
     {
+        // Program Version
         systemInformation.Add(new(CConsts.ProgramName,
             $"{CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild}"));
 
-        using (var winKey = Registry.LocalMachine.OpenSubKey("Software\\Microsoft\\Windows NT\\CurrentVersion", RegistryKeyPermissionCheck.ReadSubTree))
+        // OS Information
+        AddRegistryValue(systemInformation, "Operating System",
+            @"Software\Microsoft\Windows NT\CurrentVersion", "ProductName");
+
+        systemInformation.Add(new("OS Version",
+            $"\t{Environment.OSVersion.Version}"));
+
+        // Processor Information
+        using (var cpuKey = Registry.LocalMachine.OpenSubKey(
+            @"Hardware\Description\System\CentralProcessor\0"))
         {
-            if (winKey != null)
+            var cpuId = cpuKey?.GetValue("Identifier")?.ToString();
+            var cpuVendor = cpuKey?.GetValue("VendorIdentifier")?.ToString();
+            var cpuFreq = cpuKey?.GetValue("~MHz")?.ToString();
+
+            if (!string.IsNullOrEmpty(cpuId) && !string.IsNullOrEmpty(cpuVendor))
             {
-                var winName = winKey.GetValue("ProductName");
-                if (winName != null)
-                {
-                    systemInformation.Add(new("Operating System", winName.ToString()));
-                }
+                systemInformation.Add(new("Processor",
+                    $"\t{cpuId}, {cpuVendor}, ~{cpuFreq}MHz"));
             }
         }
 
-        systemInformation.Add(new("OS Version", "\t" + System.Environment.OSVersion.Version.ToString()));
+        // System Info
+        GetSystemInfo(out var systemInfo);
+        var ptrFormat = $"X{IntPtr.Size * 2}";
 
-        using (var cpuKey = Registry.LocalMachine.OpenSubKey("Hardware\\Description\\System\\CentralProcessor\\0", RegistryKeyPermissionCheck.ReadSubTree))
+        systemInformation.Add(new("Number of Processors",
+            $"{systemInfo.dwNumberOfProcessors}, Mask: 0x{systemInfo.dwActiveProcessorMask.ToString(ptrFormat)}"));
+
+        // User/Computer Info
+        systemInformation.Add(new("Computer Name", $"\t{Environment.MachineName}"));
+        systemInformation.Add(new("User Name", $"\t{Environment.UserName}"));
+
+        // DateTime Info
+        var now = DateTime.Now;
+        systemInformation.Add(new("Local Date", $"\t{now.ToLongDateString()}"));
+
+        var timeZone = TimeZoneInfo.Local;
+        systemInformation.Add(new("Local Time",
+            $"\t{now.ToLongTimeString()} {timeZone.DaylightName} (GMT {timeZone.GetUtcOffset(now)})"));
+
+        // Culture Info
+        var culture = CultureInfo.InstalledUICulture;
+        systemInformation.Add(new("OS Language",
+            $"\t0x{culture.LCID:X4}: {culture.DisplayName}"));
+
+        // Memory Info (corrected struct usage)
+        var memoryStatus = new MEMORYSTATUSEX();
+        if (GlobalMemoryStatusEx(ref memoryStatus))
         {
-            if (cpuKey != null)
-            {
-                string cpuIdentifier = cpuKey.GetValue("Identifier")?.ToString() ?? string.Empty;
-                string cpuVendor = cpuKey.GetValue("VendorIdentifier")?.ToString() ?? string.Empty;
-                string cpuFreq = cpuKey.GetValue("~MHz")?.ToString() ?? string.Empty;
-
-                if (!string.IsNullOrEmpty(cpuIdentifier) && !string.IsNullOrEmpty(cpuVendor))
-                {
-                    systemInformation.Add(new("Processor", $"\t{cpuIdentifier}, {cpuVendor}, ~{cpuFreq}MHz"));
-                }
-            }
+            AddMemoryInformation(systemInformation, memoryStatus);
         }
 
-        var systemInfo = new NativeMethods.SYSTEM_INFO();
-        NativeMethods.GetSystemInfo(ref systemInfo);
+        // System Memory Configuration
+        systemInformation.Add(new("Page Size",
+            $"\t0x{systemInfo.dwPageSize:X8} ({systemInfo.dwPageSize:N0})"));
 
-        var digitMultiply = UIntPtr.Size * 2;
+        systemInformation.Add(new("Allocation Granularity",
+            $"0x{systemInfo.dwAllocationGranularity:X8} ({systemInfo.dwAllocationGranularity:N0})"));
 
-        systemInformation.Add(new("Number of Processors", $"{systemInfo.dwNumberOfProcessors}, " +
-            $"Mask: 0x{systemInfo.dwActiveProcessorMask.ToString($"X{digitMultiply}")}"));
-
-        systemInformation.Add(new("Computer Name", "\t" + Environment.MachineName));
-        systemInformation.Add(new("User Name", "\t" + Environment.UserName));
-
-        DateTime localDateTime = DateTime.Now;
-        systemInformation.Add(new("Local Date", "\t" + localDateTime.ToLongDateString()));
-
-        string text = $"\t{localDateTime.ToLongTimeString()} {TimeZoneInfo.Local.DaylightName} " +
-            $"(GMT {TimeZoneInfo.Local.GetUtcOffset(localDateTime)})";
-
-        systemInformation.Add(new("Local Time", text));
-
-        CultureInfo ci = CultureInfo.InstalledUICulture;
-        text = $"\t0x{ci.LCID:X4}: {ci.DisplayName}";
-        systemInformation.Add(new("OS Language", text));
-
-        var gms = new NativeMethods.MEMORYSTATUSEX();
-        if (NativeMethods.GlobalMemoryStatusEx(gms))
-        {
-            systemInformation.Add(new("Memory Load", $"\t{gms.dwMemoryLoad}%"));
-        }
-
-        systemInformation.Add(new("Physical Memory Total", $"{gms.ullTotalPhys:#,###0}"));
-        systemInformation.Add(new("Physical Memory Used", $"{gms.ullTotalPhys - gms.ullAvailPhys:#,###0}"));
-        systemInformation.Add(new("Physical Memory Free", $"{gms.ullAvailPhys:#,###0}"));
-
-        systemInformation.Add(new("Page File Memory Total", $"{gms.ullTotalPageFile:#,###0}"));
-        systemInformation.Add(new("Page File Memory Used", $"{gms.ullTotalPageFile - gms.ullAvailPageFile:#,###0}"));
-        systemInformation.Add(new("Page File Memory Free", $"{gms.ullAvailPageFile:#,###0}"));
-
-        systemInformation.Add(new("Virtual Memory Total", $"{gms.ullTotalVirtual:#,###0}"));
-        systemInformation.Add(new("Virtual Memory Used", $"{gms.ullTotalVirtual - gms.ullAvailVirtual:#,###0}"));
-        systemInformation.Add(new("Virtual Memory Free", $"{gms.ullAvailVirtual:#,###0}"));
-
-        systemInformation.Add(new("Page Size", $"\t0x{systemInfo.dwPageSize:X8} ({systemInfo.dwPageSize:#,###0})"));
-        systemInformation.Add(new("Allocation Granularity", $"0x{systemInfo.dwAllocationGranularity:X8} ({systemInfo.dwAllocationGranularity:#,###0})"));
-
-        systemInformation.Add(new("Min. App. Address", $"0x{systemInfo.lpMinimumApplicationAddress.ToString($"X{digitMultiply}")} " +
-            $"({systemInfo.lpMinimumApplicationAddress:#,###0})"));
-        systemInformation.Add(new("Max. App. Address", $"0x{systemInfo.lpMaximumApplicationAddress.ToString($"X{digitMultiply}")} " +
-            $"({systemInfo.lpMaximumApplicationAddress:#,###0})"));
+        // Address Space Info
+        AddAddressInfo(systemInformation, "Min. App. Address",
+            systemInfo.lpMinimumApplicationAddress, ptrFormat);
+        AddAddressInfo(systemInformation, "Max. App. Address",
+            systemInfo.lpMaximumApplicationAddress, ptrFormat);
     }
 
     /// <summary>
     /// Reads, decompresses and deserializes object.
     /// </summary>
     /// <param name="fileName"></param>
+    /// <param name="objectType"></param>
+    /// <param name="updateStatusCallback"></param>
     /// <returns></returns>
-    static internal object LoadPackedObjectFromFile(string fileName, Type objectType, UpdateLoadStatusCallback UpdateStatusCallback)
+    static internal object LoadPackedObjectFromFile(string fileName, Type objectType, UpdateLoadStatusCallback updateStatusCallback)
     {
-        object deserializedObject = null;
+        updateStatusCallback?.Invoke($"Loading and decompressing data from {fileName}");
 
-        using (var inputStream = new MemoryStream())
-        {
-            using (var fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read))
-            {
-                UpdateStatusCallback?.Invoke($"Loading data from {fileName} to memory, please wait");
-                fileStream.CopyTo(inputStream);
-                inputStream.Seek(0, SeekOrigin.Begin);
+        using var fileStream = new FileStream(
+            fileName,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.SequentialScan
+        );
 
-                using (var outputStream = new MemoryStream(inputStream.ToArray(), true))
-                {
-                    using (var decompressionStream = new BrotliStream(outputStream, CompressionMode.Decompress, false))
-                    {
-                        UpdateStatusCallback?.Invoke("Deserializing data, please wait");
-                        var serializer = new DataContractJsonSerializer(objectType);
-                        deserializedObject = serializer.ReadObject(decompressionStream);
-                    }
-                }
-            }
-        }
+        using var decompressionStream = new BrotliStream(fileStream, CompressionMode.Decompress);
 
-        return deserializedObject;
+        updateStatusCallback?.Invoke("Deserializing data, please wait");
+        var serializer = new DataContractJsonSerializer(objectType);
+        return serializer.ReadObject(decompressionStream);
     }
 
     /// <summary>
     /// Serialize object, compress it with Brotli algorithm and save to file.
     /// </summary>
     /// <param name="fileName"></param>
-    /// <param name="pbjectInstance"></param>
+    /// <param name="objectInstance"></param>
+    /// <param name="objectType"></param>
+    /// <param name="updateStatusCallback"></param>
     /// <returns></returns>
-    static internal bool SavePackedObjectToFile(string fileName, object objectInstance, Type objectType, UpdateLoadStatusCallback UpdateStatusCallback)
+    static internal bool SavePackedObjectToFile(string fileName, object objectInstance, Type objectType, UpdateLoadStatusCallback updateStatusCallback)
     {
-        bool bResult = false;
+        updateStatusCallback?.Invoke($"Saving data to {fileName}");
 
-        using (var memoryStream = new MemoryStream())
-        {
-            UpdateStatusCallback?.Invoke("Serializing data to the memory stream, please wait");
-            var serializer = new DataContractJsonSerializer(objectType);
-            serializer.WriteObject(memoryStream, objectInstance);
-            memoryStream.Seek(0, SeekOrigin.Begin);
+        using var fileStream = new FileStream(
+            fileName,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 4096,
+            FileOptions.SequentialScan
+        );
 
-            using (var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write))
-            {
-                UpdateStatusCallback?.Invoke($"Compressing serialized data and writing it to the {fileName}, please wait");
-                using (var compressionStream = new BrotliStream(fileStream, CompressionMode.Compress, false))
-                {
-                    memoryStream.CopyTo(compressionStream);
-                    bResult = true;
-                }
-            }
-        }
+        using var compressionStream = new BrotliStream(fileStream, CompressionLevel.Optimal);
 
-        return bResult;
+        updateStatusCallback?.Invoke("Serializing and compressing data");
+        var serializer = new DataContractJsonSerializer(objectType);
+        serializer.WriteObject(compressionStream, objectInstance);
+
+        return true;
     }
 
     static internal bool SaveObjectToFilePlainText(string fileName, object objectInstance, Type objectType)
     {
-        bool bResult = false;
-
-        using (var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write))
+        try
         {
-            var serializer = new DataContractJsonSerializer(objectType);
-            serializer.WriteObject(fileStream, objectInstance);
-            bResult = true;
-        }
+            using var fileStream = new FileStream(
+                fileName,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                FileOptions.SequentialScan
+            );
 
-        return bResult;
+            new DataContractJsonSerializer(objectType).WriteObject(fileStream, objectInstance);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     static internal object LoadObjectFromFilePlainText(string fileName, Type objectType)
     {
-        object deserializedObject = null;
-
-        using (var fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read))
+        try
         {
-            var serializer = new DataContractJsonSerializer(objectType);
-            deserializedObject = serializer.ReadObject(fileStream);
-        }
+            using var fileStream = new FileStream(
+                fileName,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 4096,
+                FileOptions.SequentialScan
+            );
 
-        return deserializedObject;
+            return new DataContractJsonSerializer(objectType).ReadObject(fileStream);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
     /// Find module by it InstanceId
     /// </summary>
     /// <param name="lookupModuleInstanceId"></param>
-    /// <param name="dataList"></param>
+    /// <param name="moduleList"></param>
     /// <returns></returns>
     static internal CModule InstanceIdToModule(int lookupModuleInstanceId, List<CModule> moduleList)
     {

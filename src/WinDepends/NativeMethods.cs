@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       NATIVEMETHODS.CS
 *
 *  VERSION:     1.00
 *  
-*  DATE:        14 Dec 2024
+*  DATE:        14 Apr 2025
 *
 *  Win32 API P/Invoke.
 *
@@ -149,7 +149,7 @@ static partial class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    public sealed class MEMORYSTATUSEX
+    public struct MEMORYSTATUSEX
     {
         public uint dwLength;
         public uint dwMemoryLoad;
@@ -203,11 +203,11 @@ static partial class NativeMethods
     internal static extern bool FreeLibrary(IntPtr hModule);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    internal static extern void GetSystemInfo(ref SYSTEM_INFO lpSystemInfo);
+    internal static extern void GetSystemInfo(out SYSTEM_INFO lpSystemInfo);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX lpBuffer);
+    internal static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -41,7 +41,7 @@ internal partial class AboutForm : Form
         AboutNameLabel.Text = $"{CConsts.ProgramName} for Windows 10/11";
         AboutCopyrightLabel.Text = CConsts.CopyrightString;
         AboutBuildLabel.Text = $"Build date: {Properties.Resources.BuildDate}";
-        AboutAssemblyLabel.Text = $"Framework version: {CUtils.GetRunningFrameworkVersion()}";
+        AboutAssemblyLabel.Text = $"NET Framework version: {CUtils.GetRunningFrameworkVersion()}";
         AboutOSLabel.Text = System.Environment.OSVersion.ToString();
     }
 

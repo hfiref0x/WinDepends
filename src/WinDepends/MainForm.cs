@@ -184,7 +184,7 @@ public partial class MainForm : Form
         switch (dbghelpInit)
         {
             case -1:
-                AddLogMessage($"DBGHELP is not initialized, dll \"{m_Configuration.SymbolsDllPath}\" is not loaded", 
+                AddLogMessage($"DBGHELP is not initialized, dll \"{m_Configuration.SymbolsDllPath}\" is not loaded",
                     LogMessageType.ErrorOrWarning);
                 break;
             case 0:
@@ -777,12 +777,12 @@ public partial class MainForm : Form
 
         MainToolBar.ImageScalingSize = CUtils.CalculateToolBarImageSize(
             useClassic,
-            CUtils.GetDpiScalingFactor(), 
+            CUtils.GetDpiScalingFactor(),
             desiredSize);
 
         CUtils.LoadToolbarImages(
-            MainToolBar, 
-            desiredSize, 
+            MainToolBar,
+            desiredSize,
             useClassic,
             useClassic ? Color.Silver : Color.White);
 
@@ -3212,7 +3212,7 @@ public partial class MainForm : Form
         return lvItem;
     }
 
-    private string TryUndecorateFunction(bool viewUndecorated, CFunction function)
+    static string TryUndecorateFunction(bool viewUndecorated, CFunction function)
     {
         if (!CSymbolResolver.UndecorationReady)
         {

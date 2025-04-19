@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Apr 2025
+*  DATE:        15 Apr 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,7 +20,6 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO.Compression;
-using System.Reflection;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
@@ -532,12 +531,14 @@ public static class CUtils
     /// <returns></returns>
     static internal CModule InstanceIdToModule(int lookupModuleInstanceId, List<CModule> moduleList)
     {
-        foreach (var module in moduleList)
+        // Fast exit for empty lists
+        if (moduleList == null || moduleList.Count == 0)
+            return null;
+
+        for (int i = 0; i < moduleList.Count; i++)
         {
-            if (module.InstanceId == lookupModuleInstanceId)
-            {
-                return module;
-            }
+            if (moduleList[i].InstanceId == lookupModuleInstanceId)
+                return moduleList[i];
         }
         return null;
     }
@@ -572,42 +573,6 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Find corresponding module node by it module InstanceId.
-    /// </summary>
-    /// <param name="moduleInstanceId"></param>
-    /// <param name="startNode"></param>
-    /// <returns></returns>
-    static internal TreeNode TreeViewFindModuleNodeByInstanceId(int moduleInstanceId, TreeNode startNode)
-    {
-        TreeNode lastNode = null;
-
-        while (startNode != null)
-        {
-            CModule obj = (CModule)startNode.Tag;
-            if (obj != null &&
-                obj.GetHashCode() == moduleInstanceId)
-            {
-                lastNode = startNode;
-                break;
-            }
-
-            if (startNode.Nodes.Count != 0)
-            {
-                var treeNode = TreeViewFindModuleNodeByInstanceId(moduleInstanceId, startNode.Nodes[0]);
-                if (treeNode != null)
-                {
-                    lastNode = treeNode;
-                    break;
-                }
-            }
-
-            startNode = startNode.NextNode;
-        }
-
-        return lastNode;
-    }
-
-    /// <summary>
     /// Find corresponding module node by object value.
     /// </summary>
     /// <param name="lookupModule"></param>
@@ -615,83 +580,85 @@ public static class CUtils
     /// <returns></returns>
     static internal TreeNode TreeViewFindModuleNodeByObject(CModule lookupModule, TreeNode startNode)
     {
-        TreeNode lastNode = null;
+        var stack = new Stack<TreeNode>();
 
-        while (startNode != null)
+        // Initialize with start node and its siblings
+        for (var node = startNode; node != null; node = node.NextNode)
+            stack.Push(node);
+
+        while (stack.TryPop(out var current))
         {
-            CModule obj = (CModule)startNode.Tag;
-            if (obj != null && (obj.OriginalInstanceId == 0 && lookupModule.Equals(obj)))
+            // Pattern match with type check and null check
+            if (current.Tag is CModule module &&
+                module.OriginalInstanceId == 0 &&
+                lookupModule.Equals(module))
             {
-                lastNode = startNode;
-                break;
+                return current;
             }
 
-            if (startNode.Nodes.Count != 0)
+            // Process children depth-first (first child then siblings)
+            if (current.Nodes.Count > 0)
             {
-                var treeNode = TreeViewFindModuleNodeByObject(lookupModule, startNode.Nodes[0]);
-                if (treeNode != null)
-                {
-                    lastNode = treeNode;
-                    break;
-                }
+                // Push children in reverse order to maintain original search sequence
+                for (var i = current.Nodes.Count - 1; i >= 0; i--)
+                    stack.Push(current.Nodes[i]);
             }
-
-            startNode = startNode.NextNode;
         }
 
-        return lastNode;
+        return null;
     }
 
-    public static void SetClipboardData(string data)
+    /// <summary>
+    /// Add data to the system clipboard.
+    /// </summary>
+    /// <param name="data"></param>
+    /// <returns></returns>
+    public static bool SetClipboardData(string data)
     {
-        if (!string.IsNullOrEmpty(data))
+        if (string.IsNullOrEmpty(data))
+            return false;
+
+        try
         {
-            Clipboard.Clear();
-            Clipboard.SetText(data);
+            Clipboard.SetText(data, TextDataFormat.UnicodeText);
+            return true;
         }
+        catch { return false; }
     }
 
     public static UInt32 ParseMinAppAddressValue(string value)
     {
-        try
-        {
-            string selectedHex;
+        ReadOnlySpan<char> hexSpan = value.AsSpan();
 
-            if (value.StartsWith("0x"))
-            {
-                selectedHex = value.Substring(2); //remove prefix
-            }
-            else
-            {
-                selectedHex = value;
-            }
-
-            uint selectedValue = uint.Parse(selectedHex, System.Globalization.NumberStyles.HexNumber);
-            selectedValue &= ~(CUtils.AllocationGranularity - 1);
-            return selectedValue;
-        }
-        catch
+        // Handle hex prefix
+        if (hexSpan.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
         {
-            return CConsts.DefaultAppStartAddress;
+            hexSpan = hexSpan.Slice(2);
         }
+
+        // Use span-based parsing with invariant culture
+        if (uint.TryParse(hexSpan, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint selectedValue))
+        {
+            // Use bitwise AND with complement for alignment
+            return selectedValue & ~(CUtils.AllocationGranularity - 1u);
+        }
+
+        return CConsts.DefaultAppStartAddress;
     }
 
     public static TreeNode FindNodeByTag(TreeNodeCollection nodes, object tagValue)
     {
-        foreach (TreeNode node in nodes)
+        var queue = new Queue<TreeNode>(nodes.Cast<TreeNode>());
+
+        while (queue.Count > 0)
         {
-            if (node.Tag != null && node.Tag.Equals(tagValue))
-            {
-                return node;
-            }
+            var current = queue.Dequeue();
+            if (current.Tag is { } tag && tag.Equals(tagValue))
+                return current;
 
-            TreeNode foundNode = FindNodeByTag(node.Nodes, tagValue);
-            if (foundNode != null)
-            {
-                return foundNode;
-            }
+            foreach (TreeNode child in current.Nodes)
+                queue.Enqueue(child);
         }
-
         return null;
     }
 

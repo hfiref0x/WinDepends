@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        15 Apr 2025
 *  
 *  Core Server communication class.
 *
@@ -68,16 +68,27 @@ public class CBufferChain
 
     public string BufferToString()
     {
-        CBufferChain chain = this;
-
-        StringBuilder sb = new();
+        var sb = new StringBuilder();
+        var chain = this;
 
         do
         {
-            string dataWithoutZeroes = new string(chain.Data).TrimEnd('\0').Replace("\n", "").Replace("\r", "");
-            sb.Append(dataWithoutZeroes);
-            chain = chain.Next;
+            if (chain.Data is { Length: > 0 } data)
+            {
+                // Find last non-null character index
+                int length = data.Length;
+                while (length > 0 && data[length - 1] == '\0')
+                    length--;
 
+                // Process characters
+                for (int i = 0; i < length; i++)
+                {
+                    char c = data[i];
+                    if (c is not ('\n' or '\r'))
+                        sb.Append(c);
+                }
+            }
+            chain = chain.Next;
         } while (chain != null);
 
         return sb.ToString();

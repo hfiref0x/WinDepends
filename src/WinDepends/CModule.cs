@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Mar 2025
+*  DATE:        05 May 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -65,7 +65,10 @@ public static class FileAttributesExtension
         $"{(fileAttributes.HasFlag(FileAttributes.System) ? "S" : "")}" +
         $"{(fileAttributes.HasFlag(FileAttributes.Archive) ? "A" : "")}" +
         $"{(fileAttributes.HasFlag(FileAttributes.ReadOnly) ? "R" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.Compressed) ? "C" : "")}";
+        $"{(fileAttributes.HasFlag(FileAttributes.Compressed) ? "C" : "")}" +
+        $"{(fileAttributes.HasFlag(FileAttributes.Temporary) ? "T" : "")}" +
+        $"{(fileAttributes.HasFlag(FileAttributes.Offline) ? "O" : "")}" +
+        $"{(fileAttributes.HasFlag(FileAttributes.Encrypted) ? "E" : "")}";
 }
 
 [FlagsAttribute]

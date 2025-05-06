@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Apr 2025
+*  DATE:        05 May 2025
 *  
 *  Core Server communication class.
 *
@@ -618,6 +618,11 @@ public class CCoreClient : IDisposable
                 $"{fh.FileVersion.ProductVersionMS.LOWORD()}." +
                 $"{fh.FileVersion.ProductVersionLS.HIWORD()}." +
                 $"{fh.FileVersion.ProductVersionLS.LOWORD()}";
+        }
+        else
+        {
+            moduleData.FileVersion = "N/A";
+            moduleData.ProductVersion = "N/A";
         }
 
         //

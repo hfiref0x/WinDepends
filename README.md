@@ -36,7 +36,6 @@ WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.
 
 * Program current state is BETA. Several features of original Dependency Walker are not yet available or were considered obsolete and not implemented (e.g. profiling).
 * MDI GUI mess has been discontinued, if you want to analyze several files at the same time you can launch another copy of program.
-* Help file is currently missing, we plan to move all documentation on a separate public repository and publish it as a PDF file.
 * Several functionally may not work as expected or be disabled due to beta state.
 * CLI version is not yet implemented, we are still not sure is it needed or not.
 * ARM binaries are not tested in native environment as we don't have it in a bare metal.
@@ -54,7 +53,7 @@ There are no specific installation requirements, just copy this folder somewhere
 
 # Documentation and Help
 
-* Under development, will be located here https://github.com/hfiref0x/WinDepends.Docs
+* https://github.com/hfiref0x/WinDepends.Docs
 
 # Building and Other Information
 

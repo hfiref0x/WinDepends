@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Apr 2025
+*  DATE:        15 May 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -146,8 +146,7 @@ public static class CUtils
             IsAdministrator = principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
-        var systemInfo = new NativeMethods.SYSTEM_INFO();
-        NativeMethods.GetSystemInfo(out systemInfo);
+        NativeMethods.GetSystemInfo(out var systemInfo);
         SystemProcessorArchitecture = systemInfo.wProcessorArchitecture;
         MinAppAddress = systemInfo.lpMinimumApplicationAddress;
         MaxAppAddress = systemInfo.lpMaximumApplicationAddress;

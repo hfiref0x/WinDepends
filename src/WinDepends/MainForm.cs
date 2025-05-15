@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Apr 2025
+*  DATE:        15 May 2025
 *  
 *  Codename:    VasilEk
 *
@@ -105,15 +105,21 @@ public partial class MainForm : Form
     public string LogFindText { get; set; }
     public int LogIndexOfSearchText { get; set; }
 
-    readonly DebugEntryType[] m_KnownDebugTypes = [
-                DebugEntryType.Unknown,
-                DebugEntryType.Coff,
-                DebugEntryType.CodeView,
-                DebugEntryType.Misc,
-                DebugEntryType.Fpo,
-                DebugEntryType.OmapFromSrc,
-                DebugEntryType.OmapToSrc,
-                DebugEntryType.Borland];
+    readonly Dictionary<uint, string> m_DebugAbbreviations = new()
+    {
+        [(uint)DebugEntryType.Coff] = "DBG",
+        [(uint)DebugEntryType.CodeView] = "CV",
+        [(uint)DebugEntryType.Misc] = "PDB",
+        [(uint)DebugEntryType.Fpo] = "FPO",
+        [(uint)DebugEntryType.OmapFromSrc] = "OMAP",
+        [(uint)DebugEntryType.OmapToSrc] = "OMAP",
+        [(uint)DebugEntryType.Borland] = "Borland",
+        [(uint)DebugEntryType.Clsid] = "CLSID",
+        // [(uint)DebugEntryType.Reproducible] = "REPRO",
+        [(uint)DebugEntryType.EmbeddedPortablePdb] = "EPPDB",
+        [(uint)DebugEntryType.PdbChecksum] = "PDBSUM",
+        // [(uint)DebugEntryType.ExtendedCharacteristics] = "CHAREX"
+    };
 
     ListViewItem[] LVImportsCache = [];
     ListViewItem[] LVExportsCache = [];
@@ -759,7 +765,7 @@ public partial class MainForm : Form
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void MainForm_ElevatedDragDrop(System.Object sender, ElevatedDragDropEventArgs e)
+    private void MainForm_ElevatedDragDrop(object? sender, ElevatedDragDropEventArgs e)
     {
         if (e.Files.Count > 0 && !string.IsNullOrEmpty(e.Files[0]))
         {
@@ -799,13 +805,13 @@ public partial class MainForm : Form
         //
         // Enable drag and drop for elevated instance.
         //
-        ElevatedDragDropManager.EnableDragDrop(this.Handle);
-        ElevatedDragDropManager.EnableDragDrop(LVImports.Handle);
-        ElevatedDragDropManager.EnableDragDrop(LVExports.Handle);
-        ElevatedDragDropManager.EnableDragDrop(reLog.Handle);
-        ElevatedDragDropManager.EnableDragDrop(LVModules.Handle);
-        ElevatedDragDropManager.EnableDragDrop(TVModules.Handle);
-        ElevatedDragDropManager.GetInstance().ElevatedDragDrop += MainForm_ElevatedDragDrop;
+        ElevatedDragDropManager.EnableForWindow(this.Handle);
+        ElevatedDragDropManager.EnableForWindow(LVImports.Handle);
+        ElevatedDragDropManager.EnableForWindow(LVExports.Handle);
+        ElevatedDragDropManager.EnableForWindow(reLog.Handle);
+        ElevatedDragDropManager.EnableForWindow(LVModules.Handle);
+        ElevatedDragDropManager.EnableForWindow(TVModules.Handle);
+        ElevatedDragDropManager.Instance.ElevatedDragDrop += MainForm_ElevatedDragDrop;
 
         //
         // Create and load Most Recently Used files.
@@ -907,7 +913,7 @@ public partial class MainForm : Form
     private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
     {
         m_Configuration.MRUList.Clear();
-        m_Configuration.MRUList.AddRange(m_MRUList.FileList);
+        m_Configuration.MRUList.AddRange(m_MRUList.GetCurrentItems());
         CConfigManager.SaveConfiguration(m_Configuration);
         m_CoreClient?.Dispose();
     }
@@ -1451,8 +1457,7 @@ public partial class MainForm : Form
                 //
                 // Re-display MRU list.
                 //
-                m_MRUList.UpdateFileView(m_Configuration.HistoryDepth, m_Configuration.HistoryShowFullPath);
-                m_MRUList.ShowFiles();
+                m_MRUList.UpdateSettings(m_Configuration.HistoryDepth, m_Configuration.HistoryShowFullPath);
 
                 //
                 // Check toolbar buttons depending on settings.
@@ -3092,9 +3097,9 @@ public partial class MainForm : Form
             lvItem.SubItems.Add(moduleData.FileTimeStamp.ToString(CConsts.DateTimeFormat24Hours));
 
             // Linker stamp
-            string value = (module.IsReproducibleBuild) ?
-                $"Repro hash: 0x{moduleData.LinkTimeStamp:X8}" : CUtils.TimeSince1970ToString(moduleData.LinkTimeStamp);
-            lvItem.SubItems.Add(value);
+            lvItem.SubItems.Add(module.IsReproducibleBuild
+                ? $"Repro hash: 0x{moduleData.LinkTimeStamp:X8}"
+                : CUtils.TimeSince1970ToString(moduleData.LinkTimeStamp));
 
             // File size
             lvItem.SubItems.Add($"{moduleData.FileSize:#,###0}");
@@ -3116,8 +3121,9 @@ public partial class MainForm : Form
             }
 
             // CPU
-            value = Enum.IsDefined(typeof(Machine), moduleData.Machine) ?
-                ((Machine)moduleData.Machine).FriendlyName() : $"0x{moduleData.Machine:X4}";
+            string value = Enum.IsDefined(typeof(Machine), moduleData.Machine)
+                ? ((Machine)moduleData.Machine).FriendlyName()
+                : $"0x{moduleData.Machine:X4}";
             if (m_Depends.RootModule.ModuleData.Machine != moduleData.Machine)
             {
                 lvItem.UseItemStyleForSubItems = false;
@@ -3129,56 +3135,23 @@ public partial class MainForm : Form
             }
 
             // Subsystem
-            value = Enum.IsDefined(typeof(Subsystem), moduleData.Subsystem) ?
-                ((Subsystem)moduleData.Subsystem).FriendlyName() : $"0x{moduleData.Subsystem:X4}";
-            lvItem.SubItems.Add(value);
+            lvItem.SubItems.Add(Enum.IsDefined(typeof(Subsystem), moduleData.Subsystem)
+                ? ((Subsystem)moduleData.Subsystem).FriendlyName()
+                : $"0x{moduleData.Subsystem:X4}");
 
             // Debug Symbols
             if (moduleData.DebugDirTypes.Count > 0)
             {
                 var sb = new StringBuilder();
-                foreach (var entry in moduleData.DebugDirTypes)
+                foreach (var entry in moduleData.DebugDirTypes.Distinct())
                 {
-                    foreach (var dbgType in m_KnownDebugTypes)
+                    if (m_DebugAbbreviations.TryGetValue(entry, out var abbr))
                     {
-                        if ((uint)dbgType == entry)
-                        {
-                            if (sb.Length > 0)
-                            {
-                                sb.Append(',');
-                            }
-
-                            var ddt = (DebugEntryType)entry;
-                            string ddtDesc = ddt switch
-                            {
-                                DebugEntryType.Coff => "DBG",
-                                DebugEntryType.CodeView => "CV",
-                                DebugEntryType.Misc => "PDB",
-                                DebugEntryType.Fpo => "FPO",
-                                DebugEntryType.OmapFromSrc or DebugEntryType.OmapToSrc => "OMAP",
-                                DebugEntryType.Borland => "Borland",
-                                DebugEntryType.Clsid => "CLSID",
-                                DebugEntryType.Reproducible => "REPRO",
-                                DebugEntryType.EmbeddedPortablePdb => "EPPDB",
-                                DebugEntryType.PdbChecksum => "PDBSUM",
-                                DebugEntryType.ExtendedCharacteristics => "CHAREX",
-                                _ => ddt.ToString()
-                            };
-
-                            sb.Append(ddtDesc);
-                            break;
-                        }
+                        if (sb.Length > 0) sb.Append(',');
+                        sb.Append(abbr);
                     }
                 }
-
-                if (sb.Length > 0)
-                {
-                    value = sb.ToString();
-                }
-                else
-                {
-                    value = CConsts.NoneMsg;
-                }
+                value = sb.Length > 0 ? sb.ToString() : CConsts.NoneMsg;
             }
             else
             {
@@ -3186,20 +3159,13 @@ public partial class MainForm : Form
             }
             lvItem.SubItems.Add(value);
 
-            // Calculate the hexadecimal format string based on architecture
-            var digitMultiply = UIntPtr.Size * (module.Is64bitArchitecture() ? 2 : 1);
-            var hexFormat = $"X{digitMultiply}";
-
             // Preferred base
+            // Calculate the hexadecimal format string based on architecture
+            string hexFormat = $"X{UIntPtr.Size * (module.Is64bitArchitecture() ? 2 : 1)}";
             lvItem.SubItems.Add($"0x{moduleData.PreferredBase.ToString(hexFormat)}");
 
-            // Actual base (currently unused, profing artifact)
-            /* value = (module.ModuleData.ActualBase == UIntPtr.Zero) ? "Unknown" : $"0x{moduleData.ActualBase.ToString(hexFormat)}";
-             lvItem.SubItems.Add(value);*/
-
+            // Virtual size
             lvItem.SubItems.Add($"0x{moduleData.VirtualSize:X8}");
-
-            // lvItem.SubItems.Add(moduleData.LoadOrder.ToString()); //currently unused, profing artifact
 
             // Versions
             lvItem.SubItems.Add(moduleData.FileVersion);
@@ -3237,12 +3203,14 @@ public partial class MainForm : Form
         }
 
         // Ordinal
-        string ordinalValue = function.Ordinal == UInt32.MaxValue ? CConsts.NotAvailableMsg : $"{function.Ordinal} (0x{function.Ordinal:X4})";
-        lvItem.SubItems.Add(ordinalValue);
+        lvItem.SubItems.Add(function.Ordinal == uint.MaxValue
+            ? CConsts.NotAvailableMsg
+            : $"{function.Ordinal} (0x{function.Ordinal:X4})");
 
         // Hint
-        string hintValue = function.Hint == UInt32.MaxValue ? CConsts.NotAvailableMsg : $"{function.Hint} (0x{function.Hint:X4})";
-        lvItem.SubItems.Add(hintValue);
+        lvItem.SubItems.Add(function.Hint == uint.MaxValue
+            ? CConsts.NotAvailableMsg
+            : $"{function.Hint} (0x{function.Hint:X4})");
 
         // FunctionName
         string functionName = string.Empty;
@@ -3293,16 +3261,9 @@ public partial class MainForm : Form
         }
 
         // EntryPoint
-        string entryPoint;
-        if (function.IsForward())
-        {
-            entryPoint = function.ForwardName;
-        }
-        else
-        {
-            entryPoint = function.Address == 0 ? CConsts.NotBoundMsg : $"0x{function.Address:X8}";
-        }
-        lvItem.SubItems.Add(entryPoint);
+        lvItem.SubItems.Add(function.IsForward()
+            ? function.ForwardName
+            : function.Address == 0 ? CConsts.NotBoundMsg : $"0x{function.Address:X8}");
 
         lvItem.ImageIndex = (int)function.Kind;
         return lvItem;

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 May 2025
+*  DATE:        15 May 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -456,12 +456,8 @@ public class CModuleData
     public ushort Subsystem { get; set; } = (ushort)System.Reflection.PortableExecutable.Subsystem.WindowsCui;
     [DataMember]
     public UInt64 PreferredBase { get; set; }
-    //[DataMember]
-    // public UInt64 ActualBase { get; set; } //unused, profiling artifact
     [DataMember]
     public uint VirtualSize { get; set; }
-    //[DataMember]
-    // public uint LoadOrder { get; set; } //unused, profiling artifact
     [DataMember]
     public string FileVersion { get; set; }
     [DataMember]
@@ -507,9 +503,7 @@ public class CModuleData
         ExtendedCharacteristics = other.ExtendedCharacteristics;
         Subsystem = other.Subsystem;
         PreferredBase = other.PreferredBase;
-        // ActualBase = other.ActualBase; //unused, profiling artifact
         VirtualSize = other.VirtualSize;
-        // LoadOrder = other.LoadOrder; //unused, profiling artifact
         FileVersion = other.FileVersion;
         ProductVersion = other.ProductVersion;
         ImageVersion = other.ImageVersion;

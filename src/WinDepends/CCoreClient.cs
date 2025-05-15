@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 May 2025
+*  DATE:        15 May 2025
 *  
 *  Core Server communication class.
 *
@@ -105,6 +105,21 @@ public class CCoreClient : IDisposable
     private string serverApplication;
     public string IPAddress { get; }
     public int Port { get; set; }
+
+    private static readonly HashSet<string> s_forbiddenKernelLibs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        CConsts.NtdllDll,
+        CConsts.Kernel32Dll
+    };
+
+    private static readonly HashSet<string> s_requiredKernelLibs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        CConsts.NtoskrnlExe,
+        CConsts.HalDll,
+        CConsts.KdComDll,
+        CConsts.BootVidDll
+    };
+
     public ServerErrorStatus ErrorStatus { get; set; }
 
     public int ServerProcessId
@@ -703,15 +718,30 @@ public class CCoreClient : IDisposable
             //    2. no ntdll.dll/kernel32.dll in imports
             //    3. one of the hardcoded kernel modules in imports
             //
-            if (!module.IsKernelModule)
+            if (!module.IsKernelModule &&
+                module.ModuleData.Subsystem == NativeMethods.IMAGE_SUBSYSTEM_NATIVE)
             {
-                if (module.ModuleData.Subsystem == NativeMethods.IMAGE_SUBSYSTEM_NATIVE &&
-                !rawImports.Library.Any(entry => entry.Name.Equals(CConsts.NtdllDll, StringComparison.OrdinalIgnoreCase) ||
-                                                 entry.Name.Equals(CConsts.Kernel32Dll, StringComparison.OrdinalIgnoreCase)) &&
-                rawImports.Library.Any(entry => entry.Name.Equals(CConsts.NtoskrnlExe, StringComparison.OrdinalIgnoreCase) ||
-                                                entry.Name.Equals(CConsts.HalDll, StringComparison.OrdinalIgnoreCase) ||
-                                                entry.Name.Equals(CConsts.KdComDll, StringComparison.OrdinalIgnoreCase) ||
-                                                entry.Name.Equals(CConsts.BootVidDll, StringComparison.OrdinalIgnoreCase)))
+                bool hasForbiddenLibrary = false;
+                bool hasRequiredLibrary = false;
+
+                foreach (var entry in rawImports.Library)
+                {
+                    // Check user mode forbidden names first
+                    if (!hasForbiddenLibrary && s_forbiddenKernelLibs.Contains(entry.Name))
+                    {
+                        hasForbiddenLibrary = true;
+                        // Early exit if we find forbidden user mode library
+                        break;
+                    }
+
+                    // Check kernel mode modules required names if we haven't found one yet
+                    if (!hasRequiredLibrary && s_requiredKernelLibs.Contains(entry.Name))
+                    {
+                        hasRequiredLibrary = true;
+                    }
+                }
+
+                if (!hasForbiddenLibrary && hasRequiredLibrary)
                 {
                     module.IsKernelModule = true;
                 }

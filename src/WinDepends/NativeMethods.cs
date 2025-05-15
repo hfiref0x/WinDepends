@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        14 Apr 2025
+*  DATE:        15 May 2025
 *
 *  Win32 API P/Invoke.
 *
@@ -55,6 +55,10 @@ static partial class NativeMethods
     internal const int MAX_PATH = 260;
     internal const int BCM_FIRST = 0x1600;
     internal const int BCM_SETSHIELD = (BCM_FIRST + 0x000C);
+
+    internal const uint WM_DROPFILES = 0x0233;
+    internal const uint WM_COPYDATA = 0x004A;
+    internal const uint WM_COPYGLOBALDATA = 0x0049;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct SHELLEXECUTEINFO
@@ -167,6 +171,13 @@ static partial class NativeMethods
 
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
     public sealed class HResult
     {
         public const int S_OK = 0;
@@ -209,9 +220,21 @@ static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool ChangeWindowMessageFilterEx(IntPtr hWnd, uint msg, ChangeWindowMessageFilterExAction action, ref CHANGEFILTERSTRUCT changeInfo);
+    [DllImport("user32", SetLastError = true)]
+    internal static extern bool ChangeWindowMessageFilterEx(IntPtr hWnd, uint msg,
+           ChangeWindowMessageFilterExAction action, ref CHANGEFILTERSTRUCT pChangeFilterStruct);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct CHANGEFILTERSTRUCT
+    {
+        public uint cbSize;
+        public uint dwFlags;
+    }
+
+    internal enum ChangeWindowMessageFilterExAction : uint
+    {
+        Allow = 1
+    }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     internal static extern UInt32 SendMessage(IntPtr hWnd, UInt32 msg, UInt32 wParam, UInt32 lParam);
@@ -220,17 +243,18 @@ static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool ShellExecuteEx(ref SHELLEXECUTEINFO lpExecInfo);
 
-    [DllImport("shell32.dll", SetLastError = true)]
-    internal static extern void DragAcceptFiles(IntPtr hwnd, bool fAccept);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    internal static extern void DragAcceptFiles(IntPtr hWnd, bool accept);
 
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    internal static extern uint DragQueryFile(IntPtr hDrop, uint iFile, [Out] StringBuilder lpszFile, uint cch);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    internal static extern uint DragQueryFile(IntPtr hDrop, uint iFile,
+        [Out] StringBuilder? lpszFile, uint cch);
 
-    [DllImport("shell32.dll", SetLastError = true)]
+    [DllImport("shell32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool DragQueryPoint(IntPtr hDrop, ref POINT lppt);
+    internal static extern void DragQueryPoint(IntPtr hDrop, ref POINT ppt);
 
-    [DllImport("shell32.dll", SetLastError = true)]
+    [DllImport("shell32.dll")]
     internal static extern void DragFinish(IntPtr hDrop);
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
@@ -241,41 +265,12 @@ static partial class NativeMethods
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder lpBuffer,
         out IntPtr lpFilePart);
 
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct POINT(int newX, int newY)
-    {
-        public int X = newX;
-        public int Y = newY;
-
-        public static implicit operator System.Drawing.Point(POINT p)
-        {
-            return new System.Drawing.Point(p.X, p.Y);
-        }
-        public static implicit operator POINT(System.Drawing.Point p)
-        {
-            return new POINT(p.X, p.Y);
-        }
-    }
-
     internal enum MessageFilterInfo : uint
     {
         None,
         AlreadyAllowed,
         AlreadyDisAllowed,
         AllowedHigher
-    }
-    internal enum ChangeWindowMessageFilterExAction : uint
-    {
-        Reset,
-        Allow,
-        Disallow
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct CHANGEFILTERSTRUCT
-    {
-        public uint cbSize;
-        public MessageFilterInfo ExtStatus;
     }
 
     #endregion
@@ -344,105 +339,114 @@ static partial class NativeMethods
 }
 
 /// <summary>
-/// Elevated Drag&Drop message filter class.
+/// Provides UAC-aware drag and drop support
 /// </summary>
-public class ElevatedDragDropManager : IMessageFilter
+public sealed class ElevatedDragDropManager : IMessageFilter, IDisposable
 {
-    private static readonly ElevatedDragDropManager Instance = new();
-    public event EventHandler<ElevatedDragDropEventArgs> ElevatedDragDrop;
-    private const uint WM_DROPFILES = 0x233;
-    private const uint WM_COPYDATA = 0x4a;
-    private const uint WM_COPYGLOBALDATA = 0x49;
+    private static readonly Lazy<ElevatedDragDropManager> _instance =
+        new(() => new ElevatedDragDropManager());
 
-    protected ElevatedDragDropManager()
+    public event EventHandler<ElevatedDragDropEventArgs>? ElevatedDragDrop;
+
+    private bool _disposed;
+
+    private ElevatedDragDropManager()
     {
         Application.AddMessageFilter(this);
     }
 
-    public static ElevatedDragDropManager GetInstance()
-    {
-        return Instance;
-    }
+    public static ElevatedDragDropManager Instance => _instance.Value;
 
-    public static void EnableDragDrop(IntPtr hWnd)
+    /// <summary>
+    /// Enables drag-drop support for a window handle
+    /// </summary>
+    public static void EnableForWindow(IntPtr hWnd)
     {
-        NativeMethods.CHANGEFILTERSTRUCT changeStruct = new()
+        if (hWnd == IntPtr.Zero) return;
+
+        var changeStruct = new NativeMethods.CHANGEFILTERSTRUCT
         {
-            cbSize = Convert.ToUInt32(Marshal.SizeOf<NativeMethods.CHANGEFILTERSTRUCT>())
+            cbSize = (uint)Marshal.SizeOf<NativeMethods.CHANGEFILTERSTRUCT>()
         };
-        NativeMethods.ChangeWindowMessageFilterEx(hWnd, WM_DROPFILES, NativeMethods.ChangeWindowMessageFilterExAction.Allow, ref changeStruct);
-        NativeMethods.ChangeWindowMessageFilterEx(hWnd, WM_COPYDATA, NativeMethods.ChangeWindowMessageFilterExAction.Allow, ref changeStruct);
-        NativeMethods.ChangeWindowMessageFilterEx(hWnd, WM_COPYGLOBALDATA, NativeMethods.ChangeWindowMessageFilterExAction.Allow, ref changeStruct);
+
+        AllowMessage(hWnd, NativeMethods.WM_DROPFILES, ref changeStruct);
+        AllowMessage(hWnd, NativeMethods.WM_COPYDATA, ref changeStruct);
+        AllowMessage(hWnd, NativeMethods.WM_COPYGLOBALDATA, ref changeStruct);
+
         NativeMethods.DragAcceptFiles(hWnd, true);
     }
 
     public bool PreFilterMessage(ref Message m)
     {
-        if (m.Msg == WM_DROPFILES)
+        if (m.Msg == NativeMethods.WM_DROPFILES)
         {
-            HandleDragDropMessage(m);
+            ProcessDropMessage(m);
             return true;
         }
         return false;
     }
 
-    private void HandleDragDropMessage(Message m)
+    private void ProcessDropMessage(Message m)
     {
-        var sb = new StringBuilder(1024);
-        uint numFiles = NativeMethods.DragQueryFile(m.WParam, 0xffffffffu, sb, 0);
-        var list = new List<string>();
-
-        for (uint i = 0; i < numFiles; i++)
+        IntPtr hDrop = m.WParam;
+        try
         {
-            if (NativeMethods.DragQueryFile(m.WParam, i, sb, Convert.ToUInt32(sb.Capacity) * 2) > 0)
+            uint fileCount = NativeMethods.DragQueryFile(hDrop, 0xFFFFFFFF, null, 0);
+            var files = new List<string>((int)fileCount);
+            var buffer = new StringBuilder(512);
+
+            for (uint i = 0; i < fileCount; i++)
             {
-                list.Add(sb.ToString());
+                uint charsNeeded = NativeMethods.DragQueryFile(hDrop, i, null, 0);
+                if (charsNeeded == 0) continue;
+
+                buffer.EnsureCapacity((int)charsNeeded + 1);
+                NativeMethods.DragQueryFile(hDrop, i, buffer, charsNeeded + 1);
+                files.Add(buffer.ToString());
+                buffer.Clear();
             }
+
+            var pt = new NativeMethods.POINT();
+            NativeMethods.DragQueryPoint(hDrop, ref pt);
+
+            ElevatedDragDrop?.Invoke(this, new ElevatedDragDropEventArgs
+            {
+                HWnd = m.HWnd,
+                Files = files.AsReadOnly(),
+                X = pt.X,
+                Y = pt.Y
+            });
         }
-
-        var point = new NativeMethods.POINT();
-        NativeMethods.DragQueryPoint(m.WParam, ref point);
-        NativeMethods.DragFinish(m.WParam);
-
-        var args = new ElevatedDragDropEventArgs
+        finally
         {
-            HWnd = m.HWnd,
-            Files = list,
-            X = point.X,
-            Y = point.Y
-        };
+            NativeMethods.DragFinish(hDrop);
+        }
+    }
 
-        ElevatedDragDrop?.Invoke(this, args);
+    private static void AllowMessage(IntPtr hWnd, uint message,
+        ref NativeMethods.CHANGEFILTERSTRUCT changeStruct)
+    {
+        NativeMethods.ChangeWindowMessageFilterEx(hWnd, message,
+            NativeMethods.ChangeWindowMessageFilterExAction.Allow, ref changeStruct);
     }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            Application.RemoveMessageFilter(this);
+            _disposed = true;
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    ~ElevatedDragDropManager() => Dispose();
 }
-public class ElevatedDragDropEventArgs : EventArgs
+
+public sealed class ElevatedDragDropEventArgs : EventArgs
 {
-    public IntPtr HWnd
-    {
-        get { return m_HWnd; }
-        set { m_HWnd = value; }
-    }
-    private IntPtr m_HWnd;
-    public List<string> Files
-    {
-        get { return m_Files; }
-        set { m_Files = value; }
-    }
-    private List<string> m_Files;
-    public int X
-    {
-        get { return m_X; }
-        set { m_X = value; }
-    }
-    private int m_X;
-    public int Y
-    {
-        get { return m_Y; }
-        set { m_Y = value; }
-    }
-    private int m_Y;
-    public ElevatedDragDropEventArgs()
-    {
-        Files = [];
-    }
+    public IntPtr HWnd { get; init; }
+    public IReadOnlyList<string> Files { get; init; } = Array.Empty<string>();
+    public int X { get; init; }
+    public int Y { get; init; }
 }

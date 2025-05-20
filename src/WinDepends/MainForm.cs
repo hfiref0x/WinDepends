@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 May 2025
+*  DATE:        20 May 2025
 *  
 *  Codename:    VasilEk
 *
@@ -971,29 +971,12 @@ public partial class MainForm : Form
 
     private void PostOpenFileUpdateControls(string fileName)
     {
-        string programTitle = CConsts.ProgramName;
-        if (CUtils.IsAdministrator)
-        {
-            if (Environment.Is64BitProcess)
-            {
-                programTitle += " (Administrator, 64-bit)";
-            }
-            else
-            {
-                programTitle += " (Administrator)";
-            }
-        }
-        else
-        {
-            if (Environment.Is64BitProcess)
-            {
-                programTitle += " (64-bit)";
-            }
-        }
+        var suffix = CUtils.IsAdministrator
+            ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
+            : Environment.Is64BitProcess ? CConsts.SixtyFourBitsMsg : "";
 
         m_MRUList.AddFile(fileName);
-        programTitle += $" [{Path.GetFileName(fileName)}]";
-        this.Text = programTitle;
+        this.Text = $"{CConsts.ProgramName}{suffix} [{Path.GetFileName(fileName)}]";
     }
 
     private void MenuCloseItem_Click(object sender, EventArgs e)
@@ -1011,14 +994,11 @@ public partial class MainForm : Form
     {
         if (m_Depends != null)
         {
-            string programTitle = CConsts.ProgramName;
+            var programTitle = CUtils.IsAdministrator
+           ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
+           : Environment.Is64BitProcess ? CConsts.SixtyFourBitsMsg : "";
 
-            if (CUtils.IsAdministrator)
-            {
-                programTitle += " (Administrator)";
-            }
-
-            this.Text = programTitle;
+            this.Text = $"{CConsts.ProgramName}{programTitle}";
 
             m_Depends = null;
             m_RootNode = null;
@@ -2163,33 +2143,34 @@ public partial class MainForm : Form
             return;
         }
 
-        ListView listView;
+        ListView[] controls = { LVExports, LVImports, LVModules };
 
-        if (LVExports.Focused)
+        ListView target = null;
+
+        foreach (var lv in controls)
         {
-            listView = LVExports;
-        }
-        else if (LVImports.Focused)
-        {
-            listView = LVImports;
-        }
-        else if (LVModules.Focused)
-        {
-            listView = LVModules;
-        }
-        else
-        {
-            return;
+            if (lv.Focused)
+            {
+                target = lv;
+                break;
+            }
         }
 
-        listView.BeginUpdate();
+        if (target == null) return;
 
-        for (int i = 0; i < listView.VirtualListSize; i++)
+        target.BeginUpdate();
+
+        try
         {
-            listView.SelectedIndices.Add(i);
+            for (int i = 0; i < target.VirtualListSize; i++)
+            {
+                target.SelectedIndices.Add(i);
+            }
         }
-
-        listView.EndUpdate();
+        finally
+        {
+            target.EndUpdate();
+        }
     }
 
     private void ExternalHelpMenuItem_Click(object sender, EventArgs e)
@@ -2688,7 +2669,6 @@ public partial class MainForm : Form
                 _ when FieldIndex == (int)ModulesColumns.Name && !fullPaths =>
                     string.Compare(Path.GetFileName(x.FileName), Path.GetFileName(y.FileName), StringComparison.Ordinal),
                 (int)ModulesColumns.Image => x.ModuleImageIndex.CompareTo(y.ModuleImageIndex),
-                // (int)ModulesColumns.LoadOrder => x.ModuleData.LoadOrder.CompareTo(y.ModuleData.LoadOrder),//unused, profiling artifact
                 (int)ModulesColumns.LinkChecksum => x.ModuleData.LinkChecksum.CompareTo(y.ModuleData.LinkChecksum),
                 (int)ModulesColumns.RealChecksum => x.ModuleData.RealChecksum.CompareTo(y.ModuleData.RealChecksum),
                 (int)ModulesColumns.VirtualSize => x.ModuleData.VirtualSize.CompareTo(y.ModuleData.VirtualSize),

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Apr 2025
+*  DATE:        20 May 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -25,6 +25,10 @@ public static class CConsts
     public const string NotAvailableMsg = "N/A";
     public const string NotBoundMsg = "Not bound";
     public const string NoneMsg = "None";
+
+    public const string AdminMsg = " (Administrator)";
+    public const string Admin64Msg = " (Administrator, 64-bit)";
+    public const string SixtyFourBitsMsg = " (64-bit)";
 
     public const string DateTimeFormat24Hours = "dd/MM/yyyy HH:mm:ss";
 

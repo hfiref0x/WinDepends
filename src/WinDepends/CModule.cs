@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 May 2025
+*  DATE:        20 May 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -60,15 +60,22 @@ public enum FileAttributes : uint
 /// </summary>
 public static class FileAttributesExtension
 {
-    public static string ShortName(this FileAttributes fileAttributes) =>
-        $"{(fileAttributes.HasFlag(FileAttributes.Hidden) ? "H" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.System) ? "S" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.Archive) ? "A" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.ReadOnly) ? "R" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.Compressed) ? "C" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.Temporary) ? "T" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.Offline) ? "O" : "")}" +
-        $"{(fileAttributes.HasFlag(FileAttributes.Encrypted) ? "E" : "")}";
+    public static string ShortName(this FileAttributes fileAttributes)
+    {
+        Span<char> buffer = stackalloc char[8];
+        int count = 0;
+
+        if ((fileAttributes & FileAttributes.Hidden) == FileAttributes.Hidden) buffer[count++] = 'H';
+        if ((fileAttributes & FileAttributes.System) == FileAttributes.System) buffer[count++] = 'S';
+        if ((fileAttributes & FileAttributes.Archive) == FileAttributes.Archive) buffer[count++] = 'A';
+        if ((fileAttributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly) buffer[count++] = 'R';
+        if ((fileAttributes & FileAttributes.Compressed) == FileAttributes.Compressed) buffer[count++] = 'C';
+        if ((fileAttributes & FileAttributes.Temporary) == FileAttributes.Temporary) buffer[count++] = 'T';
+        if ((fileAttributes & FileAttributes.Offline) == FileAttributes.Offline) buffer[count++] = 'O';
+        if ((fileAttributes & FileAttributes.Encrypted) == FileAttributes.Encrypted) buffer[count++] = 'E';
+
+        return new string(buffer[..count]);
+    }
 }
 
 [FlagsAttribute]
@@ -615,22 +622,11 @@ public class CModule
 
     public ModuleInfoFlags GetModuleFlags()
     {
-        ModuleInfoFlags flags = new();
+        ModuleInfoFlags flags = default;
 
-        if (Invalid)
-        {
-            flags |= ModuleInfoFlags.Invalid;
-        }
-
-        if (FileNotFound)
-        {
-            flags |= ModuleInfoFlags.FileNotFound;
-        }
-
-        if (OtherErrorsPresent)
-        {
-            flags |= ModuleInfoFlags.WarningOtherErrors;
-        }
+        if (Invalid) flags |= ModuleInfoFlags.Invalid;
+        if (FileNotFound) flags |= ModuleInfoFlags.FileNotFound;
+        if (OtherErrorsPresent) flags |= ModuleInfoFlags.WarningOtherErrors;
 
         if (OriginalInstanceId != 0)
         {

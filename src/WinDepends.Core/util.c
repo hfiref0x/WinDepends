@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Mar 28, 2025
+*  Modified on: May 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -172,14 +172,12 @@ __forceinline wchar_t locase_w(_In_ wchar_t c)
         return c;
 }
 
-#define ULONG_MAX_VALUE 0xffffffffUL
-
 __forceinline int _isdigit_w(_In_ wchar_t x) {
     return ((x >= L'0') && (x <= L'9'));
 }
 
 unsigned long strtoul_w(
-    _In_ wchar_t* s)
+    _In_ const wchar_t* s)
 {
     unsigned long long	a = 0;
     wchar_t			c;
@@ -194,8 +192,8 @@ unsigned long strtoul_w(
         else
             break;
 
-        if (a > ULONG_MAX_VALUE)
-            return ULONG_MAX_VALUE;
+        if (a > ULONG_MAX)
+            return ULONG_MAX;
 
         s++;
     }
@@ -204,7 +202,7 @@ unsigned long strtoul_w(
 
 wchar_t* _filepath_w(
     _In_ const wchar_t* fname, 
-    _In_ wchar_t* fpath)
+    _Out_ wchar_t* fpath)
 {
     wchar_t* p = (wchar_t*)fname, * p0 = (wchar_t*)fname, * p1 = (wchar_t*)fpath;
 

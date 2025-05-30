@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Mar 28, 2025
+*  Modified on: May 18, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -117,10 +117,10 @@ _Success_(return != NULL) LPWSTR resolve_apiset_name(
     _Out_ SIZE_T * name_length
 );
 
-unsigned long strtoul_w(_In_ wchar_t* s);
+unsigned long strtoul_w(_In_ const wchar_t* s);
 wchar_t* _filepath_w(
     _In_ const wchar_t* fname, 
-    _In_ wchar_t* fpath);
+    _Out_ wchar_t* fpath);
 
 DWORD calc_mapped_file_chksum(
     _In_ PVOID base_address,

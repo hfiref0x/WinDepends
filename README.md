@@ -65,6 +65,16 @@ No installation required. Copy the folder, run WinDepends.exe. To uninstall, clo
 + Modern style toolbar images: https://icons8.com.
 + Frameworks/SDKs updated only with LTS releases (e.g., .NET 10).
 
+# Support Our Work
+
+If you enjoy using this software and would like to help the authors maintain and improve it, please consider supporting us with a donation. Your contribution fuels development, ensures updates, and keeps the project alive.
+
+### Cryptocurrency Donations:
+
+BTC (Bitcoin): bc1qzkvtpa0053cagf35dqmpvv9k8hyrwl7krwdz84q39mcpy68y6tmqsju0g4
+
+This is purely optional, thank you!~
+
 # License
 
 MIT

@@ -239,8 +239,8 @@
             // splitContainerBottom.Panel2
             // 
             splitContainerBottom.Panel2.Controls.Add(reLog);
-            splitContainerBottom.Size = new Size(1008, 161);
-            splitContainerBottom.SplitterDistance = 73;
+            splitContainerBottom.Size = new Size(1013, 241);
+            splitContainerBottom.SplitterDistance = 109;
             splitContainerBottom.TabIndex = 0;
             splitContainerBottom.MouseDown += SplitContainer_MouseDown;
             splitContainerBottom.MouseUp += SplitContainer_MouseUp;
@@ -254,7 +254,7 @@
             LVModules.Name = "LVModules";
             LVModules.ShowGroups = false;
             LVModules.ShowItemToolTips = true;
-            LVModules.Size = new Size(1008, 73);
+            LVModules.Size = new Size(1013, 109);
             LVModules.TabIndex = 0;
             LVModules.UseCompatibleStateImageBehavior = false;
             LVModules.View = View.Details;
@@ -368,7 +368,7 @@
             reLog.Location = new Point(0, 0);
             reLog.Name = "reLog";
             reLog.ReadOnly = true;
-            reLog.Size = new Size(1008, 84);
+            reLog.Size = new Size(1013, 128);
             reLog.TabIndex = 0;
             reLog.Text = "";
             reLog.SelectionChanged += RichEditLog_SelectionChanged;
@@ -691,8 +691,8 @@
             // splitContainerFunctions.Panel2
             // 
             splitContainerFunctions.Panel2.Controls.Add(LVExports);
-            splitContainerFunctions.Size = new Size(577, 201);
-            splitContainerFunctions.SplitterDistance = 100;
+            splitContainerFunctions.Size = new Size(580, 297);
+            splitContainerFunctions.SplitterDistance = 147;
             splitContainerFunctions.TabIndex = 0;
             splitContainerFunctions.MouseDown += SplitContainer_MouseDown;
             splitContainerFunctions.MouseUp += SplitContainer_MouseUp;
@@ -706,7 +706,7 @@
             LVImports.Name = "LVImports";
             LVImports.ShowGroups = false;
             LVImports.ShowItemToolTips = true;
-            LVImports.Size = new Size(577, 100);
+            LVImports.Size = new Size(580, 147);
             LVImports.TabIndex = 0;
             LVImports.UseCompatibleStateImageBehavior = false;
             LVImports.View = View.Details;
@@ -754,7 +754,7 @@
             LVExports.Name = "LVExports";
             LVExports.ShowGroups = false;
             LVExports.ShowItemToolTips = true;
-            LVExports.Size = new Size(577, 97);
+            LVExports.Size = new Size(580, 146);
             LVExports.TabIndex = 1;
             LVExports.UseCompatibleStateImageBehavior = false;
             LVExports.View = View.Details;
@@ -799,7 +799,7 @@
             MainToolBar.Location = new Point(0, 24);
             MainToolBar.Name = "MainToolBar";
             MainToolBar.Padding = new Padding(0, 0, 2, 0);
-            MainToolBar.Size = new Size(1008, 25);
+            MainToolBar.Size = new Size(1013, 25);
             MainToolBar.TabIndex = 4;
             // 
             // OpenToolButton
@@ -985,7 +985,7 @@
             mainMenu.Items.AddRange(new ToolStripItem[] { FileMenuItem, EditMenuItem, ViewMenuItem, OptionsMenuItem, HelpMenuItem });
             mainMenu.Location = new Point(0, 0);
             mainMenu.Name = "mainMenu";
-            mainMenu.Size = new Size(1008, 24);
+            mainMenu.Size = new Size(1013, 24);
             mainMenu.TabIndex = 5;
             mainMenu.Text = "menuStrip1";
             // 
@@ -1208,7 +1208,7 @@
             TVModules.Location = new Point(0, 0);
             TVModules.Name = "TVModules";
             TVModules.ShowNodeToolTips = true;
-            TVModules.Size = new Size(427, 201);
+            TVModules.Size = new Size(429, 297);
             TVModules.TabIndex = 0;
             TVModules.AfterSelect += TVModules_AfterSelect;
             TVModules.Click += TVModules_Click;
@@ -1383,8 +1383,8 @@
             // splitContainerMain.Panel2
             // 
             splitContainerMain.Panel2.Controls.Add(splitContainerBottom);
-            splitContainerMain.Size = new Size(1008, 366);
-            splitContainerMain.SplitterDistance = 201;
+            splitContainerMain.Size = new Size(1013, 542);
+            splitContainerMain.SplitterDistance = 297;
             splitContainerMain.TabIndex = 7;
             splitContainerMain.MouseDown += SplitContainer_MouseDown;
             splitContainerMain.MouseUp += SplitContainer_MouseUp;
@@ -1402,8 +1402,8 @@
             // splitContainerFile.Panel2
             // 
             splitContainerFile.Panel2.Controls.Add(splitContainerFunctions);
-            splitContainerFile.Size = new Size(1008, 201);
-            splitContainerFile.SplitterDistance = 427;
+            splitContainerFile.Size = new Size(1013, 297);
+            splitContainerFile.SplitterDistance = 429;
             splitContainerFile.TabIndex = 0;
             splitContainerFile.MouseDown += SplitContainer_MouseDown;
             splitContainerFile.MouseUp += SplitContainer_MouseUp;
@@ -1415,15 +1415,15 @@
             // StatusBar
             // 
             StatusBar.Items.AddRange(new ToolStripItem[] { toolBarStatusLabel, toolBarSymStatusLabel });
-            StatusBar.Location = new Point(0, 415);
+            StatusBar.Location = new Point(0, 591);
             StatusBar.Name = "StatusBar";
-            StatusBar.Size = new Size(1008, 24);
+            StatusBar.Size = new Size(1013, 24);
             StatusBar.TabIndex = 6;
             // 
             // toolBarStatusLabel
             // 
             toolBarStatusLabel.Name = "toolBarStatusLabel";
-            toolBarStatusLabel.Size = new Size(941, 19);
+            toolBarStatusLabel.Size = new Size(946, 19);
             toolBarStatusLabel.Spring = true;
             toolBarStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -1721,14 +1721,14 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1008, 439);
+            ClientSize = new Size(1013, 615);
             Controls.Add(splitContainerMain);
             Controls.Add(StatusBar);
             Controls.Add(MainToolBar);
             Controls.Add(mainMenu);
             Icon = (Icon)resources.GetObject("$this.Icon");
             KeyPreview = true;
-            MinimumSize = new Size(635, 440);
+            MinimumSize = new Size(640, 480);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             FormClosing += MainForm_FormClosing;

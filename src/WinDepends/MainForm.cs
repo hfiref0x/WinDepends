@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 May 2025
+*  DATE:        31 May 2025
 *  
 *  Codename:    VasilEk
 *
@@ -795,6 +795,37 @@ public partial class MainForm : Form
         return MainToolBar.ImageList != null;
     }
 
+    public void RestoreWindowSettings()
+    {
+        int? left = m_Configuration.WindowLeft;
+        int? top = m_Configuration.WindowTop;
+        int? height = m_Configuration.WindowHeight;
+        int? width = m_Configuration.WindowWidth;
+        int? state = m_Configuration.WindowState;
+
+        bool hasValidDimensions = width.GetValueOrDefault() >= CConsts.MinValidWidth &&
+                             height.GetValueOrDefault() >= CConsts.MinValidHeight;
+
+        bool hasValidPosition = left.HasValue && top.HasValue &&
+                                   CUtils.IsPointVisible(new Point(left.Value, top.Value));
+
+        if (left.HasValue && top.HasValue && hasValidDimensions && hasValidPosition)
+        {
+            this.StartPosition = FormStartPosition.Manual;
+            this.Bounds = CUtils.GetAdjustedBounds(new Rectangle(
+                left.Value, top.Value, width.Value, height.Value));
+        }
+        else
+        {
+            this.StartPosition = FormStartPosition.CenterScreen;
+        }
+
+        this.WindowState = (state.HasValue && state.Value != (int)FormWindowState.Minimized)
+            ? (FormWindowState)state.Value
+            : FormWindowState.Normal;
+
+    }
+
     /// <summary>
     /// MainForm load (Create) event.
     /// </summary>
@@ -828,6 +859,11 @@ public partial class MainForm : Form
         // Setup image lists for tree/list views.
         //
         CreateImageListsForViews();
+
+        //
+        // Restore window position, size and state.
+        //
+        RestoreWindowSettings();
 
         //
         // Toolbar images setup.
@@ -864,25 +900,11 @@ public partial class MainForm : Form
         //
         // Set program title.
         //
-        this.Text = CConsts.ProgramName;
-        if (CUtils.IsAdministrator)
-        {
-            if (Environment.Is64BitProcess)
-            {
-                this.Text += " (Administrator, 64-bit)";
-            }
-            else
-            {
-                this.Text += " (Administrator)";
-            }
-        }
-        else
-        {
-            if (Environment.Is64BitProcess)
-            {
-                this.Text += " (64-bit)";
-            }
-        }
+        var suffix = CUtils.IsAdministrator
+            ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
+            : Environment.Is64BitProcess ? CConsts.SixtyFourBitsMsg : "";
+
+        this.Text = $"{CConsts.ProgramName}{suffix}";
 
         var fileOpened = false;
 
@@ -1092,6 +1114,8 @@ public partial class MainForm : Form
 
                     PopulateObjectToLists(m_Depends.RootModule, false, fileOpenSettings);
 
+                    m_RootNode?.Expand();
+
                     LVModules.BeginUpdate();
 
                     LVModulesSort(LVModules, m_Configuration.SortColumnModules,
@@ -1228,6 +1252,9 @@ public partial class MainForm : Form
                 AddLogMessage(entry.LoggedMessage, LogMessageType.ContentDefined,
                     entry.EntryColor, true, false);
             }
+
+            // Expand root module.
+            m_RootNode?.Expand();
         }
         else
         {
@@ -3780,6 +3807,27 @@ public partial class MainForm : Form
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
         ShutdownInProgress = true;
+        
+        //
+        // Remember window position, size and state.
+        //
+        Rectangle bounds = this.WindowState == FormWindowState.Normal
+            ? this.Bounds
+            : this.RestoreBounds;
+
+        if (bounds.Width >= CConsts.MinValidWidth && bounds.Height >= CConsts.MinValidHeight)
+        {
+            m_Configuration.WindowLeft = bounds.Left;
+            m_Configuration.WindowTop = bounds.Top;
+            m_Configuration.WindowWidth = bounds.Width;
+            m_Configuration.WindowHeight = bounds.Height;
+        }
+
+        FormWindowState state = (this.WindowState == FormWindowState.Minimized)
+            ? FormWindowState.Normal
+            : this.WindowState;
+
+        m_Configuration.WindowState = (int)state;
     }
 
     private void MainForm_DpiChanged(object sender, DpiChangedEventArgs e)

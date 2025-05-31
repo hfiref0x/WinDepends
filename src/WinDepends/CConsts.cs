@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 May 2025
+*  DATE:        31 May 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -47,6 +47,9 @@ public static class CConsts
 
     public const int MinPortNumber = 49152;
     public const int MaxPortNumber = ushort.MaxValue;
+
+    public const int MinValidWidth = 480;
+    public const int MinValidHeight = 640;
 
     public const int TagUseESC = 100;
     public const int TagAutoExpand = 120;

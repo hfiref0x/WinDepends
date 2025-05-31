@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Apr 2025
+*  DATE:        31 May 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -104,6 +104,17 @@ public class CConfiguration
     public List<string> UserSearchOrderDirectoriesKM { get; set; }
     [DataMember]
     public List<string> MRUList { get; set; }
+    [DataMember]
+    public int WindowLeft { get; set; }
+    [DataMember]
+    public int WindowTop { get; set; }
+    [DataMember]
+    public int WindowWidth { get; set; }
+    [DataMember]
+    public int WindowHeight { get; set; }
+    [DataMember]
+    public int WindowState { get; set; }
+
     public CConfiguration()
     {
     }
@@ -190,6 +201,10 @@ public class CConfiguration
             ProcessRelocsForImage = true;
             UseCustomImageBase = false;
             ToolBarTheme = ToolBarThemeType.Classic;
+
+            WindowHeight = CConsts.MinValidHeight;
+            WindowWidth = CConsts.MinValidWidth;
+            WindowState = (int)FormWindowState.Normal;
 
             SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
             SymbolsDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);

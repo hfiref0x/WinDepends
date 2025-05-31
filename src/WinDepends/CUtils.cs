@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 May 2025
+*  DATE:        31 May 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -790,6 +790,27 @@ public static class CUtils
             .ToArray());
 
         toolStrip.ImageList = imageList;
+    }
+
+    public static Rectangle GetAdjustedBounds(Rectangle originalBounds)
+    {
+        Screen screen = Screen.AllScreens.FirstOrDefault(s => s.WorkingArea.Contains(originalBounds.Location))
+                        ?? Screen.PrimaryScreen;
+
+        Rectangle area = screen.WorkingArea;
+
+        int width = Math.Min(originalBounds.Width, area.Width);
+        int height = Math.Min(originalBounds.Height, area.Height);
+
+        int left = Math.Max(area.Left, Math.Min(originalBounds.Left, area.Right - width));
+        int top = Math.Max(area.Top, Math.Min(originalBounds.Top, area.Bottom - height));
+
+        return new Rectangle(left, top, width, height);
+    }
+
+    public static bool IsPointVisible(Point pt)
+    {
+        return Screen.AllScreens.Any(screen => screen.WorkingArea.Contains(pt));
     }
 
 }

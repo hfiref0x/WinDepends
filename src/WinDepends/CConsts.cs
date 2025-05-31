@@ -42,7 +42,7 @@ public static class CConsts
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
 
-    public const int ModuleNodeDepthMin = 1;
+    public const int ModuleNodeDepthMin = 0;
     public const int ModuleNodeDepthDefault = 2;
 
     public const int MinPortNumber = 49152;

@@ -202,8 +202,6 @@ public class CConfiguration
             UseCustomImageBase = false;
             ToolBarTheme = ToolBarThemeType.Classic;
 
-            WindowHeight = CConsts.MinValidHeight;
-            WindowWidth = CConsts.MinValidWidth;
             WindowState = (int)FormWindowState.Normal;
 
             SymbolsStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";

@@ -410,12 +410,11 @@
             label8.Name = "label8";
             label8.Size = new Size(100, 15);
             label8.TabIndex = 15;
-            label8.Text = "[1..100], default: 2";
+            label8.Text = "[0..100], default: 2";
             // 
             // nodeMaxDepthUpDown
             // 
             nodeMaxDepthUpDown.Location = new Point(158, 110);
-            nodeMaxDepthUpDown.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nodeMaxDepthUpDown.Name = "nodeMaxDepthUpDown";
             nodeMaxDepthUpDown.Size = new Size(52, 23);
             nodeMaxDepthUpDown.TabIndex = 14;

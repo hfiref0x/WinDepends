@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CACTCTXHELPER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Dec 2024
+*  DATE:        02 Jun 2025
 *  
 *  Activation context path resolution helper.
 *
@@ -99,12 +99,6 @@ public class CActCtxHelper : IDisposable
         }
         return false;
     }
-
-    public bool ActivateContextOverride()
-    {
-        return ActivateActCtx(0, out contextCookie);
-    }
-
     public bool DeactivateContext()
     {
         bool result = false;
@@ -118,7 +112,19 @@ public class CActCtxHelper : IDisposable
         }
         return result;
     }
+    public IntPtr DeactivateCurrentContext()
+    {
+        if (!ActivateActCtx(0, out IntPtr cookie))
+        {
+            return IntPtr.Zero;
+        }
+        return cookie;
+    }
 
+    public void ReactivateContext(IntPtr reactivationCookie)
+    {
+        DeactivateActCtx(0, reactivationCookie);
+    }
     public void Dispose()
     {
         Dispose(true);

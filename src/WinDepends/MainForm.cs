@@ -3807,7 +3807,7 @@ public partial class MainForm : Form
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
         ShutdownInProgress = true;
-        
+
         //
         // Remember window position, size and state.
         //

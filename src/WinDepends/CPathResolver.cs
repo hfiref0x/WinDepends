@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CPATHRESOLVER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        07 Dec 2024
+*  DATE:        02 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -248,26 +248,39 @@ public static class CPathResolver
     static internal string PathFromWinSXS(string fileName)
     {
         string result = string.Empty;
-        if (ActCtxHelper.ActivateContext())
+        bool bActivated;
+        IntPtr cookie = IntPtr.Zero;
+
+        bActivated = ActCtxHelper.ActivateContext();
+        if (!bActivated)
         {
-            StringBuilder sbOut = new(2048);
-            uint res = NativeMethods.SearchPath(null, fileName, null, 2048, sbOut, out _);
-            if (res == 0)
-            {
-                if (Marshal.GetLastWin32Error() == 0x7A) // ERROR_INSUFFICIENT_BUFFER
-                {
-                    sbOut.Clear();
-                    sbOut.Capacity = (int)res;
-                    res = NativeMethods.SearchPath(null, fileName, null, (uint)sbOut.Capacity, sbOut, out _);
-                }
-            }
+            cookie = ActCtxHelper.DeactivateCurrentContext();
+        }
 
+        StringBuilder sbOut = new(2048);
+        uint res = NativeMethods.SearchPath(null, fileName, null, 2048, sbOut, out _);
+        if (res == 0)
+        {
+            if (Marshal.GetLastWin32Error() == 0x7A) // ERROR_INSUFFICIENT_BUFFER
+            {
+                sbOut.Clear();
+                sbOut.Capacity = (int)res;
+                res = NativeMethods.SearchPath(null, fileName, null, (uint)sbOut.Capacity, sbOut, out _);
+            }
+        }
+
+        if (!bActivated)
+        {
+            ActCtxHelper.ReactivateContext(cookie);
+        }
+        else
+        {
             ActCtxHelper.DeactivateContext();
+        }
 
-            if (res != 0)
-            {
-                result = sbOut.ToString();
-            }
+        if (res != 0)
+        {
+            result = sbOut.ToString();
         }
 
         return result;

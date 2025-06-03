@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        02 Jun 2025
+*  DATE:        03 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -16,28 +16,32 @@
 *******************************************************************************/
 
 using System.Reflection.PortableExecutable;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace WinDepends;
 
+/// <summary>
+/// Resolves file paths for modules according to Windows loading rules.
+/// </summary>
 public static class CPathResolver
 {
-    public static bool Initialized { get; set; }
-    public static string MainModuleFileName { get; private set; }
-    public static string CurrentDirectory { get; private set; }
     public static string WindowsDirectory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
     public static string System16Directory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), CConsts.HostSys16Dir);
     public static string System32Directory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.System);
     public static string SystemDriversDirectory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DriversDir);
     public static string SysWowDirectory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
 
+    public static bool Initialized { get; set; }
+    public static string MainModuleFileName { get; private set; } = string.Empty;
+    public static string CurrentDirectory { get; private set; } = string.Empty;
     public static List<string> UserDirectoriesUM { get; set; } = [];
     public static List<string> UserDirectoriesKM { get; set; } = [];
 
-    public static string KnownDllsPath { get; set; }
-    public static string KnownDllsPath32 { get; set; }
-    public static string[] PathEnvironment { get; } = Environment.GetEnvironmentVariable("PATH").Split(";", StringSplitOptions.RemoveEmptyEntries);
+    public static string KnownDllsPath { get; set; } = string.Empty;
+    public static string KnownDllsPath32 { get; set; } = string.Empty;
+    public static string[] PathEnvironment { get; } =
+        Environment.GetEnvironmentVariable("PATH").Split(";", StringSplitOptions.RemoveEmptyEntries)
+        ?? Array.Empty<string>();
     public static List<string> KnownDlls { get; set; } = [];
     public static List<string> KnownDlls32 { get; set; } = [];
 
@@ -45,6 +49,10 @@ public static class CPathResolver
     public static CActCtxHelper ActCtxHelper { get; set; }
     static bool AutoElevate { get; set; }
 
+    /// <summary>
+    /// Queries information about the main module and initializes the resolver.
+    /// </summary>
+    /// <param name="module">The main module to analyze.</param>
     public static void QueryFileInformation(CModule module)
     {
         if (Initialized)
@@ -53,7 +61,7 @@ public static class CPathResolver
         }
 
         MainModuleFileName = module.FileName;
-        CurrentDirectory = Path.GetDirectoryName(MainModuleFileName);
+        CurrentDirectory = Path.GetDirectoryName(MainModuleFileName) ?? string.Empty;
 
         if (ManifestSxsDependencies.Count > 0)
         {
@@ -70,6 +78,9 @@ public static class CPathResolver
         Initialized = true;
     }
 
+    /// <summary>
+    /// Searches for the file in environment PATH directories.
+    /// </summary>
     static internal string PathFromEnvironmentPathDirectories(string fileName)
     {
         foreach (string path in PathEnvironment)
@@ -84,6 +95,9 @@ public static class CPathResolver
         return string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the application manifest.
+    /// </summary>
     static internal string PathFromManifest(string fileName, bool Is64bitFile = true)
     {
         if (!FileIsInKnownDlls(fileName, Is64bitFile))
@@ -95,12 +109,14 @@ public static class CPathResolver
                     return sxsEntry.FilePath;
                 }
             }
-
         }
 
         return string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the specified application directory.
+    /// </summary>
     static internal string PathFromApplicationDirectory(string fileName, string directoryName)
     {
         if (string.IsNullOrEmpty(directoryName))
@@ -112,24 +128,36 @@ public static class CPathResolver
         return File.Exists(result) ? result : string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the Windows directory.
+    /// </summary>
     static internal string PathFromWindowsDirectory(string fileName)
     {
         string result = Path.Combine(WindowsDirectory, fileName);
         return File.Exists(result) ? result : string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the System directory.
+    /// </summary>
     static internal string PathFromSystem16Directory(string fileName)
     {
         string result = Path.Combine(System16Directory, fileName);
         return File.Exists(result) ? result : string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the system drivers directory.
+    /// </summary>
     static internal string PathFromSystemDriversDirectory(string fileName)
     {
         string result = Path.Combine(SystemDriversDirectory, fileName);
         return File.Exists(result) ? result : string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the user-specified directories.
+    /// </summary>
     static internal string PathFromUserDirectory(string fileName, List<string> userDirectories)
     {
         string result;
@@ -145,6 +173,9 @@ public static class CPathResolver
         return string.Empty;
     }
 
+    /// <summary>
+    /// Searches for the file in the appropriate system directory.
+    /// </summary>
     static internal string PathFromSystemDirectory(string fileName, bool Is64bitFile = true)
     {
         string sysDirectory = Is64bitFile ? System32Directory : SysWowDirectory;
@@ -152,6 +183,9 @@ public static class CPathResolver
         return File.Exists(result) ? result : string.Empty;
     }
 
+    /// <summary>
+    /// Checks if the file is in the KnownDlls registry list.
+    /// </summary>
     static internal bool FileIsInKnownDlls(string fileName, bool Is64bitFile = true)
     {
         List<string> dllsList = Is64bitFile ? KnownDlls : KnownDlls32;
@@ -159,6 +193,9 @@ public static class CPathResolver
         return dllsList.Contains(fileName, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Gets the path to a file from the KnownDlls registry key.
+    /// </summary>
     static internal string PathFromKnownDlls(string fileName, bool Is64bitFile = true)
     {
         List<string> dllsList = (Is64bitFile) ? KnownDlls : KnownDlls32;
@@ -176,6 +213,9 @@ public static class CPathResolver
         return string.Empty;
     }
 
+    /// <summary>
+    /// Determines the replacement directory based on CPU architecture.
+    /// </summary>
     static string GetReplacementDirectory(ushort cpuArchitecture)
     {
         return cpuArchitecture switch
@@ -188,6 +228,9 @@ public static class CPathResolver
         };
     }
 
+    /// <summary>
+    /// Applies file path architecture redirection for cross-architecture loading.
+    /// </summary>
     static internal string ApplyFilePathArchRedirection(string filePath, ushort cpuArchitecture)
     {
         string result = filePath;
@@ -223,77 +266,220 @@ public static class CPathResolver
         return result;
     }
 
+    /// <summary>
+    /// Searches for a file in the application's .local directory.
+    /// </summary>
     static internal string PathFromDotLocal(string applicationName, string fileName)
     {
         // DotLocal
         // Opportunistic search, find the first matching file.
         // Fixme: properly handle file name generation?
         string dotLocalDir = $"{applicationName}.local";
-        if (Directory.Exists(dotLocalDir))
+        if (!Directory.Exists(dotLocalDir))
+            return string.Empty;
+
+        try
         {
-            var subDirs = Directory.GetDirectories(dotLocalDir);
-            foreach (var dir in subDirs)
+            string[] subdirectories = Directory.GetDirectories(dotLocalDir);
+            foreach (string dir in subdirectories)
             {
-                string dotLocalFileName = Path.Combine(dir, fileName);
-                if (File.Exists(dotLocalFileName))
-                {
-                    return dotLocalFileName;
-                }
+                string filePath = Path.Combine(dir, fileName);
+                if (File.Exists(filePath))
+                    return filePath;
+            }
+        }
+        catch (IOException)
+        {
+            return string.Empty;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Searches for a file in the WinSXS directory using activation context.
+    /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <returns>The full path of the found file or an empty string if not found.</returns>
+    static internal string PathFromWinSXS(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName))
+            return string.Empty;
+
+        bool needsDeactivation = false;
+        IntPtr cookie = IntPtr.Zero;
+
+        try
+        {
+            if (ActCtxHelper.ActivateContext())
+            {
+                needsDeactivation = true;
+            }
+            else
+            {
+                // If activation failed, try deactivating current context
+                cookie = ActCtxHelper.DeactivateCurrentContext();
+                if (cookie == IntPtr.Zero)
+                    return string.Empty;
+            }
+
+            uint bufferSize = 2048;
+            StringBuilder path = new((int)bufferSize);
+
+            uint charsCopied = NativeMethods.SearchPath(null, fileName, null, bufferSize, path, out _);
+            if (charsCopied > bufferSize)
+            {
+                // Buffer was too small
+                path.Capacity = (int)charsCopied;
+                charsCopied = NativeMethods.SearchPath(null, fileName, null, charsCopied, path, out _);
+            }
+
+            return charsCopied > 0 ? path.ToString(0, (int)charsCopied) : string.Empty;
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
+        finally
+        {
+            if (needsDeactivation)
+            {
+                ActCtxHelper.DeactivateContext();
+            }
+            else if (cookie != IntPtr.Zero)
+            {
+                ActCtxHelper.ReactivateContext(cookie);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resolves a kernel module path based on search order.
+    /// </summary>
+    private static string ResolveKernelModulePath(
+        string fileName,
+        List<SearchOrderType> searchOrderKM,
+        bool is64bitMachine,
+        out SearchOrderType resolver)
+    {
+        resolver = SearchOrderType.None;
+        string result;
+
+        foreach (var searchOrder in searchOrderKM)
+        {
+            result = searchOrder switch
+            {
+                SearchOrderType.SystemDriversDirectory => PathFromSystemDriversDirectory(fileName),
+                SearchOrderType.System32Directory => PathFromSystemDirectory(fileName, is64bitMachine),
+                SearchOrderType.ApplicationDirectory => PathFromApplicationDirectory(fileName, CurrentDirectory),
+                SearchOrderType.UserDefinedDirectory => PathFromUserDirectory(fileName, UserDirectoriesKM),
+                _ => string.Empty
+            };
+
+            if (!string.IsNullOrEmpty(result))
+            {
+                resolver = searchOrder;
+                return result;
             }
         }
 
         return string.Empty;
     }
 
-    static internal string PathFromWinSXS(string fileName)
+    /// <summary>
+    /// Resolves a path based on a specific search order type.
+    /// </summary>
+    private static string ResolveBySearchOrder(SearchOrderType searchOrder, string fileName, bool is64bitMachine, bool needRedirection)
     {
-        string result = string.Empty;
-        bool bActivated;
-        IntPtr cookie = IntPtr.Zero;
+        string resolvedPath = string.Empty;
 
-        bActivated = ActCtxHelper.ActivateContext();
-        if (!bActivated)
+        if (searchOrder == SearchOrderType.WinSXS)
         {
-            cookie = ActCtxHelper.DeactivateCurrentContext();
-        }
-
-        StringBuilder sbOut = new(2048);
-        uint res = NativeMethods.SearchPath(null, fileName, null, 2048, sbOut, out _);
-        if (res == 0)
-        {
-            if (Marshal.GetLastWin32Error() == 0x7A) // ERROR_INSUFFICIENT_BUFFER
+            // Check .local first.
+            resolvedPath = PathFromDotLocal(MainModuleFileName, fileName);
+            if (!string.IsNullOrEmpty(resolvedPath))
             {
-                sbOut.Clear();
-                sbOut.Capacity = (int)res;
-                res = NativeMethods.SearchPath(null, fileName, null, (uint)sbOut.Capacity, sbOut, out _);
+                return resolvedPath;
+            }
+
+            // Do not perform search if the target cpu architecture is different from system cpu architecture.
+            // This is to avoid mass fp, as we cannot ensure proper search without taking "half" of Windows code inside and
+            // should keep the resolution as simple as possible.
+            if (!needRedirection)
+            {
+                resolvedPath = PathFromManifest(fileName, is64bitMachine);
+                if (!string.IsNullOrEmpty(resolvedPath))
+                {
+                    return resolvedPath;
+                }
+
+                // Resolve path using activation context.
+                return PathFromWinSXS(fileName);
             }
         }
 
-        if (!bActivated)
+        return searchOrder switch
         {
-            ActCtxHelper.ReactivateContext(cookie);
-        }
-        else
-        {
-            ActCtxHelper.DeactivateContext();
-        }
-
-        if (res != 0)
-        {
-            result = sbOut.ToString();
-        }
-
-        return result;
+            SearchOrderType.ApplicationDirectory => PathFromApplicationDirectory(fileName, CurrentDirectory),
+            SearchOrderType.WindowsDirectory => PathFromWindowsDirectory(fileName),
+            SearchOrderType.EnvironmentPathDirectories => PathFromEnvironmentPathDirectories(fileName),
+            SearchOrderType.System32Directory => PathFromSystemDirectory(fileName, is64bitMachine),
+            SearchOrderType.SystemDirectory => PathFromSystem16Directory(fileName),
+            SearchOrderType.KnownDlls => PathFromKnownDlls(fileName, is64bitMachine),
+            SearchOrderType.UserDefinedDirectory => PathFromUserDirectory(fileName, UserDirectoriesUM),
+            _ => string.Empty
+        };
     }
 
+    /// <summary>
+    /// Resolves a user mode module path based on search order.
+    /// </summary>
+    private static string ResolveUserModulePath(
+        string fileName,
+        List<SearchOrderType> searchOrderUM,
+        bool is64bitMachine,
+        bool needRedirection,
+        ushort moduleMachine,
+        out SearchOrderType resolver)
+    {
+        resolver = SearchOrderType.None;
+        string result;
+
+        foreach (var searchOrder in searchOrderUM)
+        {
+            result = ResolveBySearchOrder(searchOrder, fileName, is64bitMachine, needRedirection);
+            if (!string.IsNullOrEmpty(result))
+            {
+                resolver = searchOrder;
+
+                // Apply architecture redirection if needed
+                if (needRedirection &&
+                    resolver != SearchOrderType.KnownDlls &&
+                    resolver != SearchOrderType.ApplicationDirectory)
+                {
+                    result = ApplyFilePathArchRedirection(result, moduleMachine);
+                }
+
+                return result;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Resolves the full path for a module based on search order rules.
+    /// </summary>
     static internal string ResolvePathForModule(string partiallyResolvedFileName,
                                                 CModule module,
                                                 List<SearchOrderType> searchOrderUM,
                                                 List<SearchOrderType> searchOrderKM,
                                                 out SearchOrderType resolver)
     {
-        string result;
-        SearchOrderType resolvedBy = SearchOrderType.None;
         bool is64bitMachine = module.Is64bitArchitecture();
         ushort moduleMachine = module.ModuleData.Machine;
 
@@ -308,131 +494,17 @@ public static class CPathResolver
         };
 
         // KM module resolving.
-        if (needRedirection == false && module.IsKernelModule)
+        if (!needRedirection && module.IsKernelModule)
         {
-            foreach (var entry in searchOrderKM)
-            {
-                result = string.Empty;
-                switch (entry)
-                {
-                    case SearchOrderType.SystemDriversDirectory:
-                        result = PathFromSystemDriversDirectory(partiallyResolvedFileName);
-                        resolvedBy = SearchOrderType.SystemDriversDirectory;
-                        break;
-
-                    case SearchOrderType.System32Directory:
-                        result = PathFromSystemDirectory(partiallyResolvedFileName, is64bitMachine);
-                        resolvedBy = SearchOrderType.System32Directory;
-                        break;
-
-                    case SearchOrderType.ApplicationDirectory:
-                        result = PathFromApplicationDirectory(partiallyResolvedFileName, CurrentDirectory);
-                        resolvedBy = SearchOrderType.ApplicationDirectory;
-                        break;
-                    case SearchOrderType.UserDefinedDirectory:
-                        result = PathFromUserDirectory(partiallyResolvedFileName, UserDirectoriesKM);
-                        resolvedBy = SearchOrderType.UserDefinedDirectory;
-                        break;
-                }
-
-                if (!string.IsNullOrEmpty(result))
-                {
-                    resolver = resolvedBy;
-                    return result;
-                }
-            }
-
-            resolver = resolvedBy;
-            return string.Empty;
+            return ResolveKernelModulePath(partiallyResolvedFileName, searchOrderKM, is64bitMachine, out resolver);
         }
 
         // UM module resolving.
-        foreach (var entry in searchOrderUM)
-        {
-            result = string.Empty;
-
-            switch (entry)
-            {
-                case SearchOrderType.WinSXS:
-
-                    result = PathFromDotLocal(MainModuleFileName, partiallyResolvedFileName);
-                    if (!string.IsNullOrEmpty(result))
-                    {
-                        resolvedBy = SearchOrderType.WinSXS;
-                        break;
-                    }
-
-                    // Do not perform search if the target cpu architecture is different from system cpu architecture.
-                    // This is to avoid mass fp, as we cannot ensure proper search without taking "half" of Windows code inside and
-                    // should keep the resolution as simple as possible.
-                    if (!needRedirection)
-                    {
-                        result = PathFromManifest(partiallyResolvedFileName, is64bitMachine);
-                        if (string.IsNullOrEmpty(result))
-                        {
-
-                            //
-                            // Resolve path using activation context.
-                            //
-                            result = PathFromWinSXS(partiallyResolvedFileName);
-                        }
-                        resolvedBy = SearchOrderType.WinSXS;
-                    }
-                    break;
-
-                case SearchOrderType.ApplicationDirectory:
-                    result = PathFromApplicationDirectory(partiallyResolvedFileName, CurrentDirectory);
-                    resolvedBy = SearchOrderType.ApplicationDirectory;
-                    break;
-
-                case SearchOrderType.WindowsDirectory:
-                    result = PathFromWindowsDirectory(partiallyResolvedFileName);
-                    resolvedBy = SearchOrderType.WindowsDirectory;
-                    break;
-
-                case SearchOrderType.EnvironmentPathDirectories:
-                    result = PathFromEnvironmentPathDirectories(partiallyResolvedFileName);
-                    resolvedBy = SearchOrderType.EnvironmentPathDirectories;
-                    break;
-
-                case SearchOrderType.System32Directory:
-                    result = PathFromSystemDirectory(partiallyResolvedFileName, is64bitMachine);
-                    resolvedBy = SearchOrderType.System32Directory;
-                    break;
-
-                case SearchOrderType.SystemDirectory:
-                    result = PathFromSystem16Directory(partiallyResolvedFileName);
-                    resolvedBy = SearchOrderType.SystemDirectory;
-                    break;
-
-                case SearchOrderType.KnownDlls:
-                    result = PathFromKnownDlls(partiallyResolvedFileName, is64bitMachine);
-                    resolvedBy = SearchOrderType.KnownDlls;
-                    break;
-
-                case SearchOrderType.UserDefinedDirectory:
-                    result = PathFromUserDirectory(partiallyResolvedFileName, UserDirectoriesUM);
-                    resolvedBy = SearchOrderType.UserDefinedDirectory;
-                    break;
-
-            }
-
-            if (!string.IsNullOrEmpty(result))
-            {
-                if (needRedirection &&
-                    (resolvedBy != SearchOrderType.KnownDlls &&
-                    resolvedBy != SearchOrderType.ApplicationDirectory))
-                {
-                    result = ApplyFilePathArchRedirection(result, moduleMachine);
-                }
-
-                resolver = resolvedBy;
-                return result;
-            }
-
-        }
-
-        resolver = resolvedBy;
-        return string.Empty;
+        return ResolveUserModulePath(partiallyResolvedFileName,
+            searchOrderUM,
+            is64bitMachine,
+            needRedirection,
+            moduleMachine,
+            out resolver);
     }
 }

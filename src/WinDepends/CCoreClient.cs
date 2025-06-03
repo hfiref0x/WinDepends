@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 May 2025
+*  DATE:        03 Jun 2025
 *  
 *  Core Server communication class.
 *
@@ -98,10 +98,10 @@ public class CBufferChain
 public class CCoreClient : IDisposable
 {
     private bool IsDisposed;
-    private Process ServerProcess;     // WinDepends.Core instance.
+    private Process _serverProcess;     // WinDepends.Core instance.
     public TcpClient ClientConnection;
-    private NetworkStream DataStream;
-    readonly AddLogMessageCallback AddLogMessage;
+    private NetworkStream _dataStream;
+    readonly AddLogMessageCallback _addLogMessage;
     private string serverApplication;
     public string IPAddress { get; }
     public int Port { get; set; }
@@ -126,9 +126,9 @@ public class CCoreClient : IDisposable
     {
         get
         {
-            if (ServerProcess != null)
+            if (_serverProcess != null)
             {
-                return ServerProcess.Id;
+                return _serverProcess.Id;
             }
 
             return -1;
@@ -148,7 +148,7 @@ public class CCoreClient : IDisposable
     public CCoreClient(string serverApplication, string ipAddress,
                        AddLogMessageCallback logMessageCallback)
     {
-        AddLogMessage = logMessageCallback;
+        _addLogMessage = logMessageCallback;
         SetServerApplication(serverApplication);
         IPAddress = ipAddress;
         ErrorStatus = ServerErrorStatus.NoErrors;
@@ -164,7 +164,7 @@ public class CCoreClient : IDisposable
         {
             DisconnectClient();
             ClientConnection?.Dispose();
-            ServerProcess?.Dispose();
+            _serverProcess?.Dispose();
         }
 
         IsDisposed = true;
@@ -205,12 +205,9 @@ public class CCoreClient : IDisposable
 
     public static bool IsModuleNameApiSetContract(string moduleName)
     {
-        if (moduleName.Length < 4)
-        {
-            return false;
-        }
-
-        return moduleName.StartsWith("API-", StringComparison.OrdinalIgnoreCase) || moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
+        return moduleName?.Length >= 4 &&
+              (moduleName.StartsWith("API-", StringComparison.OrdinalIgnoreCase) ||
+               moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase));
     }
 
     public void CheckExceptionInReply(CModule module)
@@ -228,7 +225,7 @@ public class CCoreClient : IDisposable
                     if (!string.IsNullOrEmpty(module.FileName))
                         logMsg += Path.GetFileName(module.FileName);
                 }
-                AddLogMessage(logMsg, LogMessageType.ErrorOrWarning);
+                _addLogMessage(logMsg, LogMessageType.ErrorOrWarning);
             }
         }
     }
@@ -280,7 +277,7 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        if (DataStream == null)
+        if (_dataStream == null)
         {
             ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
             return false;
@@ -288,14 +285,14 @@ public class CCoreClient : IDisposable
 
         try
         {
-            using (BinaryWriter bw = new(DataStream, Encoding.Unicode, true))
+            using (BinaryWriter bw = new(_dataStream, Encoding.Unicode, true))
             {
                 bw.Write(Encoding.Unicode.GetBytes(message));
             }
         }
         catch (Exception ex)
         {
-            AddLogMessage($"Failed to send data to the server, error message: {ex.Message}", LogMessageType.ErrorOrWarning);
+            _addLogMessage($"Failed to send data to the server, error message: {ex.Message}", LogMessageType.ErrorOrWarning);
             ErrorStatus = (ex is IOException) ? ServerErrorStatus.SocketException : ServerErrorStatus.GeneralException;
             return false;
         }
@@ -310,7 +307,7 @@ public class CCoreClient : IDisposable
     /// <returns></returns>
     private CBufferChain ReceiveReply()
     {
-        if (DataStream == null)
+        if (_dataStream == null)
         {
             ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
             return null;
@@ -318,7 +315,7 @@ public class CCoreClient : IDisposable
 
         try
         {
-            using (BinaryReader br = new(DataStream, Encoding.Unicode, true))
+            using (BinaryReader br = new(_dataStream, Encoding.Unicode, true))
             {
                 CBufferChain bufferChain = new(), currentBuffer;
                 char previousChar = '\0';
@@ -354,7 +351,7 @@ public class CCoreClient : IDisposable
         }
         catch (Exception ex)
         {
-            AddLogMessage($"Receive data failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
+            _addLogMessage($"Receive data failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
             ErrorStatus = ServerErrorStatus.GeneralException;
         }
         return null;
@@ -374,7 +371,7 @@ public class CCoreClient : IDisposable
         }
         catch (Exception ex)
         {
-            AddLogMessage($"Data deserialization failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
+            _addLogMessage($"Data deserialization failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
         }
 
         return deserializedObject;
@@ -858,7 +855,7 @@ public class CCoreClient : IDisposable
         bool bFailure = false;
         string errMessage = string.Empty;
 
-        ServerProcess = null;
+        _serverProcess = null;
 
         try
         {
@@ -883,17 +880,17 @@ public class CCoreClient : IDisposable
                     UseShellExecute = false
                 };
 
-                ServerProcess = Process.Start(processInfo);
+                _serverProcess = Process.Start(processInfo);
 
-                if (ServerProcess == null)
+                if (_serverProcess == null)
                 {
                     throw new Exception("Core process start failure");
                 }
                 else
                 {
-                    if (ServerProcess.HasExited)
+                    if (_serverProcess.HasExited)
                     {
-                        if (ServerProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
+                        if (_serverProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
                         {
                             throw new Exception("Exception while starting core process");
                         }
@@ -904,7 +901,7 @@ public class CCoreClient : IDisposable
                         ClientConnection.Connect(IPAddress, portNumber);
                         if (ClientConnection.Connected)
                         {
-                            DataStream = ClientConnection.GetStream();
+                            _dataStream = ClientConnection.GetStream();
                             Port = portNumber;
                             break;
                         }
@@ -931,13 +928,13 @@ public class CCoreClient : IDisposable
 
         if (bFailure)
         {
-            if (ServerProcess != null && !ServerProcess.HasExited)
+            if (_serverProcess != null && !_serverProcess.HasExited)
             {
-                ServerProcess.Kill();
-                ServerProcess = null;
+                _serverProcess.Kill();
+                _serverProcess = null;
             }
             ErrorStatus = ServerErrorStatus.GeneralException;
-            AddLogMessage($"Server failed to start, {errMessage}", LogMessageType.ErrorOrWarning);
+            _addLogMessage($"Server failed to start, {errMessage}", LogMessageType.ErrorOrWarning);
         }
         else
         {
@@ -945,27 +942,44 @@ public class CCoreClient : IDisposable
             if (idata != null)
             {
                 ErrorStatus = ServerErrorStatus.NoErrors;
-                AddLogMessage($"Server has been started: {new string(idata.Data)}", LogMessageType.System);
+                _addLogMessage($"Server has been started: {new string(idata.Data)}", LogMessageType.System);
             }
             else
             {
                 ErrorStatus = ServerErrorStatus.ServerNeedRestart;
-                AddLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
+                _addLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
             }
         }
-        return ServerProcess != null;
+        return _serverProcess != null;
     }
 
     public void DisconnectClient()
     {
-        if (ServerProcess == null || ServerProcess.HasExited)
+        try
         {
-            return;
+            if (_serverProcess != null && !_serverProcess.HasExited)
+            {
+                ShudownRequest();
+                Thread.Sleep(100);
+
+                if (!_serverProcess.HasExited)
+                {
+                    _serverProcess.Kill();
+                }
+            }
         }
-
-        ShudownRequest();
-
-        DataStream?.Close();
+        catch (Exception ex)
+        {
+            _addLogMessage($"Error during server shutdown: {ex.Message}", LogMessageType.ErrorOrWarning);
+        }
+        finally
+        {
+            _dataStream?.Close();
+            _dataStream = null;
+            ClientConnection?.Close();
+            ClientConnection = null;
+            _serverProcess?.Dispose();
+            _serverProcess = null;
+        }
     }
-
 }

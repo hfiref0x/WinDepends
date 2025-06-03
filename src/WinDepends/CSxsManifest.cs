@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Mar 2025
+*  DATE:        03 Jun 2025
 *  
 *  Implementation of basic sxs manifest parser class.
 *
@@ -23,23 +23,23 @@ namespace WinDepends;
 
 public class CSxsEntry
 {
-    public string Name { get; set; }
-    public string FilePath { get; set; }
+    public string Name { get; }
+    public string FilePath { get; }
 
     public CSxsEntry(string name, string filePath)
     {
-        Name = name;
-        FilePath = filePath;
+        Name = name ?? string.Empty;
+        FilePath = filePath ?? string.Empty;
     }
 
-    public CSxsEntry(CSxsEntry entry) : this(entry.Name, entry.FilePath)
+    public CSxsEntry(CSxsEntry entry) : this(entry?.Name, entry?.FilePath)
     {
     }
 
-    public CSxsEntry(XElement SxsFile, string directoryName)
+    public CSxsEntry(XElement sxsFile, string directoryName)
     {
-        string loadFrom = SxsFile?.Attribute("loadFrom")?.Value ?? string.Empty;
-        Name = Path.GetFileName(SxsFile?.Attribute("name")?.Value ?? string.Empty);
+        string loadFrom = sxsFile?.Attribute("loadFrom")?.Value ?? string.Empty;
+        Name = Path.GetFileName(sxsFile?.Attribute("name")?.Value ?? string.Empty);
 
         if (!string.IsNullOrEmpty(loadFrom))
         {
@@ -63,13 +63,13 @@ public class CSxsEntry
 
 public class CSxsEntries : List<CSxsEntry>
 {
-    public static CSxsEntries FromSxsAssemblyElementFile(XElement SxsAssembly, XNamespace Namespace, string directoryName)
+    public static CSxsEntries FromSxsAssemblyElementFile(XElement sxsAssembly, XNamespace Namespace, string directoryName)
     {
         CSxsEntries entries = [];
 
-        foreach (XElement SxsFile in SxsAssembly.Elements(Namespace + "file"))
+        foreach (XElement sxsFile in sxsAssembly.Elements(Namespace + "file"))
         {
-            entries.Add(new(SxsFile, directoryName));
+            entries.Add(new(sxsFile, directoryName));
         }
 
         return entries;
@@ -78,6 +78,8 @@ public class CSxsEntries : List<CSxsEntry>
 
 internal partial class CSxsManifest
 {
+    private static readonly Regex s_doubleQuotesRegex = SxsTrimDoubleQuotesRegex();
+
     public static CSxsEntries QueryInformationFromManifestFile(string fileName, string directoryName, out bool bAutoElevate)
     {
         using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
@@ -128,7 +130,7 @@ internal partial class CSxsManifest
             // 3. Blank lines.
 
             // Trim double quotes in attributes.
-            manifestText = SxsTrimDoubleQuotesRegex().Replace(manifestText, "\"$1\"");
+            manifestText = s_doubleQuotesRegex.Replace(manifestText, "\"$1\"");
 
             // Replace specific strings (garbage or bug).
             manifestText = manifestText.Replace("SXS_PROCESSOR_ARCHITECTURE", "\"amd64\"", StringComparison.OrdinalIgnoreCase)
@@ -164,11 +166,11 @@ internal partial class CSxsManifest
         // Process manifest entries.
         // First check embedded manifest as it seems now has advantage over external.
 
-        var bytes = module.GetManifestDataAsArray();
-        if (bytes != null)
+        var manifestBytes = module.GetManifestDataAsArray();
+        if (manifestBytes != null && manifestBytes.Length > 0)
         {
             module.SetManifestData(string.Empty);
-            using (Stream manifestStream = new System.IO.MemoryStream(bytes))
+            using (Stream manifestStream = new System.IO.MemoryStream(manifestBytes))
             {
                 sxsEntries = QueryInformationFromManifest(manifestStream, moduleDirectoryName, out bAutoElevate);
             }

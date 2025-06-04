@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 May 2025
+*  DATE:        04 Jun 2025
 *  
 *  Implementation of base CModule class.
 *
@@ -517,7 +517,9 @@ public class CModuleData
         LinkerVersion = other.LinkerVersion;
         OSVersion = other.OSVersion;
         SubsystemVersion = other.SubsystemVersion;
-        DebugDirTypes = new List<uint>(other.DebugDirTypes);
+        DebugDirTypes = other.DebugDirTypes != null ?
+            new List<uint>(other.DebugDirTypes) :
+            new List<uint>();
     }
 }
 
@@ -820,12 +822,22 @@ public class CModule
 
     public override int GetHashCode()
     {
-        return FileName.GetHashCode(StringComparison.OrdinalIgnoreCase);
+        return FileName?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
+    }
+
+    public override bool Equals(object obj)
+    {
+        if (obj is not CModule other)
+            return false;
+
+        return string.Equals(FileName, other.FileName, StringComparison.OrdinalIgnoreCase);
     }
 
     public string GetModuleNameRespectApiSet(bool needResolve)
     {
-        return IsApiSetContract ? (needResolve ? FileName : RawFileName) : FileName;
+        if (IsApiSetContract)
+            return needResolve ? FileName ?? string.Empty : RawFileName ?? string.Empty;
+        return FileName ?? string.Empty;
     }
 
     public byte[] GetManifestDataAsArray()
@@ -837,7 +849,7 @@ public class CModule
                 return Convert.FromBase64String(ManifestData);
             }
         }
-        catch (FormatException)
+        catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException)
         {
             return null;
         }

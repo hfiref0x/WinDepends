@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        15 May 2025
+*  DATE:        04 Jun 2025
 *
 *  Win32 API P/Invoke.
 *
@@ -16,6 +16,7 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -248,7 +249,7 @@ static partial class NativeMethods
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     internal static extern uint DragQueryFile(IntPtr hDrop, uint iFile,
-        [Out] StringBuilder? lpszFile, uint cch);
+        [Out] StringBuilder lpszFile, uint cch);
 
     [DllImport("shell32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -297,7 +298,7 @@ static partial class NativeMethods
         {
             SHELLEXECUTEINFO info = new()
             {
-                cbSize = Convert.ToInt32(Marshal.SizeOf<SHELLEXECUTEINFO>()),
+                cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>(),
                 lpVerb = "properties",
                 lpFile = fileName,
                 nShow = ShowCommands.SW_SHOW,
@@ -309,29 +310,62 @@ static partial class NativeMethods
     }
 
     /// <summary>
-    /// Resolves shortcut (lnk) path.
+    /// Resolves the target path of a Windows shortcut (.lnk) file
     /// </summary>
-    /// <param name="LnkFileName"></param>
-    /// <returns>Resolved path string or null in case of error.</returns>
-    static internal string ResolveShortcutTarget(string LnkFileName)
+    /// <param name="lnkFileName">Full path to the shortcut file</param>
+    /// <returns>The resolved target path, or null if resolution fails</returns>
+    static internal string ResolveShortcutTarget(string lnkFileName)
     {
+        ShellLink link = null;
         try
         {
-            var link = new ShellLink();
-            int result = ((IPersistFile)link).Load(LnkFileName, STGM_READ);
-            if (HResult.S_OK == result)
+            link = new ShellLink();
+
+            IPersistFile persistFile = (IPersistFile)link;
+            if (persistFile.Load(lnkFileName, STGM_READ) != HResult.S_OK)
             {
-                StringBuilder pszFile = new(MAX_PATH);
-                WIN32_FIND_DATAW _ = new();
-                result = ((IShellLinkW)link).GetPath(pszFile, pszFile.Capacity, out _, 0);
-                if (HResult.S_OK == result)
-                {
-                    return pszFile.ToString();
-                }
+                return null;
             }
 
+            IShellLinkW shellLink = (IShellLinkW)link;
+
+            StringBuilder pathBuffer = new StringBuilder(MAX_PATH);
+
+            WIN32_FIND_DATAW findData = new WIN32_FIND_DATAW();
+
+            if (shellLink.GetPath(pathBuffer, pathBuffer.Capacity, out findData, 0) == HResult.S_OK)
+            {
+                string targetPath = pathBuffer.ToString();
+
+                int nullPos = targetPath.IndexOf('\0');
+                if (nullPos >= 0)
+                {
+                    return targetPath.Substring(0, nullPos);
+                }
+
+                return targetPath;
+            }
         }
-        catch { }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            if (link != null)
+            {
+                try
+                {
+                    Marshal.ReleaseComObject(link);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    link = null;
+                }
+            }
+        }
 
         return null;
     }

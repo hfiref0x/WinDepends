@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        31 May 2025
+*  DATE:        04 Jun 2025
 *  
 *  Codename:    VasilEk
 *
@@ -81,8 +81,9 @@ public partial class MainForm : Form
     bool m_InstanceStopSearch;
     bool m_InstanceSelfFound;
 
-    readonly Form m_FunctionsHintForm;
-    readonly Form m_ModulesHintForm;
+    Form m_FunctionsHintForm;
+    Form m_ModulesHintForm;
+    bool _disposingHintForms;
 
     string m_FunctionLookupText = string.Empty;
     string m_ModuleLookupText = string.Empty;
@@ -669,31 +670,52 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Recursively update tree nodes respecting module display settings.
+    /// Updates tree nodes respecting module display settings using non-recursive iteration.
     /// </summary>
     /// <param name="startNode"></param>
     private void TreeViewUpdateNode(TreeNode startNode)
     {
-        while (startNode != null)
+        if (startNode == null)
+            return;
+
+        Stack<TreeNode> nodeStack = new Stack<TreeNode>(128); // Pre-allocate capacity for common case
+        nodeStack.Push(startNode);
+
+        bool fullPaths = m_Configuration.FullPaths;
+        bool upperCase = m_Configuration.UppperCaseModuleNames;
+        bool highlightApiSet = m_Configuration.HighlightApiSet;
+        bool resolveApiSets = m_Configuration.ResolveAPIsets;
+
+        while (nodeStack.Count > 0)
         {
-            CModule module = (CModule)startNode.Tag;
-            string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-            string fName = (m_Configuration.FullPaths) ? moduleDisplayName : Path.GetFileName(moduleDisplayName);
+            TreeNode node = nodeStack.Pop();
+            if (node?.Tag == null) continue;
 
-            if (m_Configuration.UppperCaseModuleNames)
+            CModule module = (CModule)node.Tag;
+            string displayName = module.GetModuleNameRespectApiSet(resolveApiSets);
+
+            if (!fullPaths && displayName != null)
             {
-                fName = fName.ToUpperInvariant();
+                int lastSeparatorPos = Math.Max(
+                    displayName.LastIndexOf('\\'),
+                    displayName.LastIndexOf('/')
+                );
+
+                if (lastSeparatorPos >= 0 && lastSeparatorPos < displayName.Length - 1)
+                    displayName = displayName.Substring(lastSeparatorPos + 1);
             }
 
-            startNode.Text = fName;
-            startNode.ForeColor = (module.IsApiSetContract && m_Configuration.HighlightApiSet) ? Color.Blue : Color.Black;
+            if (upperCase && displayName != null)
+                displayName = displayName.ToUpperInvariant();
 
-            if (startNode.Nodes.Count != 0)
-            {
-                TreeViewUpdateNode(startNode.Nodes[0]);
-            }
+            node.Text = displayName ?? string.Empty;
+            node.ForeColor = (module.IsApiSetContract && highlightApiSet) ? Color.Blue : Color.Black;
 
-            startNode = startNode.NextNode;
+            if (node.NextNode != null)
+                nodeStack.Push(node.NextNode);
+
+            if (node.Nodes.Count > 0)
+                nodeStack.Push(node.Nodes[0]);
         }
     }
 
@@ -934,10 +956,24 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
     {
-        m_Configuration.MRUList.Clear();
-        m_Configuration.MRUList.AddRange(m_MRUList.GetCurrentItems());
-        CConfigManager.SaveConfiguration(m_Configuration);
-        m_CoreClient?.Dispose();
+        try
+        {
+            CleanupHintForms();
+
+            if (m_MRUList != null && m_Configuration != null)
+            {
+                m_Configuration.MRUList.Clear();
+                m_Configuration.MRUList.AddRange(m_MRUList.GetCurrentItems());
+                CConfigManager.SaveConfiguration(m_Configuration);
+            }
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            m_CoreClient?.Dispose();
+        }
     }
 
     /// <summary>
@@ -1445,6 +1481,7 @@ public partial class MainForm : Form
 
         var bAutoExpandPrev = m_Configuration.AutoExpands;
         var bFullPathPrev = m_Configuration.FullPaths;
+        var bUpperCaseModulesNamesPrev = m_Configuration.UppperCaseModuleNames;
         var bUndecoratedPrev = m_Configuration.ViewUndecorated;
         var bResolveAPISetsPrev = m_Configuration.ResolveAPIsets;
         var bHighlightAPISetsPrev = m_Configuration.HighlightApiSet;
@@ -1480,7 +1517,8 @@ public partial class MainForm : Form
                 if (m_Configuration.AutoExpands != bAutoExpandPrev ||
                     m_Configuration.FullPaths != bFullPathPrev ||
                     m_Configuration.ResolveAPIsets != bResolveAPISetsPrev ||
-                    m_Configuration.HighlightApiSet != bHighlightAPISetsPrev)
+                    m_Configuration.HighlightApiSet != bHighlightAPISetsPrev ||
+                    m_Configuration.UppperCaseModuleNames != bUpperCaseModulesNamesPrev)
                 {
                     UpdateFileView(FileViewUpdateAction.TreeViewAutoExpandsChange);
                     UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
@@ -3859,5 +3897,63 @@ public partial class MainForm : Form
     {
         mainMenuClassicToolbar.Checked = m_Configuration.ToolBarTheme == ToolBarThemeType.Classic;
         mainMenuModernToolbar.Checked = m_Configuration.ToolBarTheme == ToolBarThemeType.Modern;
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        try
+        {
+            // Unsubscribe from events
+            if (ElevatedDragDropManager.Instance != null)
+            {
+                ElevatedDragDropManager.Instance.ElevatedDragDrop -= MainForm_ElevatedDragDrop;
+            }
+
+            // Clean up hint forms
+            CleanupHintForms();
+        }
+        finally
+        {
+            base.OnHandleDestroyed(e);
+        }
+    }
+
+    private void CleanupHintForms()
+    {
+        if (_disposingHintForms)
+            return;
+
+        _disposingHintForms = true;
+
+        try
+        {
+            // Close and dispose hint forms
+            if (m_FunctionsHintForm != null)
+            {
+                if (!m_FunctionsHintForm.IsDisposed)
+                {
+                    m_FunctionsHintForm.Close();
+                    m_FunctionsHintForm.Dispose();
+                }
+                m_FunctionsHintForm = null;
+            }
+
+            if (m_ModulesHintForm != null)
+            {
+                if (!m_ModulesHintForm.IsDisposed)
+                {
+                    m_ModulesHintForm.Close();
+                    m_ModulesHintForm.Dispose();
+                }
+                m_ModulesHintForm = null;
+            }
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            _disposingHintForms = false;
+        }
     }
 }

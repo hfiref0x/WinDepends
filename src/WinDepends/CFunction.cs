@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Feb 2025
+*  DATE:        04 Jun 2025
 *  
 *  Implementation of CFunction related classes.
 *
@@ -77,11 +77,13 @@ public struct FunctionHashObject(string functionName, string importLibrary, UInt
     {
         unchecked
         {
-            int hash = FunctionName.GetHashCode() + ImportLibrary.GetHashCode(StringComparison.OrdinalIgnoreCase);
+            int hash = 17;
+            hash = hash * 23 + (FunctionName?.GetHashCode() ?? 0);
+            hash = hash * 23 + (ImportLibrary?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0);
 
             if (FunctionOrdinal != UInt32.MaxValue)
             {
-                hash += FunctionOrdinal.GetHashCode();
+                hash = hash * 23 + FunctionOrdinal.GetHashCode();
             }
             return hash;
         }
@@ -186,18 +188,20 @@ public class CFunction
     public static bool IsFunctionCalledAtLeastOnce(Dictionary<int, FunctionHashObject> parentImportsHashTable,
         CModule module, CFunction function)
     {
-        FunctionHashObject funcHashObject = new(module.FileName, function.RawName, function.Ordinal);
+        if (parentImportsHashTable == null || module == null || function == null)
+            return false;
+
+        string fileName = module.FileName ?? string.Empty;
+        string rawName = function.RawName ?? string.Empty;
+
+        FunctionHashObject funcHashObject = new(fileName, rawName, function.Ordinal);
         var uniqueKey = funcHashObject.GenerateUniqueKey();
 
         funcHashObject.FunctionOrdinal = UInt32.MaxValue;
         var uniqueKeyNoOrdinal = funcHashObject.GenerateUniqueKey();
 
-        if (parentImportsHashTable.ContainsKey(uniqueKey) ||
-            parentImportsHashTable.ContainsKey(uniqueKeyNoOrdinal))
-        {
-            return true;
-        }
-        return false;
+        return parentImportsHashTable.ContainsKey(uniqueKey) ||
+               parentImportsHashTable.ContainsKey(uniqueKeyNoOrdinal);
     }
 
     public bool ResolveFunctionKind(CModule module, List<CModule> modulesList,

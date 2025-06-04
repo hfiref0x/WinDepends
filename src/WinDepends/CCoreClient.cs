@@ -53,13 +53,26 @@ public enum ModuleOpenStatus
     ErrorInvalidHeadersOrSignatures
 }
 
+public enum CCoreClientSerializerType : int
+{
+    Headers = 0,
+    Imports,
+    Exports,
+    DataDirectories,
+    ResolvedFileName,
+    ApiSetNamespace,
+    CallStats,
+    KnownDlls,
+    FileInformation
+}
+
 public class CBufferChain
 {
-    private CBufferChain next;
+    private CBufferChain _next;
     public uint DataSize;
     public char[] Data;
 
-    public CBufferChain Next { get => next; set => next = value; }
+    public CBufferChain Next { get => _next; set => _next = value; }
 
     public CBufferChain()
     {
@@ -97,14 +110,19 @@ public class CBufferChain
 
 public class CCoreClient : IDisposable
 {
-    private bool IsDisposed;
+    private bool _disposed;
     private Process _serverProcess;     // WinDepends.Core instance.
-    public TcpClient ClientConnection;
+    private TcpClient _clientConnection;
     private NetworkStream _dataStream;
-    readonly AddLogMessageCallback _addLogMessage;
-    private string serverApplication;
+    private readonly AddLogMessageCallback _addLogMessage;
+    private string _serverApplication;
+    public TcpClient ClientConnection => _clientConnection;
     public string IPAddress { get; }
     public int Port { get; set; }
+    private readonly DataContractJsonSerializer[] _serializers;
+
+    private const int CORE_CONNECTION_TIMEOUT = 3000;
+    private const int CORE_NETWORK_TIMEOUT = 5000;
 
     private static readonly HashSet<string> s_forbiddenKernelLibs = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -122,52 +140,50 @@ public class CCoreClient : IDisposable
 
     public ServerErrorStatus ErrorStatus { get; set; }
 
-    public int ServerProcessId
-    {
-        get
-        {
-            if (_serverProcess != null)
-            {
-                return _serverProcess.Id;
-            }
-
-            return -1;
-        }
-    }
+    public int ServerProcessId => _serverProcess?.Id ?? -1;
 
     public string GetServerApplication()
     {
-        return serverApplication;
+        return _serverApplication;
     }
 
     public void SetServerApplication(string value)
     {
-        serverApplication = value;
+        _serverApplication = value;
     }
 
     public CCoreClient(string serverApplication, string ipAddress,
                        AddLogMessageCallback logMessageCallback)
     {
-        _addLogMessage = logMessageCallback;
+        _addLogMessage = logMessageCallback ?? throw new ArgumentNullException(nameof(logMessageCallback));
         SetServerApplication(serverApplication);
         IPAddress = ipAddress;
         ErrorStatus = ServerErrorStatus.NoErrors;
+
+        _serializers = new DataContractJsonSerializer[9];
+        _serializers[(int)CCoreClientSerializerType.Headers] = new DataContractJsonSerializer(typeof(CCoreStructsRoot));
+        _serializers[(int)CCoreClientSerializerType.Imports] = new DataContractJsonSerializer(typeof(CCoreImportsRoot));
+        _serializers[(int)CCoreClientSerializerType.Exports] = new DataContractJsonSerializer(typeof(CCoreExportsRoot));
+        _serializers[(int)CCoreClientSerializerType.DataDirectories] = new DataContractJsonSerializer(typeof(CCoreDataDirectoryRoot));
+        _serializers[(int)CCoreClientSerializerType.ResolvedFileName] = new DataContractJsonSerializer(typeof(CCoreResolvedFileNameRoot));
+        _serializers[(int)CCoreClientSerializerType.ApiSetNamespace] = new DataContractJsonSerializer(typeof(CCoreApiSetNamespaceInfoRoot));
+        _serializers[(int)CCoreClientSerializerType.CallStats] = new DataContractJsonSerializer(typeof(CCoreCallStatsRoot));
+        _serializers[(int)CCoreClientSerializerType.KnownDlls] = new DataContractJsonSerializer(typeof(CCoreKnownDllsRoot));
+        _serializers[(int)CCoreClientSerializerType.FileInformation] = new DataContractJsonSerializer(typeof(CCoreFileInformationRoot));
     }
 
-    protected virtual void Dispose(bool disposing)
+    protected void Dispose(bool disposing)
     {
-        if (IsDisposed)
+        if (_disposed)
         {
             return;
         }
         if (disposing)
         {
             DisconnectClient();
-            ClientConnection?.Dispose();
-            _serverProcess?.Dispose();
         }
 
-        IsDisposed = true;
+        _disposed = true;
     }
 
     public void Dispose()
@@ -187,16 +203,14 @@ public class CCoreClient : IDisposable
         {
             return false;
         }
-        string response = new(idata.Data);
 
-#pragma warning disable CA1309 // Use ordinal string comparison
-        if (string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.InvariantCulture))
-#pragma warning restore CA1309 // Use ordinal string comparison
+        string response = new(idata.Data, 0, (int)Math.Min(idata.DataSize, idata.Data.Length));
+        if (string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.Ordinal))
         {
             return true;
         }
 
-        if (response.StartsWith(CConsts.WDEP_STATUS_600, StringComparison.InvariantCulture))
+        if (response.StartsWith(CConsts.WDEP_STATUS_600, StringComparison.Ordinal))
         {
             CheckExceptionInReply(module);
         }
@@ -233,6 +247,9 @@ public class CCoreClient : IDisposable
     public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, CModule module,
                                                          bool preProcessData = false)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(CCoreClient));
+
         if (!SendRequest(command))
         {
             return null;
@@ -270,8 +287,11 @@ public class CCoreClient : IDisposable
     /// <returns></returns>
     private bool SendRequest(string message)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(CCoreClient));
+
         // Communication failure, server need restart.
-        if (ClientConnection == null || !ClientConnection.Connected)
+        if (_clientConnection == null || !_clientConnection.Connected)
         {
             ErrorStatus = ServerErrorStatus.ServerNeedRestart;
             return false;
@@ -307,6 +327,9 @@ public class CCoreClient : IDisposable
     /// <returns></returns>
     private CBufferChain ReceiveReply()
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(CCoreClient));
+
         if (_dataStream == null)
         {
             ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
@@ -331,6 +354,7 @@ public class CCoreClient : IDisposable
                         }
                         catch
                         {
+                            currentBuffer.DataSize = (uint)i;
                             return currentBuffer;
                         }
 
@@ -357,24 +381,48 @@ public class CCoreClient : IDisposable
         return null;
     }
 
+    private DataContractJsonSerializer GetSerializerForType(Type objectType)
+    {
+        if (objectType == typeof(CCoreStructsRoot))
+            return _serializers[(int)CCoreClientSerializerType.Headers];
+        if (objectType == typeof(CCoreImportsRoot))
+            return _serializers[(int)CCoreClientSerializerType.Imports];
+        if (objectType == typeof(CCoreExportsRoot))
+            return _serializers[(int)CCoreClientSerializerType.Exports];
+        if (objectType == typeof(CCoreDataDirectoryRoot))
+            return _serializers[(int)CCoreClientSerializerType.DataDirectories];
+        if (objectType == typeof(CCoreResolvedFileNameRoot))
+            return _serializers[(int)CCoreClientSerializerType.ResolvedFileName];
+        if (objectType == typeof(CCoreApiSetNamespaceInfoRoot))
+            return _serializers[(int)CCoreClientSerializerType.ApiSetNamespace];
+        if (objectType == typeof(CCoreCallStatsRoot))
+            return _serializers[(int)CCoreClientSerializerType.CallStats];
+        if (objectType == typeof(CCoreKnownDllsRoot))
+            return _serializers[(int)CCoreClientSerializerType.KnownDlls];
+        if (objectType == typeof(CCoreFileInformationRoot))
+            return _serializers[(int)CCoreClientSerializerType.FileInformation];
+
+        // Fallback for unknown types
+        return new DataContractJsonSerializer(objectType);
+    }
+
     object DeserializeDataJSON(Type objectType, string data)
     {
-        object deserializedObject = null;
+        if (string.IsNullOrEmpty(data))
+            return null;
 
         try
         {
-            var serializer = new DataContractJsonSerializer(objectType);
-            using (MemoryStream ms = new(Encoding.Unicode.GetBytes(data)))
-            {
-                deserializedObject = serializer.ReadObject(ms);
-            }
+            // Try to find pre-created serializer
+            DataContractJsonSerializer serializer = GetSerializerForType(objectType);
+            using MemoryStream ms = new(Encoding.Unicode.GetBytes(data));
+            return serializer.ReadObject(ms);
         }
         catch (Exception ex)
         {
-            _addLogMessage($"Data deserialization failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
+            _addLogMessage($"Data deserialization failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+            return null;
         }
-
-        return deserializedObject;
     }
 
     public static bool IsNullOrEmptyResponse(CBufferChain buffer)
@@ -388,26 +436,33 @@ public class CCoreClient : IDisposable
         // Check for empty.
         if (buffer.DataSize == 2)
         {
-            string response = new(buffer.Data);
-            if (response.Equals("\r\n", StringComparison.InvariantCultureIgnoreCase))
-            {
-                return true;
-            }
+            return buffer.Data[0] == '\r' && buffer.Data[1] == '\n';
         }
         return false;
+    }
+
+    private static ModuleOpenStatus SetModuleError(CModule module, bool fileNotFound, bool invalid, ModuleOpenStatus status)
+    {
+        if (fileNotFound)
+            module.FileNotFound = true;
+
+        if (invalid)
+            module.Invalid = true;
+
+        return status;
     }
 
     /// <summary>
     /// Open Coff module and read for futher operations.
     /// </summary>
-    /// <param name="module"></param>
-    /// <param name="useStats"></param>
-    /// <param name="processRelocs"></param>
-    /// <param name="useCustomImageBase"></param>
-    /// <param name="customImageBase"></param>
-    /// <returns></returns>
     public ModuleOpenStatus OpenModule(ref CModule module, bool useStats, bool processRelocs, bool useCustomImageBase, uint customImageBase)
     {
+        if (module == null)
+            throw new ArgumentNullException(nameof(module));
+
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(CCoreClient));
+
         string cmd = $"open file \"{module.FileName}\"";
 
         if (useStats)
@@ -438,31 +493,26 @@ public class CCoreClient : IDisposable
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
         }
 
-        string response = new(idata.Data);
-        if (!string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.InvariantCulture))
+        string response = new(idata.Data, 0, (int)Math.Min(idata.DataSize, idata.Data.Length));
+
+        if (!string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.Ordinal))
         {
-            if (string.Equals(response, CConsts.WDEP_STATUS_404, StringComparison.InvariantCulture))
+            return response switch
             {
-                module.FileNotFound = true;
-                return ModuleOpenStatus.ErrorFileNotFound;
-            }
-            else if (string.Equals(response, CConsts.WDEP_STATUS_403, StringComparison.InvariantCulture))
-            {
-                module.Invalid = true;
-                return ModuleOpenStatus.ErrorCannotReadFileHeaders;
-            }
-            else if (string.Equals(response, CConsts.WDEP_STATUS_415, StringComparison.InvariantCulture))
-            {
-                module.Invalid = true;
-                return ModuleOpenStatus.ErrorInvalidHeadersOrSignatures;
-            }
-            else if (string.Equals(response, CConsts.WDEP_STATUS_502, StringComparison.InvariantCulture))
-            {
-                module.Invalid = true;
-                return ModuleOpenStatus.ErrorFileNotMapped;
-            }
-            module.Invalid = true;
-            return ModuleOpenStatus.ErrorUnspecified;
+                var s when string.Equals(s, CConsts.WDEP_STATUS_404, StringComparison.Ordinal) =>
+                   SetModuleError(module, true, false, ModuleOpenStatus.ErrorFileNotFound),
+
+                var s when string.Equals(s, CConsts.WDEP_STATUS_403, StringComparison.Ordinal) =>
+                    SetModuleError(module, false, true, ModuleOpenStatus.ErrorCannotReadFileHeaders),
+
+                var s when string.Equals(s, CConsts.WDEP_STATUS_415, StringComparison.Ordinal) =>
+                    SetModuleError(module, false, true, ModuleOpenStatus.ErrorInvalidHeadersOrSignatures),
+
+                var s when string.Equals(s, CConsts.WDEP_STATUS_502, StringComparison.Ordinal) =>
+                   SetModuleError(module, false, true, ModuleOpenStatus.ErrorFileNotMapped),
+
+                _ => SetModuleError(module, false, true, ModuleOpenStatus.ErrorUnspecified)
+            };
         }
 
         idata = ReceiveReply();
@@ -478,7 +528,7 @@ public class CCoreClient : IDisposable
         }
 
         var dataObject = (CCoreFileInformationRoot)DeserializeDataJSON(typeof(CCoreFileInformationRoot), response);
-        if (dataObject != null && dataObject.FileInformation != null)
+        if (dataObject?.FileInformation != null)
         {
             var fileInformation = dataObject.FileInformation;
 
@@ -499,7 +549,6 @@ public class CCoreClient : IDisposable
     /// <summary>
     /// Close previously opened module.
     /// </summary>
-    /// <returns></returns>
     public bool CloseModule()
     {
         return SendRequest("close\r\n");
@@ -562,22 +611,18 @@ public class CCoreClient : IDisposable
 
     public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo()
     {
-        string cmd = "apisetnsinfo\r\n";
-        var rootObject = (CCoreApiSetNamespaceInfoRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreApiSetNamespaceInfoRoot), null);
-        if (rootObject != null)
-            return rootObject.Namespace;
+        var rootObject = (CCoreApiSetNamespaceInfoRoot)SendCommandAndReceiveReplyAsObjectJSON(
+            "apisetnsinfo\r\n", typeof(CCoreApiSetNamespaceInfoRoot), null);
 
-        return null;
+        return rootObject?.Namespace;
     }
 
     public CCoreCallStats GetCoreCallStats()
     {
-        string cmd = "callstats\r\n";
-        var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(cmd, typeof(CCoreCallStatsRoot), null);
-        if (rootObject != null)
-            return rootObject.CallStats;
+        var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(
+              "callstats\r\n", typeof(CCoreCallStatsRoot), null);
 
-        return null;
+        return rootObject?.CallStats;
     }
 
     public bool GetModuleHeadersInformation(CModule module)
@@ -588,20 +633,12 @@ public class CCoreClient : IDisposable
         }
 
         var dataObject = (CCoreStructsRoot)GetModuleInformationByType(ModuleInformationType.Headers, module);
-        if (dataObject == null)
+        if (dataObject?.HeadersInfo == null)
         {
             return false;
         }
 
         var fh = dataObject.HeadersInfo;
-        if (fh == null)
-        {
-            return false;
-        }
-
-        //
-        // Move data.
-        //
         CModuleData moduleData = module.ModuleData;
 
         // Set various module data properties
@@ -660,11 +697,46 @@ public class CCoreClient : IDisposable
         return true;
     }
 
+    private void CheckIfKernelModule(CModule module, CCoreImports imports)
+    {
+        // Skip check if already determined to be a kernel module
+        if (module.IsKernelModule ||
+            module.ModuleData.Subsystem != NativeMethods.IMAGE_SUBSYSTEM_NATIVE)
+            return;
+
+        bool hasForbiddenLibrary = false;
+        bool hasRequiredLibrary = false;
+
+        foreach (var entry in imports.Library)
+        {
+            // Check for forbidden user-mode DLL's
+            if (!hasForbiddenLibrary && s_forbiddenKernelLibs.Contains(entry.Name))
+            {
+                hasForbiddenLibrary = true;
+                break;
+            }
+
+            // Check for required kernel-mode components
+            if (!hasRequiredLibrary && s_requiredKernelLibs.Contains(entry.Name))
+            {
+                hasRequiredLibrary = true;
+            }
+        }
+
+        // Module is kernel-mode if it has required libraries but no forbidden ones
+        if (!hasForbiddenLibrary && hasRequiredLibrary)
+        {
+            module.IsKernelModule = true;
+        }
+    }
+
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
                                                  List<SearchOrderType> searchOrderKM,
                                                  Dictionary<int, FunctionHashObject> parentImportsHashTable)
     {
+        if (module == null)
+            return;
         //
         // Process exports.
         //
@@ -707,42 +779,7 @@ public class CCoreClient : IDisposable
         if (importsObject != null && importsObject.Import != null)
         {
             rawImports = importsObject.Import;
-
-            // Query if this is kernel module.
-            // If not flag already set (propagated from parent module)
-            // File have:
-            //    1. native subsystem
-            //    2. no ntdll.dll/kernel32.dll in imports
-            //    3. one of the hardcoded kernel modules in imports
-            //
-            if (!module.IsKernelModule &&
-                module.ModuleData.Subsystem == NativeMethods.IMAGE_SUBSYSTEM_NATIVE)
-            {
-                bool hasForbiddenLibrary = false;
-                bool hasRequiredLibrary = false;
-
-                foreach (var entry in rawImports.Library)
-                {
-                    // Check user mode forbidden names first
-                    if (!hasForbiddenLibrary && s_forbiddenKernelLibs.Contains(entry.Name))
-                    {
-                        hasForbiddenLibrary = true;
-                        // Early exit if we find forbidden user mode library
-                        break;
-                    }
-
-                    // Check kernel mode modules required names if we haven't found one yet
-                    if (!hasRequiredLibrary && s_requiredKernelLibs.Contains(entry.Name))
-                    {
-                        hasRequiredLibrary = true;
-                    }
-                }
-
-                if (!hasForbiddenLibrary && hasRequiredLibrary)
-                {
-                    module.IsKernelModule = true;
-                }
-            }
+            CheckIfKernelModule(module, rawImports);
 
             foreach (var entry in rawImports.Library)
             {
@@ -822,12 +859,22 @@ public class CCoreClient : IDisposable
 
     private bool GetKnownDllsByType(string command, List<string> knownDllsList, out string knownDllsPath)
     {
-        CCoreKnownDllsRoot rootObject = (CCoreKnownDllsRoot)SendCommandAndReceiveReplyAsObjectJSON(command, typeof(CCoreKnownDllsRoot), null, true);
-        if (rootObject != null && rootObject.KnownDlls != null)
+        if (knownDllsList == null)
+        {
+            knownDllsPath = string.Empty;
+            return false;
+        }
+
+        CCoreKnownDllsRoot rootObject = (CCoreKnownDllsRoot)SendCommandAndReceiveReplyAsObjectJSON(
+            command, typeof(CCoreKnownDllsRoot), null, true);
+        if (rootObject?.KnownDlls != null)
         {
             knownDllsList.Clear();
-            knownDllsList.AddRange(rootObject.KnownDlls.Entries);
-            knownDllsPath = rootObject.KnownDlls.DllPath;
+            if (rootObject.KnownDlls.Entries != null)
+            {
+                knownDllsList.AddRange(rootObject.KnownDlls.Entries);
+            }
+            knownDllsPath = rootObject.KnownDlls.DllPath ?? string.Empty;
             return true;
         }
 
@@ -850,20 +897,42 @@ public class CCoreClient : IDisposable
         return result32 && result64;
     }
 
-    public bool ConnectClient()
+    private void CleanupFailedConnection()
     {
-        bool bFailure = false;
-        string errMessage = string.Empty;
+        // Safely terminate process if it's still running
+        try
+        {
+            if (_serverProcess != null && !_serverProcess.HasExited)
+            {
+                _serverProcess.Kill();
+                _serverProcess.Dispose();
+            }
+        }
+        catch { }
 
         _serverProcess = null;
+
+        _dataStream?.Close();
+        _dataStream = null;
+
+        _clientConnection?.Close();
+        _clientConnection = null;
+
+        ErrorStatus = ServerErrorStatus.GeneralException;
+    }
+
+    public bool ConnectClient()
+    {
+        _serverProcess = null;
+        string errMessage = string.Empty;
 
         try
         {
             string fileName = GetServerApplication();
 
-            if (!File.Exists(fileName))
+            if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
             {
-                throw new FileNotFoundException(fileName);
+                throw new FileNotFoundException(fileName ?? "Server application not specified");
             }
 
             int startAttempts = 5;
@@ -886,35 +955,48 @@ public class CCoreClient : IDisposable
                 {
                     throw new Exception("Core process start failure");
                 }
+
+                Thread.Sleep(100);
+
+                if (_serverProcess.HasExited)
+                {
+                    if (_serverProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
+                    {
+                        throw new Exception($"Server process exited with code {_serverProcess.ExitCode}");
+                    }
+                }
                 else
                 {
-                    if (_serverProcess.HasExited)
+                    _clientConnection = new();
+
+                    Task connectTask = _clientConnection.ConnectAsync(IPAddress, portNumber);
+                    if (Task.WaitAny(new[] { connectTask }, CORE_CONNECTION_TIMEOUT) == 0)
                     {
-                        if (_serverProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
+                        if (_clientConnection.Connected)
                         {
-                            throw new Exception("Exception while starting core process");
-                        }
-                    }
-                    else
-                    {
-                        ClientConnection = new();
-                        ClientConnection.Connect(IPAddress, portNumber);
-                        if (ClientConnection.Connected)
-                        {
-                            _dataStream = ClientConnection.GetStream();
+                            _dataStream = _clientConnection.GetStream();
+                            _dataStream.ReadTimeout = CORE_NETWORK_TIMEOUT;
+                            _dataStream.WriteTimeout = CORE_NETWORK_TIMEOUT;
                             Port = portNumber;
                             break;
                         }
-
                     }
+
+                    _clientConnection.Dispose();
+                    _clientConnection = null;
                 }
+
 
             } while (--startAttempts > 0);
 
+            // We couldn't connect server after all attempts.
+            if (_clientConnection == null || !_clientConnection.Connected)
+            {
+                throw new Exception("Failed to connect to server after multiple attempts");
+            }
         }
         catch (Exception ex)
         {
-            bFailure = true;
             if (ex is FileNotFoundException)
             {
                 errMessage = $"{ex.Message} was not found, make sure it exist or change path to it: " +
@@ -924,33 +1006,26 @@ public class CCoreClient : IDisposable
             {
                 errMessage = ex.Message;
             }
+
+            CleanupFailedConnection();
+            _addLogMessage($"Server failed to start: {errMessage}", LogMessageType.ErrorOrWarning);
+            return false;
         }
 
-        if (bFailure)
+        CBufferChain idata = ReceiveReply();
+        if (idata != null)
         {
-            if (_serverProcess != null && !_serverProcess.HasExited)
-            {
-                _serverProcess.Kill();
-                _serverProcess = null;
-            }
-            ErrorStatus = ServerErrorStatus.GeneralException;
-            _addLogMessage($"Server failed to start, {errMessage}", LogMessageType.ErrorOrWarning);
+            ErrorStatus = ServerErrorStatus.NoErrors;
+            _addLogMessage($"Server has been started: {new string(idata.Data)}", LogMessageType.System);
+            return true;
         }
         else
         {
-            CBufferChain idata = ReceiveReply();
-            if (idata != null)
-            {
-                ErrorStatus = ServerErrorStatus.NoErrors;
-                _addLogMessage($"Server has been started: {new string(idata.Data)}", LogMessageType.System);
-            }
-            else
-            {
-                ErrorStatus = ServerErrorStatus.ServerNeedRestart;
-                _addLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
-            }
+            ErrorStatus = ServerErrorStatus.ServerNeedRestart;
+            _addLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
+            CleanupFailedConnection();
+            return false;
         }
-        return _serverProcess != null;
     }
 
     public void DisconnectClient()
@@ -974,12 +1049,22 @@ public class CCoreClient : IDisposable
         }
         finally
         {
-            _dataStream?.Close();
-            _dataStream = null;
-            ClientConnection?.Close();
-            ClientConnection = null;
-            _serverProcess?.Dispose();
-            _serverProcess = null;
+            if (_dataStream != null)
+            {
+                _dataStream.Close();
+                _dataStream = null;
+            }
+            if (_clientConnection != null)
+            {
+                _clientConnection.Close();
+                _clientConnection = null;
+            }
+
+            if (_serverProcess != null)
+            {
+                _serverProcess.Dispose();
+                _serverProcess = null;
+            }
         }
     }
 }

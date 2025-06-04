@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        31 May 2025
+*  DATE:        03 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,10 +20,12 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO.Compression;
+using System.Reflection;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 using static WinDepends.NativeMethods;
 
@@ -281,21 +283,53 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Gets the version of the currently running .NET runtime
+    /// Determines if the application was built with .NET 8 or newer.
     /// </summary>
-    /// <returns>Runtime version string in .NET 8.0+ compatible format</returns>
+    /// <returns>Framework version string (.NET 8.0, .NET 9.0, etc.)</returns>
     static internal string GetRunningFrameworkVersion()
     {
-        // For .NET 5+ (including .NET 8+), use the official runtime identification
-        var description = RuntimeInformation.FrameworkDescription;
-
-        // Trim the ".NET " prefix if present
-        if (description.StartsWith(".NET "))
+        try
         {
-            return description.Substring(5);
-        }
+            Assembly assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+            var targetFrameworkAttribute = assembly.GetCustomAttribute<TargetFrameworkAttribute>();
+            if (targetFrameworkAttribute != null)
+            {
+                string frameworkName = targetFrameworkAttribute.FrameworkName;
 
-        return description;
+                // Check for .NET 8 or newer (.NETCoreApp,Version=v8.0 or higher)
+                if (frameworkName.StartsWith(".NETCoreApp,Version=v"))
+                {
+                    string version = frameworkName.Substring(21); // Extract version after "v"
+                    if (Version.TryParse(version, out Version parsedVersion))
+                    {
+                        // For .NET 8 or newer
+                        if (parsedVersion.Major >= 8)
+                        {
+                            return $"{parsedVersion.Major}.{parsedVersion.Minor}";
+                        }
+                    }
+                }
+            }
+
+            var description = RuntimeInformation.FrameworkDescription;
+            if (description.StartsWith(".NET "))
+            {
+                string versionPart = description.Substring(5);
+                if (Version.TryParse(versionPart, out Version parsedVersion))
+                {
+                    if (parsedVersion.Major >= 8)
+                    {
+                        return $"{parsedVersion.Major}.{parsedVersion.Minor}";
+                    }
+                }
+            }
+
+            return "Unknown (.NET < 8.0)";
+        }
+        catch
+        {
+            return "Unknown (Error detecting framework)";
+        }
     }
 
     /// <summary>

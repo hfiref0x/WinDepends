@@ -40,8 +40,7 @@ public static class CPathResolver
     public static string KnownDllsPath { get; set; } = string.Empty;
     public static string KnownDllsPath32 { get; set; } = string.Empty;
     public static string[] PathEnvironment { get; } =
-        Environment.GetEnvironmentVariable("PATH").Split(";", StringSplitOptions.RemoveEmptyEntries)
-        ?? Array.Empty<string>();
+        Environment.GetEnvironmentVariable("PATH").Split(";", StringSplitOptions.RemoveEmptyEntries) ?? [];
     public static List<string> KnownDlls { get; set; } = [];
     public static List<string> KnownDlls32 { get; set; } = [];
 

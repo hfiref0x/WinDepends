@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        31 May 2025
+*  DATE:        03 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -155,6 +155,12 @@ public class CConfiguration
         CustomImageBase = other.CustomImageBase;
         ToolBarTheme = other.ToolBarTheme;
         SymbolsHighlightColor = other.SymbolsHighlightColor;
+
+        WindowLeft = other.WindowLeft;
+        WindowTop = other.WindowTop;
+        WindowWidth = other.WindowWidth;
+        WindowHeight = other.WindowHeight;
+        WindowState = other.WindowState;
 
         SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM ??
         [

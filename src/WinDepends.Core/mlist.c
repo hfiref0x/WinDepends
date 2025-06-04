@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Nov 08, 2024
+*  Modified on: Jun 04, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -78,10 +78,12 @@ BOOL mlist_traverse(
 
     PWCHAR pchBuffer = NULL; // cumulative buffer
     SIZE_T cchTotalSize = 128; // default safe space for cumulative buffer
-    HRESULT hr;
+    SIZE_T position, msgLen;
 
     // Send list and dispose
     if (action == mlist_send) {
+
+        position = 0;
 
         for (entry = listHead->Flink, nextEntry = entry->Flink;
             entry != listHead;
@@ -91,7 +93,7 @@ BOOL mlist_traverse(
             cchTotalSize += node->messageLength;
         }
 
-        pchBuffer = (PWCHAR)heap_calloc(processHeap, cchTotalSize * sizeof(WCHAR));
+        pchBuffer = (PWCHAR)heap_calloc(processHeap, (1 + cchTotalSize) * sizeof(WCHAR));
         if (pchBuffer == NULL) {
             return FALSE;
         }
@@ -102,21 +104,28 @@ BOOL mlist_traverse(
         {
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
             if (node->message != NULL) {
-
-                hr = StringCchCat(pchBuffer, cchTotalSize, node->message);
-                if (FAILED(hr)) {
+                
+                msgLen = node->messageLength;
+                if (position + msgLen > cchTotalSize) {
                     bAnyError = TRUE;
                     break;
                 }
 
+                memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
+                position += msgLen;
                 heap_free(processHeap, node->message);
             }
 
             heap_free(processHeap, node);
         }
 
-        if (bAnyError)
+        if (bAnyError) {
+            if (pchBuffer != NULL) {
+                heap_free(processHeap, pchBuffer);
+                pchBuffer = NULL;
+            }
             return FALSE;
+        }
 
         sendstring_plaintext(s, pchBuffer, context);
 

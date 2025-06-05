@@ -15,6 +15,7 @@
 *
 *******************************************************************************/
 using System.Diagnostics;
+using System.Security;
 
 namespace WinDepends;
 
@@ -154,6 +155,7 @@ public partial class ConfigurationForm : Form
                                        ref TreeNode userNode)
     {
         TreeNode tvNode;
+        view.ImageList?.Dispose();
         view.ImageList = CUtils.CreateImageList(Properties.Resources.SearchOrderIcons,
                                                 CConsts.SearchOrderIconsWidth,
                                                 CConsts.SearchOrderIconsHeigth,
@@ -240,15 +242,33 @@ public partial class ConfigurationForm : Form
     private void CheckServerFileState(string fileName)
     {
         ServerFileState.Font = new Font(ServerFileState.Font, FontStyle.Bold);
-
-        if (File.Exists(fileName))
+        if (string.IsNullOrEmpty(fileName))
         {
-            ServerFileState.Text = "File is OK";
-            ServerFileState.ForeColor = Color.Green;
+            ServerFileState.Text = "No file selected";
+            ServerFileState.ForeColor = Color.Red;
+            return;
         }
-        else
+
+        try
         {
-            ServerFileState.Text = "File not found!";
+            var fullPath = Path.GetFullPath(fileName);
+
+            if (File.Exists(fullPath))
+            {
+                ServerFileState.Text = "File is OK";
+                ServerFileState.ForeColor = Color.Green;
+            }
+            else
+            {
+                ServerFileState.Text = "File not found!";
+                ServerFileState.ForeColor = Color.Red;
+            }
+
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is PathTooLongException ||
+                              ex is NotSupportedException || ex is SecurityException)
+        {
+            ServerFileState.Text = "Invalid path";
             ServerFileState.ForeColor = Color.Red;
         }
     }
@@ -421,79 +441,83 @@ public partial class ConfigurationForm : Form
 
     private void ChBox_Click(object sender, EventArgs e)
     {
-        CheckBox checkBox = sender as CheckBox;
+        if (sender is not CheckBox checkBox || checkBox.Tag == null)
+            return;
+
+        bool isChecked = checkBox.Checked;
+
         switch (Convert.ToInt32(checkBox.Tag))
         {
             case CConsts.TagUseESC:
-                m_CurrentConfiguration.EscKeyEnabled = checkBox.Checked;
+                m_CurrentConfiguration.EscKeyEnabled = isChecked;
                 break;
 
             case CConsts.TagFullPaths:
-                m_CurrentConfiguration.FullPaths = checkBox.Checked;
+                m_CurrentConfiguration.FullPaths = isChecked;
                 break;
 
             case CConsts.TagAutoExpand:
-                m_CurrentConfiguration.AutoExpands = checkBox.Checked;
+                m_CurrentConfiguration.AutoExpands = isChecked;
                 break;
 
             case CConsts.TagViewUndecorated:
-                m_CurrentConfiguration.ViewUndecorated = checkBox.Checked;
+                m_CurrentConfiguration.ViewUndecorated = isChecked;
                 break;
 
             case CConsts.TagResolveAPIsets:
-                m_CurrentConfiguration.ResolveAPIsets = checkBox.Checked;
+                m_CurrentConfiguration.ResolveAPIsets = isChecked;
                 break;
 
             case CConsts.TagUpperCaseModuleNames:
-                m_CurrentConfiguration.UpperCaseModuleNames = checkBox.Checked;
+                m_CurrentConfiguration.UpperCaseModuleNames = isChecked;
                 break;
 
             case CConsts.TagClearLogOnFileOpen:
-                m_CurrentConfiguration.ClearLogOnFileOpen = checkBox.Checked;
+                m_CurrentConfiguration.ClearLogOnFileOpen = isChecked;
                 break;
 
             case CConsts.TagCompressSessionFiles:
-                m_CurrentConfiguration.CompressSessionFiles = checkBox.Checked;
+                m_CurrentConfiguration.CompressSessionFiles = isChecked;
                 break;
 
             case CConsts.TagUseApiSetSchemaFile:
-                m_CurrentConfiguration.UseApiSetSchemaFile = checkBox.Checked;
-                buttonApiSetBrowse.Enabled = checkBox.Checked;
+                m_CurrentConfiguration.UseApiSetSchemaFile = isChecked;
+                buttonApiSetBrowse.Enabled = isChecked;
                 break;
 
             case CConsts.TagHighlightApiSet:
-                m_CurrentConfiguration.HighlightApiSet = checkBox.Checked;
+                m_CurrentConfiguration.HighlightApiSet = isChecked;
                 break;
 
             case CConsts.TagProcessRelocsForImage:
-                m_CurrentConfiguration.ProcessRelocsForImage = checkBox.Checked;
+                m_CurrentConfiguration.ProcessRelocsForImage = isChecked;
                 break;
 
             case CConsts.TagUseCustomImageBase:
-                m_CurrentConfiguration.UseCustomImageBase = checkBox.Checked;
+                m_CurrentConfiguration.UseCustomImageBase = isChecked;
                 if (m_CurrentConfiguration.UseCustomImageBase)
                 {
                     m_CurrentConfiguration.ProcessRelocsForImage = true;
                     chBoxProcessRelocs.Checked = true;
                 }
-                cbCustomImageBase.Enabled = checkBox.Checked;
+                cbCustomImageBase.Enabled = isChecked;
                 break;
 
             case CConsts.TagUseStats:
-                m_CurrentConfiguration.UseStats = checkBox.Checked;
+                m_CurrentConfiguration.UseStats = isChecked;
                 break;
 
             case CConsts.TagAnalysisDefaultEnabled:
-                m_CurrentConfiguration.AnalysisSettingsUseAsDefault = checkBox.Checked;
+                m_CurrentConfiguration.AnalysisSettingsUseAsDefault = isChecked;
                 break;
 
             case CConsts.TagPropagateSettingsEnabled:
-                m_CurrentConfiguration.PropagateSettingsOnDependencies = checkBox.Checked;
+                m_CurrentConfiguration.PropagateSettingsOnDependencies = isChecked;
                 break;
 
             case CConsts.TagUseSymbols:
-                m_CurrentConfiguration.UseSymbols = checkBox.Checked;
-                groupBoxSymbols.Enabled = checkBox.Checked;
+                m_CurrentConfiguration.UseSymbols = isChecked;
+                groupBoxSymbols.Enabled = isChecked;
                 break;
 
         }
@@ -528,15 +552,17 @@ public partial class ConfigurationForm : Form
         {
             foreach (ListViewItem item in LVFileExt.Items)
             {
-                string extension = item.Tag.ToString();
-
-                if (item.Checked)
+                string extension = item.Tag?.ToString();
+                if (extension != null)
                 {
-                    CUtils.SetAssoc(extension);
-                }
-                else
-                {
-                    CUtils.RemoveAssoc(extension);
+                    if (item.Checked)
+                    {
+                        CUtils.SetAssoc(extension);
+                    }
+                    else
+                    {
+                        CUtils.RemoveAssoc(extension);
+                    }
                 }
             }
         }
@@ -686,69 +712,58 @@ public partial class ConfigurationForm : Form
         return searchOrderView;
     }
 
-    private void TVSearchOderMoveUp(object sender, EventArgs e)
+    private void MoveTreeNode(TreeView view, int direction)
     {
-        TreeView view = GetCurrentTVSearchOrder();
         if (view == null)
-        {
             return;
-        }
 
-        var node = view.SelectedNode;
+        TreeNode node = view.SelectedNode;
+        if (node == null)
+            return;
 
-        if (node.Parent != null) node = node.Parent;
+        // Get the parent node if this is a child node
+        if (node.Parent != null)
+            node = node.Parent;
 
         if (node.TreeView.Nodes.Contains(node))
         {
             int index = view.Nodes.IndexOf(node);
-            if (index > 0)
+            int newIndex = index + direction;
+
+            // Check bounds
+            if (newIndex >= 0 && newIndex < view.Nodes.Count)
             {
                 view.Nodes.RemoveAt(index);
-                view.Nodes.Insert(index - 1, node);
+                view.Nodes.Insert(newIndex, node);
                 view.SelectedNode = node;
             }
         }
 
         view.Focus();
+    }
+
+    private void TVSearchOderMoveUp(object sender, EventArgs e)
+    {
+        MoveTreeNode(GetCurrentTVSearchOrder(), -1);
     }
 
     private void TVSearchOderMoveDown(object sender, EventArgs e)
     {
-        TreeView view = GetCurrentTVSearchOrder();
-        if (view == null)
-        {
-            return;
-        }
-
-        var node = view.SelectedNode;
-
-        if (node.Parent != null) node = node.Parent;
-
-        if (view.Nodes.Contains(node))
-        {
-            int index = view.Nodes.IndexOf(node);
-            if (index < view.Nodes.Count - 1)
-            {
-                view.Nodes.RemoveAt(index);
-                view.Nodes.Insert(index + 1, node);
-                view.SelectedNode = node;
-            }
-        }
-
-        view.Focus();
+        MoveTreeNode(GetCurrentTVSearchOrder(), 1);
     }
 
     private void TVSearchOrderAfterSelect(object sender, TreeViewEventArgs e)
     {
-        if (sender is not TreeView view) return;
-
-        var bMoveButtonsEnabled = view?.SelectedNode != null;
+        if (sender is not TreeView view || view.SelectedNode == null)
+            return;
+        
+        var bMoveButtonsEnabled = true;
         bool bEnableDelButton = false;
 
         //
         // If the selected item is user defined directory then enable del button.
         //
-        if (view?.SelectedNode?.Tag is string text &&
+        if (view.SelectedNode.Tag is string text &&
             text.Equals(CConsts.SearchOrderUserValue, StringComparison.OrdinalIgnoreCase))
         {
             bEnableDelButton = true;

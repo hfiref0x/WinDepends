@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Jun 2025
+*  DATE:        05 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -557,12 +557,12 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Find module by it InstanceId
+    /// Find module by its InstanceId
     /// </summary>
-    /// <param name="lookupModuleInstanceId"></param>
-    /// <param name="moduleList"></param>
-    /// <returns></returns>
-    static internal CModule InstanceIdToModule(int lookupModuleInstanceId, List<CModule> moduleList)
+    /// <param name="lookupModuleInstanceId">The instance ID to search for</param>
+    /// <param name="moduleList">The collection of modules to search</param>
+    /// <returns>The matching module if found; otherwise, null</returns>
+    static internal CModule? InstanceIdToModule(int lookupModuleInstanceId, List<CModule> moduleList)
     {
         // Fast exit for empty lists
         if (moduleList == null || moduleList.Count == 0)
@@ -570,7 +570,7 @@ public static class CUtils
 
         for (int i = 0; i < moduleList.Count; i++)
         {
-            if (moduleList[i].InstanceId == lookupModuleInstanceId)
+            if (moduleList[i]?.InstanceId == lookupModuleInstanceId)
                 return moduleList[i];
         }
         return null;
@@ -582,9 +582,9 @@ public static class CUtils
     /// <param name="node"></param>
     /// <param name="moduleList"></param>
     /// <returns></returns>
-    static internal CModule TreeViewGetOriginalInstanceFromNode(TreeNode node, List<CModule> moduleList)
+    static internal CModule? TreeViewGetOriginalInstanceFromNode(TreeNode node, List<CModule> moduleList)
     {
-        if (node?.Tag is CModule obj && obj.OriginalInstanceId != 0)
+        if (node?.Tag is CModule obj && obj.OriginalInstanceId != 0 && moduleList != null)
         {
             return CUtils.InstanceIdToModule(obj.OriginalInstanceId, moduleList);
         }
@@ -592,7 +592,13 @@ public static class CUtils
         return null;
     }
 
-    static internal CModule GetModuleByHash(string moduleName, List<CModule> moduleList)
+    /// <summary>
+    /// Finds a module by its name hash in a collection of modules.
+    /// </summary>
+    /// <param name="moduleName">The name of the module to find</param>
+    /// <param name="moduleList">The collection of modules to search</param>
+    /// <returns>The matching module if found; otherwise, null</returns>
+    static internal CModule? GetModuleByHash(string moduleName, List<CModule> moduleList)
     {
         var hash = moduleName.GetHashCode(StringComparison.OrdinalIgnoreCase);
         var moduleDict = moduleList.ToDictionary(m => m.FileName.GetHashCode(StringComparison.OrdinalIgnoreCase), m => m);
@@ -606,11 +612,11 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Find corresponding module node by object value.
+    /// Finds a TreeView node representing a specific module.
     /// </summary>
-    /// <param name="lookupModule"></param>
-    /// <param name="startNode"></param>
-    /// <returns></returns>
+    /// <param name="lookupModule">The module to search for</param>
+    /// <param name="startNode">The TreeView node to start searching from</param>
+    /// <returns>The matching TreeView node if found; otherwise, null</returns>
     static internal TreeNode TreeViewFindModuleNodeByObject(CModule lookupModule, TreeNode startNode)
     {
         var stack = new Stack<TreeNode>();
@@ -695,6 +701,12 @@ public static class CUtils
         return null;
     }
 
+    /// <summary>
+    /// Launches an external application or document.
+    /// </summary>
+    /// <param name="fileName">The path to the file to open</param>
+    /// <param name="useShellExecute">Whether to use the operating system shell to open the file</param>
+    /// <returns>True if the command was launched successfully; otherwise, false</returns>
     public static void RunExternalCommand(string fileName, bool useShellExecute)
     {
         try
@@ -750,6 +762,13 @@ public static class CUtils
             : SplitImageStrip(sourceStrip, originalSize, transparencyColor);
     }
 
+    /// <summary>
+    /// Splits an image strip into individual images.
+    /// </summary>
+    /// <param name="strip">Source bitmap strip</param>
+    /// <param name="imageSize">Size of each individual image</param>
+    /// <param name="transparencyColor">Color to be treated as transparent</param>
+    /// <returns>List of individual bitmap images</returns>
     public static List<Bitmap> SplitImageStrip(Bitmap strip, Size imageSize, Color transparencyColor)
     {
         List<Bitmap> images = new List<Bitmap>();
@@ -763,6 +782,14 @@ public static class CUtils
         return images;
     }
 
+    /// <summary>
+    /// Splits an image strip and scales each resulting image.
+    /// </summary>
+    /// <param name="strip">Source bitmap strip</param>
+    /// <param name="originalSize">Original size of each image</param>
+    /// <param name="scaleFactor">Scale factor to apply</param>
+    /// <param name="transparencyColor">Color to be treated as transparent</param>
+    /// <returns>List of scaled bitmap images</returns>
     public static List<Bitmap> SplitAndScaleImageStrip(Bitmap strip, Size originalSize,
                                            float scaleFactor, Color transparencyColor)
     {
@@ -798,6 +825,13 @@ public static class CUtils
         return scaledImages;
     }
 
+    /// <summary>
+    /// Loads toolbar images and configures the toolbar image list.
+    /// </summary>
+    /// <param name="toolStrip">The toolbar to configure</param>
+    /// <param name="desiredImageSize">Desired image size</param>
+    /// <param name="useClassic">Whether to use classic images</param>
+    /// <param name="transparencyColor">Color to treat as transparent</param>
     public static void LoadToolbarImages(ToolStrip toolStrip, Size desiredImageSize, bool useClassic, Color transparencyColor)
     {
         float scalingFactor = GetDpiScalingFactor();

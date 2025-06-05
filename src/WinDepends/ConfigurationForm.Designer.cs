@@ -28,17 +28,17 @@
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode1 = new TreeNode("History");
-            TreeNode treeNode2 = new TreeNode("Main", new TreeNode[] { treeNode1 });
-            TreeNode treeNode3 = new TreeNode("Analysis (global)");
-            TreeNode treeNode4 = new TreeNode("ApiSets");
-            TreeNode treeNode5 = new TreeNode("External Function Help");
-            TreeNode treeNode6 = new TreeNode("External Module Viewer");
-            TreeNode treeNode7 = new TreeNode("Handled File Extensions");
-            TreeNode treeNode8 = new TreeNode("Module Search Order");
-            TreeNode treeNode9 = new TreeNode("Module Search Order (drivers)");
-            TreeNode treeNode10 = new TreeNode("Server");
-            TreeNode treeNode11 = new TreeNode("Symbols");
+            TreeNode treeNode12 = new TreeNode("History");
+            TreeNode treeNode13 = new TreeNode("Main", new TreeNode[] { treeNode12 });
+            TreeNode treeNode14 = new TreeNode("Analysis (global)");
+            TreeNode treeNode15 = new TreeNode("ApiSets");
+            TreeNode treeNode16 = new TreeNode("External Function Help");
+            TreeNode treeNode17 = new TreeNode("External Module Viewer");
+            TreeNode treeNode18 = new TreeNode("Handled File Extensions");
+            TreeNode treeNode19 = new TreeNode("Module Search Order");
+            TreeNode treeNode20 = new TreeNode("Module Search Order (drivers)");
+            TreeNode treeNode21 = new TreeNode("Server");
+            TreeNode treeNode22 = new TreeNode("Symbols");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigurationForm));
             splitContainer2 = new SplitContainer();
             splitContainer1 = new SplitContainer();
@@ -243,40 +243,40 @@
             TVSettings.HideSelection = false;
             TVSettings.Location = new Point(0, 0);
             TVSettings.Name = "TVSettings";
-            treeNode1.Name = "HistoryNode";
-            treeNode1.Tag = "11";
-            treeNode1.Text = "History";
-            treeNode2.Name = "MainWindowNode";
-            treeNode2.Tag = "10";
-            treeNode2.Text = "Main";
-            treeNode3.Name = "AnalysisNode";
-            treeNode3.Tag = "20";
-            treeNode3.Text = "Analysis (global)";
-            treeNode4.Name = "ApiSetsNode";
-            treeNode4.Tag = "30";
-            treeNode4.Text = "ApiSets";
-            treeNode5.Name = "xternalFunctionHelpNode";
-            treeNode5.Tag = "40";
-            treeNode5.Text = "External Function Help";
-            treeNode6.Name = "ExternalModuleViewerNode";
-            treeNode6.Tag = "50";
-            treeNode6.Text = "External Module Viewer";
-            treeNode7.Name = "ShellIntegrationNode";
-            treeNode7.Tag = "60";
-            treeNode7.Text = "Handled File Extensions";
-            treeNode8.Name = "SearchOrderNode";
-            treeNode8.Tag = "70";
-            treeNode8.Text = "Module Search Order";
-            treeNode9.Name = "SearchOrderDriverNode";
-            treeNode9.Tag = "80";
-            treeNode9.Text = "Module Search Order (drivers)";
-            treeNode10.Name = "ServerNode";
-            treeNode10.Tag = "90";
-            treeNode10.Text = "Server";
-            treeNode11.Name = "SymbolsNode";
-            treeNode11.Tag = "100";
-            treeNode11.Text = "Symbols";
-            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode2, treeNode3, treeNode4, treeNode5, treeNode6, treeNode7, treeNode8, treeNode9, treeNode10, treeNode11 });
+            treeNode12.Name = "HistoryNode";
+            treeNode12.Tag = "11";
+            treeNode12.Text = "History";
+            treeNode13.Name = "MainWindowNode";
+            treeNode13.Tag = "10";
+            treeNode13.Text = "Main";
+            treeNode14.Name = "AnalysisNode";
+            treeNode14.Tag = "20";
+            treeNode14.Text = "Analysis (global)";
+            treeNode15.Name = "ApiSetsNode";
+            treeNode15.Tag = "30";
+            treeNode15.Text = "ApiSets";
+            treeNode16.Name = "xternalFunctionHelpNode";
+            treeNode16.Tag = "40";
+            treeNode16.Text = "External Function Help";
+            treeNode17.Name = "ExternalModuleViewerNode";
+            treeNode17.Tag = "50";
+            treeNode17.Text = "External Module Viewer";
+            treeNode18.Name = "ShellIntegrationNode";
+            treeNode18.Tag = "60";
+            treeNode18.Text = "Handled File Extensions";
+            treeNode19.Name = "SearchOrderNode";
+            treeNode19.Tag = "70";
+            treeNode19.Text = "Module Search Order";
+            treeNode20.Name = "SearchOrderDriverNode";
+            treeNode20.Tag = "80";
+            treeNode20.Text = "Module Search Order (drivers)";
+            treeNode21.Name = "ServerNode";
+            treeNode21.Tag = "90";
+            treeNode21.Text = "Server";
+            treeNode22.Name = "SymbolsNode";
+            treeNode22.Tag = "100";
+            treeNode22.Text = "Symbols";
+            TVSettings.Nodes.AddRange(new TreeNode[] { treeNode13, treeNode14, treeNode15, treeNode16, treeNode17, treeNode18, treeNode19, treeNode20, treeNode21, treeNode22 });
             TVSettings.Size = new Size(201, 444);
             TVSettings.TabIndex = 0;
             TVSettings.AfterSelect += TVSettings_AfterSelect;
@@ -1138,7 +1138,7 @@
             // DeleteUserDirectoryDriversButton
             // 
             DeleteUserDirectoryDriversButton.Enabled = false;
-            DeleteUserDirectoryDriversButton.Location = new Point(47, 404);
+            DeleteUserDirectoryDriversButton.Location = new Point(49, 403);
             DeleteUserDirectoryDriversButton.Name = "DeleteUserDirectoryDriversButton";
             DeleteUserDirectoryDriversButton.Size = new Size(60, 23);
             DeleteUserDirectoryDriversButton.TabIndex = 10;
@@ -1148,7 +1148,7 @@
             // 
             // AddUserDirectoryDriversButton
             // 
-            AddUserDirectoryDriversButton.Location = new Point(113, 404);
+            AddUserDirectoryDriversButton.Location = new Point(115, 403);
             AddUserDirectoryDriversButton.Name = "AddUserDirectoryDriversButton";
             AddUserDirectoryDriversButton.Size = new Size(60, 23);
             AddUserDirectoryDriversButton.TabIndex = 9;
@@ -1162,13 +1162,13 @@
             TVSearchOrderDrivers.Location = new Point(6, 6);
             TVSearchOrderDrivers.Name = "TVSearchOrderDrivers";
             TVSearchOrderDrivers.ShowNodeToolTips = true;
-            TVSearchOrderDrivers.Size = new Size(466, 391);
+            TVSearchOrderDrivers.Size = new Size(468, 391);
             TVSearchOrderDrivers.TabIndex = 8;
             TVSearchOrderDrivers.AfterSelect += TVSearchOrderAfterSelect;
             // 
             // ExpandSearchOrderDrivers
             // 
-            ExpandSearchOrderDrivers.Location = new Point(181, 404);
+            ExpandSearchOrderDrivers.Location = new Point(181, 403);
             ExpandSearchOrderDrivers.Name = "ExpandSearchOrderDrivers";
             ExpandSearchOrderDrivers.Size = new Size(103, 23);
             ExpandSearchOrderDrivers.TabIndex = 7;
@@ -1179,7 +1179,7 @@
             // MoveUpButtonDrivers
             // 
             MoveUpButtonDrivers.Enabled = false;
-            MoveUpButtonDrivers.Location = new Point(290, 404);
+            MoveUpButtonDrivers.Location = new Point(290, 403);
             MoveUpButtonDrivers.Name = "MoveUpButtonDrivers";
             MoveUpButtonDrivers.Size = new Size(89, 23);
             MoveUpButtonDrivers.TabIndex = 6;
@@ -1190,7 +1190,7 @@
             // MoveDownButtonDrivers
             // 
             MoveDownButtonDrivers.Enabled = false;
-            MoveDownButtonDrivers.Location = new Point(385, 404);
+            MoveDownButtonDrivers.Location = new Point(385, 403);
             MoveDownButtonDrivers.Name = "MoveDownButtonDrivers";
             MoveDownButtonDrivers.Size = new Size(89, 23);
             MoveDownButtonDrivers.TabIndex = 5;

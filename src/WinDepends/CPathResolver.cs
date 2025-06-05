@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Jun 2025
+*  DATE:        05 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -40,7 +40,7 @@ public static class CPathResolver
     public static string KnownDllsPath { get; set; } = string.Empty;
     public static string KnownDllsPath32 { get; set; } = string.Empty;
     public static string[] PathEnvironment { get; } =
-        Environment.GetEnvironmentVariable("PATH").Split(";", StringSplitOptions.RemoveEmptyEntries) ?? [];
+            (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(";", StringSplitOptions.RemoveEmptyEntries);
     public static List<string> KnownDlls { get; set; } = [];
     public static List<string> KnownDlls32 { get; set; } = [];
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Jun 2025
+*  DATE:        05 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -27,7 +27,7 @@ namespace WinDepends;
 public class CConfiguration
 {
     [DataMember]
-    public bool UppperCaseModuleNames { get; set; }
+    public bool UpperCaseModuleNames { get; set; }
     [DataMember]
     public bool ShowToolBar { get; set; }
     [DataMember]
@@ -121,7 +121,7 @@ public class CConfiguration
 
     public CConfiguration(CConfiguration other)
     {
-        UppperCaseModuleNames = other.UppperCaseModuleNames;
+        UpperCaseModuleNames = other.UpperCaseModuleNames;
         ShowToolBar = other.ShowToolBar;
         ShowStatusBar = other.ShowStatusBar;
         SortColumnExports = other.SortColumnExports;
@@ -192,7 +192,7 @@ public class CConfiguration
         if (bSetDefault)
         {
             MRUList = [];
-            UppperCaseModuleNames = true;
+            UpperCaseModuleNames = true;
             ShowToolBar = true;
             ShowStatusBar = true;
             SortColumnModules = ModulesColumns.Name.ToInt();

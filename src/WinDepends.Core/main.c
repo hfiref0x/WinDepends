@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Mar 18, 2025
+*  Modified on: Jun 05, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -133,6 +133,8 @@ DWORD WINAPI client_thread(
                 //
             case ce_open:                
                 if (params != NULL) {
+                    if (pmctx != NULL) 
+                        cmd_close(pmctx);
                     pmctx = cmd_open(s, params);
                 }
                 break;

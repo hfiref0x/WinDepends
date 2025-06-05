@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: May 18, 2025
+*  Modified on: Jun 05, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -44,27 +44,31 @@ BOOL ex_write_dump(
 
         RtlSecureZeroMemory(szBuffer, sizeof(szBuffer));
         cch = GetSystemDirectory(szBuffer, MAX_PATH);
-        if (cch == 0 || cch > MAX_PATH)
+        if (cch == 0 || cch > MAX_PATH) {
             return FALSE;
+        }
 
-        StringCchCat(szBuffer, MAX_PATH, L"\\dbghelp.dll");
+        if (FAILED(StringCchCat(szBuffer, MAX_PATH, L"\\dbghelp.dll"))) {
+            return FALSE;
+        }
+
         hDbgHelp = LoadLibraryEx(szBuffer, 0, 0);
         if (hDbgHelp == NULL)
             return FALSE;
     }
 
     pMiniDumpWriteDump = (pfnMiniDumpWriteDump)GetProcAddress(hDbgHelp, "MiniDumpWriteDump");
-    if (pMiniDumpWriteDump == NULL)
-        return FALSE;
-
-    StringCchPrintf(szBuffer, ARRAYSIZE(szBuffer), L"%ws.exception.dmp", lpFileName);
-    hFile = CreateFile(szBuffer, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-    if (hFile != INVALID_HANDLE_VALUE) {
-        mdei.ThreadId = GetCurrentThreadId();
-        mdei.ExceptionPointers = ExceptionPointers;
-        mdei.ClientPointers = FALSE;
-        bResult = pMiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &mdei, NULL, NULL);
-        CloseHandle(hFile);
+    if (pMiniDumpWriteDump) {
+        if (SUCCEEDED(StringCchPrintf(szBuffer, ARRAYSIZE(szBuffer), L"%ws.exception.dmp", lpFileName))) {
+            hFile = CreateFile(szBuffer, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+            if (hFile != INVALID_HANDLE_VALUE) {
+                mdei.ThreadId = GetCurrentThreadId();
+                mdei.ExceptionPointers = ExceptionPointers;
+                mdei.ClientPointers = FALSE;
+                bResult = pMiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &mdei, NULL, NULL);
+                CloseHandle(hFile);
+            }
+        }
     }
     return bResult;
 }
@@ -482,6 +486,10 @@ PVOID load_apiset_namespace(
             sectionTableEntry += 1;
         }
 
+        // If we didn't find the section
+        if (dataPtr == NULL) {
+            FreeLibrary(hApiSetDll);
+        }
     }
 
 #ifndef _WIN64

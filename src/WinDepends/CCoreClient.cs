@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Jun 2025
+*  DATE:        05 Jun 2025
 *  
 *  Core Server communication class.
 *
@@ -559,7 +559,7 @@ public class CCoreClient : IDisposable
         return SendRequest("exit\r\n");
     }
 
-    public bool ShudownRequest()
+    public bool ShutdownRequest()
     {
         return SendRequest("shutdown\r\n");
     }
@@ -1034,7 +1034,7 @@ public class CCoreClient : IDisposable
         {
             if (_serverProcess != null && !_serverProcess.HasExited)
             {
-                ShudownRequest();
+                ShutdownRequest();
                 Thread.Sleep(100);
 
                 if (!_serverProcess.HasExited)

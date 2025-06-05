@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Mar 28, 2025
+*  Modified on: Jun 05, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -18,7 +18,7 @@ typedef struct {
     cmd_entry_type type;
 } cmd_entry, * pcmd_entry;
 
-cmd_entry cmds[] = {
+static const cmd_entry cmds[] = {
     {L"open", 4, ce_open },
     {L"close", 5, ce_close },
     {L"imports", 7, ce_imports },
@@ -479,21 +479,35 @@ pmodule_ctx cmd_open(
             if (context->filename) {
                 wcscpy_s(context->filename, sz / sizeof(WCHAR), file_name);
             }
+            else {
+                break;
+            }
 
             context->directory = (PWCH)heap_calloc(NULL, sz);
             if (context->directory) {
                 _filepath_w(file_name, context->directory);
             }
+            else {
+                // Clean up filename if directory alloc fails
+                heap_free(NULL, context->filename);
+                context->filename = NULL;
+                break;
+            }
 
             context->module = pe32open(s, context);
+            bResult = context->module != NULL;
         }
-
-        bResult = TRUE;
 
     } while (FALSE);
 
     if (!bResult) {
         if (context) {
+            if (context->filename) {
+                heap_free(NULL, context->filename);
+            }
+            if (context->directory) {
+                heap_free(NULL, context->directory);
+            }
             heap_free(NULL, context);
             context = NULL;
         }

@@ -3,14 +3,12 @@
 *
 *  Created on: Aug 27, 2024
 *
-*  Modified on: Mar 21, 2025
+*  Modified on: Jun 04, 2025
 *
 *      Project: WinDepends.Core
 *
 *      Author: WinDepends dev team
 */
-
-#pragma once
 
 #pragma once
 

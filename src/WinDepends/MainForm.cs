@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Jun 2025
+*  DATE:        05 Jun 2025
 *  
 *  Codename:    VasilEk
 *
@@ -446,7 +446,7 @@ public partial class MainForm : Form
             moduleDisplayName = Path.GetFileName(moduleDisplayName);
         }
 
-        if (m_Configuration.UppperCaseModuleNames)
+        if (m_Configuration.UpperCaseModuleNames)
         {
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
         }
@@ -558,7 +558,7 @@ public partial class MainForm : Form
             moduleDisplayName = Path.GetFileName(moduleDisplayName);
         }
 
-        if (m_Configuration.UppperCaseModuleNames)
+        if (m_Configuration.UpperCaseModuleNames)
         {
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
         }
@@ -682,7 +682,7 @@ public partial class MainForm : Form
         nodeStack.Push(startNode);
 
         bool fullPaths = m_Configuration.FullPaths;
-        bool upperCase = m_Configuration.UppperCaseModuleNames;
+        bool upperCase = m_Configuration.UpperCaseModuleNames;
         bool highlightApiSet = m_Configuration.HighlightApiSet;
         bool resolveApiSets = m_Configuration.ResolveAPIsets;
 
@@ -1481,7 +1481,7 @@ public partial class MainForm : Form
 
         var bAutoExpandPrev = m_Configuration.AutoExpands;
         var bFullPathPrev = m_Configuration.FullPaths;
-        var bUpperCaseModulesNamesPrev = m_Configuration.UppperCaseModuleNames;
+        var bUpperCaseModulesNamesPrev = m_Configuration.UpperCaseModuleNames;
         var bUndecoratedPrev = m_Configuration.ViewUndecorated;
         var bResolveAPISetsPrev = m_Configuration.ResolveAPIsets;
         var bHighlightAPISetsPrev = m_Configuration.HighlightApiSet;
@@ -1518,7 +1518,7 @@ public partial class MainForm : Form
                     m_Configuration.FullPaths != bFullPathPrev ||
                     m_Configuration.ResolveAPIsets != bResolveAPISetsPrev ||
                     m_Configuration.HighlightApiSet != bHighlightAPISetsPrev ||
-                    m_Configuration.UppperCaseModuleNames != bUpperCaseModulesNamesPrev)
+                    m_Configuration.UpperCaseModuleNames != bUpperCaseModulesNamesPrev)
                 {
                     UpdateFileView(FileViewUpdateAction.TreeViewAutoExpandsChange);
                     UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
@@ -3117,7 +3117,7 @@ public partial class MainForm : Form
             moduleDisplayName = Path.GetFileName(moduleDisplayName);
         }
 
-        if (m_Configuration.UppperCaseModuleNames)
+        if (m_Configuration.UpperCaseModuleNames)
         {
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
         }

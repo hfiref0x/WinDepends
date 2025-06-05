@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        05 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -294,7 +294,7 @@ public partial class ConfigurationForm : Form
         chBoxResolveApiSets.Checked = m_CurrentConfiguration.ResolveAPIsets;
         chBoxHighlightApiSet.Checked = m_CurrentConfiguration.HighlightApiSet;
         chBoxApiSetNamespace.Checked = m_CurrentConfiguration.UseApiSetSchemaFile;
-        chBoxUpperCase.Checked = m_CurrentConfiguration.UppperCaseModuleNames;
+        chBoxUpperCase.Checked = m_CurrentConfiguration.UpperCaseModuleNames;
         chBoxCompressSessionFiles.Checked = m_CurrentConfiguration.CompressSessionFiles;
         chBoxClearLogOnFileOpen.Checked = m_CurrentConfiguration.ClearLogOnFileOpen;
         cbCustomImageBase.Enabled = m_CurrentConfiguration.UseCustomImageBase;
@@ -445,7 +445,7 @@ public partial class ConfigurationForm : Form
                 break;
 
             case CConsts.TagUpperCaseModuleNames:
-                m_CurrentConfiguration.UppperCaseModuleNames = checkBox.Checked;
+                m_CurrentConfiguration.UpperCaseModuleNames = checkBox.Checked;
                 break;
 
             case CConsts.TagClearLogOnFileOpen:

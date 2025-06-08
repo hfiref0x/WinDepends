@@ -313,7 +313,7 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true);
                 }
 
-                if (module.ModuleData.ImageFixed != 0)
+                if (module.ModuleData.ImageFixed != 0 && !module.IsKernelModule)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations.",

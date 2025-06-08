@@ -692,7 +692,8 @@ static void process_thunks64(
     PLIST_ENTRY             msg_lh,
     BOOL                    rvabased,
     DWORD_PTR               image_base,
-    DWORD_PTR               image_size
+    DWORD_PTR               image_size,
+    BOOL                    has_bound_imports
 )
 {
     DWORD       fhint = 0, ordinal = 0;
@@ -702,10 +703,15 @@ static void process_thunks64(
 
     PIMAGE_IMPORT_BY_NAME fname = NULL;
 
-    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++bound_table, ++i)
+    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++i)
     {
-        if ((ULONG_PTR)bound_table > 0x10000)
+        if (has_bound_imports) {
             fbound = *bound_table;
+            bound_table++;
+        }
+        else {
+            fbound = 0;
+        }
 
         if ((thunk->u1.Function & IMAGE_ORDINAL_FLAG64) != 0)
         {
@@ -773,7 +779,8 @@ static void process_thunks32(
     PLIST_ENTRY             msg_lh,
     BOOL                    rvabased,
     DWORD_PTR               image_base,
-    DWORD_PTR               image_size
+    DWORD_PTR               image_size,
+    BOOL                    has_bound_imports
 )
 {
     DWORD       fhint = 0, ordinal = 0;
@@ -783,10 +790,15 @@ static void process_thunks32(
 
     PIMAGE_IMPORT_BY_NAME fname = NULL;
 
-    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++bound_table, ++i)
+    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++i)
     {
-        if ((ULONG_PTR)bound_table > 0x10000)
+        if (has_bound_imports) {
             fbound = *bound_table;
+            bound_table++;
+        }
+        else {
+            fbound = 0;
+        }
 
         if ((thunk->u1.Function & IMAGE_ORDINAL_FLAG32) != 0)
         {
@@ -856,8 +868,8 @@ BOOL get_imports(
     PIMAGE_FILE_HEADER          nt_file_hdr;
     DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c;
     DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0,
-                                IModuleName, INameTable, delta;
-    BOOL                        status = FALSE, importPresent = FALSE;
+                                IModuleName, INameTable, delta, boundIAT;
+    BOOL                        status = FALSE, importPresent = FALSE, has_bound_imports = FALSE;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
     WCHAR                       msg_text[WDEP_MSG_LENGTH_BIG];
@@ -933,15 +945,18 @@ BOOL get_imports(
                 {
                     thunk_data.uptr = context->module + SImportTable->OriginalFirstThunk;
                 }
-                if (SImportTable->TimeDateStamp)
+                if (SImportTable->TimeDateStamp) {
                     bound_table.uptr = context->module + SImportTable->FirstThunk;
+                }
+
+                has_bound_imports = bound_table.uptr != NULL;
 
                 if (context->image_64bit)
                     process_thunks64(context->module, thunk_data.thunk_data64,
-                        bound_table.bound_table64, &msg_lh, TRUE, ImageBase, ImageSize);
+                        bound_table.bound_table64, &msg_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
                 else
                     process_thunks32(context->module, thunk_data.thunk_data32,
-                        bound_table.bound_table32, &msg_lh, TRUE, ImageBase, ImageSize);
+                        bound_table.bound_table32, &msg_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
 
                 mlist_add(&msg_lh, L"]}");
             }
@@ -983,13 +998,27 @@ BOOL get_imports(
                 mlist_add(&msg_lh, msg_text);
 
                 bound_table.uptr = NULL;
+                if (DImportTable->TimeDateStamp != 0) {
+                    boundIAT = DImportTable->BoundImportAddressTableRVA;
+                    if (DImportTable->Attributes.RvaBased) {
+                        bound_table.uptr = context->module + boundIAT;
+                    }
+                    else {
+                        boundIAT = boundIAT - (DWORD_PTR)ImageBase;
+                        bound_table.uptr = context->module + boundIAT;
+                    }
+                }
+
                 thunk_data.uptr = (LPVOID)INameTable;
+
+                has_bound_imports = (bound_table.uptr != NULL);
+
                 if (context->image_64bit)
                     process_thunks64(context->module, thunk_data.thunk_data64,
-                        bound_table.bound_table64, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize);
+                        bound_table.bound_table64, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
                 else
                     process_thunks32(context->module, thunk_data.thunk_data32,
-                        bound_table.bound_table32, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize);
+                        bound_table.bound_table32, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
 
                 mlist_add(&msg_lh, L"]}");
             }

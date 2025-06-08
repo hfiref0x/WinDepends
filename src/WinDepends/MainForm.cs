@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Jun 2025
+*  DATE:        08 Jun 2025
 *  
 *  Codename:    VasilEk
 *
@@ -73,7 +73,7 @@ public partial class MainForm : Form
     /// <summary>
     /// Root node of TVModules, must be initialized with AddModule*** routine.
     /// </summary>
-    TreeNode m_RootNode;
+    TreeNode? m_RootNode;
 
     //
     // Flags used in Highlight instance operations
@@ -404,7 +404,6 @@ public partial class MainForm : Form
     /// <returns>Tree node.</returns>
     private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
     {
-        CModule parentModule;
         bool currentModuleIsRoot = (parentNode == null);
 
         //
@@ -412,10 +411,12 @@ public partial class MainForm : Form
         //
         if (!currentModuleIsRoot)
         {
-            parentModule = (CModule)parentNode.Tag;
-            if (parentModule.Depth > m_Configuration.ModuleNodeDepthMax)
+            if (parentNode.Tag is CModule parentModule)
             {
-                return null;
+                if (parentModule.Depth > m_Configuration.ModuleNodeDepthMax)
+                {
+                    return null;
+                }
             }
         }
 
@@ -502,9 +503,11 @@ public partial class MainForm : Form
 
         if (!currentModuleIsRoot)
         {
-            parentModule = (CModule)parentNode.Tag;
-            module.Depth = parentModule.Depth + 1;
-            parentNode.Nodes.Add(tvNode);
+            if (parentNode.Tag is CModule parentModule)
+            {
+                module.Depth = parentModule.Depth + 1;
+                parentNode.Nodes.Add(tvNode);
+            }
         }
         else
         {
@@ -629,19 +632,19 @@ public partial class MainForm : Form
 
     private void ResetFunctionLists()
     {
-        LVImports.Invalidate();
-        LVExports.Invalidate();
         ResetDisplayCache(DisplayCacheType.Imports);
         ResetDisplayCache(DisplayCacheType.Exports);
         LVImports.VirtualListSize = LVExports.VirtualListSize = 0;
+        LVImports.Invalidate();
+        LVExports.Invalidate();
     }
 
     public void ResetModulesList()
     {
-        LVModules.Invalidate();
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
         m_LoadedModulesList.Clear();
+        LVModules.Invalidate();
     }
 
     /// <summary>
@@ -722,8 +725,8 @@ public partial class MainForm : Form
     public void UpdateItemsView(ListView listView, DisplayCacheType cacheType)
     {
         listView.BeginUpdate();
-        listView.Invalidate();
         ResetDisplayCache(cacheType);
+        listView.Invalidate();
         listView.EndUpdate();
     }
 

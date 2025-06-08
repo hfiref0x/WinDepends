@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        28 Mar 2025
+*  DATE:        06 Jun 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -378,7 +378,7 @@ public static class CSymbolResolver
             return functionName;
         }
 
-        var sb = new StringBuilder(128);
+        var sb = new StringBuilder(1024);
 
         if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.Complete) > 0)
         {

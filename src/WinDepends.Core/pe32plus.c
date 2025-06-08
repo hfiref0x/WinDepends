@@ -552,7 +552,7 @@ BOOL get_exports(
     LIST_ENTRY          msg_lh;
     PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
-    DWORD               dir_base = 0, dir_size = 0, i, * ptrs, * names, p, hint, ctr = 0, ImageSize = 0;
+    DWORD               dir_base = 0, dir_size = 0, i, * ptrs, * names, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
     WORD                *name_ordinals;
     BOOL                status = FALSE, names_valid;
     char                *fname, *forwarder;
@@ -627,7 +627,7 @@ BOOL get_exports(
 
                 if (!ptrs[i])
                     continue;
-
+                
                 ++ctr;
                 fname = NULL;
                 forwarder = "";
@@ -656,7 +656,7 @@ BOOL get_exports(
                     forwarder = (char*)context->module + ptrs[i];
                 }
 
-                if (i > 0)
+                if (need_comma > 0)
                     mlist_add(&msg_lh, L",");
 
                 StringCchPrintf(text, ARRAYSIZE(text),
@@ -668,6 +668,7 @@ BOOL get_exports(
                     ExportTable->Base + i, hint, fname, ptrs[i], forwarder);
 
                 mlist_add(&msg_lh, text);
+                need_comma = 1;
             }
             mlist_add(&msg_lh, L"]}");
         }

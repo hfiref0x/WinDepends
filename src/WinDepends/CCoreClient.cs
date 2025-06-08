@@ -277,7 +277,7 @@ public class CCoreClient : IDisposable
             result = result.Replace("\\", "\\\\");
         }
 
-        return DeserializeDataJSON(objectType, result);
+        return DeserializeDataJSON(module?.FileName, objectType, result);
     }
 
     /// <summary>
@@ -404,6 +404,26 @@ public class CCoreClient : IDisposable
 
         // Fallback for unknown types
         return new DataContractJsonSerializer(objectType);
+    }
+
+    object DeserializeDataJSON(string FileName, Type objectType, string data)
+    {
+        if (string.IsNullOrEmpty(data))
+            return null;
+
+        try
+        {
+            // Try to find pre-created serializer
+            DataContractJsonSerializer serializer = GetSerializerForType(objectType);
+            using MemoryStream ms = new(Encoding.Unicode.GetBytes(data));
+            return serializer.ReadObject(ms);
+        }
+        catch (Exception ex)
+        {
+            _addLogMessage($"Data deserialization failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+            _addLogMessage($"Failed to analyze {FileName}", LogMessageType.ErrorOrWarning);
+            return null;
+        }
     }
 
     object DeserializeDataJSON(Type objectType, string data)

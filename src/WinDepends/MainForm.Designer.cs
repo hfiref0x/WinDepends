@@ -373,9 +373,10 @@
             reLog.Text = "";
             reLog.SelectionChanged += RichEditLog_SelectionChanged;
             reLog.Click += RichEditLog_Click;
+            reLog.MouseClick += RichEditLog_MouseClick;
             reLog.Enter += RichEditLog_Enter;
             reLog.Leave += RichEditLog_Leave;
-            reLog.MouseDown += RichEditLog_MouseDown;
+            reLog.MouseMove += RichEditLog_MouseMove;
             // 
             // ViewMenuItem
             // 

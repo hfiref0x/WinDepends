@@ -50,4 +50,10 @@ internal partial class AboutForm : Form
         linkLabel1.LinkVisited = true;
         CUtils.RunExternalCommand(CConsts.WinDependsHome, true);
     }
+
+    private void LinkLabel2_Clicked(object sender, LinkLabelLinkClickedEventArgs e)
+    {
+        linkLabel2.LinkVisited = true;
+        CUtils.RunExternalCommand(CConsts.DependsHome, true);
+    }
 }

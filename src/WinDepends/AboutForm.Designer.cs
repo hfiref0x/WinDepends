@@ -41,8 +41,8 @@
             groupBox1 = new GroupBox();
             AboutOSLabel = new Label();
             linkLabel1 = new LinkLabel();
-            label1 = new Label();
             label3 = new Label();
+            linkLabel2 = new LinkLabel();
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBox2).BeginInit();
             groupBox1.SuspendLayout();
@@ -129,7 +129,7 @@
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(56, 57);
+            label2.Location = new Point(56, 55);
             label2.Name = "label2";
             label2.Size = new Size(257, 15);
             label2.TabIndex = 8;
@@ -156,7 +156,7 @@
             // linkLabel1
             // 
             linkLabel1.AutoSize = true;
-            linkLabel1.Location = new Point(56, 118);
+            linkLabel1.Location = new Point(56, 95);
             linkLabel1.Name = "linkLabel1";
             linkLabel1.Size = new Size(284, 15);
             linkLabel1.TabIndex = 10;
@@ -164,31 +164,33 @@
             linkLabel1.Text = "For updates please visit WinDepends on GitHub.com";
             linkLabel1.LinkClicked += LinkLabel1_LinkClicked;
             // 
-            // label1
-            // 
-            label1.AutoSize = true;
-            label1.Location = new Point(56, 77);
-            label1.Name = "label1";
-            label1.Size = new Size(238, 15);
-            label1.TabIndex = 11;
-            label1.Text = "Based on software created by Steve P. Miller";
-            // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(56, 97);
+            label3.Location = new Point(56, 75);
             label3.Name = "label3";
             label3.Size = new Size(230, 15);
             label3.TabIndex = 12;
             label3.Text = "Licensed under MIT software license terms\r\n";
+            // 
+            // linkLabel2
+            // 
+            linkLabel2.AutoSize = true;
+            linkLabel2.Location = new Point(56, 115);
+            linkLabel2.Name = "linkLabel2";
+            linkLabel2.Size = new Size(238, 15);
+            linkLabel2.TabIndex = 13;
+            linkLabel2.TabStop = true;
+            linkLabel2.Text = "Based on software created by Steve P. Miller";
+            linkLabel2.LinkClicked += LinkLabel2_Clicked;
             // 
             // AboutForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(385, 358);
+            Controls.Add(linkLabel2);
             Controls.Add(label3);
-            Controls.Add(label1);
             Controls.Add(linkLabel1);
             Controls.Add(groupBox1);
             Controls.Add(label2);
@@ -231,7 +233,7 @@
         private GroupBox groupBox1;
         private Label AboutOSLabel;
         private LinkLabel linkLabel1;
-        private Label label1;
         private Label label3;
+        private LinkLabel linkLabel2;
     }
 }

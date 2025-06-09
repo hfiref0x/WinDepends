@@ -34,7 +34,7 @@ namespace WinDepends;
 public delegate void UpdateLoadStatusCallback(string status);
 public delegate void UpdateSymbolsStatus(bool enabled);
 public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
-    Color? color = null, bool useBold = false, bool moduleMessage = false);
+    Color? color = null, bool useBold = false, bool moduleMessage = false, CModule relatedModule = null);
 
 /// <summary>
 /// Machine extension to return friendly name of constants.

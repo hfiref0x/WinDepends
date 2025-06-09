@@ -143,6 +143,12 @@ public partial class MainForm : Form
     SortOrder LVExportsSortOrder = SortOrder.Ascending;
     SortOrder LVModulesSortOrder = SortOrder.Ascending;
 
+    private bool isCurrentlyOverLink = false;
+    private int currentLinkInstanceId = 0;
+
+    private ToolTip moduleToolTip = new ToolTip();
+    private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
+
     public MainForm()
     {
         InitializeComponent();
@@ -219,6 +225,11 @@ public partial class MainForm : Form
 
         m_FunctionsHintForm = CreateHintForm(CConsts.HintFormLabelControl);
         m_ModulesHintForm = CreateHintForm(CConsts.HintFormLabelControl);
+
+        moduleToolTip.AutoPopDelay = 2000;
+        moduleToolTip.InitialDelay = 500;
+        moduleToolTip.ReshowDelay = 200;
+        moduleToolTip.ShowAlways = true;
     }
 
     /// <summary>
@@ -303,61 +314,61 @@ public partial class MainForm : Form
                 if (module.ExportContainErrors)
                 {
                     AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
-                        LogMessageType.ErrorOrWarning, null, true, true);
+                        LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
                 if (module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
-                        LogMessageType.ErrorOrWarning, null, true, true);
+                        LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
                 if (module.ModuleData.ImageFixed != 0 && !module.IsKernelModule)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations.",
-                        LogMessageType.ErrorOrWarning, null, true, true);
+                        LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
                 if (!module.IsProcessed)
                 {
                     AddLogMessage($"Module \"{module.FileName}\" was not fully processed.",
                         LogMessageType.ErrorOrWarning,
-                        null, true, true);
+                        null, true, true, module);
                 }
                 break;
 
             case ModuleOpenStatus.ErrorUnspecified:
                 AddLogMessage($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
-                    null, true, true);
+                    null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorSendCommand:
                 AddLogMessage($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true);
+                    null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorReceivedDataInvalid:
                 AddLogMessage($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true);
+                    null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorFileNotMapped:
                 AddLogMessage($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true);
+                    null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorCannotReadFileHeaders:
                 AddLogMessage($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true);
+                    null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
                 if (module.IsDelayLoad)
                 {
                     AddLogMessage($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                        null, true, true);
+                        null, true, true, module);
                 }
                 else
                 {
                     AddLogMessage($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                        null, true, true);
+                        null, true, true, module);
                 }
                 break;
 
@@ -393,7 +404,7 @@ public partial class MainForm : Form
                     }
                 }
 
-                AddLogMessage(messageText, messageType, null, true, true);
+                AddLogMessage(messageText, messageType, null, true, true, module);
                 break;
         }
     }
@@ -646,6 +657,19 @@ public partial class MainForm : Form
         m_LoadedModulesList.Clear();
         LVModules.Invalidate();
     }
+    private void ClearModuleLinks()
+    {
+        moduleLinks.Clear();
+    }
+
+    private void RichEditLog_ClearLog()
+    {
+        if (!reLog.IsDisposed)
+        {
+            reLog.Clear();
+            ClearModuleLinks(); // Clear the links when log is cleared
+        }
+    }
 
     /// <summary>
     /// Reset main form controls.
@@ -665,6 +689,8 @@ public partial class MainForm : Form
 
         ResetFunctionLists();
         ResetModulesList();
+
+        ClearModuleLinks();
 
         //
         // Force garbage collection.
@@ -962,6 +988,7 @@ public partial class MainForm : Form
         try
         {
             CleanupHintForms();
+            ClearModuleLinks();
 
             if (m_MRUList != null && m_Configuration != null)
             {
@@ -982,13 +1009,14 @@ public partial class MainForm : Form
     /// <summary>
     /// Adds message to the log.
     /// </summary>
-    /// <param name="message"></param>
-    /// <param name="messageType"></param>
-    /// <param name="color"></param>
-    /// <param name="useBold"></param>
-    /// <param name="moduleMessage"></param>
+    /// <param name="message">Text message to add to the log</param>
+    /// <param name="messageType">Type of the message</param>
+    /// <param name="color">Optional custom color</param>
+    /// <param name="useBold">Whether to use bold font</param>
+    /// <param name="moduleMessage">Whether this is a module-related message</param>
+    /// <param name="relatedModule">The module related to this message to create a clickable link</param>
     public void AddLogMessage(string message, LogMessageType messageType,
-        Color? color = null, bool useBold = false, bool moduleMessage = false)
+        Color? color = null, bool useBold = false, bool moduleMessage = false, CModule relatedModule = null)
     {
         Color outputColor = Color.Black;
         bool boldText = false;
@@ -1027,7 +1055,59 @@ public partial class MainForm : Form
             m_Depends.ModuleAnalysisLog.Add(new LogEntry(message, outputColor));
         }
 
-        reLog.AppendText(message, outputColor, boldText);
+        if (!reLog.IsDisposed)
+        {
+            reLog.SuspendLayout();
+
+            int startPosition = reLog.TextLength;
+            reLog.AppendText(message + Environment.NewLine);
+
+            // First apply the overall style to the entire message
+            reLog.Select(startPosition, reLog.TextLength - startPosition);
+            reLog.SelectionColor = outputColor;
+
+            if (boldText)
+            {
+                reLog.SelectionFont = new Font(reLog.Font, FontStyle.Bold);
+            }
+
+            if (relatedModule != null)
+            {
+                string justFileName = Path.GetFileName(relatedModule.FileName);
+
+                string[] patternsToCheck = {
+                $"\"{justFileName}\"",     // "filename.dll"
+                $"{justFileName}"          // filename.dll
+            };
+
+                foreach (var pattern in patternsToCheck)
+                {
+                    int moduleNameIndex = message.IndexOf(pattern);
+                    if (moduleNameIndex >= 0)
+                    {
+                        // Calculate the exact position in the RichTextBox
+                        int linkStart = startPosition + moduleNameIndex;
+                        int linkLength = pattern.Length;
+
+                        // Apply ONLY underline to the module name, preserving the color
+                        reLog.Select(linkStart, linkLength);
+                        Font currentFont = reLog.SelectionFont;
+                        reLog.SelectionFont = new Font(
+                            currentFont.FontFamily,
+                            currentFont.Size,
+                            currentFont.Style | FontStyle.Underline);
+
+                        // Store the link information
+                        moduleLinks[(linkStart, linkLength)] = relatedModule.InstanceId;
+                        break;
+                    }
+                }
+            }
+
+            reLog.SelectionLength = 0;
+            reLog.ScrollToCaret();
+            reLog.ResumeLayout();
+        }
     }
 
     private void PostOpenFileUpdateControls(string fileName)
@@ -1084,7 +1164,7 @@ public partial class MainForm : Form
         {
             if (m_Configuration.ClearLogOnFileOpen)
             {
-                reLog.Clear();
+                RichEditLog_ClearLog();
             }
             bResult = OpenSessionFile(fileName);
         }
@@ -1132,7 +1212,7 @@ public partial class MainForm : Form
 
             if (m_Configuration.ClearLogOnFileOpen)
             {
-                reLog.Clear();
+                RichEditLog_ClearLog();
             }
 
             m_ParentImportsHashTable.Clear();
@@ -2249,6 +2329,7 @@ public partial class MainForm : Form
     private void MenuClearLogItem_Click(object sender, EventArgs e)
     {
         reLog.Clear();
+        ClearModuleLinks();
     }
 
     private void MenuExitItem_Click(object sender, EventArgs e)
@@ -3957,6 +4038,100 @@ public partial class MainForm : Form
         finally
         {
             _disposingHintForms = false;
+        }
+    }
+
+    private void FindAndSelectModuleNode(int instanceId)
+    {
+        TreeNode foundNode = FindModuleNodeByInstanceId(TVModules.Nodes, instanceId);
+        if (foundNode != null)
+        {
+            TreeNode parent = foundNode.Parent;
+            while (parent != null)
+            {
+                parent.Expand();
+                parent = parent.Parent;
+            }
+
+            TVModules.SelectedNode = foundNode;
+            foundNode.EnsureVisible();
+
+            TVModules.Focus();
+        }
+    }
+
+    private TreeNode FindModuleNodeByInstanceId(TreeNodeCollection nodes, int instanceId)
+    {
+        foreach (TreeNode node in nodes)
+        {
+            if (node.Tag is CModule module && module.InstanceId == instanceId)
+            {
+                return node;
+            }
+
+            TreeNode found = FindModuleNodeByInstanceId(node.Nodes, instanceId);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private void RichEditLog_MouseClick(object sender, MouseEventArgs e)
+    {
+        // Get the character index at the mouse position
+        int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
+
+        foreach (var link in moduleLinks)
+        {
+            var (start, length) = link.Key;
+            int instanceId = link.Value;
+
+            if (charIndex >= start && charIndex < start + length)
+            {
+                FindAndSelectModuleNode(instanceId);
+                break;
+            }
+        }
+    }
+
+    private void RichEditLog_MouseMove(object sender, MouseEventArgs e)
+    {
+        // Get character index at current mouse position
+        int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
+
+        // Check if we're over a link
+        bool overLink = false;
+        int instanceId = 0;
+
+        foreach (var link in moduleLinks)
+        {
+            var (start, length) = link.Key;
+            if (charIndex >= start && charIndex < start + length)
+            {
+                overLink = true;
+                instanceId = link.Value;
+                break;
+            }
+        }
+
+        // Only change cursor if state changed
+        if (overLink != isCurrentlyOverLink ||
+            (overLink && instanceId != currentLinkInstanceId))
+        {
+            reLog.Cursor = overLink ? Cursors.Hand : Cursors.Default;
+            isCurrentlyOverLink = overLink;
+            currentLinkInstanceId = instanceId;
+           
+            CModule module = m_LoadedModulesList.FirstOrDefault(m => m.InstanceId == instanceId);
+            if (module != null)
+            {
+                string tooltipText = $"Click to navigate to module: {Path.GetFileName(module.FileName)}";
+                if (moduleToolTip.GetToolTip(reLog) != tooltipText)
+                    moduleToolTip.SetToolTip(reLog, tooltipText);
+            }
         }
     }
 }

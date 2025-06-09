@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        31 May 2025
+*  DATE:        09 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -188,6 +188,7 @@ public static class CConsts
     //
     public const string WinDependsHome = "https://github.com/hfiref0x/WinDepends";
     public const string WinDependsDocs = "https://github.com/hfiref0x/WinDepends.Docs";
+    public const string DependsHome = "https://www.dependencywalker.com/";
 
     //
     // WinDepends server app.

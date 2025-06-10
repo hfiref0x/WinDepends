@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       FINDDIALOGFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Dec 2024
+*  DATE:        10 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -26,6 +26,41 @@ public partial class FindDialogForm : Form
         InitializeComponent();
         mainForm = parent;
         escKeyEnabled = bEscKeyEnabled;
+
+        this.StartPosition = FormStartPosition.Manual;
+        this.TopMost = false;
+
+        PositionDialogRelativeToMainForm();
+
+        // Keep FindDialog position relative to MainForm which is cool
+        mainForm.Move += (s, e) => PositionDialogRelativeToMainForm();
+        mainForm.Resize += (s, e) => PositionDialogRelativeToMainForm();
+    }
+
+    private void PositionDialogRelativeToMainForm()
+    {
+        if (mainForm != null && !mainForm.IsDisposed)
+        {
+            Point mainFormPoint = mainForm.PointToScreen(new Point(0, 0));
+            this.Location = new Point(
+                mainFormPoint.X + mainForm.Width - this.Width - 20,
+                mainFormPoint.Y + 100);
+        }
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        FindTextBox.Focus();
+        FindTextBox.SelectAll();
+        CenterToParent();
+    }
+
+    // Override shown event to ensure it starts centered
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        CenterToParent();
     }
 
     private void FindTextBox_TextChanged(object sender, EventArgs e)
@@ -63,8 +98,22 @@ public partial class FindDialogForm : Form
     {
         if (e.KeyCode == Keys.Escape && escKeyEnabled)
         {
-            this.Close();
+            this.Hide();
         }
     }
 
+    private void FindDialogForm_Closing(object sender, FormClosingEventArgs e)
+    {
+        if (e.CloseReason == CloseReason.UserClosing &&
+            mainForm != null && !mainForm.IsDisposed)
+        {
+            e.Cancel = true;
+            this.Hide();
+        }
+    }
+
+    private void FindDialog_Cancel(object sender, EventArgs e)
+    {
+        this.Hide();
+    }
 }

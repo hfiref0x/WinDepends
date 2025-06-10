@@ -756,7 +756,7 @@ public partial class ConfigurationForm : Form
     {
         if (sender is not TreeView view || view.SelectedNode == null)
             return;
-        
+
         var bMoveButtonsEnabled = true;
         bool bEnableDelButton = false;
 

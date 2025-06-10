@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Jun 2025
+*  DATE:        10 Jun 2025
 *  
 *  Codename:    VasilEk
 *
@@ -105,6 +105,8 @@ public partial class MainForm : Form
     public int LogSearchPosition { get; set; }
     public string LogFindText { get; set; }
     public int LogIndexOfSearchText { get; set; }
+    private FindDialogForm _findDialog;
+
 
     readonly Dictionary<uint, string> m_DebugAbbreviations = new()
     {
@@ -146,7 +148,7 @@ public partial class MainForm : Form
     private bool isCurrentlyOverLink = false;
     private int currentLinkInstanceId = 0;
 
-    private ToolTip moduleToolTip = new ToolTip();
+    private readonly ToolTip moduleToolTip = new ToolTip();
     private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
 
     public MainForm()
@@ -989,6 +991,7 @@ public partial class MainForm : Form
         {
             CleanupHintForms();
             ClearModuleLinks();
+            moduleToolTip?.Dispose();
 
             if (m_MRUList != null && m_Configuration != null)
             {
@@ -2421,91 +2424,196 @@ public partial class MainForm : Form
         }
     }
 
-    static int reLogOldSelectStart, reLogOldSelectEnd;
-    static Color reLogOldColor, reLogOldBkColor;
-
-    public int FindMyText(string txtToSearch, int searchStart, int searchEnd)
+    /// <summary>
+    /// Text search in the rich edit log
+    /// </summary>
+    /// <param name="searchText">Text to find</param>
+    /// <param name="startIndex">Position to start search from</param>
+    /// <param name="options">Search options</param>
+    /// <returns>Index of found text or -1 if not found</returns>
+    private int FindMyText(string searchText, int startIndex, RichTextBoxFinds options)
     {
-        if (reLogOldSelectStart > 0 && reLogOldSelectEnd > 0)
+        if (string.IsNullOrEmpty(searchText) || reLog.TextLength == 0)
+            return -1;
+
+        if (!options.HasFlag(RichTextBoxFinds.Reverse) && startIndex >= reLog.TextLength)
+            startIndex = 0;
+
+        if (options.HasFlag(RichTextBoxFinds.Reverse) && startIndex <= 0)
+            startIndex = reLog.TextLength;
+
+        if (reLog.TextLength > 500000) // >500KB
         {
-            reLog.SelectionBackColor = reLogOldBkColor;
-            reLog.SelectionColor = reLogOldColor;
-            reLog.Select(reLogOldSelectStart, reLogOldSelectEnd);
+            return FindMyTextChunked(searchText, startIndex, options);
         }
 
-        int retVal = -1;
-
-        if (searchStart >= 0 && LogIndexOfSearchText >= 0)
+        int result = reLog.Find(searchText, startIndex, options);
+        if (result == -1)
         {
-            if (searchEnd > searchStart || searchEnd == -1)
+            if (!options.HasFlag(RichTextBoxFinds.Reverse))
             {
-                LogIndexOfSearchText = reLog.Find(txtToSearch, searchStart, searchEnd, RichTextBoxFinds.None);
-                if (LogIndexOfSearchText != -1)
-                {
-                    retVal = LogIndexOfSearchText;
-                }
+                result = reLog.Find(searchText, 0, options);
+            }
+            else
+            {
+                result = reLog.Find(searchText, reLog.TextLength, options);
             }
         }
-        return retVal;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Performs search in chunks for very large logs to maintain UI responsiveness
+    /// </summary>
+    private int FindMyTextChunked(string searchText, int startIndex, RichTextBoxFinds options)
+    {
+        reLog.SuspendLayout();
+
+        try
+        {
+            const int ChunkSize = 200000; // 200KB chunks
+            bool isReverse = options.HasFlag(RichTextBoxFinds.Reverse);
+
+            int chunkStart, chunkEnd;
+
+            if (!isReverse)
+            {
+                chunkStart = startIndex;
+                chunkEnd = Math.Min(chunkStart + ChunkSize, reLog.TextLength);
+            }
+            else
+            {
+                chunkStart = Math.Max(0, startIndex - ChunkSize);
+                chunkEnd = startIndex;
+            }
+
+            int result = reLog.Find(searchText, chunkStart, chunkEnd - chunkStart, options);
+
+            if (result != -1)
+                return result;
+
+            if (!isReverse)
+            {
+                for (int pos = chunkEnd; pos < reLog.TextLength; pos += ChunkSize)
+                {
+                    int end = Math.Min(pos + ChunkSize, reLog.TextLength);
+                    result = reLog.Find(searchText, pos, end - pos, options);
+
+                    if (result != -1)
+                        return result;
+                }
+
+                for (int pos = 0; pos < startIndex; pos += ChunkSize)
+                {
+                    int end = Math.Min(pos + ChunkSize, startIndex);
+                    result = reLog.Find(searchText, pos, end - pos, options);
+
+                    if (result != -1)
+                        return result;
+                }
+            }
+            else
+            {
+                for (int pos = chunkStart; pos > 0; pos = Math.Max(0, pos - ChunkSize))
+                {
+                    int start = pos;
+                    int length = Math.Min(ChunkSize, pos);
+                    result = reLog.Find(searchText, start - length, length, options);
+
+                    if (result != -1)
+                        return result;
+
+                    if (pos < ChunkSize) break;
+                }
+
+                for (int pos = reLog.TextLength; pos > startIndex; pos -= ChunkSize)
+                {
+                    int start = pos;
+                    int length = Math.Min(ChunkSize, pos - startIndex);
+                    result = reLog.Find(searchText, start - length, length, options);
+
+                    if (result != -1)
+                        return result;
+                }
+            }
+
+            return -1;
+        }
+        finally
+        {
+            reLog.ResumeLayout();
+        }
     }
 
     public void LogFindString()
     {
         if (string.IsNullOrEmpty(LogFindText))
-        {
             return;
+
+        this.Activate();
+        reLog.Focus();
+
+        int startPos = LogSearchPosition;
+
+        if (LogIndexOfSearchText >= 0 && LogIndexOfSearchText == reLog.SelectionStart &&
+            reLog.SelectionLength == LogFindText.Length)
+        {
+            if (!LogFindOptions.HasFlag(RichTextBoxFinds.Reverse))
+                startPos = LogIndexOfSearchText + LogFindText.Length;
+            else
+                startPos = LogIndexOfSearchText;
         }
 
-        int startindex;
-        LogIndexOfSearchText = 0;
-        startindex = FindMyText(LogFindText.Trim(), LogSearchPosition, reLog.Text.Length);
+        int index = FindMyText(LogFindText, startPos, LogFindOptions);
 
-        if (startindex >= 0)
+        if (index != -1)
         {
-            int endindex = LogFindText.Length;
-
-            reLogOldColor = reLog.SelectionColor;
-            reLogOldBkColor = reLog.SelectionBackColor;
-            reLogOldSelectStart = startindex;
-            reLogOldSelectEnd = endindex;
-
-            reLog.SelectionBackColor = Color.Black;
-            reLog.SelectionColor = Color.LightGreen;
-            reLog.Select(startindex, endindex);
+            reLog.Select(index, LogFindText.Length);
             reLog.ScrollToCaret();
-            LogSearchPosition = startindex + endindex;
+
+            LogSearchPosition = !LogFindOptions.HasFlag(RichTextBoxFinds.Reverse)
+                ? index + LogFindText.Length
+                : index - 1;
+
+            LogIndexOfSearchText = index;
         }
         else
         {
-            LogSearchPosition = 0;
+            reLog.SelectionLength = 0;
+            LogIndexOfSearchText = -1;
         }
-
     }
 
-    private void RichEditLog_Click(object sender, EventArgs e)
+    private void ShowFindDialog()
     {
-        int selStart = reLog.SelectionStart;
-        int selLength = reLog.SelectionLength;
-
-        if (reLogOldSelectStart > 0 && reLogOldSelectEnd > 0)
+        // If dialog doesn't exist or was disposed, create a new one
+        if (_findDialog == null || _findDialog.IsDisposed)
         {
-            reLog.Select(reLogOldSelectStart, reLogOldSelectEnd);
-            reLog.SelectionBackColor = reLogOldBkColor;
-            reLog.SelectionColor = reLogOldColor;
-            reLog.SelectionStart = selStart;
-            reLog.SelectionLength = selLength;
-        }
+            _findDialog = new FindDialogForm(this, m_Configuration.EscKeyEnabled);
 
+            this.FormClosing += (s, e) =>
+            {
+                if (_findDialog != null && !_findDialog.IsDisposed)
+                {
+                    _findDialog.Close();
+                    _findDialog.Dispose();
+                }
+            };
+
+            _findDialog.Owner = this;
+            _findDialog.Show();
+        }
+        else
+        {
+            _findDialog.Show();
+            _findDialog.Activate();
+        }
     }
 
     private void FindMenuItem_Click(object sender, EventArgs e)
     {
-        LogFindText = string.Empty;
-        LogSearchPosition = 0;
-        using (FindDialogForm FindDialog = new(this, m_Configuration.EscKeyEnabled))
-        {
-            FindDialog.ShowDialog();
-        }
+        ShowFindDialog();
     }
 
     private void FindNextMenuItemClick(object sender, EventArgs e)
@@ -2804,49 +2912,6 @@ public partial class MainForm : Form
                 function.ResolveFunctionKind(module, modulesList, m_ParentImportsHashTable);
             }
         }
-    }
-
-    private class CModuleComparer(SortOrder sortOrder, int fieldIndex, bool fullPaths) : IComparer<CModule>
-    {
-        private int FieldIndex { get; } = fieldIndex;
-        private SortOrder SortOrder { get; } = sortOrder;
-
-        public int Compare(CModule x, CModule y)
-        {
-            int comparisonResult = FieldIndex switch
-            {
-                _ when FieldIndex == (int)ModulesColumns.Name && !fullPaths =>
-                    string.Compare(Path.GetFileName(x.FileName), Path.GetFileName(y.FileName), StringComparison.Ordinal),
-                (int)ModulesColumns.Image => x.ModuleImageIndex.CompareTo(y.ModuleImageIndex),
-                (int)ModulesColumns.LinkChecksum => x.ModuleData.LinkChecksum.CompareTo(y.ModuleData.LinkChecksum),
-                (int)ModulesColumns.RealChecksum => x.ModuleData.RealChecksum.CompareTo(y.ModuleData.RealChecksum),
-                (int)ModulesColumns.VirtualSize => x.ModuleData.VirtualSize.CompareTo(y.ModuleData.VirtualSize),
-                (int)ModulesColumns.PrefferedBase => x.ModuleData.PreferredBase.CompareTo(y.ModuleData.PreferredBase),
-                (int)ModulesColumns.LinkTimeStamp => x.ModuleData.LinkTimeStamp.CompareTo(y.ModuleData.LinkTimeStamp),
-                (int)ModulesColumns.FileTimeStamp => x.ModuleData.FileTimeStamp.CompareTo(y.ModuleData.FileTimeStamp),
-                (int)ModulesColumns.FileSize => x.ModuleData.FileSize.CompareTo(y.ModuleData.FileSize),
-                (int)ModulesColumns.Name => x.FileName.CompareTo(y.FileName),
-                _ => string.Compare(x.ToString(), y.ToString(), StringComparison.Ordinal)
-            };
-
-            return SortOrder == SortOrder.Descending ? -comparisonResult : comparisonResult;
-        }
-    }
-
-    private class CFunctionComparer(SortOrder sortOrder, int fieldIndex) : IComparer<CFunction>
-    {
-        private int FieldIndex { get; } = fieldIndex;
-        private SortOrder SortOrder { get; } = sortOrder;
-
-        public int Compare(CFunction x, CFunction y) =>
-            (FieldIndex) switch
-            {
-                (int)FunctionsColumns.EntryPoint => x.IsForward() && y.IsForward() ? string.Compare(x.ForwardName, y.ForwardName) : x.Address.CompareTo(y.Address),
-                (int)FunctionsColumns.Ordinal => x.Ordinal.CompareTo(y.Ordinal),
-                (int)FunctionsColumns.Hint => x.Hint.CompareTo(y.Hint),
-                (int)FunctionsColumns.Name => !string.IsNullOrEmpty(x.UndecoratedName) && !string.IsNullOrEmpty(y.UndecoratedName) ? x.UndecoratedName.CompareTo(y.UndecoratedName) : x.RawName.CompareTo(y.RawName),
-                (int)FunctionsColumns.Image or _ => x.Kind.CompareTo(y.Kind)
-            } * (SortOrder == SortOrder.Descending ? -1 : 1);
     }
 
     private static void UpdateListViewColumnSortMark(ListView listView, int columnIndex, SortOrder sortOrder)
@@ -3406,7 +3471,8 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVExportsRetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
     {
-        if (LVExportsCache != null && e.ItemIndex >= LVExportsFirstItem &&
+        if (LVExportsCache != null &&
+            e.ItemIndex >= LVExportsFirstItem &&
             e.ItemIndex < LVExportsFirstItem + LVExportsCache.Length)
         {
             e.Item = LVExportsCache[e.ItemIndex - LVExportsFirstItem];
@@ -3426,7 +3492,8 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVImportsRetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
     {
-        if (LVImportsCache != null && e.ItemIndex >= LVImportsFirstItem &&
+        if (LVImportsCache != null &&
+            e.ItemIndex >= LVImportsFirstItem &&
             e.ItemIndex < LVImportsFirstItem + LVImportsCache.Length)
         {
             e.Item = LVImportsCache[e.ItemIndex - LVImportsFirstItem];
@@ -3446,7 +3513,8 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVModulesRetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
     {
-        if (LVModulesCache != null && e.ItemIndex >= LVModulesFirstItem &&
+        if (LVModulesCache != null &&
+            e.ItemIndex >= LVModulesFirstItem &&
             e.ItemIndex < LVModulesFirstItem + LVModulesCache.Length)
         {
             e.Item = LVModulesCache[e.ItemIndex - LVModulesFirstItem];
@@ -3930,9 +3998,7 @@ public partial class MainForm : Form
     {
         ShutdownInProgress = true;
 
-        //
         // Remember window position, size and state.
-        //
         Rectangle bounds = this.WindowState == FormWindowState.Normal
             ? this.Bounds
             : this.RestoreBounds;
@@ -4041,6 +4107,9 @@ public partial class MainForm : Form
         }
     }
 
+    /// <summary>
+    /// Finds a module node in the tree view by instance ID and selects it
+    /// </summary>
     private void FindAndSelectModuleNode(int instanceId)
     {
         TreeNode foundNode = FindModuleNodeByInstanceId(TVModules.Nodes, instanceId);
@@ -4060,43 +4129,65 @@ public partial class MainForm : Form
         }
     }
 
-    private TreeNode FindModuleNodeByInstanceId(TreeNodeCollection nodes, int instanceId)
+    /// <summary>
+    /// Recursively finds a tree node by module instance ID
+    /// </summary>
+    /// <param name="nodes">Collection of tree nodes to search</param>
+    /// <param name="instanceId">Module instance ID to find</param>
+    /// <returns>The found tree node or null</returns>
+    private static TreeNode FindModuleNodeByInstanceId(TreeNodeCollection nodes, int instanceId)
     {
-        foreach (TreeNode node in nodes)
+        Queue<TreeNode> nodesToSearch = new Queue<TreeNode>();
+
+        foreach (TreeNode rootNode in nodes)
         {
-            if (node.Tag is CModule module && module.InstanceId == instanceId)
+            nodesToSearch.Enqueue(rootNode);
+        }
+
+        while (nodesToSearch.Count > 0)
+        {
+            TreeNode currentNode = nodesToSearch.Dequeue();
+
+            if (currentNode?.Tag is CModule module && module.InstanceId == instanceId)
             {
-                return node;
+                return currentNode;
             }
 
-            TreeNode found = FindModuleNodeByInstanceId(node.Nodes, instanceId);
-            if (found != null)
+            foreach (TreeNode childNode in currentNode.Nodes)
             {
-                return found;
+                nodesToSearch.Enqueue(childNode);
             }
         }
 
         return null;
     }
 
+    /// <summary>
+    /// Handles clicks on module links in the log
+    /// </summary>
     private void RichEditLog_MouseClick(object sender, MouseEventArgs e)
     {
-        // Get the character index at the mouse position
-        int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
-
-        foreach (var link in moduleLinks)
+        if (e.Button == MouseButtons.Left)
         {
-            var (start, length) = link.Key;
-            int instanceId = link.Value;
+            int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
 
-            if (charIndex >= start && charIndex < start + length)
+            foreach (var link in moduleLinks)
             {
-                FindAndSelectModuleNode(instanceId);
-                break;
+                var (start, length) = link.Key;
+                int instanceId = link.Value;
+
+                if (charIndex >= start && charIndex < start + length)
+                {
+                    FindAndSelectModuleNode(instanceId);
+                    return;
+                }
             }
         }
     }
 
+    /// <summary>
+    /// Handles mouse movement over the rich text log to provide cursor feedback for module links
+    /// </summary>
     private void RichEditLog_MouseMove(object sender, MouseEventArgs e)
     {
         // Get character index at current mouse position
@@ -4124,7 +4215,7 @@ public partial class MainForm : Form
             reLog.Cursor = overLink ? Cursors.Hand : Cursors.Default;
             isCurrentlyOverLink = overLink;
             currentLinkInstanceId = instanceId;
-           
+
             CModule module = m_LoadedModulesList.FirstOrDefault(m => m.InstanceId == instanceId);
             if (module != null)
             {

@@ -120,7 +120,7 @@ public static class CConsts
     /// <summary>
     /// Count of LVModules columns.
     /// </summary>
-    public const int ModulesColumnsCount = 20;
+    public const int ModuleColumnsCount = 20;
 
     /// <summary>
     /// Setting value names.
@@ -265,7 +265,7 @@ public enum FunctionsColumns : int
 /// <summary>
 /// LVModules column indexes.
 /// </summary>
-public enum ModulesColumns : int
+public enum ModuleColumns : int
 {
     Image = 0,
     Name,
@@ -290,14 +290,14 @@ public enum ModulesColumns : int
     SubsystemVer
 }
 
-public static class ModulesColumnsExtension
+public static class ModuleColumnsExtension
 {
     /// <summary>
-    /// Return ModulesColumns enum value as int.
+    /// Return ModuleColumns enum value as int.
     /// </summary>
     /// <param name="column"></param>
     /// <returns></returns>
-    public static int ToInt(this ModulesColumns column)
+    public static int ToInt(this ModuleColumns column)
     {
         return (int)column;
     }

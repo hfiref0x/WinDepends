@@ -195,7 +195,7 @@ public class CConfiguration
             UpperCaseModuleNames = true;
             ShowToolBar = true;
             ShowStatusBar = true;
-            SortColumnModules = ModulesColumns.Name.ToInt();
+            SortColumnModules = ModuleColumns.Name.ToInt();
             ModuleNodeDepthMax = CConsts.ModuleNodeDepthDefault;
             CompressSessionFiles = true;
             HistoryDepth = CConsts.HistoryDepthDefault;

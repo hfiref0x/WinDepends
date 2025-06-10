@@ -73,6 +73,7 @@
             button2.TabIndex = 3;
             button2.Text = "Cancel";
             button2.UseVisualStyleBackColor = true;
+            button2.Click += FindDialog_Cancel;
             // 
             // MatchWholeCheckBox
             // 
@@ -117,6 +118,7 @@
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "Find";
+            FormClosing += FindDialogForm_Closing;
             Load += FindDialogForm_Load;
             KeyDown += FindDialogForm_KeyDown;
             ResumeLayout(false);

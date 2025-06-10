@@ -6,9 +6,9 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Jun 2025
+*  DATE:        10 Jun 2025
 *  
-*  Implementation of base CModule class.
+*  Implementation of base CModule and CModuleComparer classes.
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -21,37 +21,122 @@ using System.Runtime.Serialization;
 
 namespace WinDepends;
 
+/// <summary>
+/// Flags that represent the status and properties of a module within the dependency tree.
+/// </summary>
 [Flags]
 public enum ModuleInfoFlags : uint
 {
+    /// <summary>
+    /// Indicates a normal module with no special conditions.
+    /// </summary>
     Normal = 0x100,
+
+    /// <summary>
+    /// Indicates that the module is a duplicate of another module already processed in the tree.
+    /// </summary>
     Duplicate = 0x200,
+
+    /// <summary>
+    /// Indicates that the module has errors in its export table.
+    /// </summary>
     ExportError = 0x400,
+
+    /// <summary>
+    /// Indicates a duplicate module that also has errors in its export table.
+    /// </summary>
     DuplicateExportError = 0x800,
+
+    /// <summary>
+    /// Indicates that the module file could not be found on disk.
+    /// </summary>
     FileNotFound = 0x1000,
+
+    /// <summary>
+    /// Indicates that the module is invalid or corrupted.
+    /// </summary>
     Invalid = 0x2000,
+
+    /// <summary>
+    /// Indicates that the module has other errors not specifically categorized.
+    /// </summary>
     WarningOtherErrors = 0x4000
 }
 
+/// <summary>
+/// Represents file system attributes of a file.
+/// </summary>
 [Flags]
 public enum FileAttributes : uint
 {
+    /// <summary>
+    /// The file is read-only.
+    /// </summary>
     ReadOnly = 0x1,
+
+    /// <summary>
+    /// The file is hidden.
+    /// </summary>
     Hidden = 0x2,
+
+    /// <summary>
+    /// The file is a system file.
+    /// </summary>
     System = 0x4,
 
+    /// <summary>
+    /// The file is a directory.
+    /// </summary>
     Directory = 0x10,
+
+    /// <summary>
+    /// The file has been archived.
+    /// </summary>
     Archive = 0x20,
+
+    /// <summary>
+    /// The file is a device.
+    /// </summary>
     Device = 0x40,
+
+    /// <summary>
+    /// The file is normal and has no other attributes set.
+    /// </summary>
     Normal = 0x80,
 
+    /// <summary>
+    /// The file is temporary.
+    /// </summary>
     Temporary = 0x100,
+
+    /// <summary>
+    /// The file is a sparse file.
+    /// </summary>
     SparseFile = 0x200,
+
+    /// <summary>
+    /// The file is a reparse point.
+    /// </summary>
     ReparsePoint = 0x400,
+
+    /// <summary>
+    /// The file is compressed.
+    /// </summary>
     Compressed = 0x800,
 
+    /// <summary>
+    /// The file is offline. The data of the file is not immediately available.
+    /// </summary>
     Offline = 0x1000,
+
+    /// <summary>
+    /// The file will not be indexed by the content indexing service.
+    /// </summary>
     NotContextIndexed = 0x2000,
+
+    /// <summary>
+    /// The file or directory is encrypted.
+    /// </summary>
     Encrypted = 0x4000
 }
 
@@ -78,27 +163,100 @@ public static class FileAttributesExtension
     }
 }
 
+/// <summary>
+/// Represents types of debug directory entries found in PE files.
+/// </summary>
 [FlagsAttribute]
 public enum DebugEntryType : uint
 {
+    /// <summary>
+    /// Unknown debug information format.
+    /// </summary>
     Unknown = 0,
+
+    /// <summary>
+    /// COFF debug information.
+    /// </summary>
     Coff = 1,
+
+    /// <summary>
+    /// CodeView debug information format.
+    /// </summary>
     CodeView = 2,
+
+    /// <summary>
+    /// Frame Pointer Omission debug information.
+    /// </summary>
     Fpo = 3,
+
+    /// <summary>
+    /// Miscellaneous debug information.
+    /// </summary>
     Misc = 4,
+
+    /// <summary>
+    /// Exception information.
+    /// </summary>
     Exception = 5,
+
+    /// <summary>
+    /// Fixup information.
+    /// </summary>
     Fixup = 6,
+
+    /// <summary>
+    /// Source to object map information.
+    /// </summary>
     OmapToSrc = 7,
+
+    /// <summary>
+    /// Object to source map information.
+    /// </summary>
     OmapFromSrc = 8,
+
+    /// <summary>
+    /// Borland-specific debug information.
+    /// </summary>
     Borland = 9,
+
+    /// <summary>
+    /// Reserved for future use.
+    /// </summary>
     Reserved10 = 10,
+
+    /// <summary>
+    /// CLSID-specific information.
+    /// </summary>
     Clsid = 11,
+
+    /// <summary>
+    /// Reproducible build information.
+    /// </summary>
     Reproducible = 16,
+
+    /// <summary>
+    /// Embedded portable PDB debug information.
+    /// </summary>
     EmbeddedPortablePdb = 17,
+
+    /// <summary>
+    /// PDB checksum information.
+    /// </summary>
     PdbChecksum = 19,
+
+    /// <summary>
+    /// Extended characteristics information.
+    /// </summary>
     ExtendedCharacteristics = 20
 }
 
+/// <summary>
+/// Represents the visual type of a module for display in the tree view.
+/// </summary>
+/// <remarks>
+/// This enum provides values that correspond to image indices in the application's image list,
+/// representing different types and states of modules.
+/// </remarks>
 public enum ModuleIconType
 {
     /// <summary>
@@ -321,6 +479,13 @@ public enum ModuleIconType
     DynamicMappedModule64NoExecWarning
 }
 
+/// <summary>
+/// Represents the visual type of a module for display in list view (compact mode).
+/// </summary>
+/// <remarks>
+/// This enum provides values that correspond to image indices in the application's compact image list,
+/// representing different types and states of modules in a more consolidated form than <see cref="ModuleIconType"/>.
+/// </remarks>
 public enum ModuleIconCompactType
 {
     /// <summary>
@@ -436,6 +601,13 @@ public enum ModuleIconCompactType
     MappedModule64NoExec
 }
 
+/// <summary>
+/// Contains data about a module's PE file structure and metadata.
+/// </summary>
+/// <remarks>
+/// This class stores detailed information about a module's PE file structure,
+/// including headers, characteristics, checksums, version information, and exports.
+/// </remarks>
 [DataContract]
 public class CModuleData
 {
@@ -479,22 +651,32 @@ public class CModuleData
     public string SubsystemVersion { get; set; }
     [DataMember]
     public uint ImageFixed { get; set; } = 0;
-    //
-    // Module debug directories.
-    //
+
+    /// <summary>
+    /// Gets or sets the list of debug directory entry types in the module.
+    /// </summary>
+    /// <value>A list of debug directory types found in the module.</value>
     [DataMember]
     public List<uint> DebugDirTypes { get; set; } = [];
 
-    //
-    // Module exports.
-    //
+    /// <summary>
+    /// Gets or sets the list of exported functions from this module.
+    /// </summary>
+    /// <value>A list of <see cref="CFunction"/> objects representing the module's exports.</value>
     [DataMember]
     public List<CFunction> Exports { get; set; } = [];
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CModuleData"/> class.
+    /// </summary>
     public CModuleData()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CModuleData"/> class by copying another instance.
+    /// </summary>
+    /// <param name="other">The <see cref="CModuleData"/> object to copy from.</param>
     public CModuleData(CModuleData other)
     {
         FileTimeStamp = other.FileTimeStamp;
@@ -523,84 +705,256 @@ public class CModuleData
     }
 }
 
+/// <summary>
+/// Represents a module (PE format binary) in the dependency tree.
+/// </summary>
+/// <remarks>
+/// This class encapsulates a module's metadata, status, and relationships with other modules.
+/// It provides methods to analyze module properties, determine icon types for display,
+/// and manage exports and imports.
+/// </remarks>
 [DataContract]
 public class CModule
 {
-    [DataMember]
-    public Guid ModuleGuid { get; set; }
-
-    //
-    //  Module instance id, representing module, generated as GetHashCode()
-    //
+    /// <summary>
+    /// Gets or sets the unique instance identifier for this module in the dependency tree.
+    /// </summary>
+    /// <value>
+    /// A unique identifier for this specific instance of the module.
+    /// </value>
+    /// <remarks>
+    /// The instance ID allows distinguishing between multiple instances of the same
+    /// module that may appear at different places in the dependency tree.
+    /// </remarks>
     [DataMember]
     public int InstanceId { get; set; }
-    //
-    // Original instance of module, if we are duplicate.
-    //
+
+    /// <summary>
+    /// Gets or sets the original instance ID if this module is a duplicate.
+    /// </summary>
+    /// <value>
+    /// The instance ID of the original module, or 0 if this is the original instance.
+    /// </value>
+    /// <remarks>
+    /// When a module appears multiple times in the dependency tree, only one instance
+    /// is fully processed, and duplicates reference that instance through this property.
+    /// </remarks>
     [DataMember]
     public int OriginalInstanceId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the image index for displaying this module in lists and trees.
+    /// </summary>
+    /// <value>
+    /// The index into the application's image list for module icons.
+    /// </value>
     [DataMember]
     public int ModuleImageIndex { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this module has been processed.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if this module has been fully analyzed; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool IsProcessed { get; set; }
+
+    /// <summary>
+    /// Gets or sets the depth of this module in the dependency tree.
+    /// </summary>
+    /// <value>
+    /// The level of this module in the tree, with 0 being the root module.
+    /// </value>
     [DataMember]
     public int Depth { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this module is a forwarded module.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if this module is referenced via a forwarded export; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool IsForward { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this module is delay-loaded.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if this module is loaded when needed rather than at process startup; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool IsDelayLoad { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the module file could not be found.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if the module file was not found on disk; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool FileNotFound { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the module is invalid.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if the module is corrupted or not a valid PE file; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool Invalid { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this module is from a reproducible build.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if the module was built with reproducible build settings; otherwise, <c>false</c>.
+    /// </value>
+    /// <remarks>
+    /// Reproducible builds produce identical binary output given the same source input,
+    /// making verification and security auditing easier.
+    /// </remarks>
     [DataMember]
     public bool IsReproducibleBuild { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this module is an API set contract.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if this module is an API set contract (e.g., api-ms-win-*); otherwise, <c>false</c>.
+    /// </value>
+    /// <remarks>
+    /// API set contracts are a Windows feature that allows redirecting API implementations
+    /// to different host modules.
+    /// </remarks>
     [DataMember]
     public bool IsApiSetContract { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this module is a Windows kernel module.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if this module is part of the Windows kernel; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool IsKernelModule { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the module has export errors.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if errors were found in the export table; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool ExportContainErrors { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the module has other errors.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if the module has errors not specifically categorized; otherwise, <c>false</c>.
+    /// </value>
     [DataMember]
     public bool OtherErrorsPresent { get; set; }
-    //
-    // Original module file name.
-    //
+
+    /// <summary>
+    /// Gets or sets how the module file name was resolved.
+    /// </summary>
+    /// <value>
+    /// The search order type used to resolve this module's path.
+    /// </value>
     [DataMember]
     public SearchOrderType FileNameResolvedBy { get; set; }
+
+    /// <summary>
+    /// Gets or sets the full path and filename of the module.
+    /// </summary>
+    /// <value>
+    /// The resolved path to the module file.
+    /// </value>
     [DataMember]
     public string FileName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the raw (unresolved) filename of the module.
+    /// </summary>
+    /// <value>
+    /// The original name used to reference this module before path resolution.
+    /// </value>
     [DataMember]
     public string RawFileName { get; set; } = string.Empty;
-    //
-    // PE headers information.
-    //
+
+    /// <summary>
+    /// Gets or sets the module data containing detailed PE information.
+    /// </summary>
+    /// <value>
+    /// The <see cref="CModuleData"/> object containing the module's PE file information.
+    /// </value>
     [DataMember]
     public CModuleData ModuleData { get; set; }
-    //
-    // Base64 encoded manifest
-    //
+
+    /// <summary>
+    /// Gets or sets the module's manifest data as a Base64-encoded string.
+    /// </summary>
+    /// <value>
+    /// The Base64-encoded XML manifest from the module's resources, or empty if no manifest exists.
+    /// </value>
     [DataMember]
     public string ManifestData { get; set; } = string.Empty;
-    //
-    // Parent module imports.
-    //
+
+    /// <summary>
+    /// Gets or sets the list of parent imports referencing functions from this module.
+    /// </summary>
+    /// <value>
+    /// A list of <see cref="CFunction"/> objects representing imports from parent modules.
+    /// </value>
     [DataMember]
     public List<CFunction> ParentImports { get; set; } = [];
-    //
-    // List of modules that depends on us.
-    //
+
+    /// <summary>
+    /// Gets or sets the list of modules that depend on this module.
+    /// </summary>
+    /// <value>
+    /// A list of <see cref="CModule"/> objects that directly import from this module.
+    /// </value>
     [DataMember]
     public List<CModule> Dependents { get; set; } = [];
 
-    public CModule()
+    /// <summary>
+    /// Gets or sets the cached filename (without path) for display purposes.
+    /// </summary>
+    /// <remarks>
+    /// This field is used to cache the result of Path.GetFileName() for performance
+    /// when sorting and displaying modules.
+    /// </remarks>
+    internal string _cachedFileName;
+
+    /// <summary>
+    /// Resets cached data in the module.
+    /// </summary>
+    /// <remarks>
+    /// Call this method when the module's filename or other key data changes to ensure
+    /// that cached values are regenerated when next accessed.
+    /// </remarks>
+    public void ResetCache()
     {
-        ModuleGuid = Guid.NewGuid();
+        _cachedFileName = null;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CModule"/> class.
+    /// </summary>
+    public CModule()
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CModule"/> class with a specified filename.
+    /// </summary>
+    /// <param name="moduleFileName">The name or path of the module file.</param>
     public CModule(string moduleFileName)
     {
-        ModuleGuid = Guid.NewGuid();
         RawFileName = moduleFileName;
         FileName = moduleFileName;
         ModuleData = new()
@@ -609,9 +963,15 @@ public class CModule
         };
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CModule"/> class with detailed properties.
+    /// </summary>
+    /// <param name="moduleFileName">The resolved path of the module file.</param>
+    /// <param name="rawModuleFileName">The original unresolved name of the module file.</param>
+    /// <param name="fileNameResolvedBy">The method used to resolve the module path.</param>
+    /// <param name="isApiSetContract">Whether the module is an API set contract.</param>
     public CModule(string moduleFileName, string rawModuleFileName, SearchOrderType fileNameResolvedBy, bool isApiSetContract)
     {
-        ModuleGuid = Guid.NewGuid();
         RawFileName = rawModuleFileName;
         FileName = moduleFileName;
         FileNameResolvedBy = fileNameResolvedBy;
@@ -622,6 +982,16 @@ public class CModule
         };
     }
 
+    /// <summary>
+    /// Gets the module's info flags based on its current state.
+    /// </summary>
+    /// <returns>
+    /// A <see cref="ModuleInfoFlags"/> value representing the module's status.
+    /// </returns>
+    /// <remarks>
+    /// This method determines the appropriate flags based on the module's errors,
+    /// processing status, and whether it's a duplicate instance.
+    /// </remarks>
     public ModuleInfoFlags GetModuleFlags()
     {
         ModuleInfoFlags flags = default;
@@ -654,6 +1024,12 @@ public class CModule
         return flags;
     }
 
+    /// <summary>
+    /// Determines if the module targets a 64-bit architecture.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> if the module targets a 64-bit architecture; otherwise, <c>false</c>.
+    /// </returns>
     public bool Is64bitArchitecture()
     {
         var machine = ModuleData.Machine;
@@ -665,9 +1041,15 @@ public class CModule
     }
 
     /// <summary>
-    /// Get icon index for tree view module display.
+    /// Gets the appropriate icon index for displaying this module in the tree view.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>
+    /// An integer representing the index in the image list for the module's icon.
+    /// </returns>
+    /// <remarks>
+    /// The icon is selected based on the module's architecture, status flags,
+    /// and whether it's a delay-load or forwarded module.
+    /// </remarks>
     public int GetIconIndexForModule()
     {
         bool is64bit = Is64bitArchitecture();
@@ -764,9 +1146,15 @@ public class CModule
     }
 
     /// <summary>
-    /// Get image index for compact (list view) module display.
+    /// Gets the appropriate icon index for displaying this module in list view (compact mode).
     /// </summary>
-    /// <returns></returns>
+    /// <returns>
+    /// An integer representing the index in the compact image list for the module's icon.
+    /// </returns>
+    /// <remarks>
+    /// The compact icon is a simplified representation compared to the tree view icon
+    /// but still conveys the module's architecture and key status attributes.
+    /// </remarks>
     public int GetIconIndexForModuleCompact()
     {
         bool is64bit = Is64bitArchitecture();
@@ -820,11 +1208,25 @@ public class CModule
             (bExportError ? (int)ModuleIconCompactType.WarningModule : (int)ModuleIconCompactType.NormalModule);
     }
 
+    /// <summary>
+    /// Returns a hash code for this instance.
+    /// </summary>
+    /// <returns>
+    /// A hash code derived from the module's filename (case-insensitive).
+    /// </returns>
     public override int GetHashCode()
     {
         return FileName?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
     }
 
+    /// <summary>
+    /// Determines whether the specified object is equal to the current module.
+    /// </summary>
+    /// <param name="obj">The object to compare with the current module.</param>
+    /// <returns>
+    /// <c>true</c> if the specified object is a module with the same filename (case-insensitive);
+    /// otherwise, <c>false</c>.
+    /// </returns>
     public override bool Equals(object obj)
     {
         if (obj is not CModule other)
@@ -833,6 +1235,15 @@ public class CModule
         return string.Equals(FileName, other.FileName, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Gets the module name, with special handling for API set contracts.
+    /// </summary>
+    /// <param name="needResolve">
+    /// Whether to return the resolved name (FileName) or raw name (RawFileName) for API set contracts.
+    /// </param>
+    /// <returns>
+    /// The appropriate module name based on the parameter and whether the module is an API set contract.
+    /// </returns>
     public string GetModuleNameRespectApiSet(bool needResolve)
     {
         if (IsApiSetContract)
@@ -840,6 +1251,12 @@ public class CModule
         return FileName ?? string.Empty;
     }
 
+    /// <summary>
+    /// Gets the module's manifest data as a byte array.
+    /// </summary>
+    /// <returns>
+    /// A byte array containing the manifest data, or <c>null</c> if no manifest exists or decoding fails.
+    /// </returns>
     public byte[] GetManifestDataAsArray()
     {
         try
@@ -856,11 +1273,26 @@ public class CModule
 
         return null;
     }
+
+    /// <summary>
+    /// Sets the module's manifest data from a Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The Base64-encoded manifest data.</param>
     public void SetManifestData(string data)
     {
         ManifestData = data;
     }
 
+    /// <summary>
+    /// Resolves a function by ordinal in the module's export table.
+    /// </summary>
+    /// <param name="ordinal">The ordinal value to search for.</param>
+    /// <returns>
+    /// The <see cref="CFunction"/> object with the specified ordinal, or <c>null</c> if not found.
+    /// </returns>
+    /// <remarks>
+    /// This method only returns functions that have a name (not exported by ordinal only).
+    /// </remarks>
     public CFunction ResolveFunctionForOrdinal(uint ordinal)
     {
         foreach (var function in ModuleData.Exports)
@@ -874,4 +1306,107 @@ public class CModule
         return null;
     }
 
+}
+
+/// <summary>
+/// Compares <see cref="CModule"/> objects for sorting in list views based on different field types.
+/// </summary>
+/// <remarks>
+/// This class implements comparison of module objects based on the selected column index.
+/// It properly handles column-specific comparison logic and supports both ascending and descending sort orders.
+/// 
+/// For filename comparisons, it uses string comparison with optional full path display.
+/// For numeric fields, it uses direct value comparison without string conversion for better performance.
+/// </remarks>
+public class CModuleComparer : IComparer<CModule>
+{
+    private readonly int _fieldIndex;
+    private readonly SortOrder _sortOrder;
+    private readonly bool _fullPaths;
+    private readonly StringComparer _ignoreCase;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CModuleComparer"/> class.
+    /// </summary>
+    /// <param name="sortOrder">The sort direction to apply to comparisons.</param>
+    /// <param name="fieldIndex">The index of the field to compare.</param>
+    /// <param name="fullPaths">Whether to display and compare full paths for filenames.</param>
+    /// <remarks>
+    /// This constructor configures the comparer to sort modules based on the specified field
+    /// and in the specified direction.
+    /// </remarks>
+    public CModuleComparer(SortOrder sortOrder, int fieldIndex, bool fullPaths)
+    {
+        _fieldIndex = fieldIndex;
+        _sortOrder = sortOrder;
+        _fullPaths = fullPaths;
+        _ignoreCase = StringComparer.OrdinalIgnoreCase;
+    }
+
+    public int Compare(CModule x, CModule y)
+    {
+        if (x == null && y == null) return 0;
+        if (x == null) return _sortOrder == SortOrder.Ascending ? -1 : 1;
+        if (y == null) return _sortOrder == SortOrder.Ascending ? 1 : -1;
+
+        int comparisonResult;
+
+        switch (_fieldIndex)
+        {
+            case (int)ModuleColumns.Name when !_fullPaths:
+                {
+                    if (x._cachedFileName == null)
+                        x._cachedFileName = Path.GetFileName(x.FileName);
+
+                    if (y._cachedFileName == null)
+                        y._cachedFileName = Path.GetFileName(y.FileName);
+
+                    comparisonResult = _ignoreCase.Compare(x._cachedFileName, y._cachedFileName);
+                    break;
+                }
+
+            case (int)ModuleColumns.Name:
+                // Use cached StringComparer for better performance with strings
+                comparisonResult = _ignoreCase.Compare(x.FileName, y.FileName);
+                break;
+
+            case (int)ModuleColumns.Image:
+                comparisonResult = x.ModuleImageIndex.CompareTo(y.ModuleImageIndex);
+                break;
+
+            case (int)ModuleColumns.LinkChecksum:
+                comparisonResult = x.ModuleData.LinkChecksum.CompareTo(y.ModuleData.LinkChecksum);
+                break;
+
+            case (int)ModuleColumns.RealChecksum:
+                comparisonResult = x.ModuleData.RealChecksum.CompareTo(y.ModuleData.RealChecksum);
+                break;
+
+            case (int)ModuleColumns.VirtualSize:
+                comparisonResult = x.ModuleData.VirtualSize.CompareTo(y.ModuleData.VirtualSize);
+                break;
+
+            case (int)ModuleColumns.PrefferedBase:
+                comparisonResult = x.ModuleData.PreferredBase.CompareTo(y.ModuleData.PreferredBase);
+                break;
+
+            case (int)ModuleColumns.LinkTimeStamp:
+                comparisonResult = x.ModuleData.LinkTimeStamp.CompareTo(y.ModuleData.LinkTimeStamp);
+                break;
+
+            case (int)ModuleColumns.FileTimeStamp:
+                comparisonResult = x.ModuleData.FileTimeStamp.CompareTo(y.ModuleData.FileTimeStamp);
+                break;
+
+            case (int)ModuleColumns.FileSize:
+                comparisonResult = x.ModuleData.FileSize.CompareTo(y.ModuleData.FileSize);
+                break;
+
+            default:
+                comparisonResult = _ignoreCase.Compare(x.FileName, y.FileName);
+                break;
+        }
+
+        return _sortOrder == SortOrder.Descending ? -comparisonResult : comparisonResult;
+    }
 }

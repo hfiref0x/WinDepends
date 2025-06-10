@@ -717,7 +717,7 @@ public class CCoreClient : IDisposable
         return true;
     }
 
-    private void CheckIfKernelModule(CModule module, CCoreImports imports)
+    private static void CheckIfKernelModule(CModule module, CCoreImports imports)
     {
         // Skip check if already determined to be a kernel module
         if (module.IsKernelModule ||

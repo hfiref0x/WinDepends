@@ -380,7 +380,8 @@ public static class CSymbolResolver
 
         var sb = new StringBuilder(1024);
 
-        if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.Complete) > 0)
+        // Note: DependencyWalker uses UNDNAME.NoAllocateLanguage | UNDNAME.NoMsKeyWords | UNDNAME.NoFunctionReturns | UNDNAME.NoAccessSpecifiers
+        if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.NoMsKeyWords) > 0)
         {
             return sb.ToString();
         }

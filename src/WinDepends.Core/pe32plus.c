@@ -165,7 +165,7 @@ BOOL get_datadirs(
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
 
-        mlist_add(&msg_lh, WDEP_STATUS_OK "{\"directories\":[");
+        mlist_add(&msg_lh, WDEP_STATUS_OK "[");
 
         switch (opt_file_hdr.opt_file_hdr32->Magic)
         {
@@ -215,7 +215,7 @@ BOOL get_datadirs(
             break;
         }
 
-        mlist_add(&msg_lh, L"]}\r\n");
+        mlist_add(&msg_lh, L"]\r\n");
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -276,12 +276,12 @@ BOOL get_headers(
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
-        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"headers\":");
+        mlist_add(&msg_lh, WDEP_STATUS_OK L"{");
 
         hdr_chars = nt_file_hdr->Characteristics;
 
         StringCchPrintf(text, textsize,
-            L"{\"ImageFileHeader\":{"
+            L"\"ImageFileHeader\":{"
             L"\"Machine\":%u,"
             L"\"NumberOfSections\":%u,"
             L"\"TimeDateStamp\":%u,"
@@ -528,7 +528,7 @@ BOOL get_headers(
             }
         }
 
-        mlist_add(&msg_lh, L"}}\r\n");
+        mlist_add(&msg_lh, L"}\r\n");
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -602,7 +602,8 @@ BOOL get_exports(
 
         if ((dir_base > 0) && (dir_base < ImageSize))
         {
-            mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"export\":{");
+            //mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"export\":{");
+            mlist_add(&msg_lh, WDEP_STATUS_OK L"{");
 
             ExportTable = (PIMAGE_EXPORT_DIRECTORY)(context->module + dir_base);
             ptrs = (DWORD*)(context->module + ExportTable->AddressOfFunctions);
@@ -672,7 +673,8 @@ BOOL get_exports(
             }
             mlist_add(&msg_lh, L"]}");
         }
-        mlist_add(&msg_lh, L"}}\r\n");
+        //mlist_add(&msg_lh, L"}}\r\n");
+        mlist_add(&msg_lh, L"}\r\n");
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -721,6 +723,8 @@ static void process_thunks64(
         }
         else
         {
+            BOOL nameResolved = FALSE;
+
             if (rvabased) {
                 fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             }
@@ -728,38 +732,34 @@ static void process_thunks64(
                 fname = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)module + ((DWORD_PTR)thunk->u1.Function - image_base));
             }
 
-            /*fhint = fname->Hint;
-            strfname = (char*)&fname->Name;
-            ordinal = MAXDWORD32;*/
-
             if (valid_image_structure((DWORD_PTR)module, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
                 strfname = (char*)&fname->Name;
                 fhint = fname->Hint;
                 ordinal = MAXDWORD32;
+                nameResolved = TRUE;
             }
-            else {
-                strfname = (char*)"Error resolving function name";
-                fhint = MAXDWORD32;
-                ordinal = MAXDWORD32;
-                //
-                // FIXME delay fake.
-                //
-               /*__try {
-                    if (rvabased == 0) {
-                        fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
-                        if (valid_image_structure(image_base, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
-                            fhint = fname->Hint;
-                            strfname = (char*)&fname->Name;
-                            ordinal = MAXDWORD32;
-                        }
+
+            /*if (!nameResolved) {
+                __try {
+                    // This attempts to handle intentionally obfuscated delay imports
+                    fname = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)module + ((DWORD_PTR)thunk->u1.Function));
+                    if (valid_image_structure((DWORD_PTR)module, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
+                        strfname = (char*)&fname->Name;
+                        fhint = fname->Hint;
+                        ordinal = MAXDWORD32;
+                        nameResolved = TRUE;
                     }
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER) {
-                    ;
-                }*/
+                    //fallback
+                }
+            }*/
 
+            if (!nameResolved) {
+                strfname = (char*)"Error resolving function name";
+                fhint = MAXDWORD32;
+                ordinal = MAXDWORD32;
             }
-
         }
 
         if (i > 0)
@@ -808,43 +808,40 @@ static void process_thunks32(
         }
         else
         {
+            BOOL nameResolved = FALSE;
+
             if (rvabased) {
                 fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             }
             else {
                 fname = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)module + ((DWORD_PTR)thunk->u1.Function - image_base));
             }
-
-            /*fhint = fname->Hint;
-            strfname = (char*)&fname->Name;
-            ordinal = MAXDWORD32;*/
-
             if (valid_image_structure((DWORD_PTR)module, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
                 strfname = (char*)&fname->Name;
                 fhint = fname->Hint;
                 ordinal = MAXDWORD32;
             }
-            else {
-                strfname = (char*)"Error resolving function name";
-                fhint = MAXDWORD32;
-                ordinal = MAXDWORD32;
-                //
-                // FIXME delay fake.
-                //
-               /*__try {
-                    if (rvabased == 0) {
-                        fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
-                        if (valid_image_structure(image_base, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
-                            fhint = fname->Hint;
-                            strfname = (char*)&fname->Name;
-                            ordinal = MAXDWORD32;
-                            bFailed = FALSE;
-                        }
+
+            /*if (!nameResolved) {
+                __try {
+                    // This attempts to handle intentionally obfuscated delay imports
+                    fname = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)module + ((DWORD_PTR)thunk->u1.Function));
+                    if (valid_image_structure((DWORD_PTR)module, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
+                        strfname = (char*)&fname->Name;
+                        fhint = fname->Hint;
+                        ordinal = MAXDWORD32;
+                        nameResolved = TRUE;
                     }
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER) {
-                    ;
-                }*/
+                    //fallback
+                }
+            }*/
+
+            if (!nameResolved) {
+                strfname = (char*)"Error resolving function name";
+                fhint = MAXDWORD32;
+                ordinal = MAXDWORD32;
             }
         }
 
@@ -920,7 +917,7 @@ BOOL get_imports(
             break;
         }
 
-        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"import\":{\"libraries\":[");
+        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"libraries\":[");
 
         if ((si_dir_base > 0) && (si_dir_base < ImageSize))
         {
@@ -1024,7 +1021,7 @@ BOOL get_imports(
             }
             status = TRUE;
         }
-        mlist_add(&msg_lh, L"]}}\r\n");
+        mlist_add(&msg_lh, L"]}\r\n");
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -1394,8 +1391,7 @@ LPBYTE pe32open(
     if (module) {
         StringCchPrintf(text, ARRAYSIZE(text),
             WDEP_STATUS_OK
-            L"{\"fileinfo\":{"
-            L"\"FileAttributes\":%u,"
+            L"{\"FileAttributes\":%u,"
             L"\"CreationTimeLow\":%u,"
             L"\"CreationTimeHigh\":%u,"
             L"\"LastWriteTimeLow\":%u,"
@@ -1403,7 +1399,7 @@ LPBYTE pe32open(
             L"\"FileSizeHigh\":%u,"
             L"\"FileSizeLow\":%u,"
             L"\"RealChecksum\":%u,"
-            L"\"ImageFixed\":%u}}\r\n",
+            L"\"ImageFixed\":%u}\r\n",
             fileinfo.dwFileAttributes,
             fileinfo.ftCreationTime.dwLowDateTime,
             fileinfo.ftCreationTime.dwHighDateTime,

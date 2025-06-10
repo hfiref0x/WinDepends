@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Jun 05, 2025
+*  Modified on: Jun 10, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -96,10 +96,9 @@ void cmd_callstats(
     __finally
     {
         StringCchPrintf(buffer, ARRAYSIZE(buffer),
-            L"%s{\"stats\":{"
-            L"\"totalBytesSent\":%llu,"
+            L"%s{\"totalBytesSent\":%llu,"
             L"\"totalSendCalls\":%llu,"
-            L"\"totalTimeSpent\":%llu}}\r\n",
+            L"\"totalTimeSpent\":%llu}\r\n",
             WDEP_STATUS_OK,
             totalBytesSent,
             totalSendCalls,
@@ -159,7 +158,7 @@ void cmd_query_knowndlls_list(
 
         StringCchPrintf(buffer,
             sz / sizeof(WCHAR),
-            L"%ws{\"knowndlls\":{\"path\":\"%ws\", \"entries\":[",
+            L"%ws{\"path\":\"%ws\", \"entries\":[",
             WDEP_STATUS_OK,
             dlls_path);
 
@@ -182,7 +181,7 @@ void cmd_query_knowndlls_list(
             i += 1;
         }
 
-        mlist_add(&msg_lh, L"]}}\r\n");
+        mlist_add(&msg_lh, L"]}\r\n");
         mlist_traverse(&msg_lh, mlist_send, s, NULL);
 
         heap_free(NULL, buffer);
@@ -253,7 +252,7 @@ void cmd_apisetnamespace_info(
         }
         else {
             StringCchPrintf(buffer, ARRAYSIZE(buffer),
-                L"%ws{\"apisetns\":{\"version\":%u, \"count\":%lu}}\r\n",
+                L"%ws{\"version\":%u, \"count\":%lu}\r\n",
                 WDEP_STATUS_OK, 
                 version, count);
             sendstring_plaintext_no_track(s, buffer);
@@ -343,7 +342,7 @@ void cmd_resolve_apiset_name(
         sz = (MAX_PATH * sizeof(WCHAR)) + name_length + sizeof(UNICODE_NULL);
         buffer = (PWCH)heap_calloc(NULL, sz);
         if (buffer) {
-            StringCchPrintf(buffer, sz / sizeof(WCHAR), L"%ws{\"filename\":{\"path\":\"%ws\"}}\r\n", WDEP_STATUS_OK, resolved_name);
+            StringCchPrintf(buffer, sz / sizeof(WCHAR), L"%ws{\"path\":\"%ws\"}\r\n", WDEP_STATUS_OK, resolved_name);
             sendstring_plaintext(s, buffer, context);
             heap_free(NULL, buffer);
         }

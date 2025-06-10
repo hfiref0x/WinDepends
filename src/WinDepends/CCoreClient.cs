@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Jun 2025
+*  DATE:        10 Jun 2025
 *  
 *  Core Server communication class.
 *
@@ -161,15 +161,15 @@ public class CCoreClient : IDisposable
         ErrorStatus = ServerErrorStatus.NoErrors;
 
         _serializers = new DataContractJsonSerializer[9];
-        _serializers[(int)CCoreClientSerializerType.Headers] = new DataContractJsonSerializer(typeof(CCoreStructsRoot));
-        _serializers[(int)CCoreClientSerializerType.Imports] = new DataContractJsonSerializer(typeof(CCoreImportsRoot));
-        _serializers[(int)CCoreClientSerializerType.Exports] = new DataContractJsonSerializer(typeof(CCoreExportsRoot));
-        _serializers[(int)CCoreClientSerializerType.DataDirectories] = new DataContractJsonSerializer(typeof(CCoreDataDirectoryRoot));
-        _serializers[(int)CCoreClientSerializerType.ResolvedFileName] = new DataContractJsonSerializer(typeof(CCoreResolvedFileNameRoot));
-        _serializers[(int)CCoreClientSerializerType.ApiSetNamespace] = new DataContractJsonSerializer(typeof(CCoreApiSetNamespaceInfoRoot));
-        _serializers[(int)CCoreClientSerializerType.CallStats] = new DataContractJsonSerializer(typeof(CCoreCallStatsRoot));
-        _serializers[(int)CCoreClientSerializerType.KnownDlls] = new DataContractJsonSerializer(typeof(CCoreKnownDllsRoot));
-        _serializers[(int)CCoreClientSerializerType.FileInformation] = new DataContractJsonSerializer(typeof(CCoreFileInformationRoot));
+        _serializers[(int)CCoreClientSerializerType.Headers] = new DataContractJsonSerializer(typeof(CCoreImageHeaders));
+        _serializers[(int)CCoreClientSerializerType.Imports] = new DataContractJsonSerializer(typeof(CCoreImports));
+        _serializers[(int)CCoreClientSerializerType.Exports] = new DataContractJsonSerializer(typeof(CCoreExports));
+        _serializers[(int)CCoreClientSerializerType.DataDirectories] = new DataContractJsonSerializer(typeof(CCoreDirectoryEntry));
+        _serializers[(int)CCoreClientSerializerType.ResolvedFileName] = new DataContractJsonSerializer(typeof(CCoreResolvedFileName));
+        _serializers[(int)CCoreClientSerializerType.ApiSetNamespace] = new DataContractJsonSerializer(typeof(CCoreApiSetNamespaceInfo));
+        _serializers[(int)CCoreClientSerializerType.CallStats] = new DataContractJsonSerializer(typeof(CCoreCallStats));
+        _serializers[(int)CCoreClientSerializerType.KnownDlls] = new DataContractJsonSerializer(typeof(CCoreKnownDlls));
+        _serializers[(int)CCoreClientSerializerType.FileInformation] = new DataContractJsonSerializer(typeof(CCoreFileInformation));
     }
 
     protected void Dispose(bool disposing)
@@ -383,23 +383,23 @@ public class CCoreClient : IDisposable
 
     private DataContractJsonSerializer GetSerializerForType(Type objectType)
     {
-        if (objectType == typeof(CCoreStructsRoot))
+        if (objectType == typeof(CCoreImageHeaders))
             return _serializers[(int)CCoreClientSerializerType.Headers];
-        if (objectType == typeof(CCoreImportsRoot))
+        if (objectType == typeof(CCoreImports))
             return _serializers[(int)CCoreClientSerializerType.Imports];
-        if (objectType == typeof(CCoreExportsRoot))
+        if (objectType == typeof(CCoreExports))
             return _serializers[(int)CCoreClientSerializerType.Exports];
-        if (objectType == typeof(CCoreDataDirectoryRoot))
+        if (objectType == typeof(CCoreDirectoryEntry))
             return _serializers[(int)CCoreClientSerializerType.DataDirectories];
-        if (objectType == typeof(CCoreResolvedFileNameRoot))
+        if (objectType == typeof(CCoreResolvedFileName))
             return _serializers[(int)CCoreClientSerializerType.ResolvedFileName];
-        if (objectType == typeof(CCoreApiSetNamespaceInfoRoot))
+        if (objectType == typeof(CCoreApiSetNamespaceInfo))
             return _serializers[(int)CCoreClientSerializerType.ApiSetNamespace];
-        if (objectType == typeof(CCoreCallStatsRoot))
+        if (objectType == typeof(CCoreCallStats))
             return _serializers[(int)CCoreClientSerializerType.CallStats];
-        if (objectType == typeof(CCoreKnownDllsRoot))
+        if (objectType == typeof(CCoreKnownDlls))
             return _serializers[(int)CCoreClientSerializerType.KnownDlls];
-        if (objectType == typeof(CCoreFileInformationRoot))
+        if (objectType == typeof(CCoreFileInformation))
             return _serializers[(int)CCoreClientSerializerType.FileInformation];
 
         // Fallback for unknown types
@@ -547,11 +547,9 @@ public class CCoreClient : IDisposable
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
         }
 
-        var dataObject = (CCoreFileInformationRoot)DeserializeDataJSON(typeof(CCoreFileInformationRoot), response);
-        if (dataObject?.FileInformation != null)
+        var fileInformation = (CCoreFileInformation)DeserializeDataJSON(typeof(CCoreFileInformation), response);
+        if (fileInformation != null)
         {
-            var fileInformation = dataObject.FileInformation;
-
             module.ModuleData.Attributes = (FileAttributes)fileInformation.FileAttributes;
             module.ModuleData.RealChecksum = fileInformation.RealChecksum;
             module.ModuleData.ImageFixed = fileInformation.ImageFixed;
@@ -594,25 +592,25 @@ public class CCoreClient : IDisposable
         {
             case ModuleInformationType.Headers:
                 cmd = "headers\r\n";
-                objectType = typeof(CCoreStructsRoot);
+                objectType = typeof(CCoreImageHeaders);
                 break;
             case ModuleInformationType.Imports:
                 preProcessData = true;
                 cmd = "imports\r\n";
-                objectType = typeof(CCoreImportsRoot);
+                objectType = typeof(CCoreImports);
                 break;
             case ModuleInformationType.Exports:
                 preProcessData = true;
                 cmd = "exports\r\n";
-                objectType = typeof(CCoreExportsRoot);
+                objectType = typeof(CCoreExports);
                 break;
             case ModuleInformationType.DataDirectories:
                 cmd = "datadirs\r\n";
-                objectType = typeof(CCoreDataDirectoryRoot);
+                objectType = typeof(CCoreDirectoryEntry);
                 break;
             case ModuleInformationType.ApiSetName:
                 cmd = $"apisetresolve {parameters}\r\n";
-                objectType = typeof(CCoreResolvedFileNameRoot);
+                objectType = typeof(CCoreResolvedFileName);
                 break;
             default:
                 return null;
@@ -621,28 +619,21 @@ public class CCoreClient : IDisposable
         return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, module, preProcessData);
     }
 
-    /*
-        public CCoreDataDirectoryRoot GetModuleDataDirectories(CModule module)
-        {
-            //fixme
-            return (CCoreDataDirectoryRoot)GetModuleInformationByType(ModuleInformationType.DataDirectories);
-        }
-    */
+    public List<CCoreDirectoryEntry> GetModuleDataDirectories(CModule module)
+    {
+        return (List<CCoreDirectoryEntry>)GetModuleInformationByType(ModuleInformationType.DataDirectories, module);
+    }
 
     public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo()
     {
-        var rootObject = (CCoreApiSetNamespaceInfoRoot)SendCommandAndReceiveReplyAsObjectJSON(
-            "apisetnsinfo\r\n", typeof(CCoreApiSetNamespaceInfoRoot), null);
-
-        return rootObject?.Namespace;
+        return (CCoreApiSetNamespaceInfo)SendCommandAndReceiveReplyAsObjectJSON(
+            "apisetnsinfo\r\n", typeof(CCoreApiSetNamespaceInfo), null);
     }
 
     public CCoreCallStats GetCoreCallStats()
     {
-        var rootObject = (CCoreCallStatsRoot)SendCommandAndReceiveReplyAsObjectJSON(
-              "callstats\r\n", typeof(CCoreCallStatsRoot), null);
-
-        return rootObject?.CallStats;
+        return (CCoreCallStats)SendCommandAndReceiveReplyAsObjectJSON(
+              "callstats\r\n", typeof(CCoreCallStats), null);
     }
 
     public bool GetModuleHeadersInformation(CModule module)
@@ -652,13 +643,12 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        var dataObject = (CCoreStructsRoot)GetModuleInformationByType(ModuleInformationType.Headers, module);
-        if (dataObject?.HeadersInfo == null)
+        var fh = (CCoreImageHeaders)GetModuleInformationByType(ModuleInformationType.Headers, module);
+        if (fh == null)
         {
             return false;
         }
 
-        var fh = dataObject.HeadersInfo;
         CModuleData moduleData = module.ModuleData;
 
         // Set various module data properties
@@ -760,11 +750,9 @@ public class CCoreClient : IDisposable
         //
         // Process exports.
         //
-        CCoreExports rawExports;
-        CCoreExportsRoot exportsObject = (CCoreExportsRoot)GetModuleInformationByType(ModuleInformationType.Exports, module);
-        if (exportsObject != null && exportsObject.Export != null)
+        CCoreExports rawExports = (CCoreExports)GetModuleInformationByType(ModuleInformationType.Exports, module);
+        if (rawExports != null)
         {
-            rawExports = exportsObject.Export;
             foreach (var entry in rawExports.Library.Function)
             {
                 module.ModuleData.Exports.Add(new(entry));
@@ -794,11 +782,9 @@ public class CCoreClient : IDisposable
         //
         // Process imports.
         //
-        CCoreImports rawImports;
-        CCoreImportsRoot importsObject = (CCoreImportsRoot)GetModuleInformationByType(ModuleInformationType.Imports, module);
-        if (importsObject != null && importsObject.Import != null)
+        CCoreImports rawImports = (CCoreImports)GetModuleInformationByType(ModuleInformationType.Imports, module);
+        if (rawImports != null)
         {
-            rawImports = importsObject.Import;
             CheckIfKernelModule(module, rawImports);
 
             foreach (var entry in rawImports.Library)
@@ -807,7 +793,6 @@ public class CCoreClient : IDisposable
                 string rawModuleName = entry.Name;
 
                 bool isApiSetContract = IsModuleNameApiSetContract(moduleName);
-                CCoreResolvedFileName resolvedName = null;
 
                 if (isApiSetContract)
                 {
@@ -815,12 +800,11 @@ public class CCoreClient : IDisposable
 
                     if (cachedName == null)
                     {
-                        var resolvedNameRoot = (CCoreResolvedFileNameRoot)GetModuleInformationByType(ModuleInformationType.ApiSetName,
+                        var resolvedName = (CCoreResolvedFileName)GetModuleInformationByType(ModuleInformationType.ApiSetName,
                             module, moduleName);
 
-                        if (resolvedNameRoot != null && resolvedNameRoot.FileName != null)
+                        if (resolvedName != null)
                         {
-                            resolvedName = resolvedNameRoot.FileName;
                             CApiSetCacheManager.AddApiSet(moduleName, resolvedName.Name);
                             moduleName = resolvedName.Name;
                         }
@@ -885,16 +869,16 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        CCoreKnownDllsRoot rootObject = (CCoreKnownDllsRoot)SendCommandAndReceiveReplyAsObjectJSON(
-            command, typeof(CCoreKnownDllsRoot), null, true);
-        if (rootObject?.KnownDlls != null)
+        CCoreKnownDlls knownDllsObject = (CCoreKnownDlls)SendCommandAndReceiveReplyAsObjectJSON(
+            command, typeof(CCoreKnownDlls), null, true);
+        if (knownDllsObject != null)
         {
             knownDllsList.Clear();
-            if (rootObject.KnownDlls.Entries != null)
+            if (knownDllsObject.Entries != null)
             {
-                knownDllsList.AddRange(rootObject.KnownDlls.Entries);
+                knownDllsList.AddRange(knownDllsObject.Entries);
             }
-            knownDllsPath = rootObject.KnownDlls.DllPath ?? string.Empty;
+            knownDllsPath = knownDllsObject.DllPath ?? string.Empty;
             return true;
         }
 

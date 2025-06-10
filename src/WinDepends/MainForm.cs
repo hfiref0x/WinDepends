@@ -412,39 +412,49 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Insert module entry to TVModules treeview.
+    /// Validates if the module can be added based on tree depth settings
     /// </summary>
-    /// <returns>Tree node.</returns>
-    private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
+    /// <param name="parentNode">The parent node to check depth against</param>
+    /// <param name="maxDepth">The maximum allowed depth</param>
+    /// <returns>True if within depth limit, false otherwise</returns>
+    private bool ValidateTreeDepth(TreeNode parentNode, int maxDepth)
     {
-        bool currentModuleIsRoot = (parentNode == null);
+        if (parentNode == null)
+            return true; // Root node is always valid
 
-        //
-        // Respect tree depth settings.
-        //
-        if (!currentModuleIsRoot)
+        if (parentNode.Tag is CModule parentModule)
         {
-            if (parentNode.Tag is CModule parentModule)
-            {
-                if (parentModule.Depth > m_Configuration.ModuleNodeDepthMax)
-                {
-                    return null;
-                }
-            }
+            return parentModule.Depth <= maxDepth;
         }
 
-        //
-        // Most important part of the entire function.
-        // Create module instance id (hash from filename) and look if it is already in list.
-        // If it - then link this item with new one as original instance.
-        // This allows us to exclude duplicate information gathering thus
-        // decreasing resource usage and increasing overall enumeration performance.
-        //
-        module.InstanceId = module.GetHashCode();
+        return true;
+    }
 
+    /// <summary>
+    /// AddModuleEntry core implementation. Shared between normal and session files.
+    /// </summary>
+    /// <param name="module">The module to add</param>
+    /// <param name="parentNode">Parent node, or null for root level</param>
+    /// <param name="maxDepth">Maximum allowed node depth</param>
+    /// <param name="moduleProcessor">Optional processing to perform on new modules</param>
+    /// <returns>Created TreeNode or null if validation fails</returns>
+    private TreeNode AddModuleEntryCore(
+        CModule module,
+        TreeNode parentNode,
+        int maxDepth,
+        Action<CModule> moduleProcessor = null)
+    {
+        // 1. Validate tree depth
+        if (!ValidateTreeDepth(parentNode, maxDepth))
+            return null;
+
+        // 2. Check if module already exists
+        bool isNewModule = true;
         CModule origInstance = CUtils.GetModuleByHash(module.FileName, m_LoadedModulesList);
+
         if (origInstance != null)
         {
+            isNewModule = false;
             module.OriginalInstanceId = origInstance.InstanceId;
             module.FileNotFound = origInstance.FileNotFound;
             module.ExportContainErrors = origInstance.ExportContainErrors;
@@ -453,6 +463,13 @@ public partial class MainForm : Form
             module.ModuleData = new(origInstance.ModuleData);
         }
 
+        // 3. Run custom processing if this is a new module
+        if (isNewModule && moduleProcessor != null)
+        {
+            moduleProcessor(module);
+        }
+
+        // 4. Format display name
         string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
 
         if (!m_Configuration.FullPaths)
@@ -465,83 +482,91 @@ public partial class MainForm : Form
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
         }
 
-        //
-        // Add item to TreeView.
-        //
-        TreeNode tvNode = new(moduleDisplayName);
-
-        //
-        // Collect information.
-        //
-        if (origInstance == null)
-        {
-            bool processRelocs = false;
-            bool useStats = false;
-            bool useCustomImageBase = false;
-            uint customImageBase = 0;
-
-            //
-            // If this is not a root node.
-            //
-            if (!currentModuleIsRoot)
-            {
-                if (fileOpenSettings.PropagateSettingsOnDependencies)
-                {
-                    processRelocs = fileOpenSettings.ProcessRelocsForImage;
-                    customImageBase = fileOpenSettings.CustomImageBase;
-                    useStats = fileOpenSettings.UseStats;
-                    useCustomImageBase = fileOpenSettings.UseCustomImageBase;
-                }
-            }
-            else
-            {
-                processRelocs = fileOpenSettings.ProcessRelocsForImage;
-                customImageBase = fileOpenSettings.CustomImageBase;
-                useStats = fileOpenSettings.UseStats;
-                useCustomImageBase = fileOpenSettings.UseCustomImageBase;
-            }
-
-            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(ref module, useStats, processRelocs, useCustomImageBase, customImageBase);
-            HandleModuleOpenStatus(module, openStatus, useStats, currentModuleIsRoot);
-        }
-
-        //
-        // Select module icon type.
-        //
+        // 5. Create the tree node
         module.ModuleImageIndex = module.GetIconIndexForModule();
+        TreeNode tvNode = new(moduleDisplayName)
+        {
+            Tag = module,
+            ImageIndex = module.ModuleImageIndex,
+            SelectedImageIndex = module.ModuleImageIndex,
+            ForeColor = (module.IsApiSetContract && m_Configuration.HighlightApiSet) ? Color.Blue : Color.Black
+        };
 
-        tvNode.Tag = module;
-        tvNode.ImageIndex = module.ModuleImageIndex;
-        tvNode.SelectedImageIndex = module.ModuleImageIndex;
-
-        if (!currentModuleIsRoot)
+        // 6. Add to tree in correct location
+        if (parentNode != null)
         {
             if (parentNode.Tag is CModule parentModule)
             {
                 module.Depth = parentModule.Depth + 1;
-                parentNode.Nodes.Add(tvNode);
             }
+            parentNode.Nodes.Add(tvNode);
         }
         else
         {
             TVModules.Nodes.Add(tvNode);
         }
 
-        //
-        // Higlight apisets.
-        //
-        tvNode.ForeColor = (module.IsApiSetContract && m_Configuration.HighlightApiSet) ? Color.Blue : Color.Black;
-
-        //
-        // Check if module is already added.
-        //
-        if (origInstance == null)
+        // 7. Update module collections if new
+        if (isNewModule)
         {
             m_LoadedModulesList.Add(module);
             LVModules.VirtualListSize = m_LoadedModulesList.Count;
         }
 
         return tvNode;
+    }
+
+    /// <summary>
+    /// Insert module entry to TVModules treeview.
+    /// </summary>
+    /// <returns>Tree node.</returns>
+    private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
+    {
+        // Define action processor (callback)
+        Action<CModule> processModule = (mod) => {
+            bool isRootModule = (parentNode == null);
+            bool processRelocs = false;
+            bool useStats = false;
+            bool useCustomImageBase = false;
+            uint customImageBase = 0;
+
+            // Configure options based on context
+            if (!isRootModule && fileOpenSettings.PropagateSettingsOnDependencies)
+            {
+                processRelocs = fileOpenSettings.ProcessRelocsForImage;
+                useStats = fileOpenSettings.UseStats;
+                useCustomImageBase = fileOpenSettings.UseCustomImageBase;
+                customImageBase = fileOpenSettings.CustomImageBase;
+            }
+            else if (isRootModule)
+            {
+                processRelocs = fileOpenSettings.ProcessRelocsForImage;
+                useStats = fileOpenSettings.UseStats;
+                useCustomImageBase = fileOpenSettings.UseCustomImageBase;
+                customImageBase = fileOpenSettings.CustomImageBase;
+            }
+
+            // Open and process module
+            mod.InstanceId = mod.GetHashCode();
+            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(
+                ref mod,
+                useStats,
+                processRelocs,
+                useCustomImageBase,
+                customImageBase);
+
+            HandleModuleOpenStatus(mod, openStatus, useStats, isRootModule);
+
+            // Set module icon index
+            mod.ModuleImageIndex = mod.GetIconIndexForModule();
+        };
+
+        // Use shared implementation with our specific processor
+        return AddModuleEntryCore(
+            module,
+            parentNode,
+            m_Configuration.ModuleNodeDepthMax,
+            processModule);
     }
 
     /// <summary>
@@ -552,63 +577,11 @@ public partial class MainForm : Form
     /// <returns>Tree node entry.</returns>
     private TreeNode AddSessionModuleEntry(CModule module, TreeNode parentNode = null)
     {
-        //
-        // Respect tree depth settings.
-        //
-        if (parentNode != null)
-        {
-            CModule parentModule = (CModule)parentNode.Tag;
-            if (parentModule.Depth > m_Depends.SessionNodeMaxDepth)
-            {
-                return null;
-            }
-        }
-
-        int moduleImageIndex = module.ModuleImageIndex;
-        string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-
-        CModule origInstance = CUtils.GetModuleByHash(module.FileName, m_LoadedModulesList);
-
-        if (!m_Configuration.FullPaths)
-        {
-            moduleDisplayName = Path.GetFileName(moduleDisplayName);
-        }
-
-        if (m_Configuration.UpperCaseModuleNames)
-        {
-            moduleDisplayName = moduleDisplayName.ToUpperInvariant();
-        }
-
-        //
-        // Add item to TreeView.
-        //
-        TreeNode tvNode = new(moduleDisplayName)
-        {
-            Tag = module,
-            ImageIndex = moduleImageIndex,
-            SelectedImageIndex = moduleImageIndex,
-            ForeColor = (module.IsApiSetContract && m_Configuration.HighlightApiSet) ? Color.Blue : Color.Black
-        };
-
-        if (parentNode != null)
-        {
-            parentNode.Nodes.Add(tvNode);
-        }
-        else
-        {
-            TVModules.Nodes.Add(tvNode);
-        }
-
-        //
-        // If module is original then add it to the list.
-        //
-        if (origInstance == null)
-        {
-            m_LoadedModulesList.Add(module);
-            LVModules.VirtualListSize = m_LoadedModulesList.Count;
-        }
-
-        return tvNode;
+        // Just use the shared implementation without any specific processor set
+        return AddModuleEntryCore(
+            module,
+            parentNode,
+            m_Depends.SessionNodeMaxDepth);
     }
 
     /// <summary>
@@ -709,7 +682,7 @@ public partial class MainForm : Form
         if (startNode == null)
             return;
 
-        Stack<TreeNode> nodeStack = new Stack<TreeNode>(128); // Pre-allocate capacity for common case
+        Stack<TreeNode> nodeStack = new(Math.Min(TVModules.GetNodeCount(true), 1024));
         nodeStack.Push(startNode);
 
         bool fullPaths = m_Configuration.FullPaths;

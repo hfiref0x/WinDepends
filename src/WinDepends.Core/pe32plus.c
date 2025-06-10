@@ -723,8 +723,6 @@ static void process_thunks64(
         }
         else
         {
-            BOOL nameResolved = FALSE;
-
             if (rvabased) {
                 fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             }
@@ -736,26 +734,8 @@ static void process_thunks64(
                 strfname = (char*)&fname->Name;
                 fhint = fname->Hint;
                 ordinal = MAXDWORD32;
-                nameResolved = TRUE;
             }
-
-            /*if (!nameResolved) {
-                __try {
-                    // This attempts to handle intentionally obfuscated delay imports
-                    fname = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)module + ((DWORD_PTR)thunk->u1.Function));
-                    if (valid_image_structure((DWORD_PTR)module, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
-                        strfname = (char*)&fname->Name;
-                        fhint = fname->Hint;
-                        ordinal = MAXDWORD32;
-                        nameResolved = TRUE;
-                    }
-                }
-                __except (EXCEPTION_EXECUTE_HANDLER) {
-                    //fallback
-                }
-            }*/
-
-            if (!nameResolved) {
+            else {
                 strfname = (char*)"Error resolving function name";
                 fhint = MAXDWORD32;
                 ordinal = MAXDWORD32;
@@ -808,8 +788,6 @@ static void process_thunks32(
         }
         else
         {
-            BOOL nameResolved = FALSE;
-
             if (rvabased) {
                 fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             }
@@ -821,24 +799,7 @@ static void process_thunks32(
                 fhint = fname->Hint;
                 ordinal = MAXDWORD32;
             }
-
-            /*if (!nameResolved) {
-                __try {
-                    // This attempts to handle intentionally obfuscated delay imports
-                    fname = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)module + ((DWORD_PTR)thunk->u1.Function));
-                    if (valid_image_structure((DWORD_PTR)module, image_size, (DWORD_PTR)fname, IMAGE_IMPORT_BY_NAME)) {
-                        strfname = (char*)&fname->Name;
-                        fhint = fname->Hint;
-                        ordinal = MAXDWORD32;
-                        nameResolved = TRUE;
-                    }
-                }
-                __except (EXCEPTION_EXECUTE_HANDLER) {
-                    //fallback
-                }
-            }*/
-
-            if (!nameResolved) {
+            else {
                 strfname = (char*)"Error resolving function name";
                 fhint = MAXDWORD32;
                 ordinal = MAXDWORD32;

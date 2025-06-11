@@ -3,24 +3,25 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Jun 04, 2025
+*  Modified on: Jun 10, 2025
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #include "core.h"
 
 BOOL mlist_add(
     _In_ PLIST_ENTRY head,
-    _In_ const wchar_t* text
+    _In_ const wchar_t* text,
+    _In_ size_t textLength
 )
 {
     BOOL bSuccess = FALSE;
     HANDLE processHeap = GetProcessHeap();
     message_node* newNode = NULL;
-    size_t messageLength;
+    size_t messageLength = textLength;
     HRESULT hr;
 
     do {
@@ -30,21 +31,27 @@ BOOL mlist_add(
             break;
         }
 
-        hr = StringCchLength(text, STRSAFE_MAX_CCH, &messageLength);
-        if (FAILED(hr)) {
-            break;
+        if (messageLength == 0) {
+            hr = StringCchLength(text, STRSAFE_MAX_CCH, &messageLength);
+            if (FAILED(hr)) {
+                break;
+            }
         }
 
-        newNode->message = (wchar_t*)heap_calloc(processHeap, (messageLength + 1) * sizeof(wchar_t));
-        if (newNode->message == NULL) {
-            break;
+        if (messageLength < MLIST_DEFAULT_BUFFER_SIZE) {
+            newNode->message = newNode->staticBuffer;
+            newNode->bufferSize = MLIST_DEFAULT_BUFFER_SIZE;
+            newNode->isStaticBuffer = TRUE;
+        }
+        else {
+            newNode->message = (wchar_t*)heap_calloc(processHeap, (messageLength + 1) * sizeof(wchar_t));
+            if (newNode->message == NULL) {
+                break;
+            }
+            newNode->bufferSize = messageLength + 1;
         }
 
-        hr = StringCchCopy(newNode->message, messageLength + 1, text);
-        if (FAILED(hr)) {
-            break;
-        }
-
+        memcpy(newNode->message, text, messageLength * sizeof(wchar_t));
         newNode->messageLength = messageLength;
         InsertTailList(head, &newNode->ListEntry);
 
@@ -80,6 +87,19 @@ BOOL mlist_traverse(
     SIZE_T cchTotalSize = 128; // default safe space for cumulative buffer
     SIZE_T position, msgLen;
 
+    // Early exit for a small sends
+    if (head->Flink != head && head->Flink->Flink == head && action == mlist_send) {
+        node = CONTAINING_RECORD(head->Flink, message_node, ListEntry);
+        if (node->message) {
+            sendstring_plaintext(s, node->message, context);
+            if (!node->isStaticBuffer) {
+                heap_free(processHeap, node->message);
+            }
+        }
+        heap_free(processHeap, node);
+        return TRUE;
+    }
+
     // Send list and dispose
     if (action == mlist_send) {
 
@@ -113,7 +133,9 @@ BOOL mlist_traverse(
 
                 memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
                 position += msgLen;
-                heap_free(processHeap, node->message);
+                
+                if (!node->staticBuffer)
+                    heap_free(processHeap, node->message);
             }
 
             heap_free(processHeap, node);
@@ -139,7 +161,7 @@ BOOL mlist_traverse(
         {
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
                        
-            if (node->message != NULL) {
+            if (!node->isStaticBuffer && node->message != NULL) {
                 heap_free(processHeap, node->message);
             }
             

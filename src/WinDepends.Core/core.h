@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Jun 04, 2025
+*  Modified on: Jun 11, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -88,9 +88,16 @@ typedef struct {
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "Crypt32.lib")
 
-#ifndef _CONSOLE
-#define printf
-#define wprintf
+#ifdef _CONSOLE
+#define DEBUG_PRINT(format, ...) printf(format, ##__VA_ARGS__)
+#define DEBUG_PRINT_LASTERROR(prefix) printf("%s failed with error 0x%lX\n", prefix, GetLastError())
+#define DEBUG_PRINT_FORMATTED(format, ...) printf(format, ##__VA_ARGS__)
+#define DEBUG_PRINT_SIMPLE(message) printf("%s\r\n", message)
+#else
+#define DEBUG_PRINT(format, ...)
+#define DEBUG_PRINT_LASTERROR(prefix)
+#define DEBUG_PRINT_FORMATTED(format, ...)
+#define DEBUG_PRINT_SIMPLE(message)
 #endif
 
 #endif /* _CORE_H_ */

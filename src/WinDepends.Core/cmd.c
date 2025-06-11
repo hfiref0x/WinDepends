@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Jun 10, 2025
+*  Modified on: Jun 11, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -127,6 +127,9 @@ void cmd_query_knowndlls_list(
     PWSTR dlls_path;
     PWCH buffer;
     SIZE_T sz, i;
+    HRESULT hr;
+    PWSTR endPtr;
+    SIZE_T remaining, len;
 
     if (params == NULL || !gsup.Initialized) {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
@@ -156,32 +159,41 @@ void cmd_query_knowndlls_list(
     buffer = (PWCH)heap_calloc(NULL, sz);
     if (buffer) {
 
-        StringCchPrintf(buffer,
+        hr = StringCchPrintfEx(buffer,
             sz / sizeof(WCHAR),
+            &endPtr,
+            &remaining,
+            0,
             L"%ws{\"path\":\"%ws\", \"entries\":[",
             WDEP_STATUS_OK,
             dlls_path);
 
-        mlist_add(&msg_lh, buffer);
+        if (SUCCEEDED(hr)) {
+            len = endPtr - buffer;
+            mlist_add(&msg_lh, buffer, len);
+        }
 
         i = 0;
         dll_entry = dlls_head->Next;
         while (dll_entry != NULL) {
-
             if (i > 0)
-                mlist_add(&msg_lh, L",");
+                mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-            StringCchPrintf(buffer, sz / sizeof(WCHAR),
+            hr = StringCchPrintfEx(buffer, sz / sizeof(WCHAR),
+                &endPtr, &remaining, 0,
                 L"\"%ws\"",
                 dll_entry->Element);
 
-            mlist_add(&msg_lh, buffer);
+            if (SUCCEEDED(hr)) {
+                len = endPtr - buffer;
+                mlist_add(&msg_lh, buffer, len);
+            }
 
             dll_entry = dll_entry->Next;
             i += 1;
         }
 
-        mlist_add(&msg_lh, L"]}\r\n");
+        mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, NULL);
 
         heap_free(NULL, buffer);
@@ -342,8 +354,13 @@ void cmd_resolve_apiset_name(
         sz = (MAX_PATH * sizeof(WCHAR)) + name_length + sizeof(UNICODE_NULL);
         buffer = (PWCH)heap_calloc(NULL, sz);
         if (buffer) {
-            StringCchPrintf(buffer, sz / sizeof(WCHAR), L"%ws{\"path\":\"%ws\"}\r\n", WDEP_STATUS_OK, resolved_name);
-            sendstring_plaintext(s, buffer, context);
+            if (SUCCEEDED(StringCchPrintf(
+                buffer, sz / sizeof(WCHAR), 
+                L"%ws{\"path\":\"%ws\"}\r\n", 
+                WDEP_STATUS_OK, resolved_name)))
+            {
+                sendstring_plaintext(s, buffer, context);
+            }
             heap_free(NULL, buffer);
         }
         heap_free(NULL, resolved_name);

@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Jun 05, 2025
+*  Modified on: Jun 11, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -678,19 +678,19 @@ LPVOID get_manifest(
     do {
         h_manifest = FindResource(module, CREATEPROCESS_MANIFEST_RESOURCE_ID, RT_MANIFEST);
         if (h_manifest == NULL) {
-            printf("get_manifest: FindResource failed: 0x%08X\r\n", GetLastError());
+            DEBUG_PRINT_LASTERROR("get_manifest: FindResource");
             break;
         }
 
         sz_manifest = SizeofResource(module, h_manifest);
         if (sz_manifest == 0) {
-            printf("get_manifest: SizeofResource failed: 0x%08X\r\n", GetLastError());
+            DEBUG_PRINT_LASTERROR("get_manifest: SizeofResource");
             break;
         }
 
         p_manifest = LoadResource(module, h_manifest);
         if (p_manifest == NULL) {
-            printf("get_manifest: LoadResource failed: 0x%08X\r\n", GetLastError());
+            DEBUG_PRINT_LASTERROR("get_manifest: LoadResource");
             break;
         }
 
@@ -699,12 +699,12 @@ LPVOID get_manifest(
             NULL,
             &cch_encoded))
         {
-            printf("get_manifest: CryptBinaryToString (1) failed: 0x%08X\r\n", GetLastError());
+            DEBUG_PRINT_LASTERROR("get_manifest: CryptBinaryToString (1)");
             break;
         }
 
         if (FAILED(SizeTMult(cch_encoded, sizeof(WCHAR), &buffer_size))) {
-            printf("get_manifest: arithmetic overflow\r\n");
+            DEBUG_PRINT_SIMPLE("get_manifest: arithmetic overflow");
             break;
         }
 
@@ -717,7 +717,7 @@ LPVOID get_manifest(
                 return encoded;
             }
             else {
-                printf("get_manifest: CryptBinaryToString (2) failed: 0x%08X\r\n", GetLastError());
+                DEBUG_PRINT_LASTERROR("get_manifest: CryptBinaryToString (2)");
                 heap_free(NULL, encoded);
             }
         }

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Mar 28, 2025
+*  Modified on: Jun 10, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -55,7 +55,7 @@ BOOL relocimage(
     LONG64      delta = (ULONG_PTR)MappedView - (ULONG_PTR)RebaseFrom;
     PIMAGE_BASE_RELOCATION next_block, RelData0 = RelData;
     ULONG       p = 0, block_size;
-    LONG64      rel, *ptr;
+    LONG64      rel, * ptr;
 
     if (RelDataSize < sizeof(IMAGE_BASE_RELOCATION))
         return FALSE;
@@ -143,6 +143,9 @@ BOOL get_datadirs(
     BOOL                status = FALSE;
     WCHAR               text[WDEP_MSG_LENGTH_SMALL];
     DWORD               dir_limit, c;
+    HRESULT             hr;
+    SIZE_T              remaining, len;
+    PWSTR               endPtr;
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
@@ -165,7 +168,7 @@ BOOL get_datadirs(
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
 
-        mlist_add(&msg_lh, WDEP_STATUS_OK "[");
+        mlist_add(&msg_lh, WDEP_STATUS_OK JSON_ARRAY_BEGIN, JSON_ARRAY_BEGIN_LEN);
 
         switch (opt_file_hdr.opt_file_hdr32->Magic)
         {
@@ -179,15 +182,21 @@ BOOL get_datadirs(
             for (c = 0; c < dir_limit; ++c)
             {
                 if (c > 0)
-                    mlist_add(&msg_lh, L",");
+                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                StringCchPrintf(text, ARRAYSIZE(text),
+                hr = StringCchPrintfEx(text, WDEP_MSG_LENGTH_SMALL,
+                    &endPtr,
+                    &remaining,
+                    0,
                     L"{\"vaddress\":%u,\"size\":%u}",
                     opt_file_hdr.opt_file_hdr32->DataDirectory[c].VirtualAddress,
                     opt_file_hdr.opt_file_hdr32->DataDirectory[c].Size
                 );
 
-                mlist_add(&msg_lh, text);
+                if (SUCCEEDED(hr)) {
+                    len = endPtr - text;
+                    mlist_add(&msg_lh, text, len);
+                }
             }
             break;
 
@@ -201,22 +210,30 @@ BOOL get_datadirs(
             for (c = 0; c < dir_limit; ++c)
             {
                 if (c > 0)
-                    mlist_add(&msg_lh, L",");
+                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                StringCchPrintf(text, ARRAYSIZE(text),
+                hr = StringCchPrintfEx(text, WDEP_MSG_LENGTH_SMALL,
+                    &endPtr,
+                    &remaining,
+                    0,
                     L"{\"vaddress\":%u,\"size\":%u}",
                     opt_file_hdr.opt_file_hdr64->DataDirectory[c].VirtualAddress,
                     opt_file_hdr.opt_file_hdr64->DataDirectory[c].Size
                 );
-                
-                mlist_add(&msg_lh, text);
+
+                if (SUCCEEDED(hr)) {
+                    len = endPtr - text;
+                    mlist_add(&msg_lh, text, len);
+                }
             }
 
             break;
         }
 
-        mlist_add(&msg_lh, L"]\r\n");
+        mlist_add(&msg_lh, L"]\r\n", WSTRING_LEN(L"]\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
+
+        status = TRUE;
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
@@ -237,10 +254,16 @@ BOOL get_headers(
     PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
     BOOL                status = FALSE;
-    WCHAR               *text = NULL, *manifest = NULL;
-    ULONG               textsize = 16384, i;
+    WCHAR               *manifest = NULL;
+    ULONG               i;
     DWORD               dir_base = 0, dir_size = 0, dllchars_ex = 0, image_size = 0;
     DWORD               hdr_chars, hdr_subsystem;
+    HRESULT             hr;
+    SIZE_T              remaining, len, manifest_len;
+    PWSTR               endPtr;
+
+#define WDEP_TEXT_BUFFER_SIZE 16384
+    static __declspec(thread) WCHAR header_buffer[WDEP_TEXT_BUFFER_SIZE];
 
     PIMAGE_DEBUG_DIRECTORY  pdbg = NULL;
 
@@ -261,26 +284,17 @@ BOOL get_headers(
             return FALSE;
         }
 
-        text = VirtualAllocEx(GetCurrentProcess(), 
-            NULL, 
-            textsize * sizeof(WCHAR), 
-            MEM_RESERVE | MEM_COMMIT, 
-            PAGE_READWRITE);
-
-        if (!text)
-        {
-            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
-            __leave;
-        }
-
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
-        mlist_add(&msg_lh, WDEP_STATUS_OK L"{");
+        
+        mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
 
         hdr_chars = nt_file_hdr->Characteristics;
 
-        StringCchPrintf(text, textsize,
+        header_buffer[0] = 0;
+        hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
+            &endPtr, &remaining, 0,
             L"\"ImageFileHeader\":{"
             L"\"Machine\":%u,"
             L"\"NumberOfSections\":%u,"
@@ -298,7 +312,10 @@ BOOL get_headers(
             nt_file_hdr->Characteristics
         );
 
-        mlist_add(&msg_lh, text);
+        if (SUCCEEDED(hr)) {
+            len = endPtr - header_buffer;
+            mlist_add(&msg_lh, header_buffer, len);
+        }
 
         switch (opt_file_hdr.opt_file_hdr32->Magic)
         {
@@ -308,7 +325,8 @@ BOOL get_headers(
 
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_DEBUG, dir_base, dir_size);
 
-            StringCchPrintf(text, textsize,
+            hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
+                &endPtr, &remaining, 0,
                 L"\"ImageOptionalHeader\":{"
                 L"\"Magic\":%u,"
                 L"\"MajorLinkerVersion\":%u,"
@@ -371,8 +389,11 @@ BOOL get_headers(
                 opt_file_hdr.opt_file_hdr32->LoaderFlags,
                 opt_file_hdr.opt_file_hdr32->NumberOfRvaAndSizes
             );
-            
-            mlist_add(&msg_lh, text);
+
+            if (SUCCEEDED(hr)) {
+                len = endPtr - header_buffer;
+                mlist_add(&msg_lh, header_buffer, len);
+            }
             break;
 
         case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
@@ -381,7 +402,8 @@ BOOL get_headers(
 
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_DEBUG, dir_base, dir_size);
 
-            StringCchPrintf(text, textsize,
+            hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
+                &endPtr, &remaining, 0,
                 L"\"ImageOptionalHeader\":{"
                 L"\"Magic\":%u,"
                 L"\"MajorLinkerVersion\":%u,"
@@ -442,7 +464,11 @@ BOOL get_headers(
                 opt_file_hdr.opt_file_hdr64->LoaderFlags,
                 opt_file_hdr.opt_file_hdr64->NumberOfRvaAndSizes
             );
-            mlist_add(&msg_lh, text);
+
+            if (SUCCEEDED(hr)) {
+                len = endPtr - header_buffer;
+                mlist_add(&msg_lh, header_buffer, len);
+            }
             break;
 
         default:
@@ -453,19 +479,22 @@ BOOL get_headers(
         pdbg = (PIMAGE_DEBUG_DIRECTORY)(context->module + dir_base);
         if (valid_image_range((ULONG_PTR)pdbg, sizeof(IMAGE_DEBUG_DIRECTORY), (ULONG_PTR)context->module, image_size))
         {
-            mlist_add(&msg_lh, L",\"DebugDirectory\":[");
+            mlist_add(&msg_lh, JSON_DEBUG_DIRECTORY_START, JSON_DEBUG_DIRECTORY_START_LEN);
 
             for (i = 0; dir_size >= sizeof(IMAGE_DEBUG_DIRECTORY); dir_size -= sizeof(IMAGE_DEBUG_DIRECTORY), ++pdbg, i++)
             {
-                if ((pdbg->Type == IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS) && (pdbg->AddressOfRawData < image_size - sizeof(DWORD)) && dllchars_ex == 0)
+                if ((pdbg->Type == IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS) &&
+                    (pdbg->AddressOfRawData < image_size - sizeof(DWORD)) &&
+                    dllchars_ex == 0)
                 {
                     dllchars_ex = *(PDWORD)(context->module + pdbg->AddressOfRawData);
                 }
 
                 if (i > 0)
-                    mlist_add(&msg_lh, L",");
+                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                StringCchPrintf(text, textsize,
+                hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
+                    &endPtr, &remaining, 0,
                     L"{\"Characteristics\":%u,"
                     L"\"TimeDateStamp\":%u,"
                     L"\"MajorVersion\":%u,"
@@ -483,18 +512,22 @@ BOOL get_headers(
                     pdbg->AddressOfRawData,
                     pdbg->PointerToRawData
                 );
-                
-                mlist_add(&msg_lh, text);
+
+                if (SUCCEEDED(hr)) {
+                    len = endPtr - header_buffer;
+                    mlist_add(&msg_lh, header_buffer, len);
+                }
             }
         }
 
-        mlist_add(&msg_lh, L"]");
+        mlist_add(&msg_lh, JSON_ARRAY_END, JSON_ARRAY_END_LEN);
 
         VS_FIXEDFILEINFO* vinfo;
-        vinfo = PEImageEnumVersionFields((HMODULE)context->module, NULL, NULL, (LPVOID)&text);
+        vinfo = PEImageEnumVersionFields((HMODULE)context->module, NULL, NULL, (LPVOID)&header_buffer);
         if (vinfo)
         {
-            StringCchPrintf(text, textsize,
+            hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
+                &endPtr, &remaining, 0,
                 L",\"Version\":{"
                 L"\"dwFileVersionMS\":%u,"
                 L"\"dwFileVersionLS\":%u,"
@@ -505,14 +538,22 @@ BOOL get_headers(
                 vinfo->dwProductVersionMS,
                 vinfo->dwProductVersionLS
             );
-            
-            mlist_add(&msg_lh, text);
+
+            if (SUCCEEDED(hr)) {
+                len = endPtr - header_buffer;
+                mlist_add(&msg_lh, header_buffer, len);
+            }
         }
 
-        StringCchPrintf(text, textsize,
-            L",\"dllcharex\":%u", dllchars_ex);
-        
-        mlist_add(&msg_lh, text);
+        hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
+            &endPtr, &remaining, 0,
+            L",\"dllcharex\":%u",
+            dllchars_ex);
+
+        if (SUCCEEDED(hr)) {
+            len = endPtr - header_buffer;
+            mlist_add(&msg_lh, header_buffer, len);
+        }
 
         // Query create process manifest, skip dlls and native images
         if ((hdr_chars & IMAGE_FILE_DLL) == 0 &&
@@ -521,14 +562,16 @@ BOOL get_headers(
             manifest = get_manifest((HMODULE)context->module);
             if (manifest)
             {
-                mlist_add(&msg_lh, L",\"manifest\":\"");
-                mlist_add(&msg_lh, manifest);
-                mlist_add(&msg_lh, L"\"");
+                if (SUCCEEDED(StringCchLength(manifest, STRSAFE_MAX_CCH, &manifest_len))) {
+                    mlist_add(&msg_lh, L",\"manifest\":\"", WSTRING_LEN(L",\"manifest\":\""));
+                    mlist_add(&msg_lh, manifest, manifest_len);
+                    mlist_add(&msg_lh, L"\"", WSTRING_LEN(L"\""));
+                }
                 heap_free(NULL, manifest);
             }
         }
 
-        mlist_add(&msg_lh, L"}\r\n");
+        mlist_add(&msg_lh, L"}\r\n", WSTRING_LEN(L"}\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -538,9 +581,6 @@ BOOL get_headers(
         report_exception_to_client(s, ex_headers, GetExceptionCode());
     }
 
-    if (text != NULL) {
-        VirtualFreeEx(GetCurrentProcess(), text, 0, MEM_RELEASE);
-    }
     return status;
 }
 
@@ -552,11 +592,14 @@ BOOL get_exports(
     LIST_ENTRY          msg_lh;
     PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
-    DWORD               dir_base = 0, dir_size = 0, i, * ptrs, * names, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
+    DWORD               dir_base = 0, dir_size = 0, i, *ptrs, *names, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
     WORD                *name_ordinals;
     BOOL                status = FALSE, names_valid;
     char                *fname, *forwarder;
-    WCHAR               text[WDEP_MSG_LENGTH_BIG];
+    HRESULT             hr;
+    PWSTR               endPtr;
+    SIZE_T              remaining, len;
+    WCHAR               text_buffer[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_EXPORT_DIRECTORY ExportTable;
 
@@ -602,24 +645,27 @@ BOOL get_exports(
 
         if ((dir_base > 0) && (dir_base < ImageSize))
         {
-            //mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"export\":{");
-            mlist_add(&msg_lh, WDEP_STATUS_OK L"{");
+            mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
 
             ExportTable = (PIMAGE_EXPORT_DIRECTORY)(context->module + dir_base);
             ptrs = (DWORD*)(context->module + ExportTable->AddressOfFunctions);
             names = (DWORD*)(context->module + ExportTable->AddressOfNames);
             name_ordinals = (WORD*)(context->module + ExportTable->AddressOfNameOrdinals);
-            
+
             names_valid = valid_image_range((ULONG_PTR)name_ordinals, ExportTable->NumberOfNames * sizeof(DWORD), (ULONG_PTR)context->module, ImageSize);
 
-            StringCchPrintf(text, ARRAYSIZE(text),
+            hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
+                &endPtr, &remaining, 0,
                 L"\"library\":{\"timestamp\":%u,\"entries\":%u,\"named\":%u,\"base\":%u,\"functions\":[",
                 ExportTable->TimeDateStamp,
                 ExportTable->NumberOfFunctions,
                 ExportTable->NumberOfNames,
                 ExportTable->Base);
 
-            mlist_add(&msg_lh, text);
+            if (SUCCEEDED(hr)) {
+                len = endPtr - text_buffer;
+                mlist_add(&msg_lh, text_buffer, len);
+            }
 
             for (i = 0; i < ExportTable->NumberOfFunctions; ++i)
             {
@@ -628,7 +674,7 @@ BOOL get_exports(
 
                 if (!ptrs[i])
                     continue;
-                
+
                 ++ctr;
                 fname = NULL;
                 forwarder = "";
@@ -658,9 +704,10 @@ BOOL get_exports(
                 }
 
                 if (need_comma > 0)
-                    mlist_add(&msg_lh, L",");
+                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                StringCchPrintf(text, ARRAYSIZE(text),
+                hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
+                    &endPtr, &remaining, 0,
                     L"{\"ordinal\":%u,"
                     L"\"hint\":%u,"
                     L"\"name\":\"%S\","
@@ -668,13 +715,16 @@ BOOL get_exports(
                     L"\"forward\":\"%S\"}",
                     ExportTable->Base + i, hint, fname, ptrs[i], forwarder);
 
-                mlist_add(&msg_lh, text);
+                if (SUCCEEDED(hr)) {
+                    len = endPtr - text_buffer;
+                    mlist_add(&msg_lh, text_buffer, len);
+                }
+
                 need_comma = 1;
             }
-            mlist_add(&msg_lh, L"]}");
+            mlist_add(&msg_lh, L"]}}", WSTRING_LEN(L"]}"));
         }
-        //mlist_add(&msg_lh, L"}}\r\n");
-        mlist_add(&msg_lh, L"}\r\n");
+        mlist_add(&msg_lh, L"\r\n", WSTRING_LEN(L"\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -701,6 +751,9 @@ static void process_thunks64(
     DWORD       fhint = 0, ordinal = 0;
     ULONG64     fbound = 0;
     char        *strfname = NULL;
+    HRESULT     hr;
+    PWSTR       endPtr;
+    SIZE_T      remaining, len;
     WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_IMPORT_BY_NAME fname = NULL;
@@ -743,12 +796,17 @@ static void process_thunks64(
         }
 
         if (i > 0)
-            mlist_add(msg_lh, L",");
+            mlist_add(msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-        StringCchPrintf(msg_text, ARRAYSIZE(msg_text),
+        hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
+            &endPtr, &remaining, 0,
             L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
             ordinal, fhint, strfname, fbound);
-        mlist_add(msg_lh, msg_text);
+
+        if (SUCCEEDED(hr)) {
+            len = endPtr - msg_text;
+            mlist_add(msg_lh, msg_text, len);
+        }
     }
 }
 
@@ -766,6 +824,9 @@ static void process_thunks32(
     DWORD       fhint = 0, ordinal = 0;
     ULONG64     fbound = 0;
     char        *strfname = NULL;
+    HRESULT     hr;
+    PWSTR       endPtr;
+    SIZE_T      remaining, len;
     WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_IMPORT_BY_NAME fname = NULL;
@@ -807,13 +868,17 @@ static void process_thunks32(
         }
 
         if (i > 0)
-            mlist_add(msg_lh, L",");
+            mlist_add(msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-        StringCchPrintf(msg_text, ARRAYSIZE(msg_text),
+        hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
+            &endPtr, &remaining, 0,
             L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
             ordinal, fhint, strfname, fbound);
 
-        mlist_add(msg_lh, msg_text);
+        if (SUCCEEDED(hr)) {
+            len = endPtr - msg_text;
+            mlist_add(msg_lh, msg_text, len);
+        }
     }
 }
 
@@ -826,10 +891,13 @@ BOOL get_imports(
     PIMAGE_FILE_HEADER          nt_file_hdr;
     DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c;
     DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0,
-                                IModuleName, INameTable, delta, boundIAT;
+        IModuleName, INameTable, delta, boundIAT;
     BOOL                        status = FALSE, importPresent = FALSE, has_bound_imports = FALSE;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
+    HRESULT                     hr;
+    PWSTR                       endPtr;
+    SIZE_T                      remaining, len;
     WCHAR                       msg_text[WDEP_MSG_LENGTH_BIG];
 
     define_3264_union(IMAGE_THUNK_DATA, thunk_data);
@@ -878,7 +946,7 @@ BOOL get_imports(
             break;
         }
 
-        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"libraries\":[");
+        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"libraries\":[", WSTRING_LEN(WDEP_STATUS_OK L"{\"libraries\":["));
 
         if ((si_dir_base > 0) && (si_dir_base < ImageSize))
         {
@@ -887,12 +955,17 @@ BOOL get_imports(
             {
                 importPresent = TRUE;
                 if (c > 0)
-                    mlist_add(&msg_lh, L",");
+                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                StringCchPrintf(msg_text, ARRAYSIZE(msg_text),
+                hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
+                    &endPtr, &remaining, 0,
                     L"{\"name\":\"%S\",\"delay\":0,\"functions\":[",
                     (char*)context->module + SImportTable->Name);
-                mlist_add(&msg_lh, msg_text);
+
+                if (SUCCEEDED(hr)) {
+                    len = endPtr - msg_text;
+                    mlist_add(&msg_lh, msg_text, len);
+                }
 
                 bound_table.uptr = NULL;
                 if ((SImportTable->OriginalFirstThunk < SizeOfHeaders) || (SImportTable->OriginalFirstThunk > ImageSize))
@@ -916,9 +989,9 @@ BOOL get_imports(
                     process_thunks32(context->module, thunk_data.thunk_data32,
                         bound_table.bound_table32, &msg_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
 
-                mlist_add(&msg_lh, L"]}");
+                mlist_add(&msg_lh, L"]}", WSTRING_LEN(L"]}"));
             }
-            status = TRUE;           
+            status = TRUE;
         }
 
         if ((di_dir_base > 0) && (di_dir_base < ImageSize))
@@ -926,7 +999,7 @@ BOOL get_imports(
             DImportTable = (PIMAGE_DELAYLOAD_DESCRIPTOR)(context->module + di_dir_base);
 
             if (importPresent)
-                mlist_add(&msg_lh, L",");
+                mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
             for (c = 0; DImportTable->DllNameRVA; ++DImportTable, ++c)
             {
@@ -934,14 +1007,14 @@ BOOL get_imports(
                 INameTable = DImportTable->ImportNameTableRVA;
                 delta = (DWORD_PTR)context->module;
 
-                printf("get_imports: DImportTable->Attributes.RvaBased %lu, delta 0x%llX\r\n", 
+                printf("get_imports: DImportTable->Attributes.RvaBased %lu, delta 0x%llX\r\n",
                     DImportTable->Attributes.RvaBased,
                     delta);
 
                 if (DImportTable->Attributes.RvaBased) {
                     IModuleName += delta;
                     INameTable += delta;
-                } 
+                }
                 else {
                     IModuleName = DImportTable->DllNameRVA - (DWORD_PTR)ImageBase;
                     INameTable = DImportTable->ImportNameTableRVA - (DWORD_PTR)ImageBase;
@@ -950,10 +1023,17 @@ BOOL get_imports(
                 }
 
                 if (c > 0)
-                    mlist_add(&msg_lh, L",");
+                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"{\"name\":\"%S\",\"delay\":1,\"functions\":[", (char*)IModuleName);
-                mlist_add(&msg_lh, msg_text);
+                hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
+                    &endPtr, &remaining, 0,
+                    L"{\"name\":\"%S\",\"delay\":1,\"functions\":[",
+                    (char*)IModuleName);
+
+                if (SUCCEEDED(hr)) {
+                    len = endPtr - msg_text;
+                    mlist_add(&msg_lh, msg_text, len);
+                }
 
                 bound_table.uptr = NULL;
                 if (DImportTable->TimeDateStamp != 0) {
@@ -978,11 +1058,12 @@ BOOL get_imports(
                     process_thunks32(context->module, thunk_data.thunk_data32,
                         bound_table.bound_table32, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
 
-                mlist_add(&msg_lh, L"]}");
+                mlist_add(&msg_lh, L"]}", WSTRING_LEN(L"]}"));
             }
             status = TRUE;
         }
-        mlist_add(&msg_lh, L"]}\r\n");
+
+        mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
@@ -1004,7 +1085,7 @@ LPBYTE pe32open(
     IMAGE_DOS_HEADER    dos_hdr = { 0 };
     IMAGE_FILE_HEADER   nt_file_hdr = { 0 };
     DWORD               iobytes = 0, dwSignature = 0, szOptAndSections,
-                        vsize, psize, tsize, status = 0, dwRealChecksum = 0, dwLastError = 0, dir_base = 0, dir_size = 0;
+        vsize, psize, tsize, status = 0, dwRealChecksum = 0, dwLastError = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
     __int64             c, image_base;
@@ -1031,7 +1112,7 @@ LPBYTE pe32open(
         hf = CreateFile(context->filename, GENERIC_READ | SYNCHRONIZE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
         if (hf == INVALID_HANDLE_VALUE)
         {
-            printf("pe32open: CreateFile failed with error 0x%lX\n", GetLastError());
+            DEBUG_PRINT_LASTERROR("pe32open: CreateFile");
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             __leave;
         }
@@ -1054,14 +1135,14 @@ LPBYTE pe32open(
         }
 
         // Validate DOS header
-        if ((iobytes != sizeof(dos_hdr)) || (dos_hdr.e_magic != IMAGE_DOS_SIGNATURE) 
+        if ((iobytes != sizeof(dos_hdr)) || (dos_hdr.e_magic != IMAGE_DOS_SIGNATURE)
             || (dos_hdr.e_lfanew <= 0) || ((DWORD)dos_hdr.e_lfanew >= fileinfo.nFileSizeLow))
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
-        RtlSecureZeroMemory(&ovl, sizeof(ovl));
+        RtlZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew;
         if (!ReadFile(hf, &dwSignature, sizeof(dwSignature), &iobytes, &ovl))
         {
@@ -1077,7 +1158,7 @@ LPBYTE pe32open(
         }
 
         // Read COFF header
-        RtlSecureZeroMemory(&ovl, sizeof(ovl));
+        RtlZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature);
         if (!ReadFile(hf, &nt_file_hdr, sizeof(nt_file_hdr), &iobytes, &ovl))
         {
@@ -1090,7 +1171,7 @@ LPBYTE pe32open(
             __leave;
         }
 
-       RtlSecureZeroMemory(&ovl, sizeof(ovl));
+        RtlZeroMemory(&ovl, sizeof(ovl));
         ovl.Offset = dos_hdr.e_lfanew + sizeof(dwSignature) + IMAGE_SIZEOF_FILE_HEADER;
 
 #pragma region CHECKSUM
@@ -1114,7 +1195,7 @@ LPBYTE pe32open(
         if (szOptAndSections < PAGE_SIZE)
             szOptAndSections = PAGE_SIZE;
 
-        opt_file_hdr.opt_file_hdr64 = VirtualAllocEx(GetCurrentProcess(), NULL, szOptAndSections, 
+        opt_file_hdr.opt_file_hdr64 = VirtualAllocEx(GetCurrentProcess(), NULL, szOptAndSections,
             MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
         if (!opt_file_hdr.opt_file_hdr64)
@@ -1162,7 +1243,7 @@ LPBYTE pe32open(
         /* checking for sections continuity */
         if (nt_file_hdr.NumberOfSections == 0)
         {
-            vsize = PAGE_ALIGN(max((ULONG)dos_hdr.e_lfanew, 
+            vsize = PAGE_ALIGN(max((ULONG)dos_hdr.e_lfanew,
                 opt_file_hdr.opt_file_hdr64->SizeOfImage));
         }
         else
@@ -1222,12 +1303,12 @@ LPBYTE pe32open(
             }*/
         }
 
-        printf("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: 0x%lX\r\n\timage_fixed: %li\r\n", 
-            context->process_relocs, 
-            context->enable_custom_image_base, 
-            context->custom_image_base, 
+        DEBUG_PRINT_FORMATTED("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: 0x%lX\r\n\timage_fixed: %li\r\n",
+            context->process_relocs,
+            context->enable_custom_image_base,
+            context->custom_image_base,
             context->image_fixed);
-        
+
         if (context->enable_custom_image_base) {
 
             module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)context->custom_image_base, vsize,
@@ -1241,7 +1322,7 @@ LPBYTE pe32open(
             // allocate image buffer below 4GB for x86-32 compatibility
             for (c = image_base; c < MAX_APP_ADDRESS; c += context->allocation_granularity)
             {
-                printf("pe32open: module base at 0x%llX\r\n", c);
+                DEBUG_PRINT("pe32open: module allocated at 0x%p\r\n", module);
 
                 module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize,
                     MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -1251,19 +1332,18 @@ LPBYTE pe32open(
                 if (module)
                     break;
             }
-
         }
 
         if (!module) {
-            printf("pe32open: module is not allocated, GetLastError 0x%lX\r\n", dwLastError);
+            DEBUG_PRINT("pe32open: module is not allocated, GetLastError 0x%lX\r\n", dwLastError);
             sendstring_plaintext_no_track(s, WDEP_STATUS_502);
             __leave;
         }
 
-        printf("pe32open: module allocated at 0x%p\r\n", module);
+        DEBUG_PRINT("pe32open: module allocated at 0x%p\r\n", module);
 
         // Read PE headers into memory
-        RtlSecureZeroMemory(&ovl, sizeof(ovl));
+        RtlZeroMemory(&ovl, sizeof(ovl));
         if (nt_file_hdr.NumberOfSections == 0)
         {
             psize = PAGE_ALIGN(
@@ -1289,7 +1369,7 @@ LPBYTE pe32open(
             if (sections[c].PointerToRawData == 0)
                 continue;
 
-            RtlSecureZeroMemory(&ovl, sizeof(ovl));
+            RtlZeroMemory(&ovl, sizeof(ovl));
             ovl.Offset = ALIGN_DOWN(sections[c].PointerToRawData, opt_file_hdr.opt_file_hdr64->FileAlignment);
 
             tsize = sections[c].Misc.VirtualSize;
@@ -1325,7 +1405,7 @@ LPBYTE pe32open(
                 }
             }
 
-            printf("pe32open: module relocation result %li\r\n", relocs_processed);
+            DEBUG_PRINT("pe32open: module relocation result %li\r\n", relocs_processed);
         }
 
         status = 1;

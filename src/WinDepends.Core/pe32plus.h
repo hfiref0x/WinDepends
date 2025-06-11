@@ -3,11 +3,11 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Jun 08, 2025
+*  Modified on: Jun 11, 2025
 *
 *      Project: WinDepends.Core
 *
-*      Author:
+*      Author: WinDepends dev team
 */
 
 #pragma once
@@ -33,6 +33,25 @@
 #define WDEP_STATUS_501 L"WDEP/1.0 501 Context not allocated\r\n"
 #define WDEP_STATUS_502 L"WDEP/1.0 502 Image buffer not allocated\r\n"
 #define WDEP_STATUS_600 L"WDEP/1.0 600 Exception\r\n"
+
+#define WSTRING_LEN(str) (sizeof(str) / sizeof(WCHAR) - 1)
+
+#define JSON_OBJECT_BEGIN        L"{"
+#define JSON_COMMA               L","
+#define JSON_ARRAY_BEGIN         L"["
+#define JSON_ARRAY_END           L"]"
+#define JSON_COMMA_LEN           WSTRING_LEN(JSON_COMMA)
+#define JSON_OBJECT_BEGIN_LEN    WSTRING_LEN(JSON_OBJECT_BEGIN)
+#define JSON_ARRAY_BEGIN_LEN     WSTRING_LEN(JSON_ARRAY_BEGIN)
+#define JSON_ARRAY_END_LEN       WSTRING_LEN(JSON_ARRAY_END)
+
+#define JSON_RESPONSE_BEGIN      WDEP_STATUS_OK L"{"
+#define JSON_RESPONSE_BEGIN_LEN  WSTRING_LEN(JSON_RESPONSE_BEGIN)
+#define JSON_RESPONSE_END        L"}\r\n"
+#define JSON_RESPONSE_END_LEN    WSTRING_LEN(JSON_RESPONSE_END)
+
+#define JSON_DEBUG_DIRECTORY_START L",\"DebugDirectory\":["
+#define JSON_DEBUG_DIRECTORY_START_LEN WSTRING_LEN(JSON_DEBUG_DIRECTORY_START)
 
 #define get_pe_dirbase_size(hdr, index, base, size) if (hdr->NumberOfRvaAndSizes > index) {base = hdr->DataDirectory[index].VirtualAddress; size = hdr->DataDirectory[index].Size;}
 #define define_3264_union(type, name) union name##__ {LPVOID uptr; type##32 *name##32; type##64 *name##64;} name;

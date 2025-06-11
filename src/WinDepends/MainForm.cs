@@ -293,7 +293,7 @@ public partial class MainForm : Form
                 //
                 // Display statistics.
                 //
-                if (m_Configuration.UseStats && stats != null)
+                if (useStats && stats != null)
                 {
                     string sizeText;
                     if (stats.TotalBytesSent >= 1024 * 1024)

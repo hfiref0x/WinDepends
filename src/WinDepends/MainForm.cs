@@ -193,28 +193,8 @@ public partial class MainForm : Form
             m_CoreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
         }
 
-        //
         // Display this message after server initialization message.
-        //
-        switch (dbghelpInit)
-        {
-            case -1:
-                AddLogMessage($"DBGHELP is not initialized, dll \"{m_Configuration.SymbolsDllPath}\" is not loaded",
-                    LogMessageType.ErrorOrWarning);
-                break;
-            case 0:
-                AddLogMessage($"DBGHELP initialization failed for \"{m_Configuration.SymbolsDllPath}\", " +
-                    $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.ErrorOrWarning);
-                break;
-            case 1:
-                AddLogMessage($"DBGHELP initialized using \"{m_Configuration.SymbolsDllPath}\", " +
-                    $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
-                break;
-            case 2:
-                AddLogMessage($"DBGHELP initialized (undecoration only) using \"{m_Configuration.SymbolsDllPath}\", " +
-                    $"store \"{m_Configuration.SymbolsStorePath}\"", LogMessageType.Information);
-                break;
-        }
+        LogSymbolsInitializationResult(dbghelpInit, m_Configuration.SymbolsDllPath, m_Configuration.SymbolsStorePath);
 
         LVExports.VirtualMode = true;
         LVExports.VirtualListSize = 0;
@@ -232,6 +212,29 @@ public partial class MainForm : Form
         moduleToolTip.InitialDelay = 500;
         moduleToolTip.ReshowDelay = 200;
         moduleToolTip.ShowAlways = true;
+    }
+
+    private void LogSymbolsInitializationResult(SymbolResolverInitResult result, string symDllPath, string symStorePath)
+    {
+        switch (result)
+        {
+            case SymbolResolverInitResult.DllLoadFailure:
+                AddLogMessage($"DBGHELP is not initialized, dll \"{symDllPath}\" is not loaded",
+                    LogMessageType.ErrorOrWarning);
+                break;
+            case SymbolResolverInitResult.InitializationFailure:
+                AddLogMessage($"DBGHELP initialization failed for \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogMessageType.ErrorOrWarning);
+                break;
+            case SymbolResolverInitResult.SuccessWithSymbols:
+                AddLogMessage($"DBGHELP initialized using \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogMessageType.Information);
+                break;
+            case SymbolResolverInitResult.SuccessForUndecorationOnly:
+                AddLogMessage($"DBGHELP initialized (undecoration only) using \"{symDllPath}\", " +
+                    $"store \"{symStorePath}\"", LogMessageType.Information);
+                break;
+        }
     }
 
     /// <summary>
@@ -1483,27 +1486,8 @@ public partial class MainForm : Form
             }
 
             CSymbolResolver.ReleaseSymbolResolver();
-            int result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, m_Configuration.UseSymbols);
-            switch (result)
-            {
-                case -1:
-                    AddLogMessage($"DBGHELP is not initialized, dll \"{symDllPath}\" is not loaded",
-                        LogMessageType.ErrorOrWarning);
-                    break;
-                case 0:
-                    AddLogMessage($"DBGHELP initialization failed for \"{symDllPath}\", " +
-                        $"store \"{symStorePath}\"", LogMessageType.ErrorOrWarning);
-                    break;
-                case 1:
-                    AddLogMessage($"DBGHELP initialized using \"{symDllPath}\", " +
-                        $"store \"{symStorePath}\"", LogMessageType.Information);
-                    break;
-                case 2:
-                    AddLogMessage($"DBGHELP initialized (undecoration only) using \"{symDllPath}\", " +
-                        $"store \"{symStorePath}\"", LogMessageType.Information);
-                    break;
-            }
-
+            var result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, m_Configuration.UseSymbols);
+            LogSymbolsInitializationResult(result, symDllPath, symStorePath);
         }
         else
         {

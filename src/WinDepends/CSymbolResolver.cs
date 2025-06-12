@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        06 Jun 2025
+*  DATE:        11 Jun 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -23,6 +23,35 @@ using System.Text;
 
 namespace WinDepends;
 
+/// <summary>
+/// Represents the result of initializing the symbol resolver.
+/// </summary>
+public enum SymbolResolverInitResult
+{
+    /// <summary>
+    /// Failed to load the dbghelp.dll.
+    /// </summary>
+    DllLoadFailure = -1,
+
+    /// <summary>
+    /// Failed to initialize the symbol resolver.
+    /// </summary>
+    InitializationFailure = 0,
+
+    /// <summary>
+    /// Successfully initialized with symbol functionality.
+    /// </summary>
+    SuccessWithSymbols = 1,
+
+    /// <summary>
+    /// Successfully initialized for name undecoration only.
+    /// </summary>
+    SuccessForUndecorationOnly = 2
+}
+
+/// <summary>
+/// Provides functionality for resolving symbols from Windows binary files using the DbgHelp API.
+/// </summary>
 public static class CSymbolResolver
 {
     #region "P/Invoke stuff"
@@ -59,6 +88,9 @@ public static class CSymbolResolver
     public const uint SYMOPT_DISABLE_SRVSTAR_ON_STARTUP = 0x40000000;
     public const uint SYMOPT_DEBUG = 0x80000000;
 
+    /// <summary>
+    /// Controls the behavior of symbol name undecoration.
+    /// </summary>
     [Flags]
     public enum UNDNAME : uint
     {
@@ -114,6 +146,9 @@ public static class CSymbolResolver
         NoThrowSignatures = 0x0100,
     }
 
+    /// <summary>
+    /// Contains information about a symbol.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct SYMBOL_INFO
     {
@@ -136,7 +171,9 @@ public static class CSymbolResolver
         public string Name;
     }
 
+    /// <summary>Maximum length of a symbol name.</summary>
     const UInt32 MAX_SYM_NAME = 2000;
+    /// <summary>Size of the SYMBOL_INFO structure excluding the name field.</summary>
     static readonly UInt32 SIZE_OF_SYMBOL_INFO = (uint)Marshal.SizeOf<SYMBOL_INFO>() - (MAX_SYM_NAME * 2);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
@@ -204,14 +241,27 @@ public static class CSymbolResolver
         public IntPtr BaseAddress;
     }
 
+    /// <summary>
+    /// Cache of loaded symbol modules.
+    /// </summary>
     static readonly ConcurrentDictionary<string, SymModuleItem> symModulesCache = new();
 
+    /// <summary>
+    /// Caches a symbol module with its base address.
+    /// </summary>
+    /// <param name="symModuleName">The name of the symbol module.</param>
+    /// <param name="baseAddress">The base address of the module.</param>
     public static void CacheSymModule(string symModuleName, IntPtr baseAddress)
     {
         var item = new SymModuleItem { BaseAddress = baseAddress };
         symModulesCache.AddOrUpdate(symModuleName, item, (key, oldValue) => item);
     }
 
+    /// <summary>
+    /// Retrieves a cached symbol module's base address by name.
+    /// </summary>
+    /// <param name="symModuleName">The name of the symbol module.</param>
+    /// <returns>The base address of the module if found, otherwise IntPtr.Zero.</returns>
     public static IntPtr RetrieveCachedSymModule(string symModuleName)
     {
         if (symModulesCache.TryGetValue(symModuleName, out var item))
@@ -224,6 +274,9 @@ public static class CSymbolResolver
         }
     }
 
+    /// <summary>
+    /// Unloads all cached symbol modules.
+    /// </summary>
     public static void UnloadCachedSymModules()
     {
         foreach (var kvp in symModulesCache)
@@ -232,6 +285,9 @@ public static class CSymbolResolver
         }
     }
 
+    /// <summary>
+    /// Clears all symbol-related function delegates.
+    /// </summary>
     private static void ClearSymbolsDelegates()
     {
         SymLoadModuleEx = null;
@@ -243,11 +299,18 @@ public static class CSymbolResolver
         SymGetOptions = null;
     }
 
+    /// <summary>
+    /// Clears the undecorate symbol name function delegate.
+    /// </summary>
     private static void ClearUndecorateDelegate()
     {
         UnDecorateSymbolName = null;
     }
 
+    /// <summary>
+    /// Initializes the undecorate symbol name delegate.
+    /// </summary>
+    /// <returns>True if successful, false otherwise.</returns>
     private static bool InitializeUndecorateDelegate()
     {
         try
@@ -262,6 +325,10 @@ public static class CSymbolResolver
         return (UnDecorateSymbolName != null);
     }
 
+    /// <summary>
+    /// Initializes all symbol-related function delegates.
+    /// </summary>
+    /// <returns>True if all delegates were initialized successfully, false otherwise.</returns>
     private static bool InitializeSymbolsDelegates()
     {
         bool bResult;
@@ -301,7 +368,22 @@ public static class CSymbolResolver
         return bResult;
     }
 
-    public static int AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
+    /// <summary>
+    /// Initializes the symbol resolver with the specified parameters.
+    /// </summary>
+    /// <param name="dllPath">The path to DbgHelp.dll.</param>
+    /// <param name="storePath">The path to store symbol files.</param>
+    /// <param name="useSymbols">Indicates whether to use symbols or only name undecoration.</param>
+    /// <returns>
+    /// A <see cref="SymbolResolverInitResult"/> value indicating the result of the initialization:
+    /// <list type="bullet">
+    ///   <item><description><see cref="SymbolResolverInitResult.DllLoadFailure"/> if DbgHelp.dll could not be loaded</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.InitializationFailure"/> if initialization failed</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbols"/> if successfully initialized with symbols</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.SuccessForUndecorationOnly"/> if successfully initialized for name undecoration only</description></item>
+    /// </list>
+    /// </returns>
+    public static SymbolResolverInitResult AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
     {
         DllPath = dllPath;
         StorePath = storePath;
@@ -309,16 +391,14 @@ public static class CSymbolResolver
         DbgHelpModule = NativeMethods.LoadLibraryEx(dllPath, IntPtr.Zero, 0);
         if (DbgHelpModule == IntPtr.Zero)
         {
-            return -1;
+            return SymbolResolverInitResult.DllLoadFailure;
         }
 
         UndecorationReady = DbgHelpModule != IntPtr.Zero && InitializeUndecorateDelegate();
 
         if (useSymbols && DbgHelpModule != IntPtr.Zero && InitializeSymbolsDelegates())
         {
-            //
             // No SYMOPT_UNDNAME as we have a special GUI option for it.
-            //
             SymSetOptions(
                 (SymGetOptions() |
                  SYMOPT_DEFERRED_LOADS |
@@ -331,14 +411,18 @@ public static class CSymbolResolver
 
         if (useSymbols)
         {
-            return SymbolsInitialized ? 1 : 0;
+            return SymbolsInitialized ? SymbolResolverInitResult.SuccessWithSymbols : SymbolResolverInitResult.InitializationFailure;
         }
         else
         {
-            return UndecorationReady ? 2 : 0;
+            return UndecorationReady ? SymbolResolverInitResult.SuccessForUndecorationOnly : SymbolResolverInitResult.InitializationFailure;
         }
     }
 
+    /// <summary>
+    /// Releases all resources used by the symbol resolver.
+    /// </summary>
+    /// <returns>True if cleanup was successful, false otherwise.</returns>
     public static bool ReleaseSymbolResolver()
     {
         bool bResult = false;
@@ -367,10 +451,10 @@ public static class CSymbolResolver
     }
 
     /// <summary>
-    /// Call dbghelp!UnDecorateSymbolNameW to undecorate name.
+    /// Undecorates a C++ decorated function name.
     /// </summary>
-    /// <param name="functionName"></param>
-    /// <returns></returns>
+    /// <param name="functionName">The decorated function name.</param>
+    /// <returns>The undecorated function name, or empty string if undecoration failed.</returns>
     internal static string UndecorateFunctionName(string functionName)
     {
         if (!UndecorationReady)
@@ -389,6 +473,12 @@ public static class CSymbolResolver
         return string.Empty;
     }
 
+    /// <summary>
+    /// Loads a module for symbol resolution.
+    /// </summary>
+    /// <param name="fileName">The file name of the module.</param>
+    /// <param name="baseAddress">The base address of the module.</param>
+    /// <returns>The handle of the loaded module, or IntPtr.Zero if loading failed.</returns>
     internal static IntPtr LoadModule(string fileName, UInt64 baseAddress)
     {
         if (!SymbolsInitialized)
@@ -408,6 +498,12 @@ public static class CSymbolResolver
         }
     }
 
+    /// <summary>
+    /// Queries for a symbol at the specified address.
+    /// </summary>
+    /// <param name="address">The address to query.</param>
+    /// <param name="symbolName">When this method returns, contains the symbol name if found, or null if not found.</param>
+    /// <returns>True if a symbol was found at the specified address, false otherwise.</returns>
     public static bool QuerySymbolForAddress(UInt64 address, out string symbolName)
     {
         symbolName = null;
@@ -430,20 +526,6 @@ public static class CSymbolResolver
         }
 
         return false;
-    }
-
-    public static string GetSymbolNameForAddress(UInt64 address, string moduleFileName)
-    {
-        var moduleBase = RetrieveCachedSymModule(moduleFileName);
-        if (moduleBase != IntPtr.Zero)
-        {
-            if (QuerySymbolForAddress(address, out string symName))
-            {
-                return symName;
-            }
-        }
-
-        return string.Empty;
     }
 
 }

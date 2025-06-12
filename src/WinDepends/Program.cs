@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Apr 2025
+*  DATE:        11 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -14,10 +14,16 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Runtime.InteropServices;
+
 namespace WinDepends;
 
 internal static class Program
 {
+    #region "P/Inkove"
+    [DllImport("shell32.dll")]
+    private static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+    #endregion
 
     static void ExceptionHandler(object sender, UnhandledExceptionEventArgs args)
     {
@@ -38,6 +44,9 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
+
+        SetCurrentProcessExplicitAppUserModelID("hfiref0x.WinDepends");
+
         Application.Run(new MainForm());
     }
 }

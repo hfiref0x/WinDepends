@@ -1,4 +1,5 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/015k6sl9g3p6lfsm?svg=true)](https://ci.appveyor.com/project/hfiref0x/windepends)
+![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Fhfiref0x%2FWinDepends&label=Visitors&countColor=%23263759&style=flat)
 
 # WinDepends
 ## Windows Dependencies

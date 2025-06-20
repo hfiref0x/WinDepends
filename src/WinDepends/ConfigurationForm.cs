@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Jun 2025
+*  DATE:        15 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -304,10 +304,11 @@ public partial class ConfigurationForm : Form
 
         shellIntegrationWarningLabel.Enabled = !CUtils.IsAdministrator;
         shellIntegrationWarningLabel.Visible = !CUtils.IsAdministrator;
-        checkBox1.Checked = m_CurrentConfiguration.EscKeyEnabled;
+        chBoxUseESCKey.Checked = m_CurrentConfiguration.EscKeyEnabled;
         cbHistoryFullPath.Checked = m_CurrentConfiguration.HistoryShowFullPath;
         historyUpDown.Value = m_CurrentConfiguration.HistoryDepth;
         nodeMaxDepthUpDown.Value = m_CurrentConfiguration.ModuleNodeDepthMax;
+        chBoxAnalysisEnableExperimentalFeatures.Checked = m_CurrentConfiguration.EnableExperimentalFeatures;
         chBoxAutoExpands.Checked = m_CurrentConfiguration.AutoExpands;
         chBoxFullPaths.Checked = m_CurrentConfiguration.FullPaths;
         chBoxUndecorateSymbols.Checked = m_CurrentConfiguration.ViewUndecorated;
@@ -520,6 +521,9 @@ public partial class ConfigurationForm : Form
                 groupBoxSymbols.Enabled = isChecked;
                 break;
 
+            case CConsts.TagEnableExperimentalFeatures:
+                m_CurrentConfiguration.EnableExperimentalFeatures = isChecked;
+                break;
         }
     }
 

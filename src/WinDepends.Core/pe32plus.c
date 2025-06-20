@@ -1088,7 +1088,9 @@ LPBYTE pe32open(
         vsize, psize, tsize, status = 0, dwRealChecksum = 0, dwLastError = 0, dir_base = 0, dir_size = 0;
     OVERLAPPED          ovl;
     PBYTE               module = NULL;
-    __int64             c, image_base;
+    INT64               c, image_base;
+
+    BOOL                image_fixed = TRUE, image_dotnet = FALSE;
 
     PIMAGE_SECTION_HEADER       sections = NULL;
     BY_HANDLE_FILE_INFORMATION  fileinfo = { 0 };
@@ -1287,27 +1289,40 @@ LPBYTE pe32open(
         if (context->image_64bit) {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
             if (dir_base && dir_size >= sizeof(IMAGE_BASE_RELOCATION)) {
-                context->image_fixed = FALSE;
+                image_fixed = FALSE;
             }
+
             /*else {
                 image_base = opt_file_hdr.opt_file_hdr64->ImageBase;
             }*/
+
+            get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, dir_base, dir_size);
+            if (dir_base && dir_size >= sizeof(IMAGE_COR20_HEADER)) {
+                image_dotnet = TRUE;
+            }
         }
         else {
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_BASERELOC, dir_base, dir_size);
             if (dir_base && dir_size >= sizeof(IMAGE_BASE_RELOCATION)) {
-                context->image_fixed = FALSE;
+                image_fixed = FALSE;
             }
+
             /*else {
                 image_base = opt_file_hdr.opt_file_hdr32->ImageBase;
             }*/
+
+            get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, dir_base, dir_size);
+            if (dir_base && dir_size >= sizeof(IMAGE_COR20_HEADER)) {
+                image_dotnet = TRUE;
+            }
         }
 
-        DEBUG_PRINT_FORMATTED("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: 0x%lX\r\n\timage_fixed: %li\r\n",
+        DEBUG_PRINT_FORMATTED("pe32open:\r\n\tprocess_relocs: %li\r\n\tenable_custom_image_base %li\r\n\tcustom_image_base: 0x%lX\r\n\timage_fixed: %li\r\nimage_dotnet: %li\r\n",
             context->process_relocs,
             context->enable_custom_image_base,
             context->custom_image_base,
-            context->image_fixed);
+            image_fixed,
+            image_dotnet);
 
         if (context->enable_custom_image_base) {
 
@@ -1386,7 +1401,7 @@ LPBYTE pe32open(
         }
 
         // Process relocations if needed
-        if ((!context->image_fixed) && context->process_relocs) {
+        if ((!image_fixed) && context->process_relocs) {
 
             BOOL relocs_processed = FALSE;
 
@@ -1407,6 +1422,9 @@ LPBYTE pe32open(
 
             DEBUG_PRINT("pe32open: module relocation result %li\r\n", relocs_processed);
         }
+
+        context->image_dotnet = image_dotnet;
+        context->image_fixed = image_fixed;
 
         status = 1;
     }
@@ -1440,7 +1458,8 @@ LPBYTE pe32open(
             L"\"FileSizeHigh\":%u,"
             L"\"FileSizeLow\":%u,"
             L"\"RealChecksum\":%u,"
-            L"\"ImageFixed\":%u}\r\n",
+            L"\"ImageFixed\":%u,"
+            L"\"ImageDotNet\":%u}\r\n",
             fileinfo.dwFileAttributes,
             fileinfo.ftCreationTime.dwLowDateTime,
             fileinfo.ftCreationTime.dwHighDateTime,
@@ -1449,7 +1468,8 @@ LPBYTE pe32open(
             fileinfo.nFileSizeHigh,
             fileinfo.nFileSizeLow,
             dwRealChecksum,
-            (DWORD)context->image_fixed
+            (DWORD)image_fixed,
+            (DWORD)image_dotnet
         );
         sendstring_plaintext(s, text, context);
     }

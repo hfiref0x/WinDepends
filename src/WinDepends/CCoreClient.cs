@@ -553,6 +553,7 @@ public class CCoreClient : IDisposable
             module.ModuleData.Attributes = (FileAttributes)fileInformation.FileAttributes;
             module.ModuleData.RealChecksum = fileInformation.RealChecksum;
             module.ModuleData.ImageFixed = fileInformation.ImageFixed;
+            module.ModuleData.ImageDotNet = fileInformation.ImageDotNet;
             module.ModuleData.FileSize = fileInformation.FileSizeLow | ((ulong)fileInformation.FileSizeHigh << 32);
 
             long fileTime = ((long)fileInformation.LastWriteTimeHigh << 32) | fileInformation.LastWriteTimeLow;
@@ -743,7 +744,8 @@ public class CCoreClient : IDisposable
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
                                                  List<SearchOrderType> searchOrderKM,
-                                                 Dictionary<int, FunctionHashObject> parentImportsHashTable)
+                                                 Dictionary<int, FunctionHashObject> parentImportsHashTable,
+                                                 bool EnableExperimentalFeatures)
     {
         if (module == null)
             return;
@@ -842,6 +844,25 @@ public class CCoreClient : IDisposable
                     FunctionHashObject funcHashObject = new(dependent.FileName, func.Name, func.Ordinal);
                     var uniqueKey = funcHashObject.GenerateUniqueKey();
                     parentImportsHashTable.TryAdd(uniqueKey, funcHashObject);
+                }
+            }
+        }
+
+        // This feature is experimental and not production ready.
+        if (module.ModuleData.ImageDotNet == 1 && EnableExperimentalFeatures)
+        {
+            if (CAssemblyRefAnalyzer.GetDotNetAssemblyReferences(module, out var refs, out var kind, out var ver,
+                out var cpuType, out var arch, out var corFlags))
+            {
+                foreach (var (asm, pkt) in refs)
+                {
+                    string fileName = asm + ".dll";
+                    string fullPath = CAssemblyRefAnalyzer.FindAssemblyFullPath(asm, pkt, kind, cpuType, module.FileName);
+                    if (!string.IsNullOrEmpty(fullPath))
+                    {
+                        CModule netDependent = new(fullPath, fullPath, SearchOrderType.None, false);
+                        module.Dependents.Add(netDependent);
+                    }
                 }
             }
         }

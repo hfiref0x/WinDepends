@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Jun 2025
+*  DATE:        15 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -72,6 +72,8 @@ public class CConfiguration
     public bool PropagateSettingsOnDependencies { get; set; }
     [DataMember]
     public bool HighlightApiSet { get; set; }
+    [DataMember]
+    public bool EnableExperimentalFeatures { get; set; }
     [DataMember]
     public int HistoryDepth { get; set; }
     [DataMember]
@@ -155,6 +157,7 @@ public class CConfiguration
         CustomImageBase = other.CustomImageBase;
         ToolBarTheme = other.ToolBarTheme;
         SymbolsHighlightColor = other.SymbolsHighlightColor;
+        EnableExperimentalFeatures = other.EnableExperimentalFeatures;
 
         WindowLeft = other.WindowLeft;
         WindowTop = other.WindowTop;
@@ -206,6 +209,7 @@ public class CConfiguration
             UseApiSetSchemaFile = false;
             ProcessRelocsForImage = true;
             UseCustomImageBase = false;
+            EnableExperimentalFeatures = false;
             ToolBarTheme = ToolBarThemeType.Classic;
 
             WindowState = (int)FormWindowState.Normal;

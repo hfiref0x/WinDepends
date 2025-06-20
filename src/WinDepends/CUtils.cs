@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Jun 2025
+*  DATE:        15 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -27,6 +27,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using System.Text;
 using static WinDepends.NativeMethods;
 
 namespace WinDepends;
@@ -35,6 +36,24 @@ public delegate void UpdateLoadStatusCallback(string status);
 public delegate void UpdateSymbolsStatus(bool enabled);
 public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
     Color? color = null, bool useBold = false, bool moduleMessage = false, CModule relatedModule = null);
+
+public enum DotNetAssemblyKind
+{
+    Unknown,
+    NetFramework,
+    NetCoreOrNet
+}
+public enum CpuType
+{
+    Unknown,
+    AnyCpu,
+    X86,
+    X64,
+    Arm,
+    Arm64,
+    Itanium,
+    Other
+}
 
 /// <summary>
 /// Machine extension to return friendly name of constants.

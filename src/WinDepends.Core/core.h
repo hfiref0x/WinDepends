@@ -66,6 +66,7 @@ typedef struct {
 
     BOOL image_64bit;
     BOOL image_fixed;
+    BOOL image_dotnet;
     BOOL process_relocs;
     BOOL enable_custom_image_base;
     BOOL enable_call_stats;

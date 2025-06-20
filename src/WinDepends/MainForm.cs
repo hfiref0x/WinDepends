@@ -19,6 +19,7 @@
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;
+using static WinDepends.CAssemblyRefAnalyzer;
 
 namespace WinDepends;
 
@@ -283,7 +284,8 @@ public partial class MainForm : Form
                 m_CoreClient.GetModuleImportExportInformation(module,
                     m_Configuration.SearchOrderListUM,
                     m_Configuration.SearchOrderListKM,
-                    m_ParentImportsHashTable);
+                    m_ParentImportsHashTable,
+                    m_Configuration.EnableExperimentalFeatures);
 
                 CCoreCallStats stats = null;
                 if (useStats)
@@ -322,14 +324,27 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
-                if (module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine)
+                bool isCpuMismatch = module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine;
+                if (module.ModuleData.ImageDotNet == 1)
+                {
+                    CorFlags flags = (CorFlags)module.ModuleData.CorFlags;
+                    if (!CorFlagsHelper.IsAnyCpu(flags) && isCpuMismatch)
+                    {
+                        module.OtherErrorsPresent = true;
+                        AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
+                            LogMessageType.ErrorOrWarning, null, true, true, module);
+                    }
+
+                }
+                else if (isCpuMismatch)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
-                if (module.ModuleData.ImageFixed != 0 && !module.IsKernelModule)
+                // Skip this message for kernel modules and dotnet files.
+                if (module.ModuleData.ImageFixed != 0 && !module.IsKernelModule && module.ModuleData.ImageDotNet != 1)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations.",
@@ -1308,8 +1323,9 @@ public partial class MainForm : Form
         }
         catch
         {
-            AddLogMessage($"There is an error while processing \"{fileName}\" file.",
-                LogMessageType.ErrorOrWarning);
+            var message = $"There is an error while processing \"{fileName}\" file.";
+            AddLogMessage(message, LogMessageType.ErrorOrWarning);
+            UpdateOperationStatus(message);
         }
         finally
         {
@@ -3275,7 +3291,26 @@ public partial class MainForm : Form
             string value = Enum.IsDefined(typeof(Machine), moduleData.Machine)
                 ? ((Machine)moduleData.Machine).FriendlyName()
                 : $"0x{moduleData.Machine:X4}";
-            if (m_Depends.RootModule.ModuleData.Machine != moduleData.Machine)
+
+            bool isMismatch = m_Depends.RootModule.ModuleData.Machine != moduleData.Machine;
+
+            // Special treatment for dotnet assemblies and cross-arch dependencies.
+            if (moduleData.ImageDotNet == 1)
+            {
+                CorFlags flags = (CorFlags)moduleData.CorFlags;
+
+                // If not AnyCPU, treat as native for arch mismatch highlighting.
+                if (!CorFlagsHelper.IsAnyCpu(flags) && isMismatch)
+                {
+                    lvItem.UseItemStyleForSubItems = false;
+                    lvItem.SubItems.Add(value, Color.Red, Color.White, lvItem.Font);
+                }
+                else
+                {
+                    lvItem.SubItems.Add(value);
+                }
+            }
+            else if (isMismatch)
             {
                 lvItem.UseItemStyleForSubItems = false;
                 lvItem.SubItems.Add(value, Color.Red, Color.White, lvItem.Font);

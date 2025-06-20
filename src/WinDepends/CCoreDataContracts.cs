@@ -329,6 +329,12 @@ public class CCoreFileInformation
     /// </summary>
     [DataMember(Name = "ImageFixed")]
     public uint ImageFixed { get; set; }
+
+    /// <summary>
+    /// Indicates whether the file contains a .NET (managed) image (1 if .NET, 0 if native).
+    /// </summary>
+    [DataMember(Name = "ImageDotNet")]
+    public uint ImageDotNet {  get; set; }
 }
 
 /// <summary>

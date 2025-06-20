@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Jun 2025
+*  DATE:        14 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -37,7 +37,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2505;
+    public const uint VersionBuild = 2506;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -71,6 +71,7 @@ public static class CConsts
     public const int TagPropagateSettingsEnabled = 603;
     public const int TagUseSymbols = 604;
     public const int TagUseCustomImageBase = 605;
+    public const int TagEnableExperimentalFeatures = 606;
 
     public const int TagTbUseClassic = 1000;
     public const int TagTbUseModern = 1001;

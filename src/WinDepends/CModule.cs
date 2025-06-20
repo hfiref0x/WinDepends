@@ -651,6 +651,10 @@ public class CModuleData
     public string SubsystemVersion { get; set; }
     [DataMember]
     public uint ImageFixed { get; set; } = 0;
+    [DataMember]
+    public uint ImageDotNet {  get; set; } = 0;
+    [DataMember]
+    public uint CorFlags { get; set; } = 0;
 
     /// <summary>
     /// Gets or sets the list of debug directory entry types in the module.
@@ -686,6 +690,8 @@ public class CModuleData
         LinkChecksum = other.LinkChecksum;
         RealChecksum = other.RealChecksum;
         ImageFixed = other.ImageFixed;
+        ImageDotNet = other.ImageDotNet;
+        CorFlags = other.CorFlags;
         Machine = other.Machine;
         Characteristics = other.Characteristics;
         DllCharacteristics = other.DllCharacteristics;

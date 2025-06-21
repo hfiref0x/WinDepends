@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Jun 2025
+*  DATE:        21 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -14,11 +14,54 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Collections.Concurrent;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 
 namespace WinDepends;
+
+/// <summary>
+/// Types of .NET assemblies based on runtime environment
+/// </summary>
+public enum DotNetAssemblyKind
+{
+    Unknown,
+    NetFramework,
+    NetCoreOrNet
+}
+
+/// <summary>
+/// CPU architecture types for assemblies
+/// </summary>
+public enum CpuType
+{
+    Unknown,
+    X86,
+    X64,
+    AnyCpu,
+    Itanium,
+    Arm,
+    Arm64,
+    Other
+}
+
+/// <summary>
+/// Represents a resolved assembly reference
+/// </summary>
+public class AssemblyReference
+{
+    public string Name { get; set; }
+    public string Version { get; set; }
+    public string PublicKeyToken { get; set; }
+    public string Culture { get; set; }
+    public string ResolvedPath { get; set; }
+    public bool IsResolved => !string.IsNullOrEmpty(ResolvedPath);
+    public string ResolutionSource { get; set; }
+    public bool IsNative { get; set; }
+    public bool IsSystemAssembly { get; set; }
+}
 
 /// <summary>
 /// Provides functionality for analyzing .NET assembly references and resolving dependencies.
@@ -27,45 +70,95 @@ namespace WinDepends;
 /// </summary>
 public static class CAssemblyRefAnalyzer
 {
-    // Fusion.dll dynamic loading
     private static IntPtr fusionHandle = IntPtr.Zero;
+    private static readonly object fusionLock = new object();
+    private static bool fusionInitialized = false;
+    private static CreateAssemblyEnumDelegate createAssemblyEnumDelegate;
+    private static CreateAssemblyNameObjectDelegate createAssemblyNameObjectDelegate;
 
+    private static readonly ConcurrentDictionary<string, (string path, string source, DateTime expiration)> _resolutionCache =
+        new ConcurrentDictionary<string, (string, string, DateTime)>();
+    private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(30);
+
+    private static readonly HashSet<string> _systemAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "mscorlib", "System", "System.Core", "System.Data", "System.Web", "System.Xml",
+        "System.Configuration", "System.Drawing", "System.Windows.Forms", "System.Net.Http",
+        "System.Private.CoreLib", "System.Runtime", "System.Collections", "System.Linq",
+        "PresentationCore", "PresentationFramework", "WindowsBase", "System.Xaml"
+    };
+
+    /// <summary>
+    /// Attempts to load fusion.dll from the appropriate .NET Framework directory and cache function pointers
+    /// </summary>
     private static bool TryLoadFusion()
     {
-        if (fusionHandle != IntPtr.Zero)
-            return true;
+        if (fusionInitialized)
+            return fusionHandle != IntPtr.Zero;
 
-        string windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        string[] candidates;
+        lock (fusionLock)
+        {
+            if (fusionInitialized)
+                return fusionHandle != IntPtr.Zero;
 
-        if (Environment.Is64BitProcess)
-        {
-            candidates = new[]
+            if (fusionHandle == IntPtr.Zero)
             {
-                Path.Combine(windir, "Microsoft.NET", "Framework64", "v4.0.30319", "fusion.dll"),
-                Path.Combine(windir, "Microsoft.NET", "Framework64", "v2.0.50727", "fusion.dll"),
-            };
-        }
-        else
-        {
-            candidates = new[]
-            {
-                Path.Combine(windir, "Microsoft.NET", "Framework", "v4.0.30319", "fusion.dll"),
-                Path.Combine(windir, "Microsoft.NET", "Framework", "v2.0.50727", "fusion.dll"),
-            };
-        }
+                string windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                string[] candidates;
 
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-            {
-                fusionHandle = NativeMethods.LoadLibraryEx(path, 0, 0);
-                if (fusionHandle != IntPtr.Zero)
-                    return true;
+                if (Environment.Is64BitProcess)
+                {
+                    candidates = new[]
+                    {
+                        Path.Combine(windir, "Microsoft.NET", "Framework64", "v4.0.30319", "fusion.dll"),
+                        Path.Combine(windir, "Microsoft.NET", "Framework64", "v2.0.50727", "fusion.dll"),
+                    };
+                }
+                else
+                {
+                    candidates = new[]
+                    {
+                        Path.Combine(windir, "Microsoft.NET", "Framework", "v4.0.30319", "fusion.dll"),
+                        Path.Combine(windir, "Microsoft.NET", "Framework", "v2.0.50727", "fusion.dll"),
+                    };
+                }
+
+                foreach (var path in candidates)
+                {
+                    if (File.Exists(path))
+                    {
+                        fusionHandle = NativeMethods.LoadLibraryEx(path, 0, 0);
+                        if (fusionHandle != IntPtr.Zero)
+                        {
+                            var createAssemblyEnumAddr = NativeMethods.GetProcAddress(fusionHandle, "CreateAssemblyEnum");
+                            var createAssemblyNameObjectAddr = NativeMethods.GetProcAddress(fusionHandle, "CreateAssemblyNameObject");
+
+                            if (createAssemblyEnumAddr != IntPtr.Zero && createAssemblyNameObjectAddr != IntPtr.Zero)
+                            {
+                                createAssemblyEnumDelegate = (CreateAssemblyEnumDelegate)Marshal.GetDelegateForFunctionPointer(
+                                    createAssemblyEnumAddr, typeof(CreateAssemblyEnumDelegate));
+
+                                createAssemblyNameObjectDelegate = (CreateAssemblyNameObjectDelegate)Marshal.GetDelegateForFunctionPointer(
+                                    createAssemblyNameObjectAddr, typeof(CreateAssemblyNameObjectDelegate));
+
+                                break;
+                            }
+                            else
+                            {
+                                NativeMethods.FreeLibrary(fusionHandle);
+                                fusionHandle = IntPtr.Zero;
+                            }
+                        }
+                    }
+                }
             }
+
+            fusionInitialized = true;
+            return fusionHandle != IntPtr.Zero;
         }
-        return false;
     }
+
+    #region COM Interop for GAC Access
 
     [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("21B8916C-F28E-11D2-A473-00C04F8EF448")]
     private interface IAssemblyEnum
@@ -122,11 +215,8 @@ public static class CAssemblyRefAnalyzer
         ppEnum = null;
         if (!TryLoadFusion())
             return -1;
-        var addr = NativeMethods.GetProcAddress(fusionHandle, "CreateAssemblyEnum");
-        if (addr == IntPtr.Zero)
-            return -1;
-        var del = (CreateAssemblyEnumDelegate)Marshal.GetDelegateForFunctionPointer(addr, typeof(CreateAssemblyEnumDelegate));
-        return del(out ppEnum, pUnkReserved, pName, flags, pvReserved);
+
+        return createAssemblyEnumDelegate(out ppEnum, pUnkReserved, pName, flags, pvReserved);
     }
 
     private static int CreateAssemblyNameObject(out IAssemblyName ppAssemblyNameObj, string szAssemblyName, int flags, IntPtr pvReserved)
@@ -134,23 +224,581 @@ public static class CAssemblyRefAnalyzer
         ppAssemblyNameObj = null;
         if (!TryLoadFusion())
             return -1;
-        var addr = NativeMethods.GetProcAddress(fusionHandle, "CreateAssemblyNameObject");
-        if (addr == IntPtr.Zero)
-            return -1;
-        var del = (CreateAssemblyNameObjectDelegate)Marshal.GetDelegateForFunctionPointer(addr, typeof(CreateAssemblyNameObjectDelegate));
-        return del(out ppAssemblyNameObj, szAssemblyName, flags, pvReserved);
+
+        return createAssemblyNameObjectDelegate(out ppAssemblyNameObj, szAssemblyName, flags, pvReserved);
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Analyzes a .NET assembly file and returns a list of all its assembly references with resolved paths.
+    /// Uses parallel processing for improved performance with many references.
+    /// </summary>
+    /// <param name="module">CModule instance representing the .NET assembly file</param>
+    /// <returns>List of assembly references with full resolved paths</returns>
+    public static List<AssemblyReference> AnalyzeAssemblyReferences(CModule module)
+    {
+        if (module == null)
+            throw new ArgumentNullException(nameof(module));
+
+        if (!File.Exists(module.FileName))
+            throw new FileNotFoundException($"Assembly file not found: {module.FileName}");
+
+        var references = new List<AssemblyReference>();
+
+        if (!TryGetAssemblyMetadata(module, out var assemblyRefs, out var kind, out var runtimeVersion, out var cpuType))
+            return references;
+
+        Dictionary<string, (Version minVersion, Version maxVersion, Version newVersion, string newPublicKeyToken)> bindingRedirects = null;
+        string configFile = module.FileName + ".config";
+        if (!File.Exists(configFile))
+        {
+            string exeConfig = Path.ChangeExtension(module.FileName, ".config");
+            if (File.Exists(exeConfig))
+                configFile = exeConfig;
+        }
+
+        if (File.Exists(configFile))
+        {
+            bindingRedirects = ParseBindingRedirects(configFile);
+        }
+
+        Dictionary<string, string> gacResults = null;
+        if (kind == DotNetAssemblyKind.NetFramework)
+        {
+            var gacQueries = assemblyRefs
+                .Where(r => !string.IsNullOrEmpty(r.publicKeyToken) && r.publicKeyToken != "null")
+                .Select(r => (r.name, r.publicKeyToken))
+                .ToList();
+
+            if (gacQueries.Count > 0)
+            {
+                gacResults = BatchFindInGac(gacQueries, cpuType);
+            }
+        }
+
+        var concurrentRefs = new ConcurrentBag<AssemblyReference>();
+
+        Parallel.ForEach(assemblyRefs, reference =>
+        {
+            var asmRef = new AssemblyReference
+            {
+                Name = reference.name,
+                PublicKeyToken = reference.publicKeyToken,
+                IsSystemAssembly = IsSystemAssembly(reference.name)
+            };
+
+            string[] parts = reference.displayName?.Split(',');
+            if (parts != null && parts.Length >= 3)
+            {
+                asmRef.Version = parts[1].Split('=')[1].Trim();
+                asmRef.Culture = parts[2].Split('=')[1].Trim();
+            }
+
+            string publicKeyToken = reference.publicKeyToken;
+            if (bindingRedirects != null &&
+                bindingRedirects.TryGetValue(reference.name, out var redirect) &&
+                Version.TryParse(asmRef.Version, out var version))
+            {
+                if (version >= redirect.minVersion && version <= redirect.maxVersion)
+                {
+                    asmRef.Version = redirect.newVersion.ToString();
+                    if (!string.IsNullOrEmpty(redirect.newPublicKeyToken))
+                        publicKeyToken = redirect.newPublicKeyToken;
+                }
+            }
+
+            if (gacResults != null && gacResults.TryGetValue(reference.name.ToLowerInvariant(), out string gacPath))
+            {
+                asmRef.ResolvedPath = gacPath;
+                asmRef.ResolutionSource = "Global Assembly Cache (Batch)";
+            }
+            else
+            {
+                (asmRef.ResolvedPath, asmRef.ResolutionSource) = ResolveAssemblyPath(
+                    reference.name,
+                    publicKeyToken,
+                    kind,
+                    cpuType,
+                    module.FileName);
+            }
+
+            concurrentRefs.Add(asmRef);
+        });
+
+        return concurrentRefs.ToList();
     }
 
     /// <summary>
-    /// Checks whether a candidate assembly file matches the required CPU type.
-    /// For managed assemblies, allows AnyCPU or the required architecture.
-    /// For native, requires exact architecture match.
+    /// Performs a batch query to find multiple assemblies in the GAC
     /// </summary>
-    private static bool IsValidArchitecture(string candidatePath, CpuType requiredCpuType)
+    private static Dictionary<string, string> BatchFindInGac(List<(string name, string publicKeyToken)> assemblies, CpuType cpuType)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!TryLoadFusion())
+            return result;
+
+        // First create a lookup for quick matching
+        var assemblyLookup = assemblies.ToDictionary(
+            a => a.name.ToLowerInvariant(),
+            a => a.publicKeyToken,
+            StringComparer.OrdinalIgnoreCase);
+
+        IAssemblyEnum enumObj;
+        int hr = CreateAssemblyEnum(out enumObj, IntPtr.Zero, null, 2 /* GAC */, IntPtr.Zero);
+        if (hr != 0 || enumObj == null)
+            return result;
+
+        try
+        {
+            while (enumObj.GetNextAssembly(IntPtr.Zero, out var foundName, 0) == 0 && foundName != null)
+            {
+                // Get display name
+                int disp = 1024;
+                var sb = new System.Text.StringBuilder(1024);
+                foundName.GetDisplayName(sb, ref disp, 0x0);
+                string display = sb.ToString();
+
+                // Extract the assembly name from display name
+                string[] parts = display.Split(',');
+                if (parts.Length > 0)
+                {
+                    string name = parts[0].Trim().ToLowerInvariant();
+
+                    // Check if it's one of our target assemblies
+                    if (assemblyLookup.TryGetValue(name, out string publicKeyToken))
+                    {
+                        if (display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+                        {
+                            string path = GetAssemblyPathFromGacDisplay(display, cpuType);
+                            if (File.Exists(path) && IsValidArchitecture(path, cpuType))
+                                result[name] = path;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Determines if an assembly is a system assembly
+    /// </summary>
+    private static bool IsSystemAssembly(string name)
+    {
+        return _systemAssemblies.Contains(name);
+    }
+
+    /// <summary>
+    /// Parses binding redirects from a .config file
+    /// </summary>
+    private static Dictionary<string, (Version minVersion, Version maxVersion, Version newVersion, string newPublicKeyToken)> ParseBindingRedirects(string configFile)
+    {
+        var redirects = new Dictionary<string, (Version, Version, Version, string)>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            XDocument doc = XDocument.Load(configFile);
+            var assemblyBindings = doc.Descendants().Where(e => e.Name.LocalName == "assemblyBinding");
+            foreach (var binding in assemblyBindings)
+            {
+                var dependentAssemblies = binding.Elements().Where(e => e.Name.LocalName == "dependentAssembly");
+                foreach (var dependentAssembly in dependentAssemblies)
+                {
+                    var assemblyIdentity = dependentAssembly.Elements().FirstOrDefault(e => e.Name.LocalName == "assemblyIdentity");
+                    var bindingRedirect = dependentAssembly.Elements().FirstOrDefault(e => e.Name.LocalName == "bindingRedirect");
+
+                    if (assemblyIdentity != null && bindingRedirect != null)
+                    {
+                        string name = assemblyIdentity.Attribute("name")?.Value;
+                        string publicKeyToken = assemblyIdentity.Attribute("publicKeyToken")?.Value;
+                        string oldVersionStr = bindingRedirect.Attribute("oldVersion")?.Value;
+                        string newVersionStr = bindingRedirect.Attribute("newVersion")?.Value;
+
+                        if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(newVersionStr))
+                        {
+                            string[] oldVersionParts = oldVersionStr?.Split('-');
+                            if (oldVersionParts?.Length == 2 &&
+                                Version.TryParse(oldVersionParts[0], out Version minVersion) &&
+                                Version.TryParse(oldVersionParts[1], out Version maxVersion) &&
+                                Version.TryParse(newVersionStr, out Version newVersion))
+                            {
+                                redirects[name] = (minVersion, maxVersion, newVersion, publicKeyToken);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors parsing config file
+        }
+        return redirects;
+    }
+
+    /// <summary>
+    /// Gets assembly metadata including references, kind, and CPU type
+    /// </summary>
+    private static bool TryGetAssemblyMetadata(
+         CModule module,
+         out List<(string name, string publicKeyToken, string displayName)> references,
+         out DotNetAssemblyKind kind,
+         out string runtimeVersion,
+         out CpuType cpuType)
+    {
+        references = new List<(string, string, string)>();
+        kind = DotNetAssemblyKind.Unknown;
+        runtimeVersion = null;
+        cpuType = CpuType.Unknown;
+
+        try
+        {
+            using var fs = new FileStream(module.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var peReader = new PEReader(fs);
+
+            if (!peReader.HasMetadata)
+                return false;
+
+            var mdReader = peReader.GetMetadataReader();
+            runtimeVersion = mdReader.MetadataVersion;
+
+            module.ModuleData.RuntimeVersion = runtimeVersion;
+
+            var machine = peReader.PEHeaders.CoffHeader.Machine;
+            switch (machine)
+            {
+                case System.Reflection.PortableExecutable.Machine.I386:
+                    cpuType = CpuType.X86;
+                    break;
+                case System.Reflection.PortableExecutable.Machine.Amd64:
+                    cpuType = CpuType.X64;
+                    break;
+                case System.Reflection.PortableExecutable.Machine.IA64:
+                    cpuType = CpuType.Itanium;
+                    break;
+                case System.Reflection.PortableExecutable.Machine.Arm:
+                    cpuType = CpuType.Arm;
+                    break;
+                case System.Reflection.PortableExecutable.Machine.Arm64:
+                    cpuType = CpuType.Arm64;
+                    break;
+                default:
+                    cpuType = CpuType.Other;
+                    break;
+            }
+
+            var corHeader = peReader.PEHeaders.CorHeader;
+            if (corHeader != null)
+            {
+                var flags = corHeader.Flags;
+                module.ModuleData.CorFlags = (uint)flags;
+
+                if (machine == System.Reflection.PortableExecutable.Machine.I386 && (flags & CorFlags.ILOnly) != 0)
+                {
+                    if ((flags & CorFlags.Requires32Bit) != 0)
+                        cpuType = CpuType.X86;
+                    else
+                        cpuType = CpuType.AnyCpu;
+                }
+            }
+
+            bool hasMscorlib = false, hasSystemPrivateCoreLib = false;
+            foreach (var handle in mdReader.AssemblyReferences)
+            {
+                var asmRef = mdReader.GetAssemblyReference(handle);
+                var name = mdReader.GetString(asmRef.Name);
+                if (string.Equals(name, "mscorlib", StringComparison.OrdinalIgnoreCase))
+                    hasMscorlib = true;
+                if (string.Equals(name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
+                    hasSystemPrivateCoreLib = true;
+            }
+
+            if (hasMscorlib && !hasSystemPrivateCoreLib)
+                kind = DotNetAssemblyKind.NetFramework;
+            else if (hasSystemPrivateCoreLib)
+                kind = DotNetAssemblyKind.NetCoreOrNet;
+
+            if (kind == DotNetAssemblyKind.Unknown)
+            {
+                if (runtimeVersion.StartsWith("v4.0.30319"))
+                    kind = DotNetAssemblyKind.NetFramework;
+                else if (runtimeVersion.StartsWith("v4.0.0"))
+                    kind = DotNetAssemblyKind.NetCoreOrNet;
+            }
+
+            module.ModuleData.FrameworkKind = kind.ToString();
+
+            foreach (var handle in mdReader.AssemblyReferences)
+            {
+                var asmRef = mdReader.GetAssemblyReference(handle);
+                var name = mdReader.GetString(asmRef.Name);
+                var pkt = BitConverter.ToString(mdReader.GetBlobBytes(asmRef.PublicKeyOrToken)).Replace("-", "").ToLowerInvariant();
+
+                string displayName = GetAssemblyDisplayName(name, asmRef.Version, asmRef.Culture, pkt);
+
+                references.Add((name, pkt, displayName));
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Constructs a display name for an assembly reference
+    /// </summary>
+    private static string GetAssemblyDisplayName(string name, Version version, StringHandle culture, string pkt)
+    {
+        return $"{name}, Version={version.Major}.{version.Minor}.{version.Build}.{version.Revision}, Culture={culture}, PublicKeyToken={pkt}";
+    }
+
+    /// <summary>
+    /// Resolves the full path of an assembly based on .NET assembly resolution rules.
+    /// Uses caching for performance with TTL (time-to-live).
+    /// </summary>
+    private static (string path, string source) ResolveAssemblyPath(
+        string name,
+        string publicKeyToken,
+        DotNetAssemblyKind kind,
+        CpuType cpuType,
+        string referringAssemblyPath)
+    {
+        string cacheKey = $"{name}|{publicKeyToken}|{kind}|{cpuType}|{referringAssemblyPath}";
+
+        if (_resolutionCache.TryGetValue(cacheKey, out var cachedResult))
+        {
+            if (cachedResult.expiration > DateTime.UtcNow)
+                return (cachedResult.path, cachedResult.source);
+
+            _resolutionCache.TryRemove(cacheKey, out _);
+        }
+
+        // Periodically clean up expired cache entries (approximately every 100 resolutions)
+        if (Thread.CurrentThread.ManagedThreadId % 10 == 0 && _resolutionCache.Count > 100)
+        {
+            var now = DateTime.UtcNow;
+            var expiredKeys = _resolutionCache
+                .Where(kvp => kvp.Value.expiration < now)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var key in expiredKeys)
+                _resolutionCache.TryRemove(key, out _);
+        }
+
+        (string path, string source) result = ResolveAssemblyPathCore(name, publicKeyToken, kind, cpuType, referringAssemblyPath);
+        _resolutionCache[cacheKey] = (result.path, result.source, DateTime.UtcNow.Add(_cacheTtl));
+
+        return result;
+    }
+
+    /// <summary>
+    /// Core assembly resolution logic implementing .NET's probing rules
+    /// </summary>
+    private static (string path, string source) ResolveAssemblyPathCore(
+        string name,
+        string publicKeyToken,
+        DotNetAssemblyKind kind,
+        CpuType cpuType,
+        string referringAssemblyPath)
+    {
+        // 1. Look in the same directory as the referring assembly
+        string directory = Path.GetDirectoryName(referringAssemblyPath);
+
+        // Check for exact named assembly (name.dll)
+        string localPath = Path.Combine(directory, name + ".dll");
+        if (File.Exists(localPath) && IsValidArchitecture(localPath, cpuType))
+            return (localPath, "Local directory");
+
+        // Check .exe extension too
+        localPath = Path.Combine(directory, name + ".exe");
+        if (File.Exists(localPath) && IsValidArchitecture(localPath, cpuType))
+            return (localPath, "Local directory");
+
+        // Check for architecture-specific subdirectories
+        string archSubdir = GetArchitectureSubdirectory(cpuType);
+        if (!string.IsNullOrEmpty(archSubdir))
+        {
+            string archDir = Path.Combine(directory, archSubdir);
+            if (Directory.Exists(archDir))
+            {
+                localPath = Path.Combine(archDir, name + ".dll");
+                if (File.Exists(localPath) && IsValidArchitecture(localPath, cpuType))
+                    return (localPath, $"Architecture-specific directory ({archSubdir})");
+
+                localPath = Path.Combine(archDir, name + ".exe");
+                if (File.Exists(localPath) && IsValidArchitecture(localPath, cpuType))
+                    return (localPath, $"Architecture-specific directory ({archSubdir})");
+            }
+        }
+
+        // Check subdirectories based on assembly name
+        string privateBinPath = Path.Combine(directory, name);
+        if (Directory.Exists(privateBinPath))
+        {
+            localPath = Path.Combine(privateBinPath, name + ".dll");
+            if (File.Exists(localPath) && IsValidArchitecture(localPath, cpuType))
+                return (localPath, "Private bin path");
+
+            localPath = Path.Combine(privateBinPath, name + ".exe");
+            if (File.Exists(localPath) && IsValidArchitecture(localPath, cpuType))
+                return (localPath, "Private bin path");
+        }
+
+        // 2. For .NET Framework assemblies, check GAC
+        if (kind == DotNetAssemblyKind.NetFramework)
+        {
+            string gacPath = FindInGac(name, publicKeyToken, cpuType);
+            if (!string.IsNullOrEmpty(gacPath) && File.Exists(gacPath) && IsValidArchitecture(gacPath, cpuType))
+                return (gacPath, "Global Assembly Cache");
+
+            // 3. Check Framework directories
+            string frameworkPath = FindInFrameworkDirectory(name, cpuType);
+            if (!string.IsNullOrEmpty(frameworkPath) && IsValidArchitecture(frameworkPath, cpuType))
+                return (frameworkPath, "Framework directory");
+        }
+        // 4. For .NET Core/.NET 5+, check runtime directories
+        else if (kind == DotNetAssemblyKind.NetCoreOrNet)
+        {
+            string runtimePath = FindInRuntimeDirectory(name, cpuType);
+            if (!string.IsNullOrEmpty(runtimePath) && IsValidArchitecture(runtimePath, cpuType))
+                return (runtimePath, "Runtime directory");
+        }
+
+        // 5. Check for native DLLs in system directories
+        if (name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            string baseName = Path.GetFileNameWithoutExtension(name);
+            string nativePath = FindNativeLibrary(baseName, cpuType);
+            if (!string.IsNullOrEmpty(nativePath))
+                return (nativePath, "Native library");
+        }
+
+        return (null, "Not resolved");
+    }
+
+    /// <summary>
+    /// Gets the appropriate architecture-specific subdirectory based on CPU type
+    /// </summary>
+    private static string GetArchitectureSubdirectory(CpuType cpuType)
+    {
+        switch (cpuType)
+        {
+            case CpuType.X86:
+                return "x86";
+            case CpuType.X64:
+                return "x64";
+            case CpuType.Arm:
+                return "arm";
+            case CpuType.Arm64:
+                return "arm64";
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Searches for a native library in system directories with respect to CPU architecture
+    /// </summary>
+    private static string FindNativeLibrary(string libraryName, CpuType cpuType)
+    {
+        string windowsDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        string system32Dir = Path.Combine(windowsDir, "System32");
+
+        string candidate = Path.Combine(windowsDir, libraryName + ".dll");
+        if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
+            return candidate;
+
+        candidate = Path.Combine(system32Dir, libraryName + ".dll");
+        if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
+            return candidate;
+
+        switch (cpuType)
+        {
+            case CpuType.X86:
+                if (Environment.Is64BitOperatingSystem)
+                {
+                    string sysWow64 = Path.Combine(windowsDir, "SysWOW64");
+                    if (Directory.Exists(sysWow64))
+                    {
+                        candidate = Path.Combine(sysWow64, libraryName + ".dll");
+                        if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
+                            return candidate;
+                    }
+                }
+                break;
+
+            case CpuType.Arm:
+                if (Environment.Is64BitOperatingSystem)
+                {
+                    string sysArm32 = Path.Combine(windowsDir, "SysArm32");
+                    if (Directory.Exists(sysArm32))
+                    {
+                        candidate = Path.Combine(sysArm32, libraryName + ".dll");
+                        if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
+                            return candidate;
+                    }
+                }
+                break;
+        }
+
+        string systemRootDir = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
+        if (!string.IsNullOrEmpty(systemRootDir) && Directory.Exists(systemRootDir))
+        {
+            candidate = Path.Combine(systemRootDir, libraryName + ".dll");
+            if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Simple check if native DLL is compatible with requested architecture
+    /// </summary>
+    private static bool IsArchitectureCompatible(string filePath, CpuType requestedCpuType)
     {
         try
         {
-            using var fs = new FileStream(candidatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var peReader = new PEReader(fs);
+            var machine = peReader.PEHeaders.CoffHeader.Machine;
+
+            switch (requestedCpuType)
+            {
+                case CpuType.X86:
+                    return machine == System.Reflection.PortableExecutable.Machine.I386;
+                case CpuType.X64:
+                    return machine == System.Reflection.PortableExecutable.Machine.Amd64;
+                case CpuType.Arm:
+                    return machine == System.Reflection.PortableExecutable.Machine.Arm;
+                case CpuType.Arm64:
+                    return machine == System.Reflection.PortableExecutable.Machine.Arm64;
+                default:
+                    return true;
+            }
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Checks if an assembly's architecture is compatible with the required CPU type
+    /// </summary>
+    private static bool IsValidArchitecture(string assemblyPath, CpuType requiredCpuType)
+    {
+        try
+        {
+            using var fs = new FileStream(assemblyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             using var peReader = new PEReader(fs);
             var machine = peReader.PEHeaders.CoffHeader.Machine;
             var isManaged = peReader.HasMetadata;
@@ -166,18 +814,14 @@ public static class CAssemblyRefAnalyzer
                         bool ilOnly = (flags & CorFlags.ILOnly) != 0;
                         bool req32 = (flags & CorFlags.Requires32Bit) != 0;
 
-                        // AnyCPU (ILOnly, !Requires32Bit), or x64 is valid
                         if (machine == System.Reflection.PortableExecutable.Machine.I386 && ilOnly && !req32)
                             return true; // AnyCPU
                         if (machine == System.Reflection.PortableExecutable.Machine.Amd64)
                             return true; // x64
-                        return false; // x86-only managed
+                        return false;
                     }
                 }
-                else
-                {
-                    return machine == System.Reflection.PortableExecutable.Machine.Amd64;
-                }
+                return machine == System.Reflection.PortableExecutable.Machine.Amd64;
             }
             else if (requiredCpuType == CpuType.X86)
             {
@@ -186,25 +830,12 @@ public static class CAssemblyRefAnalyzer
                     var corHeader = peReader.PEHeaders.CorHeader;
                     if (corHeader != null)
                     {
-                        var flags = corHeader.Flags;
-                        bool ilOnly = (flags & CorFlags.ILOnly) != 0;
-                        bool req32 = (flags & CorFlags.Requires32Bit) != 0;
-                        bool pref32 = (flags & CorFlags.Prefers32Bit) != 0;
-
-                        // x86, or AnyCPU w/ Requires32Bit, or AnyCPU w/ Prefers32Bit, or AnyCPU (ILOnly)
                         if (machine == System.Reflection.PortableExecutable.Machine.I386)
-                        {
-                            if (req32 || pref32 || ilOnly)
-                                return true; // 32-bit compatible
-                        }
-                        return false; // x64-only managed
+                            return true;
+                        return false;
                     }
                 }
-                else
-                {
-                    // Native: Must be x86
-                    return machine == System.Reflection.PortableExecutable.Machine.I386;
-                }
+                return machine == System.Reflection.PortableExecutable.Machine.I386;
             }
             else if (requiredCpuType == CpuType.AnyCpu)
             {
@@ -219,28 +850,70 @@ public static class CAssemblyRefAnalyzer
                             return true;
                         if (machine == System.Reflection.PortableExecutable.Machine.Amd64)
                             return true;
-                        return false;
                     }
                 }
-                else
+                return machine == System.Reflection.PortableExecutable.Machine.Amd64 ||
+                       machine == System.Reflection.PortableExecutable.Machine.I386;
+            }
+            else if (requiredCpuType == CpuType.Arm)
+            {
+                if (isManaged)
                 {
-                    return machine == System.Reflection.PortableExecutable.Machine.Amd64 ||
-                           machine == System.Reflection.PortableExecutable.Machine.I386;
+                    var corHeader = peReader.PEHeaders.CorHeader;
+                    if (corHeader != null)
+                    {
+                        var flags = corHeader.Flags;
+                        bool ilOnly = (flags & CorFlags.ILOnly) != 0;
+
+                        if (machine == System.Reflection.PortableExecutable.Machine.Arm)
+                            return true;
+
+                        if (machine == System.Reflection.PortableExecutable.Machine.I386 && ilOnly)
+                            return true;
+                    }
                 }
+
+                return machine == System.Reflection.PortableExecutable.Machine.Arm;
+            }
+            else if (requiredCpuType == CpuType.Arm64)
+            {
+                if (isManaged)
+                {
+                    var corHeader = peReader.PEHeaders.CorHeader;
+                    if (corHeader != null)
+                    {
+                        var flags = corHeader.Flags;
+                        bool ilOnly = (flags & CorFlags.ILOnly) != 0;
+                        bool req32 = (flags & CorFlags.Requires32Bit) != 0;
+
+                        if (machine == System.Reflection.PortableExecutable.Machine.Arm64)
+                            return true;
+
+                        if (machine == System.Reflection.PortableExecutable.Machine.Arm)
+                            return true;
+
+                        if (machine == System.Reflection.PortableExecutable.Machine.I386 && ilOnly && !req32)
+                            return true;
+                    }
+                }
+
+                return machine == System.Reflection.PortableExecutable.Machine.Arm64 ||
+                       machine == System.Reflection.PortableExecutable.Machine.Arm;
             }
         }
         catch
         {
+            return true;
         }
         return false;
     }
 
     /// <summary>
-    /// Searches for an assembly in the Global Assembly Cache (GAC).
+    /// Searches for an assembly in the Global Assembly Cache (GAC)
     /// </summary>
     public static string FindInGac(string assemblyName, string publicKeyToken, CpuType cpuType)
     {
-        if (!TryLoadFusion())
+        if (string.IsNullOrEmpty(publicKeyToken) || publicKeyToken == "null")
             return null;
 
         IAssemblyName nameObj;
@@ -252,27 +925,37 @@ public static class CAssemblyRefAnalyzer
         if (hr != 0 || enumObj == null)
             return null;
 
-        while (enumObj.GetNextAssembly(IntPtr.Zero, out var foundName, 0) == 0 && foundName != null)
+        try
         {
-            int disp = 1024;
-            var sb = new System.Text.StringBuilder(1024);
-            foundName.GetDisplayName(sb, ref disp, 0x0);
-            string display = sb.ToString();
-            if (display.StartsWith(assemblyName + ",", StringComparison.OrdinalIgnoreCase)
-                && display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+            while (enumObj.GetNextAssembly(IntPtr.Zero, out var foundName, 0) == 0 && foundName != null)
             {
-                string path = GetAssemblyPathFromGacDisplay(display, cpuType);
-                if (File.Exists(path) && IsValidArchitecture(path, cpuType))
-                    return path;
+                int disp = 1024;
+                var sb = new System.Text.StringBuilder(1024);
+                foundName.GetDisplayName(sb, ref disp, 0x0);
+                string display = sb.ToString();
+
+                if (display.StartsWith(assemblyName + ",", StringComparison.OrdinalIgnoreCase) &&
+                    display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+                {
+                    string path = GetAssemblyPathFromGacDisplay(display, cpuType);
+                    if (File.Exists(path) && IsValidArchitecture(path, cpuType))
+                        return path;
+                }
             }
+        }
+        catch
+        {
+            // Exception handling
         }
         return null;
     }
 
+    /// <summary>
+    /// Converts a GAC display name to a file path
+    /// </summary>
     private static string GetAssemblyPathFromGacDisplay(string display, CpuType cpuType)
     {
         string windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        string baseGac = Path.Combine(windir, "Microsoft.NET", "assembly", "GAC_MSIL");
 
         string[] parts = display.Split(',');
         if (parts.Length < 4) return null;
@@ -281,196 +964,104 @@ public static class CAssemblyRefAnalyzer
         string culture = parts[2].Split('=')[1].Trim();
         string pkt = parts[3].Split('=')[1].Trim();
 
-        string archSuffix = null;
-        if (cpuType == CpuType.X86)
+        if (culture.Equals("neutral", StringComparison.OrdinalIgnoreCase))
+            culture = "neutral";
+
+        string archSuffix = "GAC_MSIL";
+        switch (cpuType)
         {
-            archSuffix = "GAC_32";
-        }
-        else if (cpuType == CpuType.X64)
-        {
-            archSuffix = "GAC_64";
+            case CpuType.X86:
+            case CpuType.Arm:
+                archSuffix = "GAC_32";
+                break;
+            case CpuType.X64:
+            case CpuType.Arm64:
+                archSuffix = "GAC_64";
+                break;
         }
 
         string subdir = $"{version}_{culture}_{pkt}";
+        string newerGacPath = Path.Combine(windir, "Microsoft.NET", "assembly", archSuffix, name, subdir, name + ".dll");
+        if (File.Exists(newerGacPath))
+            return newerGacPath;
 
-        if (archSuffix != null)
+        string gacFolder = Path.Combine(windir, "assembly", "GAC");
+        string olderGacPath = Path.Combine(gacFolder, name, version + "_" + culture + "_" + pkt, name + ".dll");
+        if (File.Exists(olderGacPath))
+            return olderGacPath;
+
+        switch (cpuType)
         {
-            string archGac = Path.Combine(windir, "assembly", archSuffix, name, subdir, name + ".dll");
-            if (File.Exists(archGac))
-                return archGac;
-        }
-
-        string msilGac = Path.Combine(baseGac, name, subdir, name + ".dll");
-        return msilGac;
-    }
-
-    public static bool GetDotNetAssemblyReferences(
-        CModule module,
-        out List<(string ReferenceName, string PublicKeyToken)> references,
-        out DotNetAssemblyKind kind,
-        out string runtimeVersion,
-        out CpuType cpuType,
-        out string archString,
-        out string corFlagsString)
-    {
-        references = new List<(string, string)>();
-        kind = DotNetAssemblyKind.Unknown;
-        runtimeVersion = null;
-        cpuType = CpuType.Unknown;
-        archString = "";
-        corFlagsString = "";
-
-        using var fs = new FileStream(module.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var peReader = new PEReader(fs);
-
-        var peHeader = peReader.PEHeaders.PEHeader;
-        if (peHeader == null)
-            return false;
-
-        var machine = peReader.PEHeaders.CoffHeader.Machine;
-        archString = machine.ToString();
-
-        switch (machine)
-        {
-            case System.Reflection.PortableExecutable.Machine.I386:
-                cpuType = CpuType.X86;
+            case CpuType.X86:
+            case CpuType.Arm:
+                string gac32 = Path.Combine(windir, "assembly", "GAC_32", name, version + "_" + culture + "_" + pkt, name + ".dll");
+                if (File.Exists(gac32))
+                    return gac32;
                 break;
-            case System.Reflection.PortableExecutable.Machine.Amd64:
-                cpuType = CpuType.X64;
-                break;
-            case System.Reflection.PortableExecutable.Machine.IA64:
-                cpuType = CpuType.Itanium;
-                break;
-            case System.Reflection.PortableExecutable.Machine.Arm:
-                cpuType = CpuType.Arm;
-                break;
-            case System.Reflection.PortableExecutable.Machine.Arm64:
-                cpuType = CpuType.Arm64;
-                break;
-            default:
-                cpuType = CpuType.Other;
+
+            case CpuType.X64:
+            case CpuType.Arm64:
+                string gac64 = Path.Combine(windir, "assembly", "GAC_64", name, version + "_" + culture + "_" + pkt, name + ".dll");
+                if (File.Exists(gac64))
+                    return gac64;
                 break;
         }
 
-        if (!peReader.HasMetadata)
-            return false;
-
-        var mdReader = peReader.GetMetadataReader();
-        runtimeVersion = mdReader.MetadataVersion;
-        module.ModuleData.CorFlags = (uint)peReader.PEHeaders.CorHeader.Flags;
-
-        bool hasMscorlib = false, hasSystemPrivateCoreLib = false;
-        foreach (var handle in mdReader.AssemblyReferences)
-        {
-            var asmRef = mdReader.GetAssemblyReference(handle);
-            var name = mdReader.GetString(asmRef.Name);
-            if (string.Equals(name, "mscorlib", StringComparison.OrdinalIgnoreCase))
-                hasMscorlib = true;
-            if (string.Equals(name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
-                hasSystemPrivateCoreLib = true;
-        }
-
-        if (hasMscorlib && !hasSystemPrivateCoreLib)
-            kind = DotNetAssemblyKind.NetFramework;
-        else if (hasSystemPrivateCoreLib)
-            kind = DotNetAssemblyKind.NetCoreOrNet;
-
-        if (kind == DotNetAssemblyKind.Unknown)
-        {
-            if (runtimeVersion.StartsWith("v4.0.30319"))
-                kind = DotNetAssemblyKind.NetFramework;
-            else if (runtimeVersion.StartsWith("v4.0.0"))
-                kind = DotNetAssemblyKind.NetCoreOrNet;
-        }
-
-        var corHeader = peReader.PEHeaders.CorHeader;
-        if (corHeader != null)
-        {
-            var flags = corHeader.Flags;
-            corFlagsString = flags.ToString();
-
-            bool ilOnly = (flags & CorFlags.ILOnly) != 0;
-            bool req32 = (flags & CorFlags.Requires32Bit) != 0;
-            bool pref32 = (flags & CorFlags.Prefers32Bit) != 0;
-
-            if (machine == System.Reflection.PortableExecutable.Machine.I386 && ilOnly)
-            {
-                if (req32)
-                    cpuType = CpuType.X86;
-                else if (pref32)
-                    cpuType = CpuType.AnyCpu; // AnyCPU prefers 32-bit
-                else
-                    cpuType = CpuType.AnyCpu; // AnyCPU
-            }
-        }
-
-        foreach (var handle in mdReader.AssemblyReferences)
-        {
-            var asmRef = mdReader.GetAssemblyReference(handle);
-            var name = mdReader.GetString(asmRef.Name);
-            var pkt = BitConverter.ToString(mdReader.GetBlobBytes(asmRef.PublicKeyOrToken)).Replace("-", "").ToLowerInvariant();
-            references.Add((name, pkt));
-        }
-
-        return true;
+        string gacMsil = Path.Combine(windir, "assembly", "GAC_MSIL", name, version + "_" + culture + "_" + pkt, name + ".dll");
+        return gacMsil;
     }
 
     /// <summary>
-    /// Attempts to locate the full path of an assembly on the system,
-    /// ensuring that the candidate matches the required CPU type.
+    /// Searches for an assembly in the .NET Framework directories
     /// </summary>
-    public static string FindAssemblyFullPath(string assemblyName, string publicKeyToken, DotNetAssemblyKind kind, CpuType cpuType, string inputAssemblyPath)
+    private static string FindInFrameworkDirectory(string assemblyName, CpuType cpuType)
     {
-        // 1. Check input dir
-        string dir = Path.GetDirectoryName(inputAssemblyPath);
-        string candidate = Path.Combine(dir, assemblyName + ".dll");
-        if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType)) return candidate;
+        string windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 
-        if (kind == DotNetAssemblyKind.NetFramework)
+        string frameworkBase;
+        switch (cpuType)
         {
-            // 2. Try real GAC enumeration, prefer arch-specific GAC
-            string gacPath = FindInGac(assemblyName, publicKeyToken, cpuType);
-            if (gacPath != null && File.Exists(gacPath) && IsValidArchitecture(gacPath, cpuType))
-                return gacPath;
+            case CpuType.X64:
+            case CpuType.Arm64:
+                frameworkBase = "Framework64";
+                break;
+            default:
+                frameworkBase = "Framework";
+                break;
+        }
 
-            // 3. Check Windows\Microsoft.NET\Framework or Framework64 and WPF subdir
-            string windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string frameworkBase = (cpuType == CpuType.X64) ? "Framework64" : "Framework";
-            string frameworkDir = Path.Combine(windir, "Microsoft.NET", frameworkBase);
+        string frameworkDir = Path.Combine(windir, "Microsoft.NET", frameworkBase);
 
-            if (Directory.Exists(frameworkDir))
+        if (Directory.Exists(frameworkDir))
+        {
+            var directories = Directory.GetDirectories(frameworkDir).OrderByDescending(d => d);
+            foreach (var versionDir in directories)
             {
-                foreach (var versionDir in Directory.GetDirectories(frameworkDir))
-                {
-                    // Check main dir
-                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
-                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType)) return candidate;
+                string candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                    return candidate;
 
-                    // Check WPF subdir
-                    string wpfDir = Path.Combine(versionDir, "WPF");
+                string wpfDir = Path.Combine(versionDir, "WPF");
+                if (Directory.Exists(wpfDir))
+                {
                     candidate = Path.Combine(wpfDir, assemblyName + ".dll");
-                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType)) return candidate;
+                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                        return candidate;
                 }
             }
         }
-        else if (kind == DotNetAssemblyKind.NetCoreOrNet)
-        {
-            // 4. Check runtime/shared folders
-            string runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
-            candidate = Path.Combine(runtimeDir, assemblyName + ".dll");
-            if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType)) return candidate;
 
-            string dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-            if (!string.IsNullOrEmpty(dotnetRoot))
+        if (cpuType == CpuType.Arm || cpuType == CpuType.Arm64)
+        {
+            string armFrameworkDir = Path.Combine(windir, "Microsoft.NET", cpuType == CpuType.Arm ? "Framework_ARM" : "Framework_ARM64");
+            if (Directory.Exists(armFrameworkDir))
             {
-                string shared = Path.Combine(dotnetRoot, "shared", "Microsoft.NETCore.App");
-                if (Directory.Exists(shared))
+                var armDirectories = Directory.GetDirectories(armFrameworkDir).OrderByDescending(d => d);
+                foreach (var versionDir in armDirectories)
                 {
-                    foreach (var versionDir in Directory.GetDirectories(shared))
-                    {
-                        candidate = Path.Combine(versionDir, assemblyName + ".dll");
-                        if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType)) return candidate;
-                    }
+                    string candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                        return candidate;
                 }
             }
         }
@@ -478,30 +1069,185 @@ public static class CAssemblyRefAnalyzer
         return null;
     }
 
-    public static class CorFlagsHelper
+    /// <summary>
+    /// Searches for an assembly in .NET Core/.NET runtime directories
+    /// </summary>
+    private static string FindInRuntimeDirectory(string assemblyName, CpuType cpuType)
     {
-        /// <summary>
-        /// Returns true if the assembly is AnyCPU (ILOnly and not Requires32Bit).
-        /// </summary>
-        public static bool IsAnyCpu(CorFlags corFlags)
+        string runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
+        string candidate = Path.Combine(runtimeDir, assemblyName + ".dll");
+        if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+            return candidate;
+
+        string dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (string.IsNullOrEmpty(dotnetRoot))
         {
-            return (corFlags & CorFlags.ILOnly) != 0 && (corFlags & CorFlags.Requires32Bit) == 0;
+            switch (cpuType)
+            {
+                case CpuType.X64:
+                case CpuType.Arm64:
+                    dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT(x64)");
+                    break;
+                case CpuType.X86:
+                    dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT(x86)");
+                    break;
+                case CpuType.Arm:
+                    dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT(arm)");
+                    break;
+            }
         }
 
-        /// <summary>
-        /// Returns true if the assembly is x86-only (Requires32Bit is set).
-        /// </summary>
-        public static bool IsX86Only(CorFlags corFlags)
+        if (string.IsNullOrEmpty(dotnetRoot))
         {
-            return (corFlags & CorFlags.Requires32Bit) != 0;
+            string pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(pathEnv))
+            {
+                string[] paths = pathEnv.Split(Path.PathSeparator);
+                foreach (string path in paths)
+                {
+                    if (path.Contains("dotnet", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string dotnetExe = Path.Combine(path, "dotnet.exe");
+                        if (File.Exists(dotnetExe))
+                        {
+                            dotnetRoot = path;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
-        /// <summary>
-        /// Returns true if the assembly prefers 32-bit (Prefers32Bit is set, only on ILOnly assemblies).
-        /// </summary>
-        public static bool Prefers32Bit(CorFlags corFlags)
+        if (!string.IsNullOrEmpty(dotnetRoot))
         {
-            return (corFlags & CorFlags.Prefers32Bit) != 0;
+            string rid = GetRuntimeIdentifier(cpuType);
+
+            string sharedDir = Path.Combine(dotnetRoot, "shared", "Microsoft.NETCore.App");
+            if (Directory.Exists(sharedDir))
+            {
+                var directories = Directory.GetDirectories(sharedDir).OrderByDescending(d => d);
+                foreach (var versionDir in directories)
+                {
+                    if (!string.IsNullOrEmpty(rid))
+                    {
+                        string archDir = Path.Combine(versionDir, rid);
+                        if (Directory.Exists(archDir))
+                        {
+                            candidate = Path.Combine(archDir, assemblyName + ".dll");
+                            if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                                return candidate;
+                        }
+                    }
+
+                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                        return candidate;
+                }
+            }
+
+            string desktopDir = Path.Combine(dotnetRoot, "shared", "Microsoft.WindowsDesktop.App");
+            if (Directory.Exists(desktopDir))
+            {
+                var directories = Directory.GetDirectories(desktopDir).OrderByDescending(d => d);
+                foreach (var versionDir in directories)
+                {
+                    if (!string.IsNullOrEmpty(rid))
+                    {
+                        string archDir = Path.Combine(versionDir, rid);
+                        if (Directory.Exists(archDir))
+                        {
+                            candidate = Path.Combine(archDir, assemblyName + ".dll");
+                            if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                                return candidate;
+                        }
+                    }
+
+                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                        return candidate;
+                }
+            }
+
+            string aspnetDir = Path.Combine(dotnetRoot, "shared", "Microsoft.AspNetCore.App");
+            if (Directory.Exists(aspnetDir))
+            {
+                var directories = Directory.GetDirectories(aspnetDir).OrderByDescending(d => d);
+                foreach (var versionDir in directories)
+                {
+                    if (!string.IsNullOrEmpty(rid))
+                    {
+                        string archDir = Path.Combine(versionDir, rid);
+                        if (Directory.Exists(archDir))
+                        {
+                            candidate = Path.Combine(archDir, assemblyName + ".dll");
+                            if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                                return candidate;
+                        }
+                    }
+
+                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    if (File.Exists(candidate) && IsValidArchitecture(candidate, cpuType))
+                        return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets the .NET Core Runtime Identifier (RID) for the given CPU type
+    /// </summary>
+    private static string GetRuntimeIdentifier(CpuType cpuType)
+    {
+        switch (cpuType)
+        {
+            case CpuType.X86:
+                return "win-x86";
+            case CpuType.X64:
+                return "win-x64";
+            case CpuType.Arm:
+                return "win-arm";
+            case CpuType.Arm64:
+                return "win-arm64";
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Main entry point for analyzing a PE file's assembly dependencies
+    /// </summary>
+    /// <param name="module">CModule instance representing the .NET PE file</param>
+    /// <returns>List of assembly references with resolved paths</returns>
+    public static List<AssemblyReference> GetAssemblyDependencies(CModule module)
+    {
+        return AnalyzeAssemblyReferences(module);
+    }
+
+    /// <summary>
+    /// Clears the internal reference resolution cache
+    /// </summary>
+    public static void ClearCache()
+    {
+        _resolutionCache.Clear();
+    }
+
+    /// <summary>
+    /// Releases resources used by the analyzer
+    /// </summary>
+    public static void Cleanup()
+    {
+        lock (fusionLock)
+        {
+            if (fusionHandle != IntPtr.Zero)
+            {
+                NativeMethods.FreeLibrary(fusionHandle);
+                fusionHandle = IntPtr.Zero;
+            }
+            fusionInitialized = false;
+            createAssemblyEnumDelegate = null;
+            createAssemblyNameObjectDelegate = null;
         }
     }
 }

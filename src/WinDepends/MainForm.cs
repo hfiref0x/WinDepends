@@ -19,7 +19,6 @@
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;
-using static WinDepends.CAssemblyRefAnalyzer;
 
 namespace WinDepends;
 
@@ -325,18 +324,9 @@ public partial class MainForm : Form
                 }
 
                 bool isCpuMismatch = module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine;
-                if (module.ModuleData.ImageDotNet == 1)
-                {
-                    CorFlags flags = (CorFlags)module.ModuleData.CorFlags;
-                    if (!CorFlagsHelper.IsAnyCpu(flags) && isCpuMismatch)
-                    {
-                        module.OtherErrorsPresent = true;
-                        AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
-                            LogMessageType.ErrorOrWarning, null, true, true, module);
-                    }
+                bool isRootImageDotNet = m_Depends.RootModule.ModuleData.ImageDotNet == 1;
 
-                }
-                else if (isCpuMismatch)
+                if (isCpuMismatch && !isRootImageDotNet)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
@@ -476,8 +466,9 @@ public partial class MainForm : Form
             module.OriginalInstanceId = origInstance.InstanceId;
             module.FileNotFound = origInstance.FileNotFound;
             module.ExportContainErrors = origInstance.ExportContainErrors;
-            module.Invalid = origInstance.Invalid;
+            module.IsInvalid = origInstance.IsInvalid;
             module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+            module.IsDotNetModule = origInstance.IsDotNetModule;
             module.ModuleData = new(origInstance.ModuleData);
         }
 
@@ -541,7 +532,8 @@ public partial class MainForm : Form
     private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
     {
         // Define action processor (callback)
-        Action<CModule> processModule = (mod) => {
+        Action<CModule> processModule = (mod) =>
+        {
             bool isRootModule = (parentNode == null);
             bool processRelocs = false;
             bool useStats = false;
@@ -3292,25 +3284,9 @@ public partial class MainForm : Form
                 ? ((Machine)moduleData.Machine).FriendlyName()
                 : $"0x{moduleData.Machine:X4}";
 
-            bool isMismatch = m_Depends.RootModule.ModuleData.Machine != moduleData.Machine;
-
-            // Special treatment for dotnet assemblies and cross-arch dependencies.
-            if (moduleData.ImageDotNet == 1)
-            {
-                CorFlags flags = (CorFlags)moduleData.CorFlags;
-
-                // If not AnyCPU, treat as native for arch mismatch highlighting.
-                if (!CorFlagsHelper.IsAnyCpu(flags) && isMismatch)
-                {
-                    lvItem.UseItemStyleForSubItems = false;
-                    lvItem.SubItems.Add(value, Color.Red, Color.White, lvItem.Font);
-                }
-                else
-                {
-                    lvItem.SubItems.Add(value);
-                }
-            }
-            else if (isMismatch)
+            bool isCpuMismatch = m_Depends.RootModule.ModuleData.Machine != moduleData.Machine;
+            bool isRootModuleNet = m_Depends.RootModule.ModuleData.ImageDotNet == 1;
+            if (isCpuMismatch && !isRootModuleNet)
             {
                 lvItem.UseItemStyleForSubItems = false;
                 lvItem.SubItems.Add(value, Color.Red, Color.White, lvItem.Font);

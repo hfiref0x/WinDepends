@@ -593,10 +593,10 @@
             chBoxAnalysisEnableExperimentalFeatures.AutoSize = true;
             chBoxAnalysisEnableExperimentalFeatures.Location = new Point(16, 83);
             chBoxAnalysisEnableExperimentalFeatures.Name = "chBoxAnalysisEnableExperimentalFeatures";
-            chBoxAnalysisEnableExperimentalFeatures.Size = new Size(396, 19);
+            chBoxAnalysisEnableExperimentalFeatures.Size = new Size(378, 19);
             chBoxAnalysisEnableExperimentalFeatures.TabIndex = 12;
             chBoxAnalysisEnableExperimentalFeatures.Tag = "606";
-            chBoxAnalysisEnableExperimentalFeatures.Text = "Enable experimental features (.NET assembly references and resolving)";
+            chBoxAnalysisEnableExperimentalFeatures.Text = "Enable experimental features (.NET assembly references resolution)";
             chBoxAnalysisEnableExperimentalFeatures.UseVisualStyleBackColor = true;
             chBoxAnalysisEnableExperimentalFeatures.Click += ChBox_Click;
             // 

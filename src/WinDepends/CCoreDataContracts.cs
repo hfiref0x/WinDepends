@@ -334,7 +334,7 @@ public class CCoreFileInformation
     /// Indicates whether the file contains a .NET (managed) image (1 if .NET, 0 if native).
     /// </summary>
     [DataMember(Name = "ImageDotNet")]
-    public uint ImageDotNet {  get; set; }
+    public uint ImageDotNet { get; set; }
 }
 
 /// <summary>

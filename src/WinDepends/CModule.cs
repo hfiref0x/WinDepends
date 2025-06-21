@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jun 2025
+*  DATE:        20 Jun 2025
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -20,48 +20,6 @@ using System.Reflection.PortableExecutable;
 using System.Runtime.Serialization;
 
 namespace WinDepends;
-
-/// <summary>
-/// Flags that represent the status and properties of a module within the dependency tree.
-/// </summary>
-[Flags]
-public enum ModuleInfoFlags : uint
-{
-    /// <summary>
-    /// Indicates a normal module with no special conditions.
-    /// </summary>
-    Normal = 0x100,
-
-    /// <summary>
-    /// Indicates that the module is a duplicate of another module already processed in the tree.
-    /// </summary>
-    Duplicate = 0x200,
-
-    /// <summary>
-    /// Indicates that the module has errors in its export table.
-    /// </summary>
-    ExportError = 0x400,
-
-    /// <summary>
-    /// Indicates a duplicate module that also has errors in its export table.
-    /// </summary>
-    DuplicateExportError = 0x800,
-
-    /// <summary>
-    /// Indicates that the module file could not be found on disk.
-    /// </summary>
-    FileNotFound = 0x1000,
-
-    /// <summary>
-    /// Indicates that the module is invalid or corrupted.
-    /// </summary>
-    Invalid = 0x2000,
-
-    /// <summary>
-    /// Indicates that the module has other errors not specifically categorized.
-    /// </summary>
-    WarningOtherErrors = 0x4000
-}
 
 /// <summary>
 /// Represents file system attributes of a file.
@@ -476,7 +434,47 @@ public enum ModuleIconType
     /// <summary>
     /// Dynamic 64-bit module mapped as image or datafile with warnings.
     /// </summary>
-    DynamicMappedModule64NoExecWarning
+    DynamicMappedModule64NoExecWarning,
+
+    /// <summary>
+    /// .NET module with no errors.
+    /// </summary>
+    NormalDotNetModule,
+
+    /// <summary>
+    /// Duplicate .NET module processed somewhere in the tree.
+    /// </summary>
+    DuplicateDotNetModule,
+
+    /// <summary>
+    /// .NET module with warnings.
+    /// </summary>
+    WarningDotNetModule,
+
+    /// <summary>
+    /// Duplicate .NET module with warnings.
+    /// </summary>
+    DuplicateDotNetModuleWarning,
+
+    /// <summary>
+    /// 64-bit .NET module with no errors.
+    /// </summary>
+    NormalDotNetModule64,
+
+    /// <summary>
+    /// Duplicate 64-bit .NET module processed somewhere in the tree.
+    /// </summary>
+    DuplicateDotNetModule64,
+
+    /// <summary>
+    /// 64-bit .NET module with warnings.
+    /// </summary>
+    WarningDotNetModule64,
+
+    /// <summary>
+    /// Duplicate 64-bit .NET module with warnings.
+    /// </summary>
+    DuplicateDotNetModuleWarning64
 }
 
 /// <summary>
@@ -598,7 +596,27 @@ public enum ModuleIconCompactType
     /// <summary>
     /// The 64-bit module mapped as image or datafile.
     /// </summary>
-    MappedModule64NoExec
+    MappedModule64NoExec,
+
+    /// <summary>
+    /// Normal .NET module with no errors.
+    /// </summary>
+    NormalDotNetModule,
+
+    /// <summary>
+    /// Normal 64-bit .NET module with no errors.
+    /// </summary>
+    NormalDotNetModule64,
+
+    /// <summary>
+    /// .NET module with warnings.
+    /// </summary>
+    WarningDotNetModule,
+
+    /// <summary>
+    /// 64-bit .NET module with warnings.
+    /// </summary>
+    WarningDotNetModule64
 }
 
 /// <summary>
@@ -652,9 +670,28 @@ public class CModuleData
     [DataMember]
     public uint ImageFixed { get; set; } = 0;
     [DataMember]
-    public uint ImageDotNet {  get; set; } = 0;
+
+    //
+    // .NET specific properties
+    //
+
+    public uint ImageDotNet { get; set; } = 0;
     [DataMember]
     public uint CorFlags { get; set; } = 0;
+    [DataMember]
+    public string RuntimeVersion { get; set; }
+    [DataMember]
+    public string FrameworkKind { get; set; }
+    [DataMember]
+    public bool IsSystemAssembly { get; set; }
+    [DataMember]
+    public string ResolutionSource { get; set; }
+    [DataMember]
+    public string ReferenceVersion { get; set; }
+    [DataMember]
+    public string ReferencePublicKeyToken { get; set; }
+    [DataMember]
+    public string ReferenceCulture { get; set; }
 
     /// <summary>
     /// Gets or sets the list of debug directory entry types in the module.
@@ -705,6 +742,16 @@ public class CModuleData
         LinkerVersion = other.LinkerVersion;
         OSVersion = other.OSVersion;
         SubsystemVersion = other.SubsystemVersion;
+
+        // .NET specific properties
+        RuntimeVersion = other.RuntimeVersion;
+        FrameworkKind = other.FrameworkKind;
+        IsSystemAssembly = other.IsSystemAssembly;
+        ResolutionSource = other.ResolutionSource;
+        ReferenceVersion = other.ReferenceVersion;
+        ReferencePublicKeyToken = other.ReferencePublicKeyToken;
+        ReferenceCulture = other.ReferenceCulture;
+
         DebugDirTypes = other.DebugDirTypes != null ?
             new List<uint>(other.DebugDirTypes) :
             new List<uint>();
@@ -809,7 +856,7 @@ public class CModule
     /// <c>true</c> if the module is corrupted or not a valid PE file; otherwise, <c>false</c>.
     /// </value>
     [DataMember]
-    public bool Invalid { get; set; }
+    public bool IsInvalid { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether this module is from a reproducible build.
@@ -845,6 +892,9 @@ public class CModule
     /// </value>
     [DataMember]
     public bool IsKernelModule { get; set; }
+
+    [DataMember]
+    public bool IsDotNetModule { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the module has export errors.
@@ -989,62 +1039,16 @@ public class CModule
     }
 
     /// <summary>
-    /// Gets the module's info flags based on its current state.
-    /// </summary>
-    /// <returns>
-    /// A <see cref="ModuleInfoFlags"/> value representing the module's status.
-    /// </returns>
-    /// <remarks>
-    /// This method determines the appropriate flags based on the module's errors,
-    /// processing status, and whether it's a duplicate instance.
-    /// </remarks>
-    public ModuleInfoFlags GetModuleFlags()
-    {
-        ModuleInfoFlags flags = default;
-
-        if (Invalid) flags |= ModuleInfoFlags.Invalid;
-        if (FileNotFound) flags |= ModuleInfoFlags.FileNotFound;
-        if (OtherErrorsPresent) flags |= ModuleInfoFlags.WarningOtherErrors;
-
-        if (OriginalInstanceId != 0)
-        {
-            if (ExportContainErrors)
-            {
-                flags |= ModuleInfoFlags.DuplicateExportError;
-            }
-            else
-            {
-                flags |= ModuleInfoFlags.Duplicate;
-            }
-        }
-        else
-        {
-            flags |= ModuleInfoFlags.Normal;
-
-            if (ExportContainErrors)
-            {
-                flags |= ModuleInfoFlags.ExportError;
-            }
-        }
-
-        return flags;
-    }
-
-    /// <summary>
     /// Determines if the module targets a 64-bit architecture.
     /// </summary>
     /// <returns>
     /// <c>true</c> if the module targets a 64-bit architecture; otherwise, <c>false</c>.
     /// </returns>
-    public bool Is64bitArchitecture()
-    {
-        var machine = ModuleData.Machine;
-        bool is64BitMachine = machine == (uint)Machine.Amd64 ||
-                              machine == (uint)Machine.IA64 ||
-                              machine == (uint)Machine.Arm64 ||
-                              machine == (uint)Machine.LoongArch64;
-        return is64BitMachine;
-    }
+    public bool Is64bitArchitecture() =>
+        ModuleData.Machine == (uint)Machine.Amd64 ||
+        ModuleData.Machine == (uint)Machine.IA64 ||
+        ModuleData.Machine == (uint)Machine.Arm64 ||
+        ModuleData.Machine == (uint)Machine.LoongArch64;
 
     /// <summary>
     /// Gets the appropriate icon index for displaying this module in the tree view.
@@ -1059,22 +1063,42 @@ public class CModule
     public int GetIconIndexForModule()
     {
         bool is64bit = Is64bitArchitecture();
-        ModuleInfoFlags mflags = GetModuleFlags();
-        bool bDuplicateAndExportError = mflags.HasFlag(ModuleInfoFlags.Duplicate | ModuleInfoFlags.ExportError);
-        bool bDuplicate = mflags.HasFlag(ModuleInfoFlags.Duplicate);
-        bool bFileNotFound = mflags.HasFlag(ModuleInfoFlags.FileNotFound);
-        bool bExportError = mflags.HasFlag(ModuleInfoFlags.ExportError);
-        bool bInvalid = mflags.HasFlag(ModuleInfoFlags.Invalid);
-        bool bWarningOtherErrors = mflags.HasFlag(ModuleInfoFlags.WarningOtherErrors);
+        bool bDuplicate = OriginalInstanceId != 0;
+        bool bDuplicateAndExportError = bDuplicate && ExportContainErrors;
+
+        if (IsDotNetModule)
+        {
+            if (IsInvalid)
+            {
+                return (int)ModuleIconType.InvalidModule;
+            }
+
+            if (FileNotFound)
+            {
+                return (int)ModuleIconType.MissingModule;
+            }
+
+            if (bDuplicateAndExportError)
+            {
+                return is64bit ? (int)ModuleIconType.DuplicateDotNetModuleWarning64 : (int)ModuleIconType.DuplicateDotNetModuleWarning;
+            }
+            if (bDuplicate)
+            {
+                return is64bit ? (int)ModuleIconType.DuplicateDotNetModule64 : (int)ModuleIconType.DuplicateDotNetModule;
+            }
+
+            return is64bit ? (ExportContainErrors ? (int)ModuleIconType.WarningDotNetModule64 : (int)ModuleIconType.NormalDotNetModule64) :
+                (ExportContainErrors ? (int)ModuleIconType.WarningDotNetModule : (int)ModuleIconType.NormalDotNetModule);
+        }
 
         if (IsDelayLoad)
         {
-            if (bInvalid)
+            if (IsInvalid)
             {
                 return (int)ModuleIconType.InvalidDelayLoadModule;
             }
 
-            if (bFileNotFound)
+            if (FileNotFound)
             {
                 return (int)ModuleIconType.MissingDelayLoadModule;
             }
@@ -1089,7 +1113,7 @@ public class CModule
                 return is64bit ? (int)ModuleIconType.DelayLoadModule64Duplicate : (int)ModuleIconType.DelayLoadModuleDuplicate;
             }
 
-            if (bExportError || bWarningOtherErrors)
+            if (ExportContainErrors || OtherErrorsPresent)
             {
                 return is64bit ? (int)ModuleIconType.DelayLoadModule64Warning : (int)ModuleIconType.DelayLoadModuleWarning;
             }
@@ -1099,12 +1123,12 @@ public class CModule
 
         if (IsForward)
         {
-            if (bInvalid)
+            if (IsInvalid)
             {
                 return (int)ModuleIconType.InvalidForwardedModule;
             }
 
-            if (bFileNotFound)
+            if (FileNotFound)
             {
                 return (int)ModuleIconType.MissingForwardedModule;
             }
@@ -1119,7 +1143,7 @@ public class CModule
                 return is64bit ? (int)ModuleIconType.ForwardedModule64Duplicate : (int)ModuleIconType.ForwardedModuleDuplicate;
             }
 
-            if (bExportError || bWarningOtherErrors)
+            if (ExportContainErrors || OtherErrorsPresent)
             {
                 return is64bit ? (int)ModuleIconType.ForwardedModule64Warning : (int)ModuleIconType.ForwardedModuleWarning;
             }
@@ -1127,12 +1151,12 @@ public class CModule
             return is64bit ? (int)ModuleIconType.ForwardedModule64 : (int)ModuleIconType.ForwardedModule;
         }
 
-        if (bInvalid)
+        if (IsInvalid)
         {
             return (int)ModuleIconType.InvalidModule;
         }
 
-        if (bFileNotFound)
+        if (FileNotFound)
         {
             return (int)ModuleIconType.MissingModule;
         }
@@ -1142,13 +1166,13 @@ public class CModule
             return is64bit ? (int)ModuleIconType.DuplicateModule64 : (int)ModuleIconType.DuplicateModule;
         }
 
-        if (bWarningOtherErrors)
+        if (OtherErrorsPresent)
         {
             return is64bit ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.WarningModule;
         }
 
-        return is64bit ? (bExportError ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.NormalModule64) :
-            (bExportError ? (int)ModuleIconType.WarningModule : (int)ModuleIconType.NormalModule);
+        return is64bit ? (ExportContainErrors ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.NormalModule64) :
+            (ExportContainErrors ? (int)ModuleIconType.WarningModule : (int)ModuleIconType.NormalModule);
     }
 
     /// <summary>
@@ -1164,30 +1188,46 @@ public class CModule
     public int GetIconIndexForModuleCompact()
     {
         bool is64bit = Is64bitArchitecture();
-        ModuleInfoFlags mflags = GetModuleFlags();
-        bool bFileNotFound = mflags.HasFlag(ModuleInfoFlags.FileNotFound);
-        bool bExportError = mflags.HasFlag(ModuleInfoFlags.ExportError);
-        bool bInvalid = mflags.HasFlag(ModuleInfoFlags.Invalid);
-        bool bWarningOtherErrors = mflags.HasFlag(ModuleInfoFlags.WarningOtherErrors);
+
+        if (IsDotNetModule)
+        {
+            if (IsInvalid)
+            {
+                return (int)ModuleIconCompactType.Invalid;
+            }
+
+            if (FileNotFound)
+            {
+                return (int)ModuleIconCompactType.MissingModule;
+            }
+
+            if (OtherErrorsPresent)
+            {
+                return is64bit ? (int)ModuleIconCompactType.WarningDotNetModule64 : (int)ModuleIconCompactType.WarningDotNetModule;
+            }
+
+            return is64bit ? (ExportContainErrors ? (int)ModuleIconCompactType.WarningDotNetModule64 : (int)ModuleIconCompactType.NormalDotNetModule64) :
+                (ExportContainErrors ? (int)ModuleIconCompactType.WarningDotNetModule : (int)ModuleIconCompactType.NormalDotNetModule);
+        }
 
         if (IsDelayLoad)
         {
-            if (bInvalid)
+            if (IsInvalid)
             {
                 return (int)ModuleIconCompactType.DelayLoadInvalid;
             }
 
-            if (bFileNotFound)
+            if (FileNotFound)
             {
                 return (int)ModuleIconCompactType.DelayLoadMissing;
             }
 
-            if (bExportError)
+            if (ExportContainErrors)
             {
                 return (int)ModuleIconCompactType.DelayLoadModuleWarning;
             }
 
-            if (bWarningOtherErrors)
+            if (OtherErrorsPresent)
             {
                 return is64bit ? (int)ModuleIconCompactType.DelayLoadModule64Warning : (int)ModuleIconCompactType.DelayLoadModuleWarning;
             }
@@ -1195,23 +1235,23 @@ public class CModule
             return is64bit ? (int)ModuleIconCompactType.DelayLoadModule64 : (int)ModuleIconCompactType.DelayLoadModule;
         }
 
-        if (bInvalid)
+        if (IsInvalid)
         {
             return (int)ModuleIconCompactType.Invalid;
         }
 
-        if (bFileNotFound)
+        if (FileNotFound)
         {
             return (int)ModuleIconCompactType.MissingModule;
         }
 
-        if (bWarningOtherErrors)
+        if (OtherErrorsPresent)
         {
             return is64bit ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.WarningModule;
         }
 
-        return is64bit ? (bExportError ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.NormalModule64) :
-            (bExportError ? (int)ModuleIconCompactType.WarningModule : (int)ModuleIconCompactType.NormalModule);
+        return is64bit ? (ExportContainErrors ? (int)ModuleIconCompactType.WarningModule64 : (int)ModuleIconCompactType.NormalModule64) :
+            (ExportContainErrors ? (int)ModuleIconCompactType.WarningModule : (int)ModuleIconCompactType.NormalModule);
     }
 
     /// <summary>
@@ -1372,7 +1412,6 @@ public class CModuleComparer : IComparer<CModule>
                 }
 
             case (int)ModuleColumns.Name:
-                // Use cached StringComparer for better performance with strings
                 comparisonResult = _ignoreCase.Compare(x.FileName, y.FileName);
                 break;
 
@@ -1406,6 +1445,10 @@ public class CModuleComparer : IComparer<CModule>
 
             case (int)ModuleColumns.FileSize:
                 comparisonResult = x.ModuleData.FileSize.CompareTo(y.ModuleData.FileSize);
+                break;
+
+            case (int)ModuleColumns.CPU:
+                comparisonResult = x.ModuleData.Machine.CompareTo(y.ModuleData.Machine);
                 break;
 
             default:

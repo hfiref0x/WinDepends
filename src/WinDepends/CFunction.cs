@@ -347,7 +347,7 @@ public class CFunction
     /// of the function's relationship to other modules in the dependency tree.
     /// </remarks>
     public bool ResolveFunctionKind(
-        CModule module, 
+        CModule module,
         List<CModule> modulesList,
         Dictionary<int, FunctionHashObject> parentImportsHashTable)
     {

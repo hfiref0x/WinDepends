@@ -467,7 +467,7 @@ public class CCoreClient : IDisposable
             module.FileNotFound = true;
 
         if (invalid)
-            module.Invalid = true;
+            module.IsInvalid = true;
 
         return status;
     }
@@ -849,22 +849,32 @@ public class CCoreClient : IDisposable
         }
 
         // This feature is experimental and not production ready.
-        if (module.ModuleData.ImageDotNet == 1 && EnableExperimentalFeatures)
+        module.IsDotNetModule = module.ModuleData.ImageDotNet == 1;
+        if (module.IsDotNetModule && EnableExperimentalFeatures)
         {
-            if (CAssemblyRefAnalyzer.GetDotNetAssemblyReferences(module, out var refs, out var kind, out var ver,
-                out var cpuType, out var arch, out var corFlags))
+            var dependencies = CAssemblyRefAnalyzer.GetAssemblyDependencies(module);
+            CModule netDependent;
+            foreach (var reference in dependencies)
             {
-                foreach (var (asm, pkt) in refs)
+                if (reference.IsResolved)
                 {
-                    string fileName = asm + ".dll";
-                    string fullPath = CAssemblyRefAnalyzer.FindAssemblyFullPath(asm, pkt, kind, cpuType, module.FileName);
-                    if (!string.IsNullOrEmpty(fullPath))
-                    {
-                        CModule netDependent = new(fullPath, fullPath, SearchOrderType.None, false);
-                        module.Dependents.Add(netDependent);
-                    }
+                    netDependent = new(reference.ResolvedPath, reference.ResolvedPath, SearchOrderType.None, false);
                 }
+                else
+                {
+                    netDependent = new(reference.Name, reference.Name, SearchOrderType.None, false);
+                }
+                netDependent.ModuleData.RuntimeVersion = module.ModuleData.RuntimeVersion;
+                netDependent.ModuleData.FrameworkKind = module.ModuleData.FrameworkKind;
+                netDependent.ModuleData.ResolutionSource = reference.ResolutionSource;
+                netDependent.ModuleData.ReferenceVersion = reference.Version;
+                netDependent.ModuleData.ReferencePublicKeyToken = reference.PublicKeyToken;
+                netDependent.ModuleData.ReferenceCulture = reference.Culture;
+                netDependent.IsDotNetModule = true;
+                module.Dependents.Add(netDependent);
             }
+
+            CAssemblyRefAnalyzer.ClearCache();
         }
     }
 

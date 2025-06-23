@@ -46,4 +46,9 @@ BOOL mlist_traverse(
     _In_opt_ pmodule_ctx context
 );
 
+void mlist_append_to_main(
+    _In_ PLIST_ENTRY src,
+    _In_ PLIST_ENTRY dest
+);
+
 #endif _MLIST_H_

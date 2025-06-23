@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jun 2025
+*  DATE:        22 Jun 2025
 *  
 *  Core Server reply structures (JSON serialized).
 *
@@ -19,6 +19,24 @@
 using System.Runtime.Serialization;
 
 namespace WinDepends;
+
+/// <summary>
+/// Represents an exception reported by server.
+/// </summary>
+[DataContract]
+public class CCoreException
+{
+    /// <summary>
+    /// Exception code.
+    /// </summary>
+    [DataMember(Name = "code")]
+    public UInt32 Code { get; set; }
+    /// <summary>
+    /// Location of the exception.
+    /// </summary>
+    [DataMember(Name = "location")]
+    public UInt32 Location { get; set; }
+}
 
 /// <summary>
 /// Represents a PE data directory entry.
@@ -201,12 +219,6 @@ public class CCoreImportLibrary
     public string Name { get; set; }
 
     /// <summary>
-    /// Indicates if the import is a delay-load library (1 if delay, 0 if not).
-    /// </summary>
-    [DataMember(Name = "delay")]
-    public int IsDelayLibrary { get; set; }
-
-    /// <summary>
     /// List of imported functions.
     /// </summary>
     [DataMember(Name = "functions")]
@@ -220,10 +232,38 @@ public class CCoreImportLibrary
 public class CCoreImports
 {
     /// <summary>
+    /// Exception bit flag:
+    /// 0 = No error,
+    /// 1 = Exception occurred in standard import parsing,
+    /// 2 = Exception occurred in delay-load import parsing,
+    /// 3 = Both standard and delay-load import parsing raised exceptions.
+    /// </summary>
+    [DataMember(Name = "exception")]
+    public UInt32 Exception { get; set; }
+
+    /// <summary>
+    /// Exception code from the system for the standard import parsing exception, or 0 if none.
+    /// </summary>
+    [DataMember(Name = "exception_code_std")]
+    public UInt32 ExceptionCodeStd { get; set; }
+
+    /// <summary>
+    /// Exception code from the system for the delay-load import parsing exception, or 0 if none.
+    /// </summary>
+    [DataMember(Name = "exception_code_delay")]
+    public UInt32 ExceptionCodeDelay { get; set; }
+
+    /// <summary>
     /// List of import libraries.
     /// </summary>
     [DataMember(Name = "libraries")]
     public List<CCoreImportLibrary> Library { get; set; }
+
+    /// <summary>
+    /// List of import libraries (delay-load).
+    /// </summary>
+    [DataMember(Name = "libraries_delay")]
+    public List<CCoreImportLibrary> LibraryDelay { get; set; }
 }
 
 /// <summary>

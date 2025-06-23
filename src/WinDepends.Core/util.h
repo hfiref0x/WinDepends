@@ -157,7 +157,7 @@ int ex_filter(_In_ unsigned int code, _In_ struct _EXCEPTION_POINTERS* ep);
 int ex_filter_dbg(_In_ WCHAR* fileName, _In_ unsigned int code, _In_ struct _EXCEPTION_POINTERS* ep);
 
 typedef enum _exception_location {
-    ex_headers,
+    ex_headers = 0,
     ex_datadirs,
     ex_imports,
     ex_exports

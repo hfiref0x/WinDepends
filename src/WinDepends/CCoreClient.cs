@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jun 2025
+*  DATE:        22 Jun 2025
 *  
 *  Core Server communication class.
 *
@@ -63,7 +63,8 @@ public enum CCoreClientSerializerType : int
     ApiSetNamespace,
     CallStats,
     KnownDlls,
-    FileInformation
+    FileInformation,
+    Exception
 }
 
 public class CBufferChain
@@ -160,7 +161,7 @@ public class CCoreClient : IDisposable
         IPAddress = ipAddress;
         ErrorStatus = ServerErrorStatus.NoErrors;
 
-        _serializers = new DataContractJsonSerializer[9];
+        _serializers = new DataContractJsonSerializer[10];
         _serializers[(int)CCoreClientSerializerType.Headers] = new DataContractJsonSerializer(typeof(CCoreImageHeaders));
         _serializers[(int)CCoreClientSerializerType.Imports] = new DataContractJsonSerializer(typeof(CCoreImports));
         _serializers[(int)CCoreClientSerializerType.Exports] = new DataContractJsonSerializer(typeof(CCoreExports));
@@ -170,6 +171,7 @@ public class CCoreClient : IDisposable
         _serializers[(int)CCoreClientSerializerType.CallStats] = new DataContractJsonSerializer(typeof(CCoreCallStats));
         _serializers[(int)CCoreClientSerializerType.KnownDlls] = new DataContractJsonSerializer(typeof(CCoreKnownDlls));
         _serializers[(int)CCoreClientSerializerType.FileInformation] = new DataContractJsonSerializer(typeof(CCoreFileInformation));
+        _serializers[(int)CCoreClientSerializerType.Exception] = new DataContractJsonSerializer(typeof(CCoreException));
     }
 
     protected void Dispose(bool disposing)
@@ -224,22 +226,35 @@ public class CCoreClient : IDisposable
                moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase));
     }
 
+    public void OutputException(CModule module, string reply)
+    {
+        var ex = (CCoreException)DeserializeDataJSON(typeof(CCoreException), reply);
+        if (ex == null) return;
+
+        var locations = new[] { "image headers", "data directories", "imports", "exports" };
+        var location = ex.Location >= 0 && ex.Location < locations.Length ? locations[ex.Location] : string.Empty;
+
+        if (module != null)
+            module.OtherErrorsPresent = true;
+
+        var moduleName = module?.FileName != null ? Path.GetFileName(module.FileName) : string.Empty;
+        var exceptionText = PeExceptionHelper.TranslateExceptionCode(ex.Code);
+
+        _addLogMessage(
+            $"An exception {exceptionText} 0x{ex.Code:X8} occured while processing {location}" +
+            (!string.IsNullOrEmpty(moduleName) ? $" of {moduleName}" : ""),
+            LogMessageType.ErrorOrWarning);
+    }
+
     public void CheckExceptionInReply(CModule module)
     {
         CBufferChain idata = ReceiveReply();
         if (!IsNullOrEmptyResponse(idata))
         {
-            string exInfo = idata.BufferToString();
-            if (!string.IsNullOrEmpty(exInfo))
+            var reply = idata.BufferToString();
+            if (!string.IsNullOrEmpty(reply))
             {
-                var logMsg = exInfo;
-                if (module != null)
-                {
-                    module.OtherErrorsPresent = true;
-                    if (!string.IsNullOrEmpty(module.FileName))
-                        logMsg += Path.GetFileName(module.FileName);
-                }
-                _addLogMessage(logMsg, LogMessageType.ErrorOrWarning);
+                OutputException(module, reply);
             }
         }
     }
@@ -401,6 +416,8 @@ public class CCoreClient : IDisposable
             return _serializers[(int)CCoreClientSerializerType.KnownDlls];
         if (objectType == typeof(CCoreFileInformation))
             return _serializers[(int)CCoreClientSerializerType.FileInformation];
+        if (objectType == typeof(CCoreException))
+            return _serializers[(int)CCoreClientSerializerType.Exception];
 
         // Fallback for unknown types
         return new DataContractJsonSerializer(objectType);
@@ -741,6 +758,131 @@ public class CCoreClient : IDisposable
         }
     }
 
+    public void ProcessImports(CModule module,
+                               bool DelayLibraries,
+                               List<CCoreImportLibrary> LibraryList,
+                               List<SearchOrderType> searchOrderUM,
+                               List<SearchOrderType> searchOrderKM,
+                               Dictionary<int, FunctionHashObject> parentImportsHashTable)
+    {
+        foreach (var entry in LibraryList)
+        {
+            string moduleName = entry.Name;
+            string rawModuleName = entry.Name;
+
+            bool isApiSetContract = IsModuleNameApiSetContract(moduleName);
+
+            if (isApiSetContract)
+            {
+                string cachedName = CApiSetCacheManager.GetResolvedNameByApiSetName(moduleName);
+
+                if (cachedName == null)
+                {
+                    var resolvedName = (CCoreResolvedFileName)GetModuleInformationByType(ModuleInformationType.ApiSetName,
+                        module, moduleName);
+
+                    if (resolvedName != null)
+                    {
+                        CApiSetCacheManager.AddApiSet(moduleName, resolvedName.Name);
+                        moduleName = resolvedName.Name;
+                    }
+                }
+                else
+                {
+                    moduleName = cachedName;
+                }
+
+            }
+
+            var moduleFileName = CPathResolver.ResolvePathForModule(moduleName,
+                                                                    module,
+                                                                    searchOrderUM,
+                                                                    searchOrderKM,
+                                                                    out SearchOrderType resolvedBy);
+
+            if (!string.IsNullOrEmpty(moduleFileName))
+            {
+                moduleName = moduleFileName;
+            }
+
+            CModule dependent = new(moduleName, rawModuleName, resolvedBy, isApiSetContract)
+            {
+                IsDelayLoad = DelayLibraries,
+                IsKernelModule = module.IsKernelModule, //propagate from parent
+            };
+
+            module.Dependents.Add(dependent);
+
+            foreach (var func in entry.Function)
+            {
+                dependent.ParentImports.Add(new CFunction(func));
+
+                FunctionHashObject funcHashObject = new(dependent.FileName, func.Name, func.Ordinal);
+                var uniqueKey = funcHashObject.GenerateUniqueKey();
+                parentImportsHashTable.TryAdd(uniqueKey, funcHashObject);
+            }
+        }
+    }
+
+    private void HandleImportExceptions(CCoreImports imports)
+    {
+        bool exceptStd = (imports.Exception & 1) != 0;
+        bool exceptDelay = (imports.Exception & 2) != 0;
+
+        if (exceptStd && exceptDelay)
+        {
+            _addLogMessage(
+                $"Exceptions occurred while processing imports:\n" +
+                $"  Standard: {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeStd)} (0x{imports.ExceptionCodeStd:X8})\n" +
+                $"  Delay-load: {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeDelay)} (0x{imports.ExceptionCodeDelay:X8})",
+                LogMessageType.ErrorOrWarning);
+        }
+        else if (exceptStd)
+        {
+            _addLogMessage(
+                $"Exception {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeStd)} (0x{imports.ExceptionCodeStd:X8}) occurred while processing standard imports",
+                LogMessageType.ErrorOrWarning);
+        }
+        else if (exceptDelay)
+        {
+            _addLogMessage(
+                $"Exception {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeDelay)} (0x{imports.ExceptionCodeDelay:X8}) occurred while processing delay-load imports",
+                LogMessageType.ErrorOrWarning);
+        }
+    }
+
+    void ProcessExports(CModule module,
+                        CCoreExports rawExports,
+                        List<SearchOrderType> searchOrderUM,
+                        List<SearchOrderType> searchOrderKM)
+    {
+        foreach (var entry in rawExports.Library.Function)
+        {
+            module.ModuleData.Exports.Add(new(entry));
+        }
+
+        foreach (var entry in module.ParentImports)
+        {
+            bool bResolved = false;
+
+            if (entry.Ordinal != UInt32.MaxValue)
+            {
+                bResolved = module.ModuleData.Exports?.Any(func => func.Ordinal == entry.Ordinal) == true;
+            }
+            else
+            {
+                bResolved = module.ModuleData.Exports?.Any(func => func.RawName.Equals(entry.RawName, StringComparison.Ordinal)) == true;
+            }
+
+            if (!bResolved)
+            {
+                module.ExportContainErrors = true;
+                break;
+            }
+        }
+
+    }
+
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
                                                  List<SearchOrderType> searchOrderKM,
@@ -755,30 +897,7 @@ public class CCoreClient : IDisposable
         CCoreExports rawExports = (CCoreExports)GetModuleInformationByType(ModuleInformationType.Exports, module);
         if (rawExports != null)
         {
-            foreach (var entry in rawExports.Library.Function)
-            {
-                module.ModuleData.Exports.Add(new(entry));
-            }
-
-            foreach (var entry in module.ParentImports)
-            {
-                bool bResolved = false;
-
-                if (entry.Ordinal != UInt32.MaxValue)
-                {
-                    bResolved = module.ModuleData.Exports?.Any(func => func.Ordinal == entry.Ordinal) == true;
-                }
-                else
-                {
-                    bResolved = module.ModuleData.Exports?.Any(func => func.RawName.Equals(entry.RawName, StringComparison.Ordinal)) == true;
-                }
-
-                if (!bResolved)
-                {
-                    module.ExportContainErrors = true;
-                    break;
-                }
-            }
+            ProcessExports(module, rawExports, searchOrderUM, searchOrderKM);
         }
 
         //
@@ -788,67 +907,16 @@ public class CCoreClient : IDisposable
         if (rawImports != null)
         {
             CheckIfKernelModule(module, rawImports);
-
-            foreach (var entry in rawImports.Library)
-            {
-                string moduleName = entry.Name;
-                string rawModuleName = entry.Name;
-
-                bool isApiSetContract = IsModuleNameApiSetContract(moduleName);
-
-                if (isApiSetContract)
-                {
-                    string cachedName = CApiSetCacheManager.GetResolvedNameByApiSetName(moduleName);
-
-                    if (cachedName == null)
-                    {
-                        var resolvedName = (CCoreResolvedFileName)GetModuleInformationByType(ModuleInformationType.ApiSetName,
-                            module, moduleName);
-
-                        if (resolvedName != null)
-                        {
-                            CApiSetCacheManager.AddApiSet(moduleName, resolvedName.Name);
-                            moduleName = resolvedName.Name;
-                        }
-                    }
-                    else
-                    {
-                        moduleName = cachedName;
-                    }
-
-                }
-
-                var moduleFileName = CPathResolver.ResolvePathForModule(moduleName,
-                                                                        module,
-                                                                        searchOrderUM,
-                                                                        searchOrderKM,
-                                                                        out SearchOrderType resolvedBy);
-
-                if (!string.IsNullOrEmpty(moduleFileName))
-                {
-                    moduleName = moduleFileName;
-                }
-
-                CModule dependent = new(moduleName, rawModuleName, resolvedBy, isApiSetContract)
-                {
-                    IsDelayLoad = (entry.IsDelayLibrary == 1),
-                    IsKernelModule = module.IsKernelModule, //propagate from parent
-                };
-
-                module.Dependents.Add(dependent);
-
-                foreach (var func in entry.Function)
-                {
-                    dependent.ParentImports.Add(new CFunction(func));
-
-                    FunctionHashObject funcHashObject = new(dependent.FileName, func.Name, func.Ordinal);
-                    var uniqueKey = funcHashObject.GenerateUniqueKey();
-                    parentImportsHashTable.TryAdd(uniqueKey, funcHashObject);
-                }
-            }
+            ProcessImports(module, false, rawImports.Library, searchOrderUM, searchOrderKM, parentImportsHashTable);
+            ProcessImports(module, true, rawImports.LibraryDelay, searchOrderUM, searchOrderKM, parentImportsHashTable);
+            if (rawImports.Exception != 0) 
+                HandleImportExceptions(rawImports);
         }
 
+        //
+        // Process .NET assembly references.
         // This feature is experimental and not production ready.
+        //
         module.IsDotNetModule = module.ModuleData.ImageDotNet == 1;
         if (module.IsDotNetModule && EnableExperimentalFeatures)
         {

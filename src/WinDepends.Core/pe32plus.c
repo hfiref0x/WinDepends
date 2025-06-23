@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Jun 10, 2025
+*  Modified on: Jun 22, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -888,8 +888,11 @@ BOOL get_imports(
 )
 {
     LIST_ENTRY                  msg_lh;
+    LIST_ENTRY                  std_lib_lh;
+    LIST_ENTRY                  delay_lib_lh;
+
     PIMAGE_FILE_HEADER          nt_file_hdr;
-    DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c;
+    DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c, import_exception = 0;
     DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0,
         IModuleName, INameTable, delta, boundIAT;
     BOOL                        status = FALSE, importPresent = FALSE, has_bound_imports = FALSE;
@@ -898,6 +901,9 @@ BOOL get_imports(
     HRESULT                     hr;
     PWSTR                       endPtr;
     SIZE_T                      remaining, len;
+
+    ULONG                       except_code_std = 0, except_code_delay = 0;
+
     WCHAR                       msg_text[WDEP_MSG_LENGTH_BIG];
 
     define_3264_union(IMAGE_THUNK_DATA, thunk_data);
@@ -912,6 +918,8 @@ BOOL get_imports(
     __try
     {
         InitializeListHead(&msg_lh);
+        InitializeListHead(&std_lib_lh);
+        InitializeListHead(&delay_lib_lh);
 
         //*(PBYTE)(NULL) = 0;
 
@@ -946,124 +954,157 @@ BOOL get_imports(
             break;
         }
 
-        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"libraries\":[", WSTRING_LEN(WDEP_STATUS_OK L"{\"libraries\":["));
+        // Build list for usual import.
 
-        if ((si_dir_base > 0) && (si_dir_base < ImageSize))
-        {
-            SImportTable = (PIMAGE_IMPORT_DESCRIPTOR)(context->module + si_dir_base);
-            for (c = 0; SImportTable->Name && SImportTable->FirstThunk; ++SImportTable, ++c)
+        __try {
+
+            if ((si_dir_base > 0) && (si_dir_base < ImageSize))
             {
-                importPresent = TRUE;
-                if (c > 0)
-                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
-
-                hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-                    &endPtr, &remaining, 0,
-                    L"{\"name\":\"%S\",\"delay\":0,\"functions\":[",
-                    (char*)context->module + SImportTable->Name);
-
-                if (SUCCEEDED(hr)) {
-                    len = endPtr - msg_text;
-                    mlist_add(&msg_lh, msg_text, len);
-                }
-
-                bound_table.uptr = NULL;
-                if ((SImportTable->OriginalFirstThunk < SizeOfHeaders) || (SImportTable->OriginalFirstThunk > ImageSize))
+                SImportTable = (PIMAGE_IMPORT_DESCRIPTOR)(context->module + si_dir_base);
+                for (c = 0; SImportTable->Name && SImportTable->FirstThunk; ++SImportTable, ++c)
                 {
-                    thunk_data.uptr = context->module + SImportTable->FirstThunk;
-                }
-                else
-                {
-                    thunk_data.uptr = context->module + SImportTable->OriginalFirstThunk;
-                }
-                if (SImportTable->TimeDateStamp) {
-                    bound_table.uptr = context->module + SImportTable->FirstThunk;
-                }
+                    importPresent = TRUE;
+                    if (c > 0)
+                        mlist_add(&std_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                has_bound_imports = bound_table.uptr != NULL;
+                    hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
+                        &endPtr, &remaining, 0,
+                        L"{\"name\":\"%S\",\"functions\":[",
+                        (char*)context->module + SImportTable->Name);
 
-                if (context->image_64bit)
-                    process_thunks64(context->module, thunk_data.thunk_data64,
-                        bound_table.bound_table64, &msg_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
-                else
-                    process_thunks32(context->module, thunk_data.thunk_data32,
-                        bound_table.bound_table32, &msg_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
+                    if (SUCCEEDED(hr)) {
+                        len = endPtr - msg_text;
+                        mlist_add(&std_lib_lh, msg_text, len);
+                    }
 
-                mlist_add(&msg_lh, L"]}", WSTRING_LEN(L"]}"));
+                    bound_table.uptr = NULL;
+                    if ((SImportTable->OriginalFirstThunk < SizeOfHeaders) || (SImportTable->OriginalFirstThunk > ImageSize))
+                    {
+                        thunk_data.uptr = context->module + SImportTable->FirstThunk;
+                    }
+                    else
+                    {
+                        thunk_data.uptr = context->module + SImportTable->OriginalFirstThunk;
+                    }
+                    if (SImportTable->TimeDateStamp) {
+                        bound_table.uptr = context->module + SImportTable->FirstThunk;
+                    }
+
+                    has_bound_imports = bound_table.uptr != NULL;
+
+                    if (context->image_64bit)
+                        process_thunks64(context->module, thunk_data.thunk_data64,
+                            bound_table.bound_table64, &std_lib_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
+                    else
+                        process_thunks32(context->module, thunk_data.thunk_data32,
+                            bound_table.bound_table32, &std_lib_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
+
+                    mlist_add(&std_lib_lh, L"]}", WSTRING_LEN(L"]}"));
+                }
             }
-            status = TRUE;
+        }
+        __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
+        {
+            printf("exception in get_imports (standard)\r\n");
+            mlist_traverse(&std_lib_lh, mlist_free, s, NULL);
+            InitializeListHead(&std_lib_lh);
+            import_exception |= 1;
+            except_code_std = GetExceptionCode();
         }
 
-        if ((di_dir_base > 0) && (di_dir_base < ImageSize))
+        // Build list for delay-load import.
+        __try
         {
-            DImportTable = (PIMAGE_DELAYLOAD_DESCRIPTOR)(context->module + di_dir_base);
-
-            if (importPresent)
-                mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
-
-            for (c = 0; DImportTable->DllNameRVA; ++DImportTable, ++c)
+            if ((di_dir_base > 0) && (di_dir_base < ImageSize))
             {
-                IModuleName = DImportTable->DllNameRVA;
-                INameTable = DImportTable->ImportNameTableRVA;
-                delta = (DWORD_PTR)context->module;
+                DImportTable = (PIMAGE_DELAYLOAD_DESCRIPTOR)(context->module + di_dir_base);
 
-                printf("get_imports: DImportTable->Attributes.RvaBased %lu, delta 0x%llX\r\n",
-                    DImportTable->Attributes.RvaBased,
-                    delta);
+                for (c = 0; DImportTable->DllNameRVA; ++DImportTable, ++c)
+                {
+                    if (c > 0)
+                        mlist_add(&delay_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
 
-                if (DImportTable->Attributes.RvaBased) {
-                    IModuleName += delta;
-                    INameTable += delta;
-                }
-                else {
-                    IModuleName = DImportTable->DllNameRVA - (DWORD_PTR)ImageBase;
-                    INameTable = DImportTable->ImportNameTableRVA - (DWORD_PTR)ImageBase;
-                    IModuleName += delta;
-                    INameTable += delta;
-                }
+                    IModuleName = DImportTable->DllNameRVA;
+                    INameTable = DImportTable->ImportNameTableRVA;
+                    delta = (DWORD_PTR)context->module;
 
-                if (c > 0)
-                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
-
-                hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-                    &endPtr, &remaining, 0,
-                    L"{\"name\":\"%S\",\"delay\":1,\"functions\":[",
-                    (char*)IModuleName);
-
-                if (SUCCEEDED(hr)) {
-                    len = endPtr - msg_text;
-                    mlist_add(&msg_lh, msg_text, len);
-                }
-
-                bound_table.uptr = NULL;
-                if (DImportTable->TimeDateStamp != 0) {
-                    boundIAT = DImportTable->BoundImportAddressTableRVA;
                     if (DImportTable->Attributes.RvaBased) {
-                        bound_table.uptr = context->module + boundIAT;
+                        IModuleName += delta;
+                        INameTable += delta;
                     }
                     else {
-                        boundIAT = boundIAT - (DWORD_PTR)ImageBase;
-                        bound_table.uptr = context->module + boundIAT;
+                        IModuleName = DImportTable->DllNameRVA - (DWORD_PTR)ImageBase;
+                        INameTable = DImportTable->ImportNameTableRVA - (DWORD_PTR)ImageBase;
+                        IModuleName += delta;
+                        INameTable += delta;
                     }
+
+                    hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
+                        &endPtr, &remaining, 0,
+                        L"{\"name\":\"%S\",\"functions\":[",
+                        (char*)IModuleName);
+
+                    if (SUCCEEDED(hr)) {
+                        len = endPtr - msg_text;
+                        mlist_add(&delay_lib_lh, msg_text, len);
+                    }
+
+                    bound_table.uptr = NULL;
+                    if (DImportTable->TimeDateStamp != 0) {
+                        boundIAT = DImportTable->BoundImportAddressTableRVA;
+                        if (DImportTable->Attributes.RvaBased)
+                            bound_table.uptr = context->module + boundIAT;
+                        else {
+                            boundIAT = boundIAT - (DWORD_PTR)ImageBase;
+                            bound_table.uptr = context->module + boundIAT;
+                        }
+                    }
+
+                    thunk_data.uptr = (LPVOID)INameTable;
+                    has_bound_imports = (bound_table.uptr != NULL);
+
+                    if (context->image_64bit)
+                        process_thunks64(context->module, thunk_data.thunk_data64,
+                            bound_table.bound_table64, &delay_lib_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
+                    else
+                        process_thunks32(context->module, thunk_data.thunk_data32,
+                            bound_table.bound_table32, &delay_lib_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
+
+                    mlist_add(&delay_lib_lh, L"]}", WSTRING_LEN(L"]}"));
                 }
-
-                thunk_data.uptr = (LPVOID)INameTable;
-
-                has_bound_imports = (bound_table.uptr != NULL);
-
-                if (context->image_64bit)
-                    process_thunks64(context->module, thunk_data.thunk_data64,
-                        bound_table.bound_table64, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
-                else
-                    process_thunks32(context->module, thunk_data.thunk_data32,
-                        bound_table.bound_table32, &msg_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
-
-                mlist_add(&msg_lh, L"]}", WSTRING_LEN(L"]}"));
             }
-            status = TRUE;
+        }
+        __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
+        {
+            printf("exception in get_imports (delay)\r\n");
+            mlist_traverse(&delay_lib_lh, mlist_free, s, NULL);
+            InitializeListHead(&delay_lib_lh);
+            import_exception |= 2;
+            except_code_delay = GetExceptionCode();
         }
 
+        //
+        // Build combined output.
+        //
+        mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"exception\":", WSTRING_LEN(WDEP_STATUS_OK L"{\"exception\":"));
+
+        StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", import_exception);
+        mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+        mlist_add(&msg_lh, L",\"exception_code_std\":", WSTRING_LEN(L",\"exception_code_std\":"));
+        StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", except_code_std);
+        mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+        mlist_add(&msg_lh, L",\"exception_code_delay\":", WSTRING_LEN(L",\"exception_code_delay\":"));
+        StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", except_code_delay);
+        mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+
+        mlist_add(&msg_lh, L",\"libraries\":[", WSTRING_LEN(L",\"libraries\":["));
+        if (!IsListEmpty(&std_lib_lh))
+            mlist_append_to_main(&std_lib_lh, &msg_lh);
+        mlist_add(&msg_lh, L"],\"libraries_delay\":[", WSTRING_LEN(L"],\"libraries_delay\":["));
+        if (!IsListEmpty(&delay_lib_lh))
+            mlist_append_to_main(&delay_lib_lh, &msg_lh);
         mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"));
+
         mlist_traverse(&msg_lh, mlist_send, s, context);
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))

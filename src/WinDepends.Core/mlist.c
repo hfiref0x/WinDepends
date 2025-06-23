@@ -175,3 +175,19 @@ BOOL mlist_traverse(
 
     return TRUE;
 }
+
+void mlist_append_to_main(
+    _In_ PLIST_ENTRY src,
+    _In_ PLIST_ENTRY dest
+)
+{
+    PLIST_ENTRY entry, nextEntry;
+
+    for (entry = src->Flink, nextEntry = entry->Flink;
+        entry != src;
+        entry = nextEntry, nextEntry = entry->Flink)
+    {
+        InsertTailList(dest, entry);
+    }
+    InitializeListHead(src);
+}

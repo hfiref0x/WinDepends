@@ -882,3 +882,32 @@ public static class CUtils
     }
 
 }
+public static class PeExceptionHelper
+{
+    private const uint STATUS_ACCESS_VIOLATION = 0xC0000005;
+    private const uint STATUS_INTEGER_OVERFLOW = 0xC0000095;
+    private const uint STATUS_STACK_OVERFLOW = 0xC00000FD;
+    private const uint STATUS_IN_PAGE_ERROR = 0xC0000006;
+
+    /// <summary>
+    /// Translates a Windows exception code to a human-readable string description
+    /// </summary>
+    /// <param name="exceptionCode">The exception code</param>
+    /// <returns>A human-readable description of the exception</returns>
+    public static string TranslateExceptionCode(uint exceptionCode)
+    {
+        switch (exceptionCode)
+        {
+            case STATUS_ACCESS_VIOLATION:
+                return "STATUS_ACCESS_VIOLATION";
+            case STATUS_INTEGER_OVERFLOW:
+                return "STATUS_INTEGER_OVERFLOW";
+            case STATUS_STACK_OVERFLOW:
+                return "STATUS_STACK_OVERFLOW";
+            case STATUS_IN_PAGE_ERROR:
+                return "STATUS_IN_PAGE_ERROR";
+            default:
+                return "Unknown";
+        }
+    }
+}

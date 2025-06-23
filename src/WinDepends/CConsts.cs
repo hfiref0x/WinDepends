@@ -409,3 +409,11 @@ public static class SearchOrderTypesExtension
         };
     }
 }
+
+public enum ExceptionLocation : uint
+{
+    Headers = 0,
+    DataDirectories,
+    Imports,
+    Exports
+}

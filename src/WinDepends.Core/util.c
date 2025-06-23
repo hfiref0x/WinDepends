@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Jun 11, 2025
+*  Modified on: Jun 22, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -876,32 +876,14 @@ VOID report_exception_to_client(
     _In_ DWORD exception_code
 )
 {
-    WCHAR text[512];
-    LPWSTR exlocation;
-
-    switch (location) {
-    case ex_headers:
-        exlocation = L"file headers";
-        break;
-    case ex_datadirs:
-        exlocation = L"data directories";
-        break;
-    case ex_imports:
-        exlocation = L"imports";
-        break;
-    case ex_exports:
-        exlocation = L"exports";
-        break;
-    default:
-        exlocation = L"data";
-        break;
-    }
+    WCHAR text[200];
 
     StringCchPrintf(text, ARRAYSIZE(text),
-        L"%sAn unhandled exception (0x%lX) occurred while processing %s of \r\n",
+        L"%s{\"code\":%lu,"
+        L"\"location\":%lu}\r\n",
         WDEP_STATUS_600,
         exception_code,
-        exlocation);
+        (ULONG)location);
 
     sendstring_plaintext_no_track(s, text);
 }

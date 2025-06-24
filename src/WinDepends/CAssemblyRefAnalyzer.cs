@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        21 Jun 2025
+*  DATE:        22 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -229,7 +229,6 @@ public static class CAssemblyRefAnalyzer
     }
 
     #endregion
-
     /// <summary>
     /// Analyzes a .NET assembly file and returns a list of all its assembly references with resolved paths.
     /// Uses parallel processing for improved performance with many references.
@@ -465,7 +464,6 @@ public static class CAssemblyRefAnalyzer
 
             var mdReader = peReader.GetMetadataReader();
             runtimeVersion = mdReader.MetadataVersion;
-
             module.ModuleData.RuntimeVersion = runtimeVersion;
 
             var machine = peReader.PEHeaders.CoffHeader.Machine;
@@ -490,7 +488,6 @@ public static class CAssemblyRefAnalyzer
                     cpuType = CpuType.Other;
                     break;
             }
-
             var corHeader = peReader.PEHeaders.CorHeader;
             if (corHeader != null)
             {

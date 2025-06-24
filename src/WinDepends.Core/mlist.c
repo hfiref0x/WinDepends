@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Jun 10, 2025
+*  Modified on: Jun 22, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -134,7 +134,7 @@ BOOL mlist_traverse(
                 memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
                 position += msgLen;
                 
-                if (!node->staticBuffer)
+                if (!node->isStaticBuffer)
                     heap_free(processHeap, node->message);
             }
 
@@ -142,10 +142,8 @@ BOOL mlist_traverse(
         }
 
         if (bAnyError) {
-            if (pchBuffer != NULL) {
-                heap_free(processHeap, pchBuffer);
-                pchBuffer = NULL;
-            }
+            heap_free(processHeap, pchBuffer);
+            pchBuffer = NULL;
             return FALSE;
         }
 

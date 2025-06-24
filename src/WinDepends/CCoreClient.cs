@@ -883,6 +883,33 @@ public class CCoreClient : IDisposable
 
     }
 
+    void ProcessNetAssemblies(CModule module)
+    {
+        var dependencies = CAssemblyRefAnalyzer.GetAssemblyDependencies(module);
+        CModule netDependent;
+        foreach (var reference in dependencies)
+        {
+            if (reference.IsResolved)
+            {
+                netDependent = new(reference.ResolvedPath, reference.ResolvedPath, SearchOrderType.None, false);
+            }
+            else
+            {
+                netDependent = new(reference.Name, reference.Name, SearchOrderType.None, false);
+            }
+            netDependent.ModuleData.RuntimeVersion = module.ModuleData.RuntimeVersion;
+            netDependent.ModuleData.FrameworkKind = module.ModuleData.FrameworkKind;
+            netDependent.ModuleData.ResolutionSource = reference.ResolutionSource;
+            netDependent.ModuleData.ReferenceVersion = reference.Version;
+            netDependent.ModuleData.ReferencePublicKeyToken = reference.PublicKeyToken;
+            netDependent.ModuleData.ReferenceCulture = reference.Culture;
+            netDependent.IsDotNetModule = true;
+            module.Dependents.Add(netDependent);
+        }
+
+        CAssemblyRefAnalyzer.ClearCache();
+    }
+
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
                                                  List<SearchOrderType> searchOrderKM,
@@ -909,7 +936,7 @@ public class CCoreClient : IDisposable
             CheckIfKernelModule(module, rawImports);
             ProcessImports(module, false, rawImports.Library, searchOrderUM, searchOrderKM, parentImportsHashTable);
             ProcessImports(module, true, rawImports.LibraryDelay, searchOrderUM, searchOrderKM, parentImportsHashTable);
-            if (rawImports.Exception != 0) 
+            if (rawImports.Exception != 0)
                 HandleImportExceptions(rawImports);
         }
 
@@ -920,29 +947,7 @@ public class CCoreClient : IDisposable
         module.IsDotNetModule = module.ModuleData.ImageDotNet == 1;
         if (module.IsDotNetModule && EnableExperimentalFeatures)
         {
-            var dependencies = CAssemblyRefAnalyzer.GetAssemblyDependencies(module);
-            CModule netDependent;
-            foreach (var reference in dependencies)
-            {
-                if (reference.IsResolved)
-                {
-                    netDependent = new(reference.ResolvedPath, reference.ResolvedPath, SearchOrderType.None, false);
-                }
-                else
-                {
-                    netDependent = new(reference.Name, reference.Name, SearchOrderType.None, false);
-                }
-                netDependent.ModuleData.RuntimeVersion = module.ModuleData.RuntimeVersion;
-                netDependent.ModuleData.FrameworkKind = module.ModuleData.FrameworkKind;
-                netDependent.ModuleData.ResolutionSource = reference.ResolutionSource;
-                netDependent.ModuleData.ReferenceVersion = reference.Version;
-                netDependent.ModuleData.ReferencePublicKeyToken = reference.PublicKeyToken;
-                netDependent.ModuleData.ReferenceCulture = reference.Culture;
-                netDependent.IsDotNetModule = true;
-                module.Dependents.Add(netDependent);
-            }
-
-            CAssemblyRefAnalyzer.ClearCache();
+            ProcessNetAssemblies(module);
         }
     }
 

@@ -38,6 +38,7 @@ public class CCoreException
     public UInt32 Location { get; set; }
 }
 
+
 /// <summary>
 /// Represents a PE data directory entry.
 /// </summary>

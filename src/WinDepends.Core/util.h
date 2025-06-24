@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: May 18, 2025
+*  Modified on: Jun 22, 2025
 *
 *      Project: WinDepends.Core
 *

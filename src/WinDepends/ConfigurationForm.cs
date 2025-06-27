@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Jun 2025
+*  DATE:        27 Jun 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -615,7 +615,15 @@ public partial class ConfigurationForm : Form
             }
             if (string.IsNullOrEmpty(symStorePath))
             {
-                symStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
+                string ntSymbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
+                if (!string.IsNullOrWhiteSpace(ntSymbolPath))
+                {
+                    symStorePath = ntSymbolPath;
+                }
+                else
+                {
+                    symStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
+                }
             }
 
             m_CurrentConfiguration.SymbolsDllPath = symDllPath;

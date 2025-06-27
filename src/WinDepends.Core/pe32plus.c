@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Jun 23, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -186,7 +186,7 @@ BOOL get_datadirs(
 
                 hr = StringCchPrintfEx(text, WDEP_MSG_LENGTH_SMALL,
                     &endPtr,
-                    &remaining,
+                    (size_t*)&remaining,
                     0,
                     L"{\"vaddress\":%u,\"size\":%u}",
                     opt_file_hdr.opt_file_hdr32->DataDirectory[c].VirtualAddress,
@@ -214,7 +214,7 @@ BOOL get_datadirs(
 
                 hr = StringCchPrintfEx(text, WDEP_MSG_LENGTH_SMALL,
                     &endPtr,
-                    &remaining,
+                    (size_t*)&remaining,
                     0,
                     L"{\"vaddress\":%u,\"size\":%u}",
                     opt_file_hdr.opt_file_hdr64->DataDirectory[c].VirtualAddress,
@@ -294,7 +294,7 @@ BOOL get_headers(
 
         header_buffer[0] = 0;
         hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
-            &endPtr, &remaining, 0,
+            &endPtr, (size_t*)&remaining, 0,
             L"\"ImageFileHeader\":{"
             L"\"Machine\":%u,"
             L"\"NumberOfSections\":%u,"
@@ -326,7 +326,7 @@ BOOL get_headers(
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_DEBUG, dir_base, dir_size);
 
             hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
-                &endPtr, &remaining, 0,
+                &endPtr, (size_t*)&remaining, 0,
                 L"\"ImageOptionalHeader\":{"
                 L"\"Magic\":%u,"
                 L"\"MajorLinkerVersion\":%u,"
@@ -403,7 +403,7 @@ BOOL get_headers(
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_DEBUG, dir_base, dir_size);
 
             hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
-                &endPtr, &remaining, 0,
+                &endPtr, (size_t*)&remaining, 0,
                 L"\"ImageOptionalHeader\":{"
                 L"\"Magic\":%u,"
                 L"\"MajorLinkerVersion\":%u,"
@@ -494,7 +494,7 @@ BOOL get_headers(
                     mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
                 hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
-                    &endPtr, &remaining, 0,
+                    &endPtr, (size_t*)&remaining, 0,
                     L"{\"Characteristics\":%u,"
                     L"\"TimeDateStamp\":%u,"
                     L"\"MajorVersion\":%u,"
@@ -527,7 +527,7 @@ BOOL get_headers(
         if (vinfo)
         {
             hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
-                &endPtr, &remaining, 0,
+                &endPtr, (size_t*)&remaining, 0,
                 L",\"Version\":{"
                 L"\"dwFileVersionMS\":%u,"
                 L"\"dwFileVersionLS\":%u,"
@@ -546,7 +546,7 @@ BOOL get_headers(
         }
 
         hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
-            &endPtr, &remaining, 0,
+            &endPtr, (size_t*)&remaining, 0,
             L",\"dllcharex\":%u",
             dllchars_ex);
 
@@ -562,7 +562,7 @@ BOOL get_headers(
             manifest = get_manifest((HMODULE)context->module);
             if (manifest)
             {
-                if (SUCCEEDED(StringCchLength(manifest, STRSAFE_MAX_CCH, &manifest_len))) {
+                if (SUCCEEDED(StringCchLength(manifest, STRSAFE_MAX_CCH, (size_t*)&manifest_len))) {
                     mlist_add(&msg_lh, L",\"manifest\":\"", WSTRING_LEN(L",\"manifest\":\""));
                     mlist_add(&msg_lh, manifest, manifest_len);
                     mlist_add(&msg_lh, L"\"", WSTRING_LEN(L"\""));
@@ -655,7 +655,7 @@ BOOL get_exports(
             names_valid = valid_image_range((ULONG_PTR)name_ordinals, ExportTable->NumberOfNames * sizeof(DWORD), (ULONG_PTR)context->module, ImageSize);
 
             hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
-                &endPtr, &remaining, 0,
+                &endPtr, (size_t*)&remaining, 0,
                 L"\"library\":{\"timestamp\":%u,\"entries\":%u,\"named\":%u,\"base\":%u,\"functions\":[",
                 ExportTable->TimeDateStamp,
                 ExportTable->NumberOfFunctions,
@@ -707,7 +707,7 @@ BOOL get_exports(
                     mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
                 hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
-                    &endPtr, &remaining, 0,
+                    &endPtr, (size_t*)&remaining, 0,
                     L"{\"ordinal\":%u,"
                     L"\"hint\":%u,"
                     L"\"name\":\"%S\","
@@ -799,7 +799,7 @@ static void process_thunks64(
             mlist_add(msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
         hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-            &endPtr, &remaining, 0,
+            &endPtr, (size_t*)&remaining, 0,
             L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
             ordinal, fhint, strfname, fbound);
 
@@ -871,7 +871,7 @@ static void process_thunks32(
             mlist_add(msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
         hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-            &endPtr, &remaining, 0,
+            &endPtr, (size_t*)&remaining, 0,
             L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
             ordinal, fhint, strfname, fbound);
 
@@ -968,7 +968,7 @@ BOOL get_imports(
                         mlist_add(&std_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
 
                     hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-                        &endPtr, &remaining, 0,
+                        &endPtr, (size_t*)&remaining, 0,
                         L"{\"name\":\"%S\",\"functions\":[",
                         (char*)context->module + SImportTable->Name);
 
@@ -1040,7 +1040,7 @@ BOOL get_imports(
                     }
 
                     hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-                        &endPtr, &remaining, 0,
+                        &endPtr, (size_t*)&remaining, 0,
                         L"{\"name\":\"%S\",\"functions\":[",
                         (char*)IModuleName);
 

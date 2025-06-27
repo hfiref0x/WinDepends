@@ -162,7 +162,7 @@ void cmd_query_knowndlls_list(
         hr = StringCchPrintfEx(buffer,
             sz / sizeof(WCHAR),
             &endPtr,
-            &remaining,
+            (size_t*)&remaining,
             0,
             L"%ws{\"path\":\"%ws\", \"entries\":[",
             WDEP_STATUS_OK,
@@ -180,7 +180,7 @@ void cmd_query_knowndlls_list(
                 mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
             hr = StringCchPrintfEx(buffer, sz / sizeof(WCHAR),
-                &endPtr, &remaining, 0,
+                &endPtr, (size_t*)&remaining, 0,
                 L"\"%ws\"",
                 dll_entry->Element);
 

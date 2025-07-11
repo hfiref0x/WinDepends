@@ -508,11 +508,11 @@ public partial class MainForm : Form
             {
                 module.Depth = parentModule.Depth + 1;
             }
-            parentNode.Nodes.Add(tvNode);
+            parentNode?.Nodes?.Add(tvNode);
         }
         else
         {
-            TVModules.Nodes.Add(tvNode);
+            TVModules.Nodes?.Add(tvNode);
         }
 
         // 7. Update module collections if new
@@ -680,7 +680,7 @@ public partial class MainForm : Form
         //
         // Force garbage collection.
         //
-        GC.Collect();
+        //GC.Collect();
     }
 
     /// <summary>
@@ -703,33 +703,35 @@ public partial class MainForm : Form
         while (nodeStack.Count > 0)
         {
             TreeNode node = nodeStack.Pop();
-            if (node?.Tag == null) continue;
+            if (node == null) continue;
 
-            CModule module = (CModule)node.Tag;
-            string displayName = module.GetModuleNameRespectApiSet(resolveApiSets);
-
-            if (!fullPaths && displayName != null)
+            if (node.Tag is CModule module)
             {
-                int lastSeparatorPos = Math.Max(
-                    displayName.LastIndexOf('\\'),
-                    displayName.LastIndexOf('/')
-                );
+                string displayName = module.GetModuleNameRespectApiSet(resolveApiSets);
 
-                if (lastSeparatorPos >= 0 && lastSeparatorPos < displayName.Length - 1)
-                    displayName = displayName.Substring(lastSeparatorPos + 1);
+                if (!fullPaths && !string.IsNullOrEmpty(displayName))
+                {
+                    int lastSeparatorPos = Math.Max(
+                        displayName.LastIndexOf('\\'),
+                        displayName.LastIndexOf('/')
+                    );
+
+                    if (lastSeparatorPos >= 0 && lastSeparatorPos < displayName.Length - 1)
+                        displayName = displayName.Substring(lastSeparatorPos + 1);
+                }
+
+                if (upperCase && !string.IsNullOrEmpty(displayName))
+                    displayName = displayName.ToUpperInvariant();
+
+                node.Text = displayName;
+                node.ForeColor = (module.IsApiSetContract && highlightApiSet) ? Color.Blue : Color.Black;
             }
-
-            if (upperCase && displayName != null)
-                displayName = displayName.ToUpperInvariant();
-
-            node.Text = displayName ?? string.Empty;
-            node.ForeColor = (module.IsApiSetContract && highlightApiSet) ? Color.Blue : Color.Black;
-
-            if (node.NextNode != null)
-                nodeStack.Push(node.NextNode);
 
             if (node.Nodes.Count > 0)
                 nodeStack.Push(node.Nodes[0]);
+
+            if (node.NextNode != null)
+                nodeStack.Push(node.NextNode);
         }
     }
 

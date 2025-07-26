@@ -45,7 +45,7 @@ public partial class ConfigurationForm : Form
 
     private void FillSearchOrderCategoryWithItems(TreeNode rootNode, SearchOrderType soType)
     {
-        int imageIndex = (int)SearchOderIconType.Module;
+        int imageIndex = (int)SearchOrderIconType.Module;
         string nodeName = "Cannot query content";
         TreeNode node;
 
@@ -74,7 +74,7 @@ public partial class ConfigurationForm : Form
 
                 foreach (string path in CPathResolver.PathEnvironment)
                 {
-                    imageIndex = Directory.Exists(path) ? (int)SearchOderIconType.Directory : (int)SearchOderIconType.DirectoryBad;
+                    imageIndex = Directory.Exists(path) ? (int)SearchOrderIconType.Directory : (int)SearchOrderIconType.DirectoryBad;
                     node = new TreeNode()
                     {
                         ImageIndex = imageIndex,
@@ -91,12 +91,12 @@ public partial class ConfigurationForm : Form
                 break;
 
             case SearchOrderType.WindowsDirectory:
-                imageIndex = (int)SearchOderIconType.Directory;
+                imageIndex = (int)SearchOrderIconType.Directory;
                 nodeName = CPathResolver.WindowsDirectory;
                 break;
 
             case SearchOrderType.System32Directory:
-                imageIndex = (int)SearchOderIconType.Directory;
+                imageIndex = (int)SearchOrderIconType.Directory;
                 if (m_Is64bitFile)
                 {
 
@@ -109,17 +109,17 @@ public partial class ConfigurationForm : Form
                 break;
 
             case SearchOrderType.SystemDirectory:
-                imageIndex = (int)SearchOderIconType.Directory;
+                imageIndex = (int)SearchOrderIconType.Directory;
                 nodeName = CPathResolver.System16Directory;
                 break;
 
             case SearchOrderType.ApplicationDirectory:
-                imageIndex = (int)SearchOderIconType.Directory;
+                imageIndex = (int)SearchOrderIconType.Directory;
                 nodeName = m_CurrentFileName;
                 break;
 
             case SearchOrderType.SystemDriversDirectory:
-                imageIndex = (int)SearchOderIconType.Directory;
+                imageIndex = (int)SearchOrderIconType.Directory;
                 nodeName = CPathResolver.SystemDriversDirectory;
                 break;
 
@@ -185,7 +185,7 @@ public partial class ConfigurationForm : Form
 
                 foreach (var entry in soDirList)
                 {
-                    var imageIndex = Directory.Exists(entry) ? (int)SearchOderIconType.Directory : (int)SearchOderIconType.DirectoryBad;
+                    var imageIndex = Directory.Exists(entry) ? (int)SearchOrderIconType.Directory : (int)SearchOrderIconType.DirectoryBad;
 
                     var subNode = new TreeNode()
                     {
@@ -883,8 +883,8 @@ public partial class ConfigurationForm : Form
         {
             TreeNode subNode = new(folderBrowserDialog.SelectedPath)
             {
-                ImageIndex = (int)SearchOderIconType.Directory,
-                SelectedImageIndex = (int)SearchOderIconType.Directory,
+                ImageIndex = (int)SearchOrderIconType.Directory,
+                SelectedImageIndex = (int)SearchOrderIconType.Directory,
                 Tag = CConsts.SearchOrderUserValue
             };
             rootNode.Nodes.Add(subNode);

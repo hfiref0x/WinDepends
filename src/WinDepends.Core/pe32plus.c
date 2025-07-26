@@ -1223,13 +1223,13 @@ LPBYTE pe32open(
         if (hm != NULL)
         {
             PVOID mapping = MapViewOfFile(hm, FILE_MAP_READ, 0, 0, 0);
-            CloseHandle(hm);
             if (mapping != NULL)
             {
                 opt_file_hdr.opt_file_hdr64 = (PIMAGE_OPTIONAL_HEADER64)((PBYTE)mapping + ovl.Offset);
                 dwRealChecksum = calc_mapped_file_chksum(mapping, fileinfo.nFileSizeLow, (PUSHORT)&opt_file_hdr.opt_file_hdr64->CheckSum);
                 UnmapViewOfFile(mapping);
             }
+            CloseHandle(hm);
         }
 #pragma endregion
 

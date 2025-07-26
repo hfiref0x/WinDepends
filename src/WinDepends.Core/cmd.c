@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Jul 12, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -18,31 +18,49 @@ typedef struct {
     cmd_entry_type type;
 } cmd_entry, * pcmd_entry;
 
+// Command line array sorted for binary search.
 static const cmd_entry cmds[] = {
-    {L"open", 4, ce_open },
-    {L"close", 5, ce_close },
-    {L"imports", 7, ce_imports },
-    {L"exports", 7, ce_exports },
-    {L"headers", 7, ce_headers },
-    {L"datadirs", 8, ce_datadirs },
-    {L"shutdown", 8, ce_shutdown },
-    {L"exit", 4, ce_exit },
-    {L"knowndlls", 9, ce_knowndlls },
-    {L"apisetresolve", 13, ce_apisetresolve },
     {L"apisetmapsrc", 12, ce_apisetmapsrc },
     {L"apisetnsinfo", 12, ce_apisetnsinfo },
-    {L"callstats", 9, ce_callstats }
+    {L"apisetresolve", 13, ce_apisetresolve },
+    {L"callstats", 9, ce_callstats },
+    {L"close", 5, ce_close },
+    {L"datadirs", 8, ce_datadirs },
+    {L"exit", 4, ce_exit },
+    {L"exports", 7, ce_exports },
+    {L"headers", 7, ce_headers },
+    {L"imports", 7, ce_imports },
+    {L"knowndlls", 9, ce_knowndlls },
+    {L"open", 4, ce_open },
+    {L"shutdown", 8, ce_shutdown }
 };
 
+/*
+* get_command_entry
+*
+* Purpose:
+*
+* Returns the corresponding cmd_entry_type if found.
+*
+*/
 cmd_entry_type get_command_entry(
     _In_ LPCWSTR cmd
 )
 {
-    for (size_t i = 0; i < ARRAYSIZE(cmds); i++) {
-        if (wcsncmp(cmds[i].cmd, cmd, cmds[i].length) == 0)
-            return cmds[i].type;
+    int left = 0, right = ARRAYSIZE(cmds) - 1;
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+        int cmp = wcsncmp(cmds[mid].cmd, cmd, cmds[mid].length);
+        if (cmp == 0) {
+            return cmds[mid].type;
+        }
+        if (cmp < 0) {
+            left = mid + 1;
+        }
+        else {
+            right = mid - 1;
+        }
     }
-
     return ce_unknown;
 }
 

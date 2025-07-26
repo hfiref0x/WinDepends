@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Jul 12, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -36,7 +36,6 @@ int recvcmd(SOCKET s, char* buffer, int buffer_size)
     while (buffer_size > 0)
     {
         l = recv(s, buffer + p, buffer_size, 0);
-
         if (l <= 0)
             return 0;
 

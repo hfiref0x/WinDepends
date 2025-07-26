@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jun 2025
+*  DATE:        14 Jul 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -78,7 +78,7 @@ public static class CConsts
 
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;
-    public const int FunctionIconsHeigth = 14;
+    public const int FunctionIconsHeight = 14;
     public const int FunctionIconsWidth = 30;
     public const int ModuleIconsHeight = 15;
     public const int ModuleIconsWidth = 26;
@@ -304,7 +304,7 @@ public static class ModuleColumnsExtension
     }
 }
 
-public enum SearchOderIconType
+public enum SearchOrderIconType
 {
     Magnifier = 0,
     Module,

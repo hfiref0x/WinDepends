@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jun 2025
+*  DATE:        10 Jul 2025
 *  
 *  Codename:    VasilEk
 *
@@ -789,10 +789,10 @@ public partial class MainForm : Form
             CConsts.ModuleIconsWidth, CConsts.ModuleIconsHeight, Color.Magenta);
 
         LVImports.SmallImageList = CUtils.CreateImageList(Properties.Resources.FunctionIcons,
-            CConsts.FunctionIconsWidth, CConsts.FunctionIconsHeigth, Color.Magenta);
+            CConsts.FunctionIconsWidth, CConsts.FunctionIconsHeight, Color.Magenta);
 
         LVExports.SmallImageList = CUtils.CreateImageList(Properties.Resources.FunctionIcons,
-            CConsts.FunctionIconsWidth, CConsts.FunctionIconsHeigth, Color.Magenta);
+            CConsts.FunctionIconsWidth, CConsts.FunctionIconsHeight, Color.Magenta);
 
         LVExports.Columns[m_Configuration.SortColumnExports].Text =
             $"{CConsts.AscendSortMark} {LVExports.Columns[m_Configuration.SortColumnExports].Text}";

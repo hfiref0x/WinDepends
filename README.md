@@ -46,10 +46,12 @@ WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.
 
 # Installation and Usage
 
-The WinDepends repository contains a directory named bin:
+The WinDepends compiled binaries include:
 + WinDepends.exe: Main GUI (client)
 + WinDepends.Core.exe: Server (launched by the client)
 + PDB files for both
+  
+They can be found in the Release section of this repository.
 
 No installation required. Copy the folder, run WinDepends.exe. To uninstall, close the client/server and delete files.
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jul 2025
+*  DATE:        08 Aug 2025
 *  
 *  Codename:    VasilEk
 *
@@ -612,15 +612,15 @@ public partial class MainForm : Form
         switch (cacheType)
         {
             case DisplayCacheType.Imports:
-                LVImportsCache = null;
+                LVImportsCache = [];
                 LVImportsFirstItem = 0;
                 break;
             case DisplayCacheType.Exports:
-                LVExportsCache = null;
+                LVExportsCache = [];
                 LVExportsFirstItem = 0;
                 break;
             case DisplayCacheType.Modules:
-                LVModulesCache = null;
+                LVModulesCache = [];
                 LVModulesFirstItem = 0;
                 break;
         }

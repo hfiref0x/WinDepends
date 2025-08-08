@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jun 2025
+*  DATE:        07 Aug 2025
 *  
 *  Core Server communication class.
 *
@@ -1052,7 +1052,7 @@ public class CCoreClient : IDisposable
                 portNumber = rnd.Next(CConsts.MinPortNumber, CConsts.MaxPortNumber);
                 ProcessStartInfo processInfo = new()
                 {
-                    FileName = $"\"{fileName}\"",
+                    FileName = fileName,
                     Arguments = $"port {portNumber}",
                     UseShellExecute = false
                 };
@@ -1124,7 +1124,7 @@ public class CCoreClient : IDisposable
         if (idata != null)
         {
             ErrorStatus = ServerErrorStatus.NoErrors;
-            _addLogMessage($"Server has been started: {new string(idata.Data)}", LogMessageType.System);
+            _addLogMessage($"Server has been started: {idata.BufferToString()}", LogMessageType.System);
             return true;
         }
         else

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jun 2025
+*  DATE:        08 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -534,8 +534,8 @@ public static class CAssemblyRefAnalyzer
                 var asmRef = mdReader.GetAssemblyReference(handle);
                 var name = mdReader.GetString(asmRef.Name);
                 var pkt = BitConverter.ToString(mdReader.GetBlobBytes(asmRef.PublicKeyOrToken)).Replace("-", "").ToLowerInvariant();
-
-                string displayName = GetAssemblyDisplayName(name, asmRef.Version, asmRef.Culture, pkt);
+                string cultureStr = asmRef.Culture.IsNil ? "neutral" : mdReader.GetString(asmRef.Culture);
+                string displayName = GetAssemblyDisplayName(name, asmRef.Version, cultureStr, pkt);
 
                 references.Add((name, pkt, displayName));
             }
@@ -551,9 +551,9 @@ public static class CAssemblyRefAnalyzer
     /// <summary>
     /// Constructs a display name for an assembly reference
     /// </summary>
-    private static string GetAssemblyDisplayName(string name, Version version, StringHandle culture, string pkt)
+    private static string GetAssemblyDisplayName(string name, Version version, string culture, string pkt)
     {
-        return $"{name}, Version={version.Major}.{version.Minor}.{version.Build}.{version.Revision}, Culture={culture}, PublicKeyToken={pkt}";
+        return $"{name}, Version={version}, Culture={culture}, PublicKeyToken={pkt}";
     }
 
     /// <summary>

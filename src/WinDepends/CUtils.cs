@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Jun 2025
+*  DATE:        08 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -706,7 +706,6 @@ public static class CUtils
     /// </summary>
     /// <param name="fileName">The path to the file to open</param>
     /// <param name="useShellExecute">Whether to use the operating system shell to open the file</param>
-    /// <returns>True if the command was launched successfully; otherwise, false</returns>
     public static void RunExternalCommand(string fileName, bool useShellExecute)
     {
         try

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Jul 12, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -31,7 +31,7 @@ int recvcmd(SOCKET s, char* buffer, int buffer_size)
     int	l, p = 0, wp;
     wchar_t* ubuf, prev;
 
-    memset(buffer, 0xcc, buffer_size);
+    memset(buffer, 0, buffer_size);
 
     while (buffer_size > 0)
     {
@@ -266,29 +266,43 @@ recv_loop_end:
     return 0;
 }
 
-void socket_set_keepalive(SOCKET s) {
-    DWORD opt = 1;
+void socket_set_keepalive(SOCKET s) 
+{
+    int opt;
+    DWORD bytesReturned;
+    struct tcp_keepalive keepalive;
+    int e;
 
+    opt = 1;
     if (setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (const char*)&opt, sizeof(opt)) != 0)
     {
         printf("SO_KEEPALIVE set failed.\r\n");
         return;
     }
 
-    opt = 16; /* set idle status after 16 seconds since last data transfer */;
-    setsockopt(s, IPPROTO_TCP, TCP_KEEPIDLE, (const char*)&opt, sizeof(opt));
+    keepalive.onoff = 1;
+    keepalive.keepalivetime = 16000;      /* 16 seconds idle */
+    keepalive.keepaliveinterval = 16000;  /* 16 seconds between probes */
 
-    opt = 16; /* send keep alive packet every 16 seconds */
-    setsockopt(s, IPPROTO_TCP, TCP_KEEPINTVL, (const char*)&opt, sizeof(opt));
+    e = WSAIoctl(s,
+        SIO_KEEPALIVE_VALS,
+        &keepalive,
+        sizeof(keepalive),
+        NULL,
+        0,
+        &bytesReturned,
+        NULL,
+        NULL);
 
-    opt = 8; /* drop after 8 unanswered packets */
-    setsockopt(s, IPPROTO_TCP, TCP_KEEPCNT, (const char*)&opt, sizeof(opt));
+    if (e == SOCKET_ERROR) {
+        printf("SIO_KEEPALIVE_VALS set failed.\r\n");
+    }
 }
 
 void connect_loop()
 {
     DWORD   tid;
-    HANDLE  th;
+    HANDLE  th = NULL;
     int     inaddr_size;
     SOCKET  clientsocket = 0;
     struct  sockaddr_in client_saddr = { 0 };
@@ -303,7 +317,6 @@ void connect_loop()
 
         InterlockedIncrement64(&g_client_sockets_created);
 
-        th = NULL;
         if (InterlockedCompareExchange(&g_threads, 0, 0) < APP_MAXUSERS)
         {
             if (APP_KEEPALIVE)
@@ -332,6 +345,9 @@ void connect_loop()
             InterlockedCompareExchange64(&g_client_sockets_closed, 0, 0)
         );
     }
+
+    if (th != NULL)
+        CloseHandle(th);
 }
 
 DWORD WINAPI server_watchdog_thread(
@@ -433,7 +449,10 @@ int CALLBACK WinMain(
     server_port = select_server_port();
 
     th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)server_watchdog_thread, NULL, 0, &tid);
-    if (!th) {
+    if (th) {
+        CloseHandle(th);
+    }
+    else {
         printf("Error starting server watchdog.\r\n");
     }
 

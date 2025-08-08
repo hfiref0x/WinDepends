@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Jul 12, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -21,6 +21,7 @@
 #include <Windows.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
+#include <mstcpip.h>
 #include <stdio.h>
 #include <strsafe.h>
 #include <intsafe.h>
@@ -39,7 +40,7 @@
 #define WINDEPENDS_SERVER_MAJOR_VERSION     1
 #define WINDEPENDS_SERVER_MINOR_VERSION     0
 #define WINDEPENDS_SERVER_REVISION          0
-#define WINDEPENDS_SERVER_BUILD             2507
+#define WINDEPENDS_SERVER_BUILD             2508
 
 #define SERVER_ERROR_SUCCESS        0
 #define SERVER_ERROR_WSASTARTUP     1
@@ -54,8 +55,9 @@
 #define MAX_APP_ADDRESS         0x40000000
 #define PAGE_GRANULARITY        0x10000
 
-#define WDEP_MSG_LENGTH_BIG     4096
 #define WDEP_MSG_LENGTH_SMALL   1024
+#define WDEP_MSG_LENGTH_MEDIUM  2048
+#define WDEP_MSG_LENGTH_BIG     4096
 
 typedef struct {
     unsigned char* module;

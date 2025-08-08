@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -168,4 +168,12 @@ VOID report_exception_to_client(
     _In_ exception_location location,
     _In_ DWORD exception_code);
 
-#endif _UTIL_H_
+_Success_(return) 
+BOOL json_escape_string(
+    _In_ LPCWSTR src,
+    _Out_writes_to_(dest_cch, *out_len) LPWSTR dest,
+    _In_ SIZE_T dest_cch,
+    _Out_ SIZE_T * out_len
+);
+
+#endif /* _UTIL_H_ */

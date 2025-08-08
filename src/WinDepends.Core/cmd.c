@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Jul 12, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -148,6 +148,7 @@ void cmd_query_knowndlls_list(
     HRESULT hr;
     PWSTR endPtr;
     SIZE_T remaining, len;
+    WCHAR escapedName[1024];
 
     if (params == NULL || !gsup.Initialized) {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
@@ -197,10 +198,14 @@ void cmd_query_knowndlls_list(
             if (i > 0)
                 mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
+            if (!json_escape_string(dll_entry->Element, escapedName, ARRAYSIZE(escapedName), &len)) {
+                escapedName[0] = 0;
+            }
+
             hr = StringCchPrintfEx(buffer, sz / sizeof(WCHAR),
                 &endPtr, (size_t*)&remaining, 0,
                 L"\"%ws\"",
-                dll_entry->Element);
+                escapedName);
 
             if (SUCCEEDED(hr)) {
                 len = endPtr - buffer;

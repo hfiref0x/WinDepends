@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -58,9 +58,8 @@
 
 #define valid_image_range(range_start, range_size, image_base, image_size) \
     (((range_size) <= (image_size)) && \
-    ((range_start) >= (image_base)) && \
-    ((range_start) <= (image_base + image_size)) && \
-    ((range_start + range_size) <= (image_base + image_size)))
+     ((range_start) >= (image_base)) && \
+     (((range_start) - (image_base)) <= ((image_size) - (range_size))))
 
 #define valid_image_structure(image_base, image_size, pointer, struct_type) \
     valid_image_range((pointer), sizeof(struct_type), (image_base), (image_size))

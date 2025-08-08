@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -48,7 +48,7 @@ BOOL ex_write_dump(
             return FALSE;
         }
 
-        if (FAILED(StringCchCat(szBuffer, MAX_PATH, L"\\dbghelp.dll"))) {
+        if (FAILED(StringCchCat(szBuffer, ARRAYSIZE(szBuffer), L"\\dbghelp.dll"))) {
             return FALSE;
         }
 
@@ -886,4 +886,83 @@ VOID report_exception_to_client(
         (ULONG)location);
 
     sendstring_plaintext_no_track(s, text);
+}
+
+/*
+* json_escape_string
+*
+* Purpose:
+*
+* Escape JSON special characters.
+*
+*/
+_Success_(return) 
+BOOL json_escape_string(
+    _In_ LPCWSTR src,
+    _Out_writes_to_(dest_cch, *out_len) LPWSTR dest,
+    _In_ SIZE_T dest_cch,
+    _Out_ SIZE_T * out_len
+)
+{
+    SIZE_T used = 0;
+    WCHAR ch;
+
+    if (out_len) *out_len = 0;
+    if (dest_cch == 0) return FALSE;
+
+    while ((ch = *src++) != 0) {
+        switch (ch) {
+        case L'\"':
+        case L'\\':
+            if (used + 2 >= dest_cch) return FALSE;
+            dest[used++] = L'\\';
+            dest[used++] = ch;
+            break;
+        case L'\b':
+            if (used + 2 >= dest_cch) return FALSE;
+            dest[used++] = L'\\';
+            dest[used++] = L'b';
+            break;
+        case L'\f':
+            if (used + 2 >= dest_cch) return FALSE;
+            dest[used++] = L'\\';
+            dest[used++] = L'f';
+            break;
+        case L'\n':
+            if (used + 2 >= dest_cch) return FALSE;
+            dest[used++] = L'\\';
+            dest[used++] = L'n';
+            break;
+        case L'\r':
+            if (used + 2 >= dest_cch) return FALSE;
+            dest[used++] = L'\\';
+            dest[used++] = L'r';
+            break;
+        case L'\t':
+            if (used + 2 >= dest_cch) return FALSE;
+            dest[used++] = L'\\';
+            dest[used++] = L't';
+            break;
+        default:
+            if (ch < 0x20) {
+                if (used + 6 >= dest_cch) return FALSE;
+                dest[used++] = L'\\';
+                dest[used++] = L'u';
+                dest[used++] = L'0';
+                dest[used++] = L'0';
+                dest[used++] = L"0123456789ABCDEF"[(ch >> 4) & 0xF];
+                dest[used++] = L"0123456789ABCDEF"[ch & 0xF];
+            }
+            else {
+                if (used + 1 >= dest_cch) return FALSE;
+                dest[used++] = ch;
+            }
+            break;
+        }
+    }
+
+    if (used >= dest_cch) return FALSE;
+    dest[used] = 0;
+    if (out_len) *out_len = used;
+    return TRUE;
 }

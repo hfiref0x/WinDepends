@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -61,7 +61,7 @@ BOOL mlist_add(
 
     if (!bSuccess) {
         if (newNode) {
-            if (newNode->message != NULL) {
+            if (!newNode->isStaticBuffer && newNode->message != NULL) {
                 heap_free(processHeap, newNode->message);
             }
             heap_free(processHeap, newNode);
@@ -128,17 +128,18 @@ BOOL mlist_traverse(
                 msgLen = node->messageLength;
                 if (position + msgLen > cchTotalSize) {
                     bAnyError = TRUE;
-                    break;
                 }
-
-                memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
-                position += msgLen;
+                else {
+                    memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
+                    position += msgLen;
+                }
                 
-                if (!node->isStaticBuffer)
+                if (!node->isStaticBuffer && node->message != NULL)
                     heap_free(processHeap, node->message);
             }
 
             heap_free(processHeap, node);
+            if (bAnyError) break;
         }
 
         if (bAnyError) {

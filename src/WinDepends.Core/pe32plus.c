@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Jun 23, 2025
+*  Modified on: Aug 03, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -25,7 +25,12 @@ DWORD PAGE_ALIGN(DWORD p)
 
 DWORD ALIGN_UP(DWORD p, DWORD a)
 {
-    DWORD r = p % a;
+    DWORD r;
+
+    if (a == 0)
+        return p;
+
+    r = p % a;
     if (r == 0)
         return p;
 
@@ -34,7 +39,16 @@ DWORD ALIGN_UP(DWORD p, DWORD a)
 
 DWORD ALIGN_DOWN(DWORD p, DWORD a)
 {
+    if (a == 0)
+        return p;
     return p - (p % a);
+}
+
+static BOOL is_power_of_two(DWORD x)
+{
+    if (x == 0) 
+        return FALSE;
+    return (x & (x - 1)) == 0;
 }
 
 /*
@@ -83,7 +97,6 @@ BOOL relocimage(
             default:
                 /* unsupported reloc found */
                 return FALSE;
-                break;
             }
         }
         p += block_size;
@@ -122,7 +135,6 @@ BOOL relocimage(
             default:
                 /* unsupported reloc found */
                 return FALSE;
-                break;
             }
         }
         p += block_size;
@@ -132,6 +144,14 @@ BOOL relocimage(
     return TRUE;
 }
 
+/*
+* get_datadirs
+*
+* Purpose:
+*
+* Return list of DataDirectories.
+*
+*/
 BOOL get_datadirs(
     _In_ SOCKET s,
     _In_opt_ pmodule_ctx context
@@ -245,6 +265,14 @@ BOOL get_datadirs(
     return status;
 }
 
+/*
+* get_headers
+*
+* Purpose:
+*
+* Return file header, optional header, debug directories information.
+*
+*/
 BOOL get_headers(
     _In_ SOCKET s,
     _In_opt_ pmodule_ctx context
@@ -473,7 +501,6 @@ BOOL get_headers(
 
         default:
             __leave;
-            break;
         }
 
         pdbg = (PIMAGE_DEBUG_DIRECTORY)(context->module + dir_base);
@@ -573,6 +600,7 @@ BOOL get_headers(
 
         mlist_add(&msg_lh, L"}\r\n", WSTRING_LEN(L"}\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
+        status = TRUE;
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
@@ -584,6 +612,14 @@ BOOL get_headers(
     return status;
 }
 
+/*
+* get_exports
+*
+* Purpose:
+*
+* Return PE file exports.
+*
+*/
 BOOL get_exports(
     _In_ SOCKET s,
     _In_opt_ pmodule_ctx context
@@ -600,6 +636,9 @@ BOOL get_exports(
     PWSTR               endPtr;
     SIZE_T              remaining, len;
     WCHAR               text_buffer[WDEP_MSG_LENGTH_BIG];
+    
+    WCHAR               *wname = NULL, *wforward = NULL, *ename = NULL, *eforward = NULL;
+    SIZE_T              wname_cch = 1024, wforward_cch = 1024, ename_cch = 2048, eforward_cch = 2048;
 
     PIMAGE_EXPORT_DIRECTORY ExportTable;
 
@@ -614,12 +653,19 @@ BOOL get_exports(
     {
         InitializeListHead(&msg_lh);
 
-        //*(PBYTE)(NULL) = 0;
-
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
+        }
+
+        wname = (WCHAR*)heap_calloc(NULL, wname_cch * sizeof(WCHAR));
+        wforward = (WCHAR*)heap_calloc(NULL, wforward_cch * sizeof(WCHAR));
+        ename = (WCHAR*)heap_calloc(NULL, ename_cch * sizeof(WCHAR));
+        eforward = (WCHAR*)heap_calloc(NULL, eforward_cch * sizeof(WCHAR));
+        if (wname == NULL || wforward == NULL || ename == NULL || eforward == NULL) {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+            __leave;
         }
 
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
@@ -640,7 +686,6 @@ BOOL get_exports(
 
         default:
             __leave;
-            break;
         }
 
         if ((dir_base > 0) && (dir_base < ImageSize))
@@ -652,7 +697,7 @@ BOOL get_exports(
             names = (DWORD*)(context->module + ExportTable->AddressOfNames);
             name_ordinals = (WORD*)(context->module + ExportTable->AddressOfNameOrdinals);
 
-            names_valid = valid_image_range((ULONG_PTR)name_ordinals, ExportTable->NumberOfNames * sizeof(DWORD), (ULONG_PTR)context->module, ImageSize);
+            names_valid = valid_image_range((ULONG_PTR)name_ordinals, ExportTable->NumberOfNames * sizeof(WORD), (ULONG_PTR)context->module, ImageSize);
 
             hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
                 &endPtr, (size_t*)&remaining, 0,
@@ -706,14 +751,32 @@ BOOL get_exports(
                 if (need_comma > 0)
                     mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
+                wname[0] = 0; wforward[0] = 0; ename[0] = 0; eforward[0] = 0;
+
+                if (*fname) {
+                    MultiByteToWideChar(CP_ACP, 0, fname, -1, wname, (int)wname_cch);
+                    if (!json_escape_string(wname, ename, ename_cch, &len)) ename[0] = 0;
+                }
+                else {
+                    ename[0] = 0;
+                }
+
+                if (*forwarder) {
+                    MultiByteToWideChar(CP_ACP, 0, forwarder, -1, wforward, (int)wforward_cch);
+                    if (!json_escape_string(wforward, eforward, eforward_cch, &len)) eforward[0] = 0;
+                }
+                else {
+                    eforward[0] = 0;
+                }
+
                 hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
                     &endPtr, (size_t*)&remaining, 0,
                     L"{\"ordinal\":%u,"
                     L"\"hint\":%u,"
-                    L"\"name\":\"%S\","
+                    L"\"name\":\"%ws\","
                     L"\"pointer\":%u,"
-                    L"\"forward\":\"%S\"}",
-                    ExportTable->Base + i, hint, fname, ptrs[i], forwarder);
+                    L"\"forward\":\"%ws\"}",
+                    ExportTable->Base + i, hint, ename, ptrs[i], eforward);
 
                 if (SUCCEEDED(hr)) {
                     len = endPtr - text_buffer;
@@ -722,10 +785,12 @@ BOOL get_exports(
 
                 need_comma = 1;
             }
-            mlist_add(&msg_lh, L"]}}", WSTRING_LEN(L"]}"));
+            mlist_add(&msg_lh, L"]}}", WSTRING_LEN(L"]}}"));
         }
+        
         mlist_add(&msg_lh, L"\r\n", WSTRING_LEN(L"\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
+        status = TRUE;
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
@@ -733,6 +798,11 @@ BOOL get_exports(
         mlist_traverse(&msg_lh, mlist_free, s, NULL);
         report_exception_to_client(s, ex_exports, GetExceptionCode());
     }
+
+    if (wname) heap_free(NULL, wname);
+    if (wforward) heap_free(NULL, wforward);
+    if (ename) heap_free(NULL, ename);
+    if (eforward) heap_free(NULL, eforward);
 
     return status;
 }
@@ -882,6 +952,14 @@ static void process_thunks32(
     }
 }
 
+/*
+* get_imports
+*
+* Purpose:
+*
+* Return PE file imports.
+*
+*/
 BOOL get_imports(
     _In_ SOCKET s,
     _In_opt_ pmodule_ctx context
@@ -951,7 +1029,6 @@ BOOL get_imports(
 
         default:
             __leave;
-            break;
         }
 
         // Build list for usual import.
@@ -1106,6 +1183,8 @@ BOOL get_imports(
         mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"));
 
         mlist_traverse(&msg_lh, mlist_send, s, context);
+
+        status = TRUE;
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
@@ -1117,6 +1196,14 @@ BOOL get_imports(
     return status;
 }
 
+/*
+* pe32open
+*
+* Purpose:
+*
+* Create pe file associated context, verify and load PE file.
+*
+*/
 LPBYTE pe32open(
     _In_ SOCKET s,
     _In_opt_ pmodule_ctx context
@@ -1278,7 +1365,9 @@ LPBYTE pe32open(
             file_align = opt_file_hdr.opt_file_hdr32->FileAlignment;
         }
 
-        if ((sec_align | file_align) == 0) {
+        if (sec_align == 0 || file_align == 0 ||
+            !is_power_of_two(sec_align) || !is_power_of_two(file_align))
+        {
             sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
@@ -1333,10 +1422,6 @@ LPBYTE pe32open(
                 image_fixed = FALSE;
             }
 
-            /*else {
-                image_base = opt_file_hdr.opt_file_hdr64->ImageBase;
-            }*/
-
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr64, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, dir_base, dir_size);
             if (dir_base && dir_size >= sizeof(IMAGE_COR20_HEADER)) {
                 image_dotnet = TRUE;
@@ -1347,10 +1432,6 @@ LPBYTE pe32open(
             if (dir_base && dir_size >= sizeof(IMAGE_BASE_RELOCATION)) {
                 image_fixed = FALSE;
             }
-
-            /*else {
-                image_base = opt_file_hdr.opt_file_hdr32->ImageBase;
-            }*/
 
             get_pe_dirbase_size(opt_file_hdr.opt_file_hdr32, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, dir_base, dir_size);
             if (dir_base && dir_size >= sizeof(IMAGE_COR20_HEADER)) {
@@ -1378,15 +1459,18 @@ LPBYTE pe32open(
             // allocate image buffer below 4GB for x86-32 compatibility
             for (c = image_base; c < MAX_APP_ADDRESS; c += context->allocation_granularity)
             {
-                DEBUG_PRINT("pe32open: module allocated at 0x%p\r\n", module);
-
                 module = VirtualAllocEx(GetCurrentProcess(), (LPVOID)(ULONG_PTR)c, vsize,
                     MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
                 dwLastError = GetLastError();
 
-                if (module)
+                if (module) {
+                    DEBUG_PRINT("pe32open: module allocated at 0x%p\r\n", module);
                     break;
+                }
+                else {
+                    DEBUG_PRINT("pe32open: module is not allocated at 0x%p, trying next address\r\n", module);
+                }
             }
         }
 
@@ -1518,6 +1602,14 @@ LPBYTE pe32open(
     return module;
 }
 
+/*
+* pe32close
+*
+* Purpose:
+*
+* Free PE file associated context.
+*
+*/
 BOOL pe32close(PBYTE module)
 {
     if (module)

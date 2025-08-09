@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Jun 2025
+*  DATE:        09 Aug 2025
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -895,7 +895,6 @@ public class CModule
 
     [DataMember]
     public bool IsDotNetModule { get; set; }
-
     /// <summary>
     /// Gets or sets a value indicating whether the module has export errors.
     /// </summary>
@@ -976,6 +975,12 @@ public class CModule
     /// </value>
     [DataMember]
     public List<CModule> Dependents { get; set; } = [];
+
+    [DataMember]
+    public List<CForwarderEntry> ForwarderEntries { get; set; } = new List<CForwarderEntry>();
+
+    [DataMember]
+    public bool ForwardersExpanded { get; set; }
 
     /// <summary>
     /// Gets or sets the cached filename (without path) for display purposes.
@@ -1457,5 +1462,30 @@ public class CModuleComparer : IComparer<CModule>
         }
 
         return _sortOrder == SortOrder.Descending ? -comparisonResult : comparisonResult;
+    }
+}
+public class CForwarderEntry
+{
+    public string TargetModuleName;      // Raw module token from forward string (before resolution)
+    public string TargetFunctionName;    // Empty if by ordinal
+    public uint TargetOrdinal;           // UInt32.MaxValue if by name
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + (TargetModuleName?.ToLowerInvariant().GetHashCode() ?? 0);
+            h = h * 31 + (TargetFunctionName?.GetHashCode() ?? 0);
+            h = h * 31 + (int)TargetOrdinal;
+            return h;
+        }
+    }
+    public override bool Equals(object o)
+    {
+        if (o is not CForwarderEntry e) return false;
+        return string.Equals(TargetModuleName, e.TargetModuleName, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(TargetFunctionName, e.TargetFunctionName, StringComparison.Ordinal) &&
+               TargetOrdinal == e.TargetOrdinal;
     }
 }

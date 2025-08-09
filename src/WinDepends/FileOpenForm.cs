@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Mar 2025
+*  DATE:        09 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -43,7 +43,10 @@ public partial class FileOpenForm : Form
         textBoxFileName.Text = displayedFileName;
         chBoxUseStats.Checked = settings.UseStats;
         chBoxPropagateSettings.Checked = settings.PropagateSettingsOnDependencies;
-        chBoxAnalysisDefaultEnabled.Checked = settings.AnalysisSettingsUseAsDefault;
+        chBoxAnalysisDefaultEnabled.Checked = settings.UseAsDefault;
+        chBoxExpandForwarders.Checked = settings.ExpandForwarders;
+        chBoxEnableExperimentalFeatures.Checked = settings.EnableExperimentalFeatures;
+
         labelAllocGran.Text = $"Value will be aligned to allocation granularity:\r\n0x{CUtils.AllocationGranularity:X}";
     }
 
@@ -59,9 +62,11 @@ public partial class FileOpenForm : Form
     {
         settings.ProcessRelocsForImage = chBoxProcessRelocs.Checked;
         settings.PropagateSettingsOnDependencies = chBoxPropagateSettings.Checked;
-        settings.AnalysisSettingsUseAsDefault = chBoxAnalysisDefaultEnabled.Checked;
+        settings.UseAsDefault = chBoxAnalysisDefaultEnabled.Checked;
         settings.UseCustomImageBase = chBoxUseCustomImageBase.Checked;
         settings.UseStats = chBoxUseStats.Checked;
+        settings.ExpandForwarders = chBoxExpandForwarders.Checked;
+        settings.EnableExperimentalFeatures = chBoxEnableExperimentalFeatures.Checked;
         if (settings.UseCustomImageBase)
         {
             settings.CustomImageBase = CUtils.ParseMinAppAddressValue(textBoxCustomImageBase.Text);

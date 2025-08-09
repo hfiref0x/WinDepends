@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Aug 2025
+*  DATE:        09 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -91,14 +91,47 @@ public struct PropertyElement(string name, string value)
     public string Value { get; set; } = value;
 }
 
-public class CFileOpenSettings(CConfiguration configuration)
+public class CFileOpenSettings
 {
-    public bool ProcessRelocsForImage { get; set; } = configuration.ProcessRelocsForImage;
-    public bool UseStats { get; set; } = configuration.UseStats;
-    public bool AnalysisSettingsUseAsDefault { get; set; } = configuration.AnalysisSettingsUseAsDefault;
-    public bool PropagateSettingsOnDependencies { get; set; } = configuration.PropagateSettingsOnDependencies;
-    public bool UseCustomImageBase { get; set; } = configuration.UseCustomImageBase;
-    public uint CustomImageBase { get; set; } = configuration.CustomImageBase;
+    public bool UseAsDefault { get; set; }
+    public bool ProcessRelocsForImage { get; set; }
+    public bool UseStats { get; set; }
+    public bool PropagateSettingsOnDependencies { get; set; }
+    public bool ExpandForwarders { get; set; }
+    public bool EnableExperimentalFeatures { get; set; }
+    public bool UseCustomImageBase { get; set; }
+    public uint CustomImageBase { get; set; }
+
+    public CFileOpenSettings(CConfiguration configuration)
+    {
+        if (configuration == null)
+            throw new System.ArgumentNullException(nameof(configuration));
+
+        ProcessRelocsForImage = configuration.ProcessRelocsForImage;
+        UseStats = configuration.UseStats;
+        UseAsDefault = configuration.AnalysisSettingsUseAsDefault;
+        PropagateSettingsOnDependencies = configuration.PropagateSettingsOnDependencies;
+        ExpandForwarders = configuration.ExpandForwarders;
+        EnableExperimentalFeatures = configuration.EnableExperimentalFeatures;
+        UseCustomImageBase = configuration.UseCustomImageBase;
+        CustomImageBase = configuration.CustomImageBase;
+    }
+
+    // Copy constructor
+    public CFileOpenSettings(CFileOpenSettings other)
+    {
+        if (other == null)
+            throw new System.ArgumentNullException(nameof(other));
+
+        ProcessRelocsForImage = other.ProcessRelocsForImage;
+        UseStats = other.UseStats;
+        UseAsDefault = other.UseAsDefault;
+        PropagateSettingsOnDependencies = other.PropagateSettingsOnDependencies;
+        ExpandForwarders = other.ExpandForwarders;
+        EnableExperimentalFeatures = other.EnableExperimentalFeatures;
+        UseCustomImageBase = other.UseCustomImageBase;
+        CustomImageBase = other.CustomImageBase;
+    }
 }
 
 public record TooltipInfo(Control Control, string AssociatedText);

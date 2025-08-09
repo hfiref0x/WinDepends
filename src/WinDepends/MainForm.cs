@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Aug 2025
+*  DATE:        09 Aug 2025
 *  
 *  Codename:    VasilEk
 *
@@ -264,7 +264,7 @@ public partial class MainForm : Form
         return resultForm;
     }
 
-    private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, bool useStats, bool currentModuleIsRoot)
+    private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, CFileOpenSettings settings, bool currentModuleIsRoot)
     {
         switch (openStatus)
         {
@@ -284,10 +284,18 @@ public partial class MainForm : Form
                     m_Configuration.SearchOrderListUM,
                     m_Configuration.SearchOrderListKM,
                     m_ParentImportsHashTable,
-                    m_Configuration.EnableExperimentalFeatures);
+                    settings.EnableExperimentalFeatures,
+                    settings.ExpandForwarders);
+
+                if (m_Configuration.ExpandForwarders)
+                {
+                    m_CoreClient.ExpandAllForwarderModules(module, m_Configuration.SearchOrderListUM,
+                        m_Configuration.SearchOrderListKM,
+                        m_ParentImportsHashTable);
+                }
 
                 CCoreCallStats stats = null;
-                if (useStats)
+                if (settings.UseStats)
                 {
                     stats = m_CoreClient.GetCoreCallStats();
                 }
@@ -297,7 +305,7 @@ public partial class MainForm : Form
                 //
                 // Display statistics.
                 //
-                if (useStats && stats != null)
+                if (settings.UseStats && stats != null)
                 {
                     string sizeText;
                     if (stats.TotalBytesSent >= 1024 * 1024)
@@ -337,7 +345,7 @@ public partial class MainForm : Form
                 if (module.ModuleData.ImageFixed != 0 && !module.IsKernelModule && module.ModuleData.ImageDotNet != 1)
                 {
                     module.OtherErrorsPresent = true;
-                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has stripped relocations.",
+                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
@@ -531,41 +539,29 @@ public partial class MainForm : Form
     /// <returns>Tree node.</returns>
     private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
     {
+        bool isRootModule = (parentNode == null);
+
         // Define action processor (callback)
         Action<CModule> processModule = (mod) =>
         {
-            bool isRootModule = (parentNode == null);
-            bool processRelocs = false;
-            bool useStats = false;
-            bool useCustomImageBase = false;
-            uint customImageBase = 0;
+            var effectiveSettings = new CFileOpenSettings(fileOpenSettings);
 
-            // Configure options based on context
-            if (!isRootModule && fileOpenSettings.PropagateSettingsOnDependencies)
+            // If this is a dependency and propagation is disabled, reset to defaults
+            if (!isRootModule && !fileOpenSettings.PropagateSettingsOnDependencies)
             {
-                processRelocs = fileOpenSettings.ProcessRelocsForImage;
-                useStats = fileOpenSettings.UseStats;
-                useCustomImageBase = fileOpenSettings.UseCustomImageBase;
-                customImageBase = fileOpenSettings.CustomImageBase;
-            }
-            else if (isRootModule)
-            {
-                processRelocs = fileOpenSettings.ProcessRelocsForImage;
-                useStats = fileOpenSettings.UseStats;
-                useCustomImageBase = fileOpenSettings.UseCustomImageBase;
-                customImageBase = fileOpenSettings.CustomImageBase;
+                effectiveSettings.ProcessRelocsForImage = false;
+                effectiveSettings.UseStats = false;
+                effectiveSettings.UseCustomImageBase = false;
+                effectiveSettings.CustomImageBase = 0;
             }
 
             // Open and process module
             mod.InstanceId = mod.GetHashCode();
             ModuleOpenStatus openStatus = m_CoreClient.OpenModule(
                 ref mod,
-                useStats,
-                processRelocs,
-                useCustomImageBase,
-                customImageBase);
+                effectiveSettings);
 
-            HandleModuleOpenStatus(mod, openStatus, useStats, isRootModule);
+            HandleModuleOpenStatus(mod, openStatus, effectiveSettings, isRootModule);
 
             // Set module icon index
             mod.ModuleImageIndex = mod.GetIconIndexForModule();
@@ -1163,7 +1159,7 @@ public partial class MainForm : Form
             //
             CFileOpenSettings fileOpenSettings = new(m_Configuration);
 
-            if (!fileOpenSettings.AnalysisSettingsUseAsDefault)
+            if (!fileOpenSettings.UseAsDefault)
             {
                 using (FileOpenForm fileOpenForm = new(m_Configuration.EscKeyEnabled, fileOpenSettings, fileName))
                 {
@@ -1172,13 +1168,15 @@ public partial class MainForm : Form
                     //
                     if (fileOpenForm.ShowDialog() == DialogResult.OK)
                     {
-                        if (fileOpenSettings.AnalysisSettingsUseAsDefault)
+                        if (fileOpenSettings.UseAsDefault)
                         {
                             m_Configuration.UseStats = fileOpenSettings.UseStats;
                             m_Configuration.ProcessRelocsForImage = fileOpenSettings.ProcessRelocsForImage;
                             m_Configuration.UseCustomImageBase = fileOpenSettings.UseCustomImageBase;
                             m_Configuration.CustomImageBase = fileOpenSettings.CustomImageBase;
                             m_Configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
+                            m_Configuration.ExpandForwarders = fileOpenSettings.ExpandForwarders;
+                            m_Configuration.EnableExperimentalFeatures = fileOpenSettings.EnableExperimentalFeatures;
                             m_Configuration.AnalysisSettingsUseAsDefault = true;
                         }
                     }

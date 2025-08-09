@@ -38,6 +38,8 @@
             labelAllocGran = new Label();
             chBoxProcessRelocs = new CheckBox();
             groupBox2 = new GroupBox();
+            chBoxEnableExperimentalFeatures = new CheckBox();
+            chBoxExpandForwarders = new CheckBox();
             label3 = new Label();
             chBoxPropagateSettings = new CheckBox();
             chBoxAnalysisDefaultEnabled = new CheckBox();
@@ -53,7 +55,7 @@
             // buttonOK
             // 
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(112, 387);
+            buttonOK.Location = new Point(108, 425);
             buttonOK.Name = "buttonOK";
             buttonOK.Size = new Size(75, 24);
             buttonOK.TabIndex = 0;
@@ -64,7 +66,7 @@
             // buttonCancel
             // 
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(193, 387);
+            buttonCancel.Location = new Point(189, 425);
             buttonCancel.Name = "buttonCancel";
             buttonCancel.Size = new Size(75, 24);
             buttonCancel.TabIndex = 1;
@@ -136,20 +138,44 @@
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(chBoxEnableExperimentalFeatures);
+            groupBox2.Controls.Add(chBoxExpandForwarders);
             groupBox2.Controls.Add(label3);
             groupBox2.Controls.Add(chBoxPropagateSettings);
             groupBox2.Controls.Add(chBoxAnalysisDefaultEnabled);
             groupBox2.Location = new Point(12, 264);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(348, 113);
+            groupBox2.Size = new Size(348, 155);
             groupBox2.TabIndex = 3;
             groupBox2.TabStop = false;
             groupBox2.Text = "Analysis";
             // 
+            // chBoxEnableExperimentalFeatures
+            // 
+            chBoxEnableExperimentalFeatures.AutoSize = true;
+            chBoxEnableExperimentalFeatures.Location = new Point(9, 72);
+            chBoxEnableExperimentalFeatures.Name = "chBoxEnableExperimentalFeatures";
+            chBoxEnableExperimentalFeatures.Size = new Size(178, 19);
+            chBoxEnableExperimentalFeatures.TabIndex = 20;
+            chBoxEnableExperimentalFeatures.Tag = "606";
+            chBoxEnableExperimentalFeatures.Text = "Enable experimental features";
+            chBoxEnableExperimentalFeatures.UseVisualStyleBackColor = true;
+            // 
+            // chBoxExpandForwarders
+            // 
+            chBoxExpandForwarders.AutoSize = true;
+            chBoxExpandForwarders.Location = new Point(9, 47);
+            chBoxExpandForwarders.Name = "chBoxExpandForwarders";
+            chBoxExpandForwarders.Size = new Size(258, 19);
+            chBoxExpandForwarders.TabIndex = 19;
+            chBoxExpandForwarders.Tag = "607";
+            chBoxExpandForwarders.Text = "Expand forwarders when processing exports";
+            chBoxExpandForwarders.UseVisualStyleBackColor = true;
+            // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(9, 86);
+            label3.Location = new Point(6, 125);
             label3.Name = "label3";
             label3.Size = new Size(276, 15);
             label3.TabIndex = 18;
@@ -169,7 +195,7 @@
             // chBoxAnalysisDefaultEnabled
             // 
             chBoxAnalysisDefaultEnabled.AutoSize = true;
-            chBoxAnalysisDefaultEnabled.Location = new Point(9, 47);
+            chBoxAnalysisDefaultEnabled.Location = new Point(9, 97);
             chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
             chBoxAnalysisDefaultEnabled.Size = new Size(324, 19);
             chBoxAnalysisDefaultEnabled.TabIndex = 16;
@@ -220,7 +246,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
-            ClientSize = new Size(370, 418);
+            ClientSize = new Size(370, 461);
             Controls.Add(textBoxFileName);
             Controls.Add(label2);
             Controls.Add(groupBox13);
@@ -266,5 +292,7 @@
         private TextBox textBoxFileName;
         private Label label3;
         private CheckBox chBoxUseCustomImageBase;
+        private CheckBox chBoxEnableExperimentalFeatures;
+        private CheckBox chBoxExpandForwarders;
     }
 }

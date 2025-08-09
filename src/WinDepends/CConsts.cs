@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Aug 2025
+*  DATE:        09 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -72,6 +72,7 @@ public static class CConsts
     public const int TagUseSymbols = 604;
     public const int TagUseCustomImageBase = 605;
     public const int TagEnableExperimentalFeatures = 606;
+    public const int TagExpandForwarders = 607;
 
     public const int TagTbUseClassic = 1000;
     public const int TagTbUseModern = 1001;

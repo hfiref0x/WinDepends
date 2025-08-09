@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Jun 2025
+*  DATE:        09 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -474,13 +474,13 @@ public static class CPathResolver
     /// Resolves the full path for a module based on search order rules.
     /// </summary>
     static internal string ResolvePathForModule(string partiallyResolvedFileName,
-                                                CModule module,
+                                                CModule parentModule,
                                                 List<SearchOrderType> searchOrderUM,
                                                 List<SearchOrderType> searchOrderKM,
                                                 out SearchOrderType resolver)
     {
-        bool is64bitMachine = module.Is64bitArchitecture();
-        ushort moduleMachine = module.ModuleData.Machine;
+        bool is64bitMachine = parentModule.Is64bitArchitecture();
+        ushort moduleMachine = parentModule.ModuleData.Machine;
 
         var needRedirection = CUtils.SystemProcessorArchitecture switch
         {
@@ -493,7 +493,7 @@ public static class CPathResolver
         };
 
         // KM module resolving.
-        if (!needRedirection && module.IsKernelModule)
+        if (!needRedirection && parentModule.IsKernelModule)
         {
             return ResolveKernelModulePath(partiallyResolvedFileName, searchOrderKM, is64bitMachine, out resolver);
         }

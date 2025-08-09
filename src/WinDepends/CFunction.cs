@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jun 2025
+*  DATE:        09 Aug 2025
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -195,6 +195,27 @@ public class CFunction
     public bool SnapByOrdinal() => (Ordinal != UInt32.MaxValue && string.IsNullOrEmpty(RawName));
     public bool IsForward() => (!string.IsNullOrEmpty(ForwardName));
     public bool IsNameDecorated() => RawName.StartsWith('?');
+
+    /// <summary>
+    /// Extracts forwarder target module file name from a forwarder string (e.g. "NTDLL.Rtl..." -> "NTDLL.dll").
+    /// Returns empty string if input is null/invalid or already malformed.
+    /// </summary>
+    public static string ExtractForwarderModule(string? forwarder)
+    {
+        if (string.IsNullOrEmpty(forwarder))
+            return string.Empty;
+
+        int dotIndex = forwarder.IndexOf('.');
+        if (dotIndex <= 0)
+            return string.Empty;
+
+        string name = forwarder.AsSpan(0, dotIndex).ToString();
+
+        if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            name += ".dll";
+
+        return name;
+    }
 
     /// <summary>
     /// Determines the default function kind based on the function's properties.

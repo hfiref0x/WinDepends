@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Jun 2025
+*  DATE:        09 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -309,6 +309,7 @@ public partial class ConfigurationForm : Form
         historyUpDown.Value = m_CurrentConfiguration.HistoryDepth;
         nodeMaxDepthUpDown.Value = m_CurrentConfiguration.ModuleNodeDepthMax;
         chBoxAnalysisEnableExperimentalFeatures.Checked = m_CurrentConfiguration.EnableExperimentalFeatures;
+        chBoxExpandForwarders.Checked = m_CurrentConfiguration.ExpandForwarders;
         chBoxAutoExpands.Checked = m_CurrentConfiguration.AutoExpands;
         chBoxFullPaths.Checked = m_CurrentConfiguration.FullPaths;
         chBoxUndecorateSymbols.Checked = m_CurrentConfiguration.ViewUndecorated;
@@ -523,6 +524,9 @@ public partial class ConfigurationForm : Form
 
             case CConsts.TagEnableExperimentalFeatures:
                 m_CurrentConfiguration.EnableExperimentalFeatures = isChecked;
+                break;
+            case CConsts.TagExpandForwarders:
+                m_CurrentConfiguration.ExpandForwarders = isChecked;
                 break;
         }
     }

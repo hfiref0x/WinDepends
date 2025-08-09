@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Jun 2025
+*  DATE:        09 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -73,6 +73,7 @@ public class CConfiguration
     [DataMember]
     public bool HighlightApiSet { get; set; }
     [DataMember]
+    public bool ExpandForwarders { get; set; }
     public bool EnableExperimentalFeatures { get; set; }
     [DataMember]
     public int HistoryDepth { get; set; }
@@ -158,7 +159,7 @@ public class CConfiguration
         ToolBarTheme = other.ToolBarTheme;
         SymbolsHighlightColor = other.SymbolsHighlightColor;
         EnableExperimentalFeatures = other.EnableExperimentalFeatures;
-
+        ExpandForwarders = other.ExpandForwarders;
         WindowLeft = other.WindowLeft;
         WindowTop = other.WindowTop;
         WindowWidth = other.WindowWidth;
@@ -210,6 +211,7 @@ public class CConfiguration
             ProcessRelocsForImage = true;
             UseCustomImageBase = false;
             EnableExperimentalFeatures = false;
+            ExpandForwarders = false;
             ToolBarTheme = ToolBarThemeType.Classic;
 
             WindowState = (int)FormWindowState.Normal;

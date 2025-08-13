@@ -625,21 +625,21 @@ BOOL get_exports(
     _In_opt_ pmodule_ctx context
 )
 {
-    LIST_ENTRY          msg_lh;
-    PIMAGE_DOS_HEADER   dos_hdr;
-    PIMAGE_FILE_HEADER  nt_file_hdr;
-    DWORD               dir_base = 0, dir_size = 0, i, *ptrs, *names, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
-    WORD                *name_ordinals;
-    BOOL                status = FALSE, names_valid;
-    char                *fname, *forwarder;
-    HRESULT             hr;
-    PWSTR               endPtr;
-    SIZE_T              remaining, len;
-    WCHAR               text_buffer[WDEP_MSG_LENGTH_BIG];
-    
-    WCHAR               *wname = NULL, *wforward = NULL, *ename = NULL, *eforward = NULL;
-    SIZE_T              wname_cch = 1024, wforward_cch = 1024, ename_cch = 2048, eforward_cch = 2048;
-
+    LIST_ENTRY              msg_lh;
+    PIMAGE_DOS_HEADER       dos_hdr;
+    PIMAGE_FILE_HEADER      nt_file_hdr;
+    DWORD                   dir_base = 0, dir_size = 0, i, * ptrs = NULL, * names = NULL, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
+    WORD*                   name_ordinals = NULL;
+    BOOL                    status = FALSE, names_valid = FALSE;
+    char*                   fname, * forwarder;
+    HRESULT                 hr;
+    PWSTR                   endPtr;
+    SIZE_T                  remaining, len;
+    WCHAR*                  wname = NULL, * wforward = NULL, * ename = NULL, * eforward = NULL;
+    SIZE_T                  wname_cch = 1024, wforward_cch = 1024, ename_cch = 2048, eforward_cch = 2048;
+    DWORD                   maxFunctionsToProcess = 0, possibleBySize = 0;
+    DWORD                   maxNamesToProcess = 0, possibleNamesBySize = 0;
+    WCHAR                   text_buffer[WDEP_MSG_LENGTH_BIG];
     PIMAGE_EXPORT_DIRECTORY ExportTable;
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
@@ -688,16 +688,52 @@ BOOL get_exports(
             __leave;
         }
 
-        if ((dir_base > 0) && (dir_base < ImageSize))
+        if ((dir_base > 0) && (dir_base < ImageSize) &&
+            valid_image_range((ULONG_PTR)context->module + dir_base,
+                sizeof(IMAGE_EXPORT_DIRECTORY),
+                (ULONG_PTR)context->module,
+                ImageSize))
         {
             mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
 
             ExportTable = (PIMAGE_EXPORT_DIRECTORY)(context->module + dir_base);
-            ptrs = (DWORD*)(context->module + ExportTable->AddressOfFunctions);
-            names = (DWORD*)(context->module + ExportTable->AddressOfNames);
-            name_ordinals = (WORD*)(context->module + ExportTable->AddressOfNameOrdinals);
 
-            names_valid = valid_image_range((ULONG_PTR)name_ordinals, ExportTable->NumberOfNames * sizeof(WORD), (ULONG_PTR)context->module, ImageSize);
+            // bounds for function array
+            if (ExportTable->AddressOfFunctions < ImageSize) {
+                possibleBySize = (DWORD)((ImageSize - ExportTable->AddressOfFunctions) / sizeof(DWORD));
+                maxFunctionsToProcess = ExportTable->NumberOfFunctions;
+                if (maxFunctionsToProcess > possibleBySize)
+                    maxFunctionsToProcess = possibleBySize;
+                if (maxFunctionsToProcess > WDEP_MAX_EXPORT_FUNCTIONS)
+                    maxFunctionsToProcess = WDEP_MAX_EXPORT_FUNCTIONS;
+                ptrs = (DWORD*)(context->module + ExportTable->AddressOfFunctions);
+            }
+
+            // bounds for names/ordinals
+            if (ExportTable->AddressOfNames < ImageSize &&
+                ExportTable->AddressOfNameOrdinals < ImageSize)
+            {
+                possibleNamesBySize = (DWORD)((ImageSize - ExportTable->AddressOfNames) / sizeof(DWORD));
+                maxNamesToProcess = ExportTable->NumberOfNames;
+                if (maxNamesToProcess > possibleNamesBySize)
+                    maxNamesToProcess = possibleNamesBySize;
+                if (maxNamesToProcess > maxFunctionsToProcess)
+                    maxNamesToProcess = maxFunctionsToProcess;
+                if (maxNamesToProcess > WDEP_MAX_EXPORT_FUNCTIONS)
+                    maxNamesToProcess = WDEP_MAX_EXPORT_FUNCTIONS;
+
+                names = (DWORD*)(context->module + ExportTable->AddressOfNames);
+                name_ordinals = (WORD*)(context->module + ExportTable->AddressOfNameOrdinals);
+
+                if (maxNamesToProcess &&
+                    valid_image_range((ULONG_PTR)names, maxNamesToProcess * sizeof(DWORD),
+                        (ULONG_PTR)context->module, ImageSize) &&
+                    valid_image_range((ULONG_PTR)name_ordinals, maxNamesToProcess * sizeof(WORD),
+                        (ULONG_PTR)context->module, ImageSize))
+                {
+                    names_valid = TRUE;
+                }
+            }
 
             hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
                 &endPtr, (size_t*)&remaining, 0,
@@ -712,7 +748,7 @@ BOOL get_exports(
                 mlist_add(&msg_lh, text_buffer, len);
             }
 
-            for (i = 0; i < ExportTable->NumberOfFunctions; ++i)
+            for (i = 0; i < maxFunctionsToProcess; ++i)
             {
                 if (!valid_image_range((ULONG_PTR)&ptrs[i], sizeof(DWORD), (ULONG_PTR)context->module, ImageSize))
                     break;
@@ -727,7 +763,7 @@ BOOL get_exports(
 
                 if (names_valid)
                 {
-                    for (p = 0; p < ExportTable->NumberOfNames; ++p)
+                    for (p = 0; p < maxNamesToProcess; ++p)
                     {
                         if (name_ordinals[p] == i)
                         {
@@ -787,7 +823,22 @@ BOOL get_exports(
             }
             mlist_add(&msg_lh, L"]}}", WSTRING_LEN(L"]}}"));
         }
-        
+        else {
+            mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
+            hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
+                &endPtr, (size_t*)&remaining, 0,
+                L"\"library\":{"
+                L"\"timestamp\":0,"
+                L"\"entries\":0,"
+                L"\"named\":0,"
+                L"\"base\":0,"
+                L"\"functions\":[]}}");
+            if (SUCCEEDED(hr)) {
+                len = endPtr - text_buffer;
+                mlist_add(&msg_lh, text_buffer, len);
+            }
+        }
+
         mlist_add(&msg_lh, L"\r\n", WSTRING_LEN(L"\r\n"));
         mlist_traverse(&msg_lh, mlist_send, s, context);
         status = TRUE;
@@ -807,6 +858,72 @@ BOOL get_exports(
     return status;
 }
 
+static BOOL thunk64_entry_valid(
+    PBYTE module,
+    PIMAGE_THUNK_DATA64 t,
+    BOOL rvabased,
+    DWORD_PTR image_base,
+    DWORD_PTR image_size
+)
+{
+    ULONGLONG v;
+    if (!valid_image_range((ULONG_PTR)t, sizeof(IMAGE_THUNK_DATA64), (ULONG_PTR)module, (DWORD)image_size))
+        return FALSE;
+
+    v = t->u1.Function;
+
+    if (v == 0) return FALSE;
+
+    if (v & IMAGE_ORDINAL_FLAG64)
+        return TRUE;
+
+    if (rvabased) {
+        if (v >= image_size) return FALSE;
+        if (v > image_size - sizeof(IMAGE_IMPORT_BY_NAME)) return FALSE;
+        return TRUE;
+    }
+    else {
+        if (v < image_base) return FALSE;
+        v -= image_base;
+        if (v >= image_size) return FALSE;
+        if (v > image_size - sizeof(IMAGE_IMPORT_BY_NAME)) return FALSE;
+        return TRUE;
+    }
+}
+
+static BOOL thunk32_entry_valid(
+    PBYTE module,
+    PIMAGE_THUNK_DATA32 t,
+    BOOL rvabased,
+    DWORD_PTR image_base,
+    DWORD_PTR image_size
+)
+{
+    DWORD v;
+    if (!valid_image_range((ULONG_PTR)t, sizeof(IMAGE_THUNK_DATA32), (ULONG_PTR)module, (DWORD)image_size))
+        return FALSE;
+
+    v = t->u1.Function;
+
+    if (v == 0) return FALSE;
+
+    if (v & IMAGE_ORDINAL_FLAG32)
+        return TRUE;
+
+    if (rvabased) {
+        if (v >= image_size) return FALSE;
+        if (v > (DWORD)(image_size - sizeof(IMAGE_IMPORT_BY_NAME))) return FALSE;
+        return TRUE;
+    }
+    else {
+        if ((DWORD_PTR)v < image_base) return FALSE;
+        v = (DWORD)((DWORD_PTR)v - image_base);
+        if (v >= image_size) return FALSE;
+        if (v > (DWORD)(image_size - sizeof(IMAGE_IMPORT_BY_NAME))) return FALSE;
+        return TRUE;
+    }
+}
+
 static void process_thunks64(
     PBYTE                   module,
     PIMAGE_THUNK_DATA64     thunk,
@@ -818,6 +935,7 @@ static void process_thunks64(
     BOOL                    has_bound_imports
 )
 {
+    int         maxCount, i;
     DWORD       fhint = 0, ordinal = 0;
     ULONG64     fbound = 0;
     char        *strfname = NULL;
@@ -826,9 +944,18 @@ static void process_thunks64(
     SIZE_T      remaining, len;
     WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
 
-    PIMAGE_IMPORT_BY_NAME fname = NULL;
+    PIMAGE_IMPORT_BY_NAME   fname = NULL;
+    PIMAGE_THUNK_DATA64     scan;
 
-    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++i)
+    scan = thunk;
+    maxCount = 0;
+    for (i = 0; i < (int)WDEP_MAX_IMPORT_THUNKS; ++i, ++scan) {
+        if (!thunk64_entry_valid(module, scan, rvabased, image_base, image_size))
+            break;
+        ++maxCount;
+    }
+
+    for (i = 0; i < maxCount; ++i, ++thunk)
     {
         if (has_bound_imports) {
             fbound = *bound_table;
@@ -838,14 +965,11 @@ static void process_thunks64(
             fbound = 0;
         }
 
-        if ((thunk->u1.Function & IMAGE_ORDINAL_FLAG64) != 0)
-        {
+        if ((thunk->u1.Function & IMAGE_ORDINAL_FLAG64) != 0) {
             strfname = "";
             fhint = MAXDWORD32;
             ordinal = IMAGE_ORDINAL64(thunk->u1.Ordinal);
-        }
-        else
-        {
+        } else {
             if (rvabased) {
                 fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             }
@@ -891,6 +1015,7 @@ static void process_thunks32(
     BOOL                    has_bound_imports
 )
 {
+    INT         i, maxCount;
     DWORD       fhint = 0, ordinal = 0;
     ULONG64     fbound = 0;
     char        *strfname = NULL;
@@ -899,10 +1024,18 @@ static void process_thunks32(
     SIZE_T      remaining, len;
     WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
 
-    PIMAGE_IMPORT_BY_NAME fname = NULL;
+    PIMAGE_IMPORT_BY_NAME   fname = NULL;
+    PIMAGE_THUNK_DATA32     scan;
 
-    for (int i = 0; thunk->u1.AddressOfData; ++thunk, ++i)
-    {
+    scan = thunk;
+    maxCount = 0;
+    for (i = 0; i < (int)WDEP_MAX_IMPORT_THUNKS; ++i, ++scan) {
+        if (!thunk32_entry_valid(module, scan, rvabased, image_base, image_size))
+            break;
+        ++maxCount;
+    }
+
+    for (i = 0; i < maxCount; ++i, ++thunk) {
         if (has_bound_imports) {
             fbound = *bound_table;
             bound_table++;
@@ -952,6 +1085,79 @@ static void process_thunks32(
     }
 }
 
+static BOOL imports_sanity_check(
+    _In_ PBYTE module,
+    _In_ BOOL image64,
+    _In_ DWORD_PTR image_size,
+    _In_ DWORD import_dir_rva
+)
+{
+    PIMAGE_IMPORT_DESCRIPTOR imp;
+    DWORD libCount = 0;
+
+    if (import_dir_rva == 0 || import_dir_rva >= image_size)
+        return TRUE;
+
+    imp = (PIMAGE_IMPORT_DESCRIPTOR)(module + import_dir_rva);
+
+    for (; libCount < WDEP_IMPORT_SANITY_SCAN_MAX_LIBS; ++libCount, ++imp) {
+
+        if (!valid_image_range((ULONG_PTR)imp, sizeof(IMAGE_IMPORT_DESCRIPTOR),
+            (ULONG_PTR)module, (DWORD)image_size))
+            return TRUE;
+
+        if (imp->Name == 0 && imp->FirstThunk == 0 && imp->OriginalFirstThunk == 0)
+            break;
+
+        if (imp->Name >= image_size)
+            return FALSE;
+        if (imp->FirstThunk >= image_size)
+            return FALSE;
+        if (imp->OriginalFirstThunk && imp->OriginalFirstThunk >= image_size)
+            return FALSE;
+
+        ULONG probes = 0;
+        define_3264_union(IMAGE_THUNK_DATA, td);
+        if (imp->OriginalFirstThunk && imp->OriginalFirstThunk < image_size)
+            td.uptr = module + imp->OriginalFirstThunk;
+        else
+            td.uptr = module + imp->FirstThunk;
+
+        // Basic probes for import.
+        for (probes = 0; probes < WDEP_IMPORT_SANITY_PROBE_THUNKS; ++probes) {
+            if (image64) {
+                PIMAGE_THUNK_DATA64 t64 = (PIMAGE_THUNK_DATA64)((PBYTE)td.uptr + probes * sizeof(IMAGE_THUNK_DATA64));
+                if (!valid_image_range((ULONG_PTR)t64, sizeof(IMAGE_THUNK_DATA64),
+                    (ULONG_PTR)module, (DWORD)image_size))
+                    break; // stop probing, do not fail
+                if (t64->u1.AddressOfData == 0)
+                    break;
+                // Only fail if non-ordinal and header would be fully outside image
+                if ((t64->u1.Function & IMAGE_ORDINAL_FLAG64) == 0) {
+                    ULONGLONG rva = t64->u1.Function;
+                    if (rva >= image_size)
+                        return FALSE;
+                }
+            }
+            else {
+                PIMAGE_THUNK_DATA32 t32 = (PIMAGE_THUNK_DATA32)((PBYTE)td.uptr + probes * sizeof(IMAGE_THUNK_DATA32));
+                if (!valid_image_range((ULONG_PTR)t32, sizeof(IMAGE_THUNK_DATA32),
+                    (ULONG_PTR)module, (DWORD)image_size))
+                    break;
+                if (t32->u1.AddressOfData == 0)
+                    break;
+                if ((t32->u1.Function & IMAGE_ORDINAL_FLAG32) == 0) {
+                    DWORD rva = t32->u1.Function;
+                    if (rva >= image_size)
+                        return FALSE;
+                }
+            }
+        }
+    }
+
+    return TRUE;
+}
+
 /*
 * get_imports
 *
@@ -999,8 +1205,6 @@ BOOL get_imports(
         InitializeListHead(&std_lib_lh);
         InitializeListHead(&delay_lib_lh);
 
-        //*(PBYTE)(NULL) = 0;
-
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
@@ -1035,11 +1239,31 @@ BOOL get_imports(
 
         __try {
 
+            if (!imports_sanity_check(context->module,
+                context->image_64bit,
+                ImageSize,
+                si_dir_base))
+            {
+                import_exception |= 1;
+                except_code_std = (ULONG)STATUS_INVALID_IMAGE_FORMAT;
+                status = TRUE;
+                __leave;
+            }
+
             if ((si_dir_base > 0) && (si_dir_base < ImageSize))
             {
                 SImportTable = (PIMAGE_IMPORT_DESCRIPTOR)(context->module + si_dir_base);
-                for (c = 0; SImportTable->Name && SImportTable->FirstThunk; ++SImportTable, ++c)
+                for (c = 0;
+                    SImportTable->Name && SImportTable->FirstThunk &&
+                    c < WDEP_MAX_IMPORT_LIBRARIES;
+                    ++SImportTable, ++c)
                 {
+                    if (!valid_image_range((ULONG_PTR)SImportTable, sizeof(IMAGE_IMPORT_DESCRIPTOR),
+                        (ULONG_PTR)context->module, (DWORD)ImageSize))
+                    {
+                        break;
+                    }
+
                     importPresent = TRUE;
                     if (c > 0)
                         mlist_add(&std_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
@@ -1056,18 +1280,14 @@ BOOL get_imports(
 
                     bound_table.uptr = NULL;
                     if ((SImportTable->OriginalFirstThunk < SizeOfHeaders) || (SImportTable->OriginalFirstThunk > ImageSize))
-                    {
                         thunk_data.uptr = context->module + SImportTable->FirstThunk;
-                    }
                     else
-                    {
                         thunk_data.uptr = context->module + SImportTable->OriginalFirstThunk;
-                    }
-                    if (SImportTable->TimeDateStamp) {
-                        bound_table.uptr = context->module + SImportTable->FirstThunk;
-                    }
 
-                    has_bound_imports = bound_table.uptr != NULL;
+                    if (SImportTable->TimeDateStamp)
+                        bound_table.uptr = context->module + SImportTable->FirstThunk;
+
+                    has_bound_imports = (bound_table.uptr != NULL);
 
                     if (context->image_64bit)
                         process_thunks64(context->module, thunk_data.thunk_data64,
@@ -1096,8 +1316,17 @@ BOOL get_imports(
             {
                 DImportTable = (PIMAGE_DELAYLOAD_DESCRIPTOR)(context->module + di_dir_base);
 
-                for (c = 0; DImportTable->DllNameRVA; ++DImportTable, ++c)
+                for (c = 0;
+                    DImportTable->DllNameRVA &&
+                    c < WDEP_MAX_IMPORT_LIBRARIES;
+                    ++DImportTable, ++c)
                 {
+                    if (!valid_image_range((ULONG_PTR)DImportTable, sizeof(IMAGE_DELAYLOAD_DESCRIPTOR),
+                        (ULONG_PTR)context->module, (DWORD)ImageSize)) 
+                    {
+                        break;
+                    }
+
                     if (c > 0)
                         mlist_add(&delay_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
 

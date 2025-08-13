@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        11 Aug 2025
 *  
 *  Core Server communication class.
 *
@@ -659,6 +659,13 @@ public class CCoreClient : IDisposable
         bool exceptStd = (imports.Exception & 1) != 0;
         bool exceptDelay = (imports.Exception & 2) != 0;
 
+        if (PeExceptionHelper.IsInvalidImageFormatException(imports.ExceptionCodeStd))
+        {
+            _addLogMessage($"Exception occured while processing file, imports seems destroyed",
+                LogMessageType.ErrorOrWarning);
+            return;
+        }
+
         if (exceptStd && exceptDelay)
         {
             _addLogMessage(
@@ -1178,7 +1185,10 @@ public class CCoreClient : IDisposable
             ProcessImports(module, false, rawImports.Library, searchOrderUM, searchOrderKM, parentImportsHashTable);
             ProcessImports(module, true, rawImports.LibraryDelay, searchOrderUM, searchOrderKM, parentImportsHashTable);
             if (rawImports.Exception != 0)
+            {
                 HandleImportExceptions(rawImports);
+                module.OtherErrorsPresent = true;
+            }
         }
 
         //

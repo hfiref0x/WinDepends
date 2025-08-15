@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        14 Aug 2025
 *  
 *  Codename:    VasilEk
 *
@@ -446,6 +446,49 @@ public partial class MainForm : Form
         return true;
     }
 
+    private static string BuildModuleDisplayName(string rawName, bool fullPaths)
+    {
+        if (string.IsNullOrEmpty(rawName))
+            return rawName;
+
+        if (fullPaths)
+            return rawName;
+
+        // Normalize separators
+        string path = rawName.Replace('/', '\\').Trim();
+
+        // Trim trailing separators except for drive roots (e.g. "C:\")
+        if (path.Length > 3 && (path.EndsWith("\\") || path.EndsWith("/")))
+            path = path.TrimEnd('\\', '/');
+
+        // UNC handling: \\server\share\...
+        if (path.StartsWith(@"\\"))
+        {
+            // Split components after leading UNC prefix
+            // Expect: \\server\share\...(optional path)...\file
+            // We want: \\server\share\file
+            var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            // parts[0] = server, parts[1] = share, remaining = path segments (maybe)
+            if (parts.Length >= 2)
+            {
+                string filePart = Path.GetFileName(path);
+                if (string.IsNullOrEmpty(filePart))
+                {
+                    // Path points to a UNC directory; keep as \\server\share
+                    return @"\\" + parts[0] + "\\" + parts[1];
+                }
+                return @"\\" + parts[0] + "\\" + parts[1] + "\\" + filePart;
+            }
+            // Fallback (malformed UNC?)
+            string last = Path.GetFileName(path);
+            return string.IsNullOrEmpty(last) ? path : last;
+        }
+
+        // Non-UNC: return just the file name (fallback to trimmed path if empty)
+        string nameOnly = Path.GetFileName(path);
+        return string.IsNullOrEmpty(nameOnly) ? path : nameOnly;
+    }
+
     /// <summary>
     /// AddModuleEntry core implementation. Shared between normal and session files.
     /// </summary>
@@ -487,12 +530,7 @@ public partial class MainForm : Form
         }
 
         // 4. Format display name
-        string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-
-        if (!m_Configuration.FullPaths)
-        {
-            moduleDisplayName = Path.GetFileName(moduleDisplayName);
-        }
+        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets), m_Configuration.FullPaths);
 
         if (m_Configuration.UpperCaseModuleNames)
         {
@@ -705,16 +743,7 @@ public partial class MainForm : Form
             {
                 string displayName = module.GetModuleNameRespectApiSet(resolveApiSets);
 
-                if (!fullPaths && !string.IsNullOrEmpty(displayName))
-                {
-                    int lastSeparatorPos = Math.Max(
-                        displayName.LastIndexOf('\\'),
-                        displayName.LastIndexOf('/')
-                    );
-
-                    if (lastSeparatorPos >= 0 && lastSeparatorPos < displayName.Length - 1)
-                        displayName = displayName.Substring(lastSeparatorPos + 1);
-                }
+                displayName = BuildModuleDisplayName(displayName, fullPaths);
 
                 if (upperCase && !string.IsNullOrEmpty(displayName))
                     displayName = displayName.ToUpperInvariant();
@@ -3224,12 +3253,7 @@ public partial class MainForm : Form
             ImageIndex = module.GetIconIndexForModuleCompact()
         };
 
-        string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-
-        if (!m_Configuration.FullPaths)
-        {
-            moduleDisplayName = Path.GetFileName(moduleDisplayName);
-        }
+        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets), m_Configuration.FullPaths);
 
         if (m_Configuration.UpperCaseModuleNames)
         {

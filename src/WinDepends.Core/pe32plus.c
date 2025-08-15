@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 14, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -46,7 +46,7 @@ DWORD ALIGN_DOWN(DWORD p, DWORD a)
 
 static BOOL is_power_of_two(DWORD x)
 {
-    if (x == 0) 
+    if (x == 0)
         return FALSE;
     return (x & (x - 1)) == 0;
 }
@@ -282,7 +282,7 @@ BOOL get_headers(
     PIMAGE_DOS_HEADER   dos_hdr;
     PIMAGE_FILE_HEADER  nt_file_hdr;
     BOOL                status = FALSE;
-    WCHAR               *manifest = NULL;
+    WCHAR* manifest = NULL;
     ULONG               i;
     DWORD               dir_base = 0, dir_size = 0, dllchars_ex = 0, image_size = 0;
     DWORD               hdr_chars, hdr_subsystem;
@@ -315,7 +315,7 @@ BOOL get_headers(
         dos_hdr = (PIMAGE_DOS_HEADER)context->module;
         nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
         opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
-        
+
         mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
 
         hdr_chars = nt_file_hdr->Characteristics;
@@ -503,10 +503,15 @@ BOOL get_headers(
             __leave;
         }
 
+        //
+        // Debug directories listing.
+        // The end bracket should always be after that.
+        //
+        mlist_add(&msg_lh, JSON_DEBUG_DIRECTORY_START, JSON_DEBUG_DIRECTORY_START_LEN);
+
         pdbg = (PIMAGE_DEBUG_DIRECTORY)(context->module + dir_base);
         if (valid_image_range((ULONG_PTR)pdbg, sizeof(IMAGE_DEBUG_DIRECTORY), (ULONG_PTR)context->module, image_size))
         {
-            mlist_add(&msg_lh, JSON_DEBUG_DIRECTORY_START, JSON_DEBUG_DIRECTORY_START_LEN);
 
             for (i = 0; dir_size >= sizeof(IMAGE_DEBUG_DIRECTORY); dir_size -= sizeof(IMAGE_DEBUG_DIRECTORY), ++pdbg, i++)
             {
@@ -547,6 +552,10 @@ BOOL get_headers(
             }
         }
 
+        //
+        // Debug directories end. 
+        // The end bracket here.
+        //
         mlist_add(&msg_lh, JSON_ARRAY_END, JSON_ARRAY_END_LEN);
 
         VS_FIXEDFILEINFO* vinfo;
@@ -629,13 +638,13 @@ BOOL get_exports(
     PIMAGE_DOS_HEADER       dos_hdr;
     PIMAGE_FILE_HEADER      nt_file_hdr;
     DWORD                   dir_base = 0, dir_size = 0, i, * ptrs = NULL, * names = NULL, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
-    WORD*                   name_ordinals = NULL;
+    WORD* name_ordinals = NULL;
     BOOL                    status = FALSE, names_valid = FALSE;
-    char*                   fname, * forwarder;
+    char* fname, * forwarder;
     HRESULT                 hr;
     PWSTR                   endPtr;
     SIZE_T                  remaining, len;
-    WCHAR*                  wname = NULL, * wforward = NULL, * ename = NULL, * eforward = NULL;
+    WCHAR* wname = NULL, * wforward = NULL, * ename = NULL, * eforward = NULL;
     SIZE_T                  wname_cch = 1024, wforward_cch = 1024, ename_cch = 2048, eforward_cch = 2048;
     DWORD                   maxFunctionsToProcess = 0, possibleBySize = 0;
     DWORD                   maxNamesToProcess = 0, possibleNamesBySize = 0;
@@ -935,14 +944,14 @@ static void process_thunks64(
     BOOL                    has_bound_imports
 )
 {
-    int         maxCount, i;
-    DWORD       fhint = 0, ordinal = 0;
-    ULONG64     fbound = 0;
-    char        *strfname = NULL;
-    HRESULT     hr;
-    PWSTR       endPtr;
-    SIZE_T      remaining, len;
-    WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
+    INT     maxCount, i;
+    DWORD   fhint = 0, ordinal = 0;
+    HRESULT hr;
+    ULONG64 fbound = 0;
+    SIZE_T  remaining, len;
+    PWSTR   endPtr;
+    PCHAR   strfname = NULL;
+    WCHAR   msg_text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_IMPORT_BY_NAME   fname = NULL;
     PIMAGE_THUNK_DATA64     scan;
@@ -969,7 +978,8 @@ static void process_thunks64(
             strfname = "";
             fhint = MAXDWORD32;
             ordinal = IMAGE_ORDINAL64(thunk->u1.Ordinal);
-        } else {
+        }
+        else {
             if (rvabased) {
                 fname = (PIMAGE_IMPORT_BY_NAME)(module + thunk->u1.Function);
             }
@@ -1015,14 +1025,14 @@ static void process_thunks32(
     BOOL                    has_bound_imports
 )
 {
-    INT         i, maxCount;
-    DWORD       fhint = 0, ordinal = 0;
-    ULONG64     fbound = 0;
-    char        *strfname = NULL;
-    HRESULT     hr;
-    PWSTR       endPtr;
-    SIZE_T      remaining, len;
-    WCHAR       msg_text[WDEP_MSG_LENGTH_BIG];
+    INT     i, maxCount;
+    DWORD   fhint = 0, ordinal = 0;
+    HRESULT hr;
+    SIZE_T  remaining, len;
+    ULONG64 fbound = 0;
+    PWSTR   endPtr;
+    PCHAR   strfname = NULL;
+    WCHAR   msg_text[WDEP_MSG_LENGTH_BIG];
 
     PIMAGE_IMPORT_BY_NAME   fname = NULL;
     PIMAGE_THUNK_DATA32     scan;
@@ -1159,6 +1169,76 @@ static BOOL imports_sanity_check(
 }
 
 /*
+* append_import_lib_header
+*
+* Purpose:
+*   Build and append the JSON header fragment for a single import library entry:
+*   {"name":"<escaped>","functions":[
+*/
+_Success_(return != 0)
+static BOOL append_import_lib_header(
+    _Inout_ PLIST_ENTRY list_head,
+    _In_ PCHAR ansiName,
+    _Inout_ PDWORD pInvalidCounter,
+    _In_ BOOL addComma
+)
+{
+    HRESULT hr;
+    SIZE_T nameLenA;
+    SIZE_T allocWide, allocEsc;
+    PWCHAR wideName;
+    PWCHAR escName;
+    SIZE_T wideLen;
+    SIZE_T escLen;
+
+    hr = StringCchLengthA(ansiName, WDEP_MAX_FUNC_NAME_LEN, &nameLenA);
+    if (FAILED(hr)) {
+        (*pInvalidCounter)++;
+        return FALSE;
+    }
+
+    allocWide = nameLenA + 1;
+    wideName = (PWCHAR)heap_calloc(NULL, allocWide * sizeof(WCHAR));
+    if (wideName == NULL) {
+        (*pInvalidCounter)++;
+        return FALSE;
+    }
+
+    wideLen = ansi_to_wide_copy(ansiName, wideName, allocWide);
+    if (wideLen == 0) {
+        heap_free(NULL, wideName);
+        (*pInvalidCounter)++;
+        return FALSE;
+    }
+
+    allocEsc = (wideLen * 6) + 1;
+    escName = (PWCHAR)heap_calloc(NULL, allocEsc * sizeof(WCHAR));
+    if (escName == NULL) {
+        heap_free(NULL, wideName);
+        (*pInvalidCounter)++;
+        return FALSE;
+    }
+
+    if (!json_escape_string(wideName, escName, allocEsc, &escLen)) {
+        heap_free(NULL, escName);
+        heap_free(NULL, wideName);
+        (*pInvalidCounter)++;
+        return FALSE;
+    }
+
+    if (addComma)
+        mlist_add(list_head, JSON_COMMA, JSON_COMMA_LEN);
+
+    mlist_add(list_head, L"{\"name\":\"", WSTRING_LEN(L"{\"name\":\""));
+    mlist_add(list_head, escName, escLen);
+    mlist_add(list_head, L"\",\"functions\":[", WSTRING_LEN(L"\",\"functions\":["));
+
+    heap_free(NULL, escName);
+    heap_free(NULL, wideName);
+    return TRUE;
+}
+
+/*
 * get_imports
 *
 * Purpose:
@@ -1171,22 +1251,22 @@ BOOL get_imports(
     _In_opt_ pmodule_ctx context
 )
 {
+    BOOL                        status = FALSE, has_bound_imports = FALSE;
+
+    DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c, import_exception = 0;
+    DWORD                       invalid_std_entries = 0, invalid_dl_entries = 0;
+    DWORD                       except_code_std = 0, except_code_delay = 0;
+
+    PIMAGE_FILE_HEADER          nt_file_hdr;
+    PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
+    PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
+
+    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0;
+    DWORD_PTR                   IModuleName, INameTable, delta, boundIAT, processed_libs = 0;
+
     LIST_ENTRY                  msg_lh;
     LIST_ENTRY                  std_lib_lh;
     LIST_ENTRY                  delay_lib_lh;
-
-    PIMAGE_FILE_HEADER          nt_file_hdr;
-    DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c, import_exception = 0;
-    DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0,
-        IModuleName, INameTable, delta, boundIAT;
-    BOOL                        status = FALSE, importPresent = FALSE, has_bound_imports = FALSE;
-    PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
-    PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
-    HRESULT                     hr;
-    PWSTR                       endPtr;
-    SIZE_T                      remaining, len;
-
-    ULONG                       except_code_std = 0, except_code_delay = 0;
 
     WCHAR                       msg_text[WDEP_MSG_LENGTH_BIG];
 
@@ -1236,6 +1316,7 @@ BOOL get_imports(
         }
 
         // Build list for usual import.
+        processed_libs = 0;
 
         __try {
 
@@ -1264,18 +1345,12 @@ BOOL get_imports(
                         break;
                     }
 
-                    importPresent = TRUE;
-                    if (c > 0)
-                        mlist_add(&std_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
-
-                    hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-                        &endPtr, (size_t*)&remaining, 0,
-                        L"{\"name\":\"%S\",\"functions\":[",
-                        (char*)context->module + SImportTable->Name);
-
-                    if (SUCCEEDED(hr)) {
-                        len = endPtr - msg_text;
-                        mlist_add(&std_lib_lh, msg_text, len);
+                    if (!append_import_lib_header(&std_lib_lh,
+                        (char*)context->module + SImportTable->Name,
+                        &invalid_std_entries,
+                        (processed_libs > 0)))
+                    {
+                        continue;
                     }
 
                     bound_table.uptr = NULL;
@@ -1297,6 +1372,10 @@ BOOL get_imports(
                             bound_table.bound_table32, &std_lib_lh, TRUE, ImageBase, ImageSize, has_bound_imports);
 
                     mlist_add(&std_lib_lh, L"]}", WSTRING_LEN(L"]}"));
+#ifdef _DEBUG
+                    mlist_debug_dump(&std_lib_lh);
+#endif
+                    ++processed_libs;
                 }
             }
         }
@@ -1308,8 +1387,13 @@ BOOL get_imports(
             import_exception |= 1;
             except_code_std = GetExceptionCode();
         }
+#ifdef _DEBUG
+        mlist_debug_dump(&std_lib_lh);
+#endif
 
         // Build list for delay-load import.
+        processed_libs = 0;
+
         __try
         {
             if ((di_dir_base > 0) && (di_dir_base < ImageSize))
@@ -1322,13 +1406,10 @@ BOOL get_imports(
                     ++DImportTable, ++c)
                 {
                     if (!valid_image_range((ULONG_PTR)DImportTable, sizeof(IMAGE_DELAYLOAD_DESCRIPTOR),
-                        (ULONG_PTR)context->module, (DWORD)ImageSize)) 
+                        (ULONG_PTR)context->module, (DWORD)ImageSize))
                     {
                         break;
                     }
-
-                    if (c > 0)
-                        mlist_add(&delay_lib_lh, JSON_COMMA, JSON_COMMA_LEN);
 
                     IModuleName = DImportTable->DllNameRVA;
                     INameTable = DImportTable->ImportNameTableRVA;
@@ -1345,14 +1426,12 @@ BOOL get_imports(
                         INameTable += delta;
                     }
 
-                    hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
-                        &endPtr, (size_t*)&remaining, 0,
-                        L"{\"name\":\"%S\",\"functions\":[",
-                        (char*)IModuleName);
-
-                    if (SUCCEEDED(hr)) {
-                        len = endPtr - msg_text;
-                        mlist_add(&delay_lib_lh, msg_text, len);
+                    if (!append_import_lib_header(&delay_lib_lh,
+                        (char*)IModuleName,
+                        &invalid_dl_entries,
+                        (processed_libs > 0)))
+                    {
+                        continue;
                     }
 
                     bound_table.uptr = NULL;
@@ -1377,6 +1456,7 @@ BOOL get_imports(
                             bound_table.bound_table32, &delay_lib_lh, DImportTable->Attributes.RvaBased, ImageBase, ImageSize, has_bound_imports);
 
                     mlist_add(&delay_lib_lh, L"]}", WSTRING_LEN(L"]}"));
+                    ++processed_libs;
                 }
             }
         }
@@ -1393,14 +1473,23 @@ BOOL get_imports(
         // Build combined output.
         //
         mlist_add(&msg_lh, WDEP_STATUS_OK L"{\"exception\":", WSTRING_LEN(WDEP_STATUS_OK L"{\"exception\":"));
-
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", import_exception);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+
         mlist_add(&msg_lh, L",\"exception_code_std\":", WSTRING_LEN(L",\"exception_code_std\":"));
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", except_code_std);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+
         mlist_add(&msg_lh, L",\"exception_code_delay\":", WSTRING_LEN(L",\"exception_code_delay\":"));
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", except_code_delay);
+        mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+
+        mlist_add(&msg_lh, L",\"invalid_std_entries\":", WSTRING_LEN(L",\"invalid_std_entries\":"));
+        StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", invalid_std_entries);
+        mlist_add(&msg_lh, msg_text, wcslen(msg_text));
+
+        mlist_add(&msg_lh, L",\"invalid_dl_entries\":", WSTRING_LEN(L",\"invalid_dl_entries\":"));
+        StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", invalid_dl_entries);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
 
         mlist_add(&msg_lh, L",\"libraries\":[", WSTRING_LEN(L",\"libraries\":["));
@@ -1410,6 +1499,10 @@ BOOL get_imports(
         if (!IsListEmpty(&delay_lib_lh))
             mlist_append_to_main(&delay_lib_lh, &msg_lh);
         mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"));
+
+#ifdef _DEBUG
+        mlist_debug_dump(&msg_lh);
+#endif
 
         mlist_traverse(&msg_lh, mlist_send, s, context);
 

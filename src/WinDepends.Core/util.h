@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 14, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -168,12 +168,17 @@ VOID report_exception_to_client(
     _In_ exception_location location,
     _In_ DWORD exception_code);
 
+_Success_(return != 0)
+SIZE_T ansi_to_wide_copy(
+    _In_z_ const char* src,
+    _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,
+    _In_ SIZE_T dest_cch);
+
 _Success_(return) 
 BOOL json_escape_string(
-    _In_ LPCWSTR src,
-    _Out_writes_to_(dest_cch, *out_len) LPWSTR dest,
+    _In_z_ LPCWSTR src,
+    _Out_writes_to_(dest_cch, *out_len) _Post_z_ LPWSTR dest,
     _In_ SIZE_T dest_cch,
-    _Out_ SIZE_T * out_len
-);
+    _Out_opt_ SIZE_T * out_len);
 
 #endif /* _UTIL_H_ */

@@ -889,6 +889,49 @@ VOID report_exception_to_client(
 }
 
 /*
+* ansi_to_wide_copy
+*
+* Purpose:
+* 
+* Copies a NUL-terminated ANSI (assumed 8-bit) string to a wide string buffer
+* performing a simple zero-extended widening (no codepage conversion).
+* 
+*/
+_Success_(return != 0)
+SIZE_T ansi_to_wide_copy(
+    _In_z_ const char* src,
+    _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,
+    _In_ SIZE_T dest_cch
+)
+{
+    SIZE_T i, limit;
+
+    if (!src || !dest || dest_cch == 0)
+        return 0;
+
+    i = 0;
+    limit = dest_cch - 1;
+
+    while (src[i] && i < limit) {
+        dest[i] = (WCHAR)(unsigned char)src[i];
+        ++i;
+    }
+
+    if (src[i] != 0 && i == limit) {
+        if (i >= dest_cch) 
+            return 0;
+        dest[i] = 0;
+        return 0;
+    }
+
+    if (i >= dest_cch)
+        return 0;
+
+    dest[i] = 0;
+    return i;
+}
+
+/*
 * json_escape_string
 *
 * Purpose:
@@ -898,10 +941,10 @@ VOID report_exception_to_client(
 */
 _Success_(return) 
 BOOL json_escape_string(
-    _In_ LPCWSTR src,
-    _Out_writes_to_(dest_cch, *out_len) LPWSTR dest,
+    _In_z_ LPCWSTR src,
+    _Out_writes_to_(dest_cch, *out_len) _Post_z_ LPWSTR dest,
     _In_ SIZE_T dest_cch,
-    _Out_ SIZE_T * out_len
+    _Out_opt_ SIZE_T * out_len
 )
 {
     SIZE_T used = 0;

@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 14, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -149,6 +149,8 @@ void cmd_query_knowndlls_list(
     PWSTR endPtr;
     SIZE_T remaining, len;
     WCHAR escapedName[1024];
+    PWSTR escapedPath;
+    SIZE_T pathLen, escPathLen, escPathAlloc;
 
     if (params == NULL || !gsup.Initialized) {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
@@ -170,7 +172,21 @@ void cmd_query_knowndlls_list(
         sz = MAX_PATH + gsup.KnownDllsNameCbMax + gsup.KnownDllsPathCbMax;
     }
 
-    if (sz == 0) {
+    if (sz == 0 || dlls_path == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
+
+    pathLen = wcslen(dlls_path);
+    escPathAlloc = (pathLen * 6) + 1;
+    escapedPath = (PWSTR)heap_calloc(NULL, escPathAlloc * sizeof(WCHAR));
+    if (escapedPath == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
+
+    if (!json_escape_string(dlls_path, escapedPath, escPathAlloc, &escPathLen)) {
+        heap_free(NULL, escapedPath);
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         return;
     }
@@ -185,11 +201,10 @@ void cmd_query_knowndlls_list(
             0,
             L"%ws{\"path\":\"%ws\", \"entries\":[",
             WDEP_STATUS_OK,
-            dlls_path);
+            escapedPath);
 
         if (SUCCEEDED(hr)) {
-            len = endPtr - buffer;
-            mlist_add(&msg_lh, buffer, len);
+            mlist_add(&msg_lh, buffer, endPtr - buffer);
         }
 
         i = 0;
@@ -208,8 +223,7 @@ void cmd_query_knowndlls_list(
                 escapedName);
 
             if (SUCCEEDED(hr)) {
-                len = endPtr - buffer;
-                mlist_add(&msg_lh, buffer, len);
+                mlist_add(&msg_lh, buffer, endPtr - buffer);
             }
 
             dll_entry = dll_entry->Next;
@@ -224,6 +238,8 @@ void cmd_query_knowndlls_list(
     else {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
     }
+
+    heap_free(NULL, escapedPath);
 }
 
 /*

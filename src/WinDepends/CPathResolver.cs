@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        14 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -446,6 +446,31 @@ public static class CPathResolver
         out SearchOrderType resolver)
     {
         resolver = SearchOrderType.None;
+
+        // Direct absolute/UNC path handling.
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            string direct = fileName.Trim().Trim('"');
+            if (direct.Contains('/'))
+                direct = direct.Replace('/', '\\');
+
+            if (Path.IsPathRooted(direct))
+            {
+                string full;
+                try
+                {
+                    full = Path.GetFullPath(direct);
+                }
+                catch
+                {
+                    return string.Empty;
+                }
+
+                resolver = SearchOrderType.ApplicationDirectory;
+                return full;
+            }
+        }
+
         string result;
 
         foreach (var searchOrder in searchOrderUM)

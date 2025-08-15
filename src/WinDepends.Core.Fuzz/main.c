@@ -1,13 +1,13 @@
 /*
-*  File: tests-main.c
+*  File: main.c
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Oct 01, 2024
+*  Modified on: Aug 11, 2025
 *
 *      Project: WinDepends.Core.Fuzz
 *
-*      Author:
+*      Author: WinDepends authors
 */
 
 #define WIN32_LEAN_AND_MEAN
@@ -19,6 +19,12 @@
 #pragma comment(lib, "Shell32.lib")
 
 LPWSTR g_AppDir;
+static BOOL g_EnableJsonValidation = TRUE;
+static volatile LONG g_TotalFiles = 0;
+static volatile LONG g_JsonTotal = 0;
+static volatile LONG g_JsonValid = 0;
+static volatile LONG g_JsonInvalid = 0;
+
 #define CORE_TEST L"WinDepends.Core.Tests.exe"
 #ifdef _WIN64
 #define CORE_APP  L"WinDepends.Core.x64.exe"
@@ -26,18 +32,245 @@ LPWSTR g_AppDir;
 #define CORE_APP  L"WinDepends.Core.x86.exe"
 #endif
 
+/* ===================== JSON VALIDATION ===================== */
+
+static void JsonSkipWs(const char** p, const char* end)
+{
+    while (*p < end) {
+        char c = **p;
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+            (*p)++;
+        else
+            break;
+    }
+}
+
+static int JsonParseString(const char** p, const char* end)
+{
+    const char* s;
+    unsigned i;
+    if (*p >= end || **p != '\"') return 0;
+    (*p)++;
+    s = *p;
+    while (s < end) {
+        char c = *s++;
+        if ((unsigned char)c < 0x20) return 0;
+        if (c == '\\') {
+            if (s >= end) return 0;
+            c = *s++;
+            switch (c) {
+            case '\"': case '\\': case '/':
+            case 'b': case 'f': case 'n':
+            case 'r': case 't':
+                break;
+            case 'u':
+                for (i = 0; i < 4; i++) {
+                    if (s >= end) return 0;
+                    c = *s++;
+                    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                        return 0;
+                }
+                break;
+            default:
+                return 0;
+            }
+        }
+        else if (c == '\"') {
+            *p = s;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int JsonParseNumber(const char** p, const char* end)
+{
+    const char* s = *p;
+    int digits = 0;
+    if (s < end && (*s == '-')) s++;
+    if (s < end && *s == '0') {
+        s++;
+    }
+    else {
+        if (s >= end || *s < '1' || *s > '9') return 0;
+        while (s < end && *s >= '0' && *s <= '9') s++;
+    }
+    if (s < end && *s == '.') {
+        s++;
+        if (s >= end || *s < '0' || *s > '9') return 0;
+        while (s < end && *s >= '0' && *s <= '9') s++;
+    }
+    if (s < end && (*s == 'e' || *s == 'E')) {
+        s++;
+        if (s < end && (*s == '+' || *s == '-')) s++;
+        if (s >= end || *s < '0' || *s > '9') return 0;
+        while (s < end && *s >= '0' && *s <= '9') s++;
+    }
+    digits = (int)(s - *p);
+    if (digits <= 0) return 0;
+    *p = s;
+    return 1;
+}
+
+static int JsonParseLiteral(const char** p, const char* end, const char* lit, size_t len)
+{
+    if ((size_t)(end - *p) < len) return 0;
+    if (memcmp(*p, lit, len) == 0) {
+        *p += len;
+        return 1;
+    }
+    return 0;
+}
+
+static int JsonParseValue(const char** p, const char* end, int depth);
+
+static int JsonParseArray(const char** p, const char* end, int depth)
+{
+    if (**p != '[') return 0;
+    (*p)++;
+    JsonSkipWs(p, end);
+    if (*p >= end) return 0;
+    if (**p == ']') {
+        (*p)++;
+        return 1;
+    }
+    for (;;) {
+        if (!JsonParseValue(p, end, depth + 1)) return 0;
+        JsonSkipWs(p, end);
+        if (*p >= end) return 0;
+        if (**p == ']') {
+            (*p)++;
+            return 1;
+        }
+        if (**p != ',') return 0;
+        (*p)++;
+        JsonSkipWs(p, end);
+        if (*p >= end) return 0;
+    }
+}
+
+static int JsonParseObject(const char** p, const char* end, int depth)
+{
+    if (**p != '{') return 0;
+    (*p)++;
+    JsonSkipWs(p, end);
+    if (*p >= end) return 0;
+    if (**p == '}') {
+        (*p)++;
+        return 1;
+    }
+    for (;;) {
+        if (!JsonParseString(p, end)) return 0;
+        JsonSkipWs(p, end);
+        if (*p >= end || **p != ':') return 0;
+        (*p)++;
+        JsonSkipWs(p, end);
+        if (!JsonParseValue(p, end, depth + 1)) return 0;
+        JsonSkipWs(p, end);
+        if (*p >= end) return 0;
+        if (**p == '}') {
+            (*p)++;
+            return 1;
+        }
+        if (**p != ',') return 0;
+        (*p)++;
+        JsonSkipWs(p, end);
+        if (*p >= end) return 0;
+    }
+}
+
+static int JsonParseValue(const char** p, const char* end, int depth)
+{
+    if (depth > 128) return 0;
+    JsonSkipWs(p, end);
+    if (*p >= end) return 0;
+    switch (**p) {
+    case '{':
+        return JsonParseObject(p, end, depth);
+    case '[':
+        return JsonParseArray(p, end, depth);
+    case '\"':
+        return JsonParseString(p, end);
+    case 't':
+        return JsonParseLiteral(p, end, "true", 4);
+    case 'f':
+        return JsonParseLiteral(p, end, "false", 5);
+    case 'n':
+        return JsonParseLiteral(p, end, "null", 4);
+    default:
+        if ((**p == '-') || (**p >= '0' && **p <= '9'))
+            return JsonParseNumber(p, end);
+        return 0;
+    }
+}
+
+static int ValidateJsonStrict(const char* line, size_t len)
+{
+    const char* p = line;
+    const char* end = line + len;
+    JsonSkipWs(&p, end);
+    if (p >= end) return 0;
+    if (*p != '{' && *p != '[') return 0;
+    if (!JsonParseValue(&p, end, 0)) return 0;
+    JsonSkipWs(&p, end);
+    return p == end;
+}
+
+static int IsLikelyJson(const char* line, size_t len)
+{
+    size_t i;
+    while (len && (line[0] == ' ' || line[0] == '\t' || line[0] == '\r' || line[0] == '\n'))
+        line++, len--;
+    while (len && (line[len - 1] == ' ' || line[len - 1] == '\t' || line[len - 1] == '\r' || line[len - 1] == '\n'))
+        len--;
+    if (len < 2) return 0;
+    if ((line[0] != '{' && line[0] != '[') || (line[len - 1] != '}' && line[len - 1] != ']')) return 0;
+    for (i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)line[i];
+        if (c < 0x20 && c != '\t' && c != '\n' && c != '\r')
+            return 0;
+    }
+    return 1;
+}
+
+static void ValidateAndReportJson(const char* line, size_t len)
+{
+    int ok;
+    if (!g_EnableJsonValidation) return;
+    if (!IsLikelyJson(line, len)) return;
+    InterlockedIncrement(&g_JsonTotal);
+    ok = ValidateJsonStrict(line, len);
+    if (ok) {
+        InterlockedIncrement(&g_JsonValid);
+        printf("[FUZZ][JSON][OK]\n");
+    }
+    else {
+        InterlockedIncrement(&g_JsonInvalid);
+        printf("[FUZZ][JSON][INVALID]\n");
+    }
+}
+
+/* ===================== END JSON VALIDATION ===================== */
 
 HANDLE StartCoreApp()
 {
-    WCHAR szCoreAppPath[1024];
+    HRESULT hr;
     PROCESS_INFORMATION pi;
     STARTUPINFO si;
-
-    StringCchPrintf(szCoreAppPath, ARRAYSIZE(szCoreAppPath), TEXT("%ws\\%ws"), g_AppDir, CORE_APP);
+    WCHAR szCoreAppPath[MAX_PATH * 2];
+    WCHAR szCmdLine[MAX_PATH * 2];
 
     ZeroMemory(&pi, sizeof(pi));
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
+
+    hr = StringCchPrintf(szCoreAppPath, ARRAYSIZE(szCoreAppPath), TEXT("%ws\\%ws"), g_AppDir, CORE_APP);
+    if (FAILED(hr))
+        return NULL;
+
+    hr = StringCchPrintf(szCmdLine, ARRAYSIZE(szCmdLine), L"\"%ws\"", szCoreAppPath);
+    if (FAILED(hr))
+        return NULL;
 
     if (CreateProcess(NULL, szCoreAppPath, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         printf("[FUZZ][OK] Server process executed successfully\n");
@@ -46,130 +279,232 @@ HANDLE StartCoreApp()
     }
     else
     {
-        printf("[FUZZ][ERROR] Executing server process failed\n");
+        printf("[FUZZ][ERROR] Executing server process failed (err=%lu)\n", GetLastError());
     }
 
     return NULL;
 }
 
-DWORD WINAPI ThreadProc(HANDLE hChildOutRead)
+DWORD WINAPI ThreadProc(LPVOID Param)
 {
-    CHAR buffer[4096];
-    DWORD bytesRead = 0;
-    while (ReadFile(hChildOutRead, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead != 0) {
-        printf("%.*s", bytesRead, buffer);
+    HANDLE hChildOutRead = (HANDLE)Param;
+    CHAR chunk[4096];
+    CHAR* pszLineBuf = NULL;
+    DWORD bytesRead;
+    SIZE_T lineLen = 0, i;
+    DWORD cchLineBuf = 16 * 1024;
+
+    pszLineBuf = (CHAR*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cchLineBuf);
+    if (pszLineBuf) {
+
+        for (;;) {
+            if (!ReadFile(hChildOutRead, chunk, sizeof(chunk), &bytesRead, NULL) || bytesRead == 0)
+                break;
+
+            for (i = 0; i < bytesRead; i++) {
+                char c = chunk[i];
+                if (c == '\n' || lineLen + 1 >= cchLineBuf) {
+                    pszLineBuf[lineLen] = 0;
+                    printf("%s\n", pszLineBuf);
+                    ValidateAndReportJson(pszLineBuf, lineLen);
+                    lineLen = 0;
+                    if (c != '\n' && c != '\r') {
+                        pszLineBuf[lineLen++] = c;
+                    }
+                }
+                else if (c != '\r') {
+                    pszLineBuf[lineLen++] = c;
+                }
+            }
+            fflush(stdout);
+        }
+
+        if (lineLen) {
+            pszLineBuf[lineLen] = 0;
+            printf("%s\n", pszLineBuf);
+            ValidateAndReportJson(pszLineBuf, lineLen);
+        }
+
+        HeapFree(GetProcessHeap(), 0, pszLineBuf);
     }
-    ExitThread(0);
+    return 0;
+}
+
+static void PrintSummary(void)
+{
+    LONG totalFiles = g_TotalFiles;
+    LONG jsonTotal = g_JsonTotal;
+    LONG jsonValid = g_JsonValid;
+    LONG jsonInvalid = g_JsonInvalid;
+    printf("[FUZZ][SUMMARY] Files=%ld JSON_Total=%ld JSON_Valid=%ld JSON_Invalid=%ld\n",
+        totalFiles, jsonTotal, jsonValid, jsonInvalid);
 }
 
 void FuzzFromDirectory(LPWSTR directoryPath)
 {
-    WCHAR szFullPath[4096];
-    WCHAR szSearchDir[MAX_PATH * 2];
+    HRESULT hr;
+    DWORD waitResult = 0, tid, cchFullPath = MAX_PATH * 2, cchCmdLine = MAX_PATH * 4;
+    HANDLE hChildOutRead, hChildOutWrite, hThread = NULL;
+    HANDLE hFind = INVALID_HANDLE_VALUE, hServerProcess = NULL;
+    LPWSTR ext;
+    WCHAR* pszFullPath = NULL;
+    WCHAR* pszCmdLine = NULL;
     WIN32_FIND_DATA findFileData;
-    HANDLE hFind, hProcess;
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
     SECURITY_ATTRIBUTES saAttr;
-    HANDLE hChildOutRead = NULL;
-    HANDLE hChildOutWrite = NULL;
+    WCHAR szSearchDir[MAX_PATH * 2];
+    WCHAR szTestExePath[MAX_PATH * 2];
 
-    printf("[FUZZ][OK] Starting fuzz loop\n");
+    __try {
+        printf("[FUZZ][OK] Starting fuzz loop\n");
 
-    StringCchPrintf(szSearchDir, ARRAYSIZE(szSearchDir), L"%ws\\*", directoryPath);
-    hFind = FindFirstFile(szSearchDir, &findFileData);
-    if (hFind == INVALID_HANDLE_VALUE) {
-        printf("[FUZZ][ERROR] Error FindFirstFile failed\n");
-        return;
-    }
+        pszFullPath = (WCHAR*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cchFullPath * sizeof(WCHAR));
+        pszCmdLine = (WCHAR*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cchCmdLine * sizeof(WCHAR));
+        if (pszCmdLine == NULL || pszFullPath == NULL) {
+            printf("[FUZZ][ERROR] Memory allocation failed\n");
+            __leave;
+        }
 
-    do {
+        hr = StringCchPrintf(szSearchDir, ARRAYSIZE(szSearchDir), L"%ws\\*", directoryPath);
+        if (FAILED(hr)) {
+            printf("[FUZZ][ERROR] Path too long\n");
+            __leave;
+        }
 
-        if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+        hFind = FindFirstFile(szSearchDir, &findFileData);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            printf("[FUZZ][ERROR] Error FindFirstFile failed (err=%lu)\n", GetLastError());
+            __leave;
+        }
 
-            hProcess = StartCoreApp();
-            if (hProcess) {
+        hr = StringCchPrintf(szTestExePath, ARRAYSIZE(szTestExePath), L"%ws\\%ws", g_AppDir, CORE_TEST);
+        if (FAILED(hr)) {
+            FindClose(hFind);
+            __leave;
+        }
 
-                saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-                saAttr.bInheritHandle = TRUE;
-                saAttr.lpSecurityDescriptor = NULL;
+        do {
 
-                if (CreatePipe(&hChildOutRead, &hChildOutWrite, &saAttr, 0)) {
+            if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                continue;
 
-                    SetHandleInformation(hChildOutRead, HANDLE_FLAG_INHERIT, 0);
+            // Skip minidumps in test directory.
+            ext = wcsrchr(findFileData.cFileName, L'.');
+            if (ext && (_wcsicmp(ext, L".dmp") == 0))
+                continue;
 
-                    StringCchPrintf(szFullPath, ARRAYSIZE(szFullPath), TEXT("%ws\\%ws %ws\\%ws"),
-                        g_AppDir, CORE_TEST, directoryPath, findFileData.cFileName);
+            hServerProcess = StartCoreApp();
+            if (!hServerProcess)
+                continue;
 
-                    ZeroMemory(&si, sizeof(si));
-                    ZeroMemory(&pi, sizeof(pi));
+            ZeroMemory(&saAttr, sizeof(saAttr));
+            saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+            saAttr.bInheritHandle = TRUE;
 
-                    si.cb = sizeof(si);
-                    si.hStdError = hChildOutWrite;
-                    si.hStdOutput = hChildOutWrite;
-                    si.dwFlags |= STARTF_USESTDHANDLES;
+            hChildOutRead = NULL;
+            hChildOutWrite = NULL;
 
-                    printf("\n=============================================================================\n");
-                    wprintf(L"[FUZZ] File %s \n", findFileData.cFileName);
-                    printf("=============================================================================\n");
+            if (!CreatePipe(&hChildOutRead, &hChildOutWrite, &saAttr, 0)) {
+                printf("[FUZZ][ERROR] CreatePipe failed (err=%lu)\n", GetLastError());
+                TerminateProcess(hServerProcess, 0);
+                CloseHandle(hServerProcess);
+                continue;
+            }
 
-                    // CreateProcess parameters
-                    if (CreateProcess(NULL, szFullPath, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+            SetHandleInformation(hChildOutRead, HANDLE_FLAG_INHERIT, 0);
 
-                        SetConsoleTitle(szFullPath);
+            hr = StringCchPrintf(pszFullPath, cchFullPath, L"%ws\\%ws", directoryPath, findFileData.cFileName);
+            if (FAILED(hr)) {
+                printf("[FUZZ][ERROR] Full path too long, skipping\n");
+                CloseHandle(hChildOutRead);
+                CloseHandle(hChildOutWrite);
+                TerminateProcess(hServerProcess, 0);
+                CloseHandle(hServerProcess);
+                continue;
+            }
 
-                        CloseHandle(hChildOutWrite);
-                        hChildOutWrite = NULL;
+            hr = StringCchPrintf(pszCmdLine, cchCmdLine, L"\"%ws\" \"%ws\"", szTestExePath, pszFullPath);
+            if (FAILED(hr)) {
+                printf("[FUZZ][ERROR] Command line too long, skipping\n");
+                CloseHandle(hChildOutRead);
+                CloseHandle(hChildOutWrite);
+                TerminateProcess(hServerProcess, 0);
+                CloseHandle(hServerProcess);
+                continue;
+            }
 
-                        DWORD tid;
-                        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ThreadProc, (LPVOID)hChildOutRead, 0, &tid);
-                        if (hThread) {
-                            if (WaitForSingleObject(hThread, 2 * 1000) == WAIT_TIMEOUT) {
-                                printf("\n[FUZZ][ERROR] Read thread timeout reached, terminating thread\n");
-                                TerminateThread(hThread, 0);
-                                CloseHandle(hThread);
-                            }
-                        }
+            ZeroMemory(&si, sizeof(si));
+            ZeroMemory(&pi, sizeof(pi));
+            si.cb = sizeof(si);
+            si.hStdError = hChildOutWrite;
+            si.hStdOutput = hChildOutWrite;
+            si.dwFlags = STARTF_USESTDHANDLES;
 
-                        if (WaitForSingleObject(pi.hProcess, 2 * 1000) == WAIT_TIMEOUT) {
-                            printf("\n[FUZZ][ERROR] Timeout reached, terminating test application\n");
-                            TerminateProcess(pi.hProcess, (DWORD)ERROR_TIMEOUT);
-                        }
+            printf("\n=============================================================================\n");
+            wprintf(L"[FUZZ] File %s \n", findFileData.cFileName);
+            printf("=============================================================================\n");
 
-                        CloseHandle(pi.hProcess);
-                        CloseHandle(pi.hThread);
-                    }
-                    TerminateProcess(hProcess, 0);
-                    CloseHandle(hProcess);
-                    CloseHandle(hChildOutRead);
-                    if (hChildOutWrite) {
-                        CloseHandle(hChildOutWrite);
-                    }
+            if (CreateProcess(szTestExePath, pszCmdLine, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
 
-                    printf("[FUZZ][OK] Server process terminated successfully\n");
+                SetConsoleTitle(pszFullPath);
+
+                CloseHandle(hChildOutWrite);
+                hChildOutWrite = NULL;
+
+                hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ThreadProc, (LPVOID)hChildOutRead, 0, &tid);
+                if (hThread == NULL) {
+                    printf("[FUZZ][ERROR] Create thread failed (err=%lu)\n", GetLastError());
+                }
+
+                waitResult = WaitForSingleObject(pi.hProcess, 5000);
+                if (waitResult == WAIT_TIMEOUT) {
+                    printf("\n[FUZZ][ERROR] Timeout reached, terminating test application\n");
+                    TerminateProcess(pi.hProcess, (DWORD)ERROR_TIMEOUT);
+                    WaitForSingleObject(pi.hProcess, 500);
+                }
+
+                if (hThread) {
+                    WaitForSingleObject(hThread, 1500);
+                    CloseHandle(hThread);
+                }
+
+                CloseHandle(pi.hProcess);
+                CloseHandle(pi.hThread);
+            }
+            else {
+                printf("[FUZZ][ERROR] Executing test process failed (err=%lu)\n", GetLastError());
+                if (hChildOutWrite) {
+                    CloseHandle(hChildOutWrite);
                 }
             }
-        }
 
-    } while (FindNextFile(hFind, &findFileData) != 0);
+            CloseHandle(hChildOutRead);
+            TerminateProcess(hServerProcess, 0);
+            CloseHandle(hServerProcess);
 
-    printf("[FUZZ][OK] Completed!\n");
+            printf("[FUZZ][OK] Server process terminated successfully\n");
 
-    FindClose(hFind);
+        } while (FindNextFile(hFind, &findFileData) != 0);
+
+        printf("[FUZZ][OK] Completed!\n");
+        PrintSummary();
+    }
+    __finally {
+        if (hFind != INVALID_HANDLE_VALUE) FindClose(hFind);
+        if (pszCmdLine) HeapFree(GetProcessHeap(), 0, pszCmdLine);
+        if (pszFullPath) HeapFree(GetProcessHeap(), 0, pszFullPath);
+    }
 }
 
-void main()
+int wmain(int argc, wchar_t* argv[])
 {
-    LPWSTR* szArglist;
-    int     nArgs;
-
-    szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
-    if (szArglist) {
-        if (nArgs > 2) {
-            g_AppDir = szArglist[1];
-            FuzzFromDirectory(szArglist[2]);
-        }
-
-        LocalFree((HLOCAL)szArglist);
+    if (argc < 3) {
+        printf("Usage: WinDepends.Core.Fuzz.exe <AppDirectory> <InputDirectory>\n");
+        return 1;
     }
+
+    g_AppDir = argv[1];
+    FuzzFromDirectory(argv[2]);
+    return 0;
 }

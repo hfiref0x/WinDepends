@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Jun 2025
+*  DATE:        14 Aug 2025
 *  
 *  Core Server reply structures (JSON serialized).
 *
@@ -253,6 +253,18 @@ public class CCoreImports
     /// </summary>
     [DataMember(Name = "exception_code_delay")]
     public UInt32 ExceptionCodeDelay { get; set; }
+
+    /// <summary>
+    /// Number of invalid or malformed standard import library entries encountered during parsing.
+    /// </summary>
+    [DataMember(Name = "invalid_std_entries")]
+    public UInt32 InvalidImportModuleCount { get; set; }
+
+    /// <summary>
+    /// Number of invalid or malformed delay-load import library entries encountered during parsing.
+    /// </summary>
+    [DataMember(Name = "invalid_dl_entries")]
+    public UInt32 InvalidDelayImportModuleCount { get; set; }
 
     /// <summary>
     /// List of import libraries.

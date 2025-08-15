@@ -51,4 +51,10 @@ void mlist_append_to_main(
     _In_ PLIST_ENTRY dest
 );
 
+#ifdef _DEBUG
+VOID mlist_debug_dump(
+    _In_ PLIST_ENTRY head
+);
+#endif
+
 #endif _MLIST_H_

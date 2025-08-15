@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 15, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -190,3 +190,71 @@ void mlist_append_to_main(
     }
     InitializeListHead(src);
 }
+
+#ifdef _DEBUG
+VOID mlist_debug_dump(
+    _In_ PLIST_ENTRY head
+)
+{
+    PLIST_ENTRY entry;
+    message_node* node;
+    SIZE_T totalLen;
+    SIZE_T pos;
+    SIZE_T len;
+    HANDLE processHeap;
+    PWCHAR buffer;
+    BOOL overflow;
+
+    if (head == NULL) {
+        DEBUG_PRINT("mlist_debug_dump: (null)\r\n");
+        return;
+    }
+
+    if (IsListEmpty(head)) {
+        DEBUG_PRINT("mlist_debug_dump: <empty>\r\n");
+        return;
+    }
+
+    totalLen = 0;
+    overflow = FALSE;
+
+    for (entry = head->Flink; entry != head; entry = entry->Flink) {
+        node = CONTAINING_RECORD(entry, message_node, ListEntry);
+        if (node->message && node->messageLength) {
+            if (SIZE_MAX - totalLen <= node->messageLength) {
+                overflow = TRUE;
+                break;
+            }
+            totalLen += node->messageLength;
+        }
+    }
+
+    if (overflow) {
+        DEBUG_PRINT("mlist_debug_dump: overflow\r\n");
+        return;
+    }
+
+    processHeap = GetProcessHeap();
+    buffer = (PWCHAR)heap_calloc(processHeap, (totalLen + 1) * sizeof(WCHAR));
+    if (!buffer) {
+        DEBUG_PRINT("mlist_debug_dump: alloc failed\r\n");
+        return;
+    }
+
+    pos = 0;
+    for (entry = head->Flink; entry != head; entry = entry->Flink) {
+        node = CONTAINING_RECORD(entry, message_node, ListEntry);
+        if (node->message && node->messageLength) {
+            len = node->messageLength;
+            if (pos + len > totalLen) break;
+            memcpy(buffer + pos, node->message, len * sizeof(WCHAR));
+            pos += len;
+        }
+    }
+    buffer[pos] = 0;
+
+    DEBUG_PRINT("mlist_debug_dump: %ws\r\n", buffer);
+
+    heap_free(processHeap, buffer);
+}
+#endif

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Aug 2025
+*  DATE:        15 Aug 2025
 *  
 *  Core Server communication class.
 *
@@ -259,8 +259,7 @@ public class CCoreClient : IDisposable
         }
     }
 
-    public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, CModule module,
-                                                         bool preProcessData = false)
+    public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, CModule module)
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(CCoreClient));
@@ -285,11 +284,6 @@ public class CCoreClient : IDisposable
         if (string.IsNullOrEmpty(result))
         {
             return null;
-        }
-
-        if (preProcessData)
-        {
-            result = result.Replace("\\", "\\\\");
         }
 
         return DeserializeDataJSON(module?.FileName, objectType, result);
@@ -603,7 +597,6 @@ public class CCoreClient : IDisposable
     public object GetModuleInformationByType(ModuleInformationType moduleInformationType, CModule module, string parameters = null)
     {
         string cmd;
-        bool preProcessData = false;
         Type objectType;
 
         switch (moduleInformationType)
@@ -613,12 +606,10 @@ public class CCoreClient : IDisposable
                 objectType = typeof(CCoreImageHeaders);
                 break;
             case ModuleInformationType.Imports:
-                preProcessData = true;
                 cmd = "imports\r\n";
                 objectType = typeof(CCoreImports);
                 break;
             case ModuleInformationType.Exports:
-                preProcessData = true;
                 cmd = "exports\r\n";
                 objectType = typeof(CCoreExports);
                 break;
@@ -634,7 +625,7 @@ public class CCoreClient : IDisposable
                 return null;
         }
 
-        return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, module, preProcessData);
+        return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, module);
     }
 
     public List<CCoreDirectoryEntry> GetModuleDataDirectories(CModule module)
@@ -1157,6 +1148,22 @@ public class CCoreClient : IDisposable
 
     }
 
+    private void CheckInvalidImports(CModule module, CCoreImports imports)
+    {
+        string modName = module?.FileName ?? "<unknown>";
+
+        if (imports.InvalidImportModuleCount != 0)
+        {
+            _addLogMessage($"Invalid import entries found ({imports.InvalidImportModuleCount}) while processing {modName}", 
+                LogMessageType.ErrorOrWarning);
+        }
+        if (imports.InvalidDelayImportModuleCount != 0)
+        {
+            _addLogMessage($"Invalid delay-load import entries found ({imports.InvalidDelayImportModuleCount}) while processing {modName}", 
+                LogMessageType.ErrorOrWarning);
+        }
+    }
+
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
                                                  List<SearchOrderType> searchOrderKM,
@@ -1181,6 +1188,7 @@ public class CCoreClient : IDisposable
         CCoreImports rawImports = (CCoreImports)GetModuleInformationByType(ModuleInformationType.Imports, module);
         if (rawImports != null)
         {
+            CheckInvalidImports(module, rawImports);
             CheckIfKernelModule(module, rawImports);
             ProcessImports(module, false, rawImports.Library, searchOrderUM, searchOrderKM, parentImportsHashTable);
             ProcessImports(module, true, rawImports.LibraryDelay, searchOrderUM, searchOrderKM, parentImportsHashTable);
@@ -1224,9 +1232,8 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        CCoreKnownDlls knownDllsObject = (CCoreKnownDlls)SendCommandAndReceiveReplyAsObjectJSON(
-            command, typeof(CCoreKnownDlls), null, true);
-        if (knownDllsObject != null)
+        if (SendCommandAndReceiveReplyAsObjectJSON(command, typeof(CCoreKnownDlls), null) 
+            is CCoreKnownDlls knownDllsObject)
         {
             knownDllsList.Clear();
             if (knownDllsObject.Entries != null)

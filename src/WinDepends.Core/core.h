@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 14, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -58,6 +58,8 @@
 #define WDEP_MSG_LENGTH_SMALL   1024
 #define WDEP_MSG_LENGTH_MEDIUM  2048
 #define WDEP_MSG_LENGTH_BIG     4096
+
+#define WDEP_MAX_FUNC_NAME_LEN  0x10000
 
 typedef struct {
     unsigned char* module;

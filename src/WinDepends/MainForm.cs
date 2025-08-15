@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Aug 2025
+*  DATE:        15 Aug 2025
 *  
 *  Codename:    VasilEk
 *
@@ -446,6 +446,12 @@ public partial class MainForm : Form
         return true;
     }
 
+    /// <summary>
+    /// Builds a display name for a module from the given raw name
+    /// </summary>
+    /// <param name="rawName">The original path or module name</param>
+    /// <param name="fullPaths">If true, returns rawName directly. If false processes the path to extract the last segment.</param>
+    /// <returns></returns>
     private static string BuildModuleDisplayName(string rawName, bool fullPaths)
     {
         if (string.IsNullOrEmpty(rawName))
@@ -454,39 +460,47 @@ public partial class MainForm : Form
         if (fullPaths)
             return rawName;
 
-        // Normalize separators
-        string path = rawName.Replace('/', '\\').Trim();
+        string path = rawName.Replace('/', '\\');
 
-        // Trim trailing separators except for drive roots (e.g. "C:\")
-        if (path.Length > 3 && (path.EndsWith("\\") || path.EndsWith("/")))
-            path = path.TrimEnd('\\', '/');
+        // Trim trailing backslashes (any count) for consistent last-segment extraction
+        int len = path.Length;
+        while (len > 0 && path[len - 1] == '\\')
+            len--;
+        if (len == 0)
+            return rawName;
+        if (len != path.Length)
+            path = path.Substring(0, len);
 
-        // UNC handling: \\server\share\...
-        if (path.StartsWith(@"\\"))
+        bool isUnc = false;
+        int uncStart = 0;
+
+        // Extended UNC: \\?\UNC\server\share\...
+        if (path.Length >= 8 && path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
         {
-            // Split components after leading UNC prefix
-            // Expect: \\server\share\...(optional path)...\file
-            // We want: \\server\share\file
-            var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-            // parts[0] = server, parts[1] = share, remaining = path segments (maybe)
-            if (parts.Length >= 2)
-            {
-                string filePart = Path.GetFileName(path);
-                if (string.IsNullOrEmpty(filePart))
-                {
-                    // Path points to a UNC directory; keep as \\server\share
-                    return @"\\" + parts[0] + "\\" + parts[1];
-                }
-                return @"\\" + parts[0] + "\\" + parts[1] + "\\" + filePart;
-            }
-            // Fallback (malformed UNC?)
-            string last = Path.GetFileName(path);
-            return string.IsNullOrEmpty(last) ? path : last;
+            isUnc = true;
+            uncStart = 8;
+        }
+        // Standard UNC: \\server\share\...
+        else if (path.Length >= 2 && path[0] == '\\' && path[1] == '\\' &&
+                 !(path.Length >= 4 && path[2] == '?' && path[3] == '\\')) // exclude \\?\
+        {
+            isUnc = true;
+            uncStart = 2;
         }
 
-        // Non-UNC: return just the file name (fallback to trimmed path if empty)
-        string nameOnly = Path.GetFileName(path);
-        return string.IsNullOrEmpty(nameOnly) ? path : nameOnly;
+        // Always return last segment when not fullPaths. For UNC this is the file name;
+        // for non-UNC it's the file name.
+        int end = path.Length - 1;
+        int lastSep = path.LastIndexOf('\\', end);
+        int segStart = lastSep >= 0 ? lastSep + 1 : 0;
+
+        if (isUnc && segStart < uncStart)
+            segStart = uncStart; // handle \\server or \\?\UNC\server edge
+
+        if (segStart >= path.Length)
+            return rawName; // fallback (should not normally occur)
+
+        return path.Substring(segStart);
     }
 
     /// <summary>

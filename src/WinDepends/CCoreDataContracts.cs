@@ -245,25 +245,25 @@ public class CCoreImports
     /// <summary>
     /// Exception code from the system for the standard import parsing exception, or 0 if none.
     /// </summary>
-    [DataMember(Name = "exception_code_std")]
+    [DataMember(Name = "ex_std")]
     public UInt32 ExceptionCodeStd { get; set; }
 
     /// <summary>
     /// Exception code from the system for the delay-load import parsing exception, or 0 if none.
     /// </summary>
-    [DataMember(Name = "exception_code_delay")]
+    [DataMember(Name = "ex_delay")]
     public UInt32 ExceptionCodeDelay { get; set; }
 
     /// <summary>
     /// Number of invalid or malformed standard import library entries encountered during parsing.
     /// </summary>
-    [DataMember(Name = "invalid_std_entries")]
+    [DataMember(Name = "inv_std")]
     public UInt32 InvalidImportModuleCount { get; set; }
 
     /// <summary>
     /// Number of invalid or malformed delay-load import library entries encountered during parsing.
     /// </summary>
-    [DataMember(Name = "invalid_dl_entries")]
+    [DataMember(Name = "inv_delay")]
     public UInt32 InvalidDelayImportModuleCount { get; set; }
 
     /// <summary>

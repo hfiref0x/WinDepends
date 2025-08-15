@@ -1476,19 +1476,19 @@ BOOL get_imports(
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", import_exception);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
 
-        mlist_add(&msg_lh, L",\"exception_code_std\":", WSTRING_LEN(L",\"exception_code_std\":"));
+        mlist_add(&msg_lh, L",\"ex_std\":", WSTRING_LEN(L",\"ex_std\":"));
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", except_code_std);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
 
-        mlist_add(&msg_lh, L",\"exception_code_delay\":", WSTRING_LEN(L",\"exception_code_delay\":"));
+        mlist_add(&msg_lh, L",\"ex_delay\":", WSTRING_LEN(L",\"ex_delay\":"));
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", except_code_delay);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
 
-        mlist_add(&msg_lh, L",\"invalid_std_entries\":", WSTRING_LEN(L",\"invalid_std_entries\":"));
+        mlist_add(&msg_lh, L",\"inv_std\":", WSTRING_LEN(L",\"inv_std\":"));
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", invalid_std_entries);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
 
-        mlist_add(&msg_lh, L",\"invalid_dl_entries\":", WSTRING_LEN(L",\"invalid_dl_entries\":"));
+        mlist_add(&msg_lh, L",\"inv_delay\":", WSTRING_LEN(L",\"inv_delay\":"));
         StringCchPrintf(msg_text, ARRAYSIZE(msg_text), L"%lu", invalid_dl_entries);
         mlist_add(&msg_lh, msg_text, wcslen(msg_text));
 

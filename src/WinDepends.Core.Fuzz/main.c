@@ -21,6 +21,7 @@
 LPWSTR g_AppDir;
 static BOOL g_EnableJsonValidation = TRUE;
 static volatile LONG g_TotalFiles = 0;
+static volatile LONG g_FailedFiles = 0;
 static volatile LONG g_JsonTotal = 0;
 static volatile LONG g_JsonValid = 0;
 static volatile LONG g_JsonInvalid = 0;
@@ -292,7 +293,7 @@ DWORD WINAPI ThreadProc(LPVOID Param)
     CHAR* pszLineBuf = NULL;
     DWORD bytesRead;
     SIZE_T lineLen = 0, i;
-    DWORD cchLineBuf = 16 * 1024;
+    DWORD cchLineBuf = 16 * (1024 * 1024);
 
     pszLineBuf = (CHAR*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cchLineBuf);
     if (pszLineBuf) {
@@ -333,11 +334,12 @@ DWORD WINAPI ThreadProc(LPVOID Param)
 static void PrintSummary(void)
 {
     LONG totalFiles = g_TotalFiles;
+    LONG failedFiles = g_FailedFiles;
     LONG jsonTotal = g_JsonTotal;
     LONG jsonValid = g_JsonValid;
     LONG jsonInvalid = g_JsonInvalid;
-    printf("[FUZZ][SUMMARY] Files=%ld JSON_Total=%ld JSON_Valid=%ld JSON_Invalid=%ld\n",
-        totalFiles, jsonTotal, jsonValid, jsonInvalid);
+    printf("[FUZZ][SUMMARY] Files=%ld FailedFiles=%ld JSON_Total=%ld JSON_Valid=%ld JSON_Invalid=%ld\n",
+        totalFiles, failedFiles, jsonTotal, jsonValid, jsonInvalid);
 }
 
 void FuzzFromDirectory(LPWSTR directoryPath)
@@ -459,11 +461,14 @@ void FuzzFromDirectory(LPWSTR directoryPath)
 
                 waitResult = WaitForSingleObject(pi.hProcess, 5000);
                 if (waitResult == WAIT_TIMEOUT) {
+                    g_FailedFiles++;
                     printf("\n[FUZZ][ERROR] Timeout reached, terminating test application\n");
                     TerminateProcess(pi.hProcess, (DWORD)ERROR_TIMEOUT);
                     WaitForSingleObject(pi.hProcess, 500);
                 }
-
+                else {
+                    g_TotalFiles++;
+                }
                 if (hThread) {
                     WaitForSingleObject(hThread, 1500);
                     CloseHandle(hThread);
@@ -473,6 +478,7 @@ void FuzzFromDirectory(LPWSTR directoryPath)
                 CloseHandle(pi.hThread);
             }
             else {
+                g_FailedFiles++;
                 printf("[FUZZ][ERROR] Executing test process failed (err=%lu)\n", GetLastError());
                 if (hChildOutWrite) {
                     CloseHandle(hChildOutWrite);

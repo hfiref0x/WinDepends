@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Aug 15, 2025
+*  Modified on: Aug 16, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -79,100 +79,109 @@ BOOL mlist_traverse(
 )
 {
     BOOL bAnyError = FALSE;
-    PLIST_ENTRY listHead = head, entry, nextEntry;
+    PLIST_ENTRY entry, nextEntry;
     message_node* node = NULL;
-    HANDLE processHeap = GetProcessHeap();
+    PWCHAR pchBuffer = NULL; //cumulative buffer
+    SIZE_T cchTotalSize = 128;
+    SIZE_T position = 0;
 
-    PWCHAR pchBuffer = NULL; // cumulative buffer
-    SIZE_T cchTotalSize = 128; // default safe space for cumulative buffer
-    SIZE_T position, msgLen;
-
-    // Early exit for a small sends
-    if (head->Flink != head && head->Flink->Flink == head && action == mlist_send) {
-        node = CONTAINING_RECORD(head->Flink, message_node, ListEntry);
+    // Early exit for single-node send
+    if (action == mlist_send &&
+        !IsListEmpty(head) &&
+        head->Flink->Flink == head)
+    {
+        entry = head->Flink;
+        node = CONTAINING_RECORD(entry, message_node, ListEntry);
         if (node->message) {
             sendstring_plaintext(s, node->message, context);
-            if (!node->isStaticBuffer) {
-                heap_free(processHeap, node->message);
-            }
         }
-        heap_free(processHeap, node);
+
+        if (!node->isStaticBuffer && node->message) {
+            heap_free(NULL, node->message);
+        }
+        heap_free(NULL, node);
+        InitializeListHead(head);
         return TRUE;
     }
 
-    // Send list and dispose
     if (action == mlist_send) {
-
-        position = 0;
-
-        for (entry = listHead->Flink, nextEntry = entry->Flink;
-            entry != listHead;
-            entry = nextEntry, nextEntry = entry->Flink)
-        {
+        // Pass 1: Calculate total size
+        entry = head->Flink;
+        while (entry != head) {
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
-            cchTotalSize += node->messageLength;
-        }
-
-        pchBuffer = (PWCHAR)heap_calloc(processHeap, (1 + cchTotalSize) * sizeof(WCHAR));
-        if (pchBuffer == NULL) {
-            return FALSE;
-        }
-
-        for (entry = listHead->Flink, nextEntry = entry->Flink;
-            entry != listHead;
-            entry = nextEntry, nextEntry = entry->Flink)
-        {
-            node = CONTAINING_RECORD(entry, message_node, ListEntry);
-            if (node->message != NULL) {
-                
-                msgLen = node->messageLength;
-                if (position + msgLen > cchTotalSize) {
+            if (node->messageLength) {
+                if (cchTotalSize > SIZE_MAX - node->messageLength) {
                     bAnyError = TRUE;
+                    break;
                 }
-                else {
+                cchTotalSize += node->messageLength;
+            }
+            entry = entry->Flink;
+        }
+
+        // Allocate buffer if no errors
+        if (!bAnyError) {
+            pchBuffer = (PWCHAR)heap_calloc(NULL, (cchTotalSize + 1) * sizeof(WCHAR));
+            if (!pchBuffer) bAnyError = TRUE;
+        }
+
+        // Pass 2: Process nodes with safe traversal
+        entry = head->Flink;
+        while (entry != head) {
+            nextEntry = entry->Flink;
+            node = CONTAINING_RECORD(entry, message_node, ListEntry);
+
+            // Copy data if buffer available and within bounds
+            if (!bAnyError && pchBuffer && node->message) {
+                SIZE_T msgLen = node->messageLength;
+                if (position <= cchTotalSize &&
+                    msgLen <= cchTotalSize - position)
+                {
                     memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
                     position += msgLen;
                 }
-                
-                if (!node->isStaticBuffer && node->message != NULL)
-                    heap_free(processHeap, node->message);
+                else {
+                    bAnyError = TRUE;
+                }
             }
 
-            heap_free(processHeap, node);
-            if (bAnyError) break;
+            if (!node->isStaticBuffer && node->message) {
+                heap_free(NULL, node->message);
+            }
+            heap_free(NULL, node);
+
+            entry = nextEntry;
         }
 
-        if (bAnyError) {
-            heap_free(processHeap, pchBuffer);
-            pchBuffer = NULL;
-            return FALSE;
+        // Send if successful
+        if (!bAnyError && pchBuffer) {
+            sendstring_plaintext(s, pchBuffer, context);
         }
 
-        sendstring_plaintext(s, pchBuffer, context);
-
+        // Cleanup
+        if (pchBuffer) heap_free(NULL, pchBuffer);
+        InitializeListHead(head);
+        return !bAnyError;
     }
-    else if (action == mlist_free) { 
-        
-        // Just dispose, there is an error
-        for (entry = listHead->Flink, nextEntry = entry->Flink;
-            entry != listHead;
-            entry = nextEntry, nextEntry = entry->Flink)
-        {
+    else if (action == mlist_free) {
+        entry = head->Flink;
+        while (entry != head) {
+            nextEntry = entry->Flink;
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
-                       
-            if (!node->isStaticBuffer && node->message != NULL) {
-                heap_free(processHeap, node->message);
+
+            if (!node->isStaticBuffer && node->message) {
+                heap_free(NULL, node->message);
             }
-            
-            heap_free(processHeap, node);
+            heap_free(NULL, node);
+
+            entry = nextEntry;
         }
+        InitializeListHead(head);
+        return TRUE;
     }
 
-    if (pchBuffer != NULL) {
-        heap_free(processHeap, pchBuffer);
-    }
-
-    return TRUE;
+    //unknown command, just leave
+    return FALSE;
 }
 
 void mlist_append_to_main(
@@ -201,7 +210,6 @@ VOID mlist_debug_dump(
     SIZE_T totalLen;
     SIZE_T pos;
     SIZE_T len;
-    HANDLE processHeap;
     PWCHAR buffer;
     BOOL overflow;
 
@@ -234,8 +242,7 @@ VOID mlist_debug_dump(
         return;
     }
 
-    processHeap = GetProcessHeap();
-    buffer = (PWCHAR)heap_calloc(processHeap, (totalLen + 1) * sizeof(WCHAR));
+    buffer = (PWCHAR)heap_calloc(NULL, (totalLen + 1) * sizeof(WCHAR));
     if (!buffer) {
         DEBUG_PRINT("mlist_debug_dump: alloc failed\r\n");
         return;
@@ -255,6 +262,6 @@ VOID mlist_debug_dump(
 
     DEBUG_PRINT("mlist_debug_dump: %ws\r\n", buffer);
 
-    heap_free(processHeap, buffer);
+    heap_free(NULL, buffer);
 }
 #endif

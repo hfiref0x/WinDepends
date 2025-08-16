@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 14, 2025
+*  Modified on: Aug 16, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -125,12 +125,10 @@ wchar_t* _filepath_w(
 DWORD calc_mapped_file_chksum(
     _In_ PVOID base_address,
     _In_ ULONG file_length,
-    _In_ PUSHORT opt_hdr_chksum
-);
+    _In_ PUSHORT opt_hdr_chksum);
 
-LPVOID get_manifest(
-    _In_ HMODULE module
-);
+LPVOID get_manifest_base64(
+    _In_ HMODULE module);
 
 _Success_(return) BOOL get_params_token(
     _In_ LPCWSTR params,

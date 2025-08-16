@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Aug 14, 2025
+*  Modified on: Aug 16, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -65,11 +65,12 @@ BOOL relocimage(
     _In_ PIMAGE_BASE_RELOCATION RelData,
     _In_ ULONG RelDataSize)
 {
+    ULONG       p = 0, block_size;
     LPWORD      entry;
     LONG64      delta = (ULONG_PTR)MappedView - (ULONG_PTR)RebaseFrom;
-    PIMAGE_BASE_RELOCATION next_block, RelData0 = RelData;
-    ULONG       p = 0, block_size;
     LONG64      rel, * ptr;
+
+    PIMAGE_BASE_RELOCATION next_block, RelData0 = RelData;
 
     if (RelDataSize < sizeof(IMAGE_BASE_RELOCATION))
         return FALSE;
@@ -157,15 +158,13 @@ BOOL get_datadirs(
     _In_opt_ pmodule_ctx context
 )
 {
-    LIST_ENTRY          msg_lh;
-    PIMAGE_DOS_HEADER   dos_hdr;
-    PIMAGE_FILE_HEADER  nt_file_hdr;
-    BOOL                status = FALSE;
-    WCHAR               text[WDEP_MSG_LENGTH_SMALL];
-    DWORD               dir_limit, c;
-    HRESULT             hr;
-    SIZE_T              remaining, len;
-    PWSTR               endPtr;
+    BOOL        status = FALSE;
+    HRESULT     hr;
+    DWORD       dir_limit, c;
+    SIZE_T      remaining;
+    PWSTR       endPtr;
+    LIST_ENTRY  msg_lh;
+    WCHAR       text[WDEP_MSG_LENGTH_SMALL];
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
@@ -176,17 +175,15 @@ BOOL get_datadirs(
 
     __try {
 
-        InitializeListHead(&msg_lh);
-
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
         }
 
-        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
-        nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
-        opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
+        InitializeListHead(&msg_lh);
+
+        opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)context->nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
 
         mlist_add(&msg_lh, WDEP_STATUS_OK JSON_ARRAY_BEGIN, JSON_ARRAY_BEGIN_LEN);
 
@@ -194,8 +191,8 @@ BOOL get_datadirs(
         {
         case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
 
-            if (opt_file_hdr.opt_file_hdr32->NumberOfRvaAndSizes > 256)
-                dir_limit = 256;
+            if (opt_file_hdr.opt_file_hdr32->NumberOfRvaAndSizes > WDEP_MAX_DATA_DIRS)
+                dir_limit = WDEP_MAX_DATA_DIRS;
             else
                 dir_limit = opt_file_hdr.opt_file_hdr32->NumberOfRvaAndSizes;
 
@@ -214,16 +211,15 @@ BOOL get_datadirs(
                 );
 
                 if (SUCCEEDED(hr)) {
-                    len = endPtr - text;
-                    mlist_add(&msg_lh, text, len);
+                    mlist_add(&msg_lh, text, endPtr - text);
                 }
             }
             break;
 
         case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
 
-            if (opt_file_hdr.opt_file_hdr64->NumberOfRvaAndSizes > 256)
-                dir_limit = 256;
+            if (opt_file_hdr.opt_file_hdr64->NumberOfRvaAndSizes > WDEP_MAX_DATA_DIRS)
+                dir_limit = WDEP_MAX_DATA_DIRS;
             else
                 dir_limit = opt_file_hdr.opt_file_hdr64->NumberOfRvaAndSizes;
 
@@ -242,8 +238,7 @@ BOOL get_datadirs(
                 );
 
                 if (SUCCEEDED(hr)) {
-                    len = endPtr - text;
-                    mlist_add(&msg_lh, text, len);
+                    mlist_add(&msg_lh, text, endPtr - text);
                 }
             }
 
@@ -278,21 +273,18 @@ BOOL get_headers(
     _In_opt_ pmodule_ctx context
 )
 {
-    LIST_ENTRY          msg_lh;
-    PIMAGE_DOS_HEADER   dos_hdr;
-    PIMAGE_FILE_HEADER  nt_file_hdr;
-    BOOL                status = FALSE;
-    WCHAR* manifest = NULL;
-    ULONG               i;
-    DWORD               dir_base = 0, dir_size = 0, dllchars_ex = 0, image_size = 0;
-    DWORD               hdr_chars, hdr_subsystem;
-    HRESULT             hr;
-    SIZE_T              remaining, len, manifest_len;
-    PWSTR               endPtr;
+    BOOL        status = FALSE;
+    ULONG       i;
+    DWORD       dir_base = 0, dir_size = 0, dllchars_ex = 0, image_size = 0;
+    DWORD       hdr_chars, hdr_subsystem;
+    HRESULT     hr;
+    PWCHAR      manifest = NULL;
+    SIZE_T      remaining, manifest_len;
+    PWSTR       endPtr;
+    LIST_ENTRY  msg_lh;
 
 #define WDEP_TEXT_BUFFER_SIZE 16384
     static __declspec(thread) WCHAR header_buffer[WDEP_TEXT_BUFFER_SIZE];
-
     PIMAGE_DEBUG_DIRECTORY  pdbg = NULL;
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
@@ -304,21 +296,19 @@ BOOL get_headers(
 
     __try
     {
-        InitializeListHead(&msg_lh);
-
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
         }
 
-        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
-        nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
-        opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
+        InitializeListHead(&msg_lh);
+
+        opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)context->nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
 
         mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
 
-        hdr_chars = nt_file_hdr->Characteristics;
+        hdr_chars = context->nt_file_hdr->Characteristics;
 
         header_buffer[0] = 0;
         hr = StringCchPrintfEx(header_buffer, WDEP_TEXT_BUFFER_SIZE,
@@ -331,18 +321,17 @@ BOOL get_headers(
             L"\"NumberOfSymbols\":%u,"
             L"\"SizeOfOptionalHeader\":%u,"
             L"\"Characteristics\":%u},",
-            nt_file_hdr->Machine,
-            nt_file_hdr->NumberOfSections,
-            nt_file_hdr->TimeDateStamp,
-            nt_file_hdr->PointerToSymbolTable,
-            nt_file_hdr->NumberOfSymbols,
-            nt_file_hdr->SizeOfOptionalHeader,
-            nt_file_hdr->Characteristics
+            context->nt_file_hdr->Machine,
+            context->nt_file_hdr->NumberOfSections,
+            context->nt_file_hdr->TimeDateStamp,
+            context->nt_file_hdr->PointerToSymbolTable,
+            context->nt_file_hdr->NumberOfSymbols,
+            context->nt_file_hdr->SizeOfOptionalHeader,
+            context->nt_file_hdr->Characteristics
         );
 
         if (SUCCEEDED(hr)) {
-            len = endPtr - header_buffer;
-            mlist_add(&msg_lh, header_buffer, len);
+            mlist_add(&msg_lh, header_buffer, endPtr - header_buffer);
         }
 
         switch (opt_file_hdr.opt_file_hdr32->Magic)
@@ -419,8 +408,7 @@ BOOL get_headers(
             );
 
             if (SUCCEEDED(hr)) {
-                len = endPtr - header_buffer;
-                mlist_add(&msg_lh, header_buffer, len);
+                mlist_add(&msg_lh, header_buffer, endPtr - header_buffer);
             }
             break;
 
@@ -494,8 +482,7 @@ BOOL get_headers(
             );
 
             if (SUCCEEDED(hr)) {
-                len = endPtr - header_buffer;
-                mlist_add(&msg_lh, header_buffer, len);
+                mlist_add(&msg_lh, header_buffer, endPtr - header_buffer);
             }
             break;
 
@@ -546,8 +533,7 @@ BOOL get_headers(
                 );
 
                 if (SUCCEEDED(hr)) {
-                    len = endPtr - header_buffer;
-                    mlist_add(&msg_lh, header_buffer, len);
+                    mlist_add(&msg_lh, header_buffer, endPtr - header_buffer);
                 }
             }
         }
@@ -576,8 +562,7 @@ BOOL get_headers(
             );
 
             if (SUCCEEDED(hr)) {
-                len = endPtr - header_buffer;
-                mlist_add(&msg_lh, header_buffer, len);
+                mlist_add(&msg_lh, header_buffer, endPtr - header_buffer);
             }
         }
 
@@ -587,15 +572,14 @@ BOOL get_headers(
             dllchars_ex);
 
         if (SUCCEEDED(hr)) {
-            len = endPtr - header_buffer;
-            mlist_add(&msg_lh, header_buffer, len);
+            mlist_add(&msg_lh, header_buffer, endPtr - header_buffer);
         }
 
         // Query create process manifest, skip dlls and native images
         if ((hdr_chars & IMAGE_FILE_DLL) == 0 &&
             hdr_subsystem != IMAGE_SUBSYSTEM_NATIVE)
         {
-            manifest = get_manifest((HMODULE)context->module);
+            manifest = get_manifest_base64((HMODULE)context->module);
             if (manifest)
             {
                 if (SUCCEEDED(StringCchLength(manifest, STRSAFE_MAX_CCH, (size_t*)&manifest_len))) {
@@ -634,22 +618,20 @@ BOOL get_exports(
     _In_opt_ pmodule_ctx context
 )
 {
-    LIST_ENTRY              msg_lh;
-    PIMAGE_DOS_HEADER       dos_hdr;
-    PIMAGE_FILE_HEADER      nt_file_hdr;
-    DWORD                   dir_base = 0, dir_size = 0, i, * ptrs = NULL, * names = NULL, p, hint, ctr = 0, ImageSize = 0, need_comma = 0;
-    WORD* name_ordinals = NULL;
-    BOOL                    status = FALSE, names_valid = FALSE;
-    char* fname, * forwarder;
-    HRESULT                 hr;
-    PWSTR                   endPtr;
-    SIZE_T                  remaining, len;
-    WCHAR* wname = NULL, * wforward = NULL, * ename = NULL, * eforward = NULL;
-    SIZE_T                  wname_cch = 1024, wforward_cch = 1024, ename_cch = 2048, eforward_cch = 2048;
-    DWORD                   maxFunctionsToProcess = 0, possibleBySize = 0;
-    DWORD                   maxNamesToProcess = 0, possibleNamesBySize = 0;
-    WCHAR                   text_buffer[WDEP_MSG_LENGTH_BIG];
+    BOOL    status = FALSE, names_valid = FALSE, build_ok = TRUE;
+    DWORD   dir_base = 0, dir_size = 0, i, * ptrs = NULL, * names = NULL, p, hint, ImageSize = 0, need_comma = 0;
+    DWORD   max_funcs = 0, funcs_by_size = 0, max_names = 0, names_by_size = 0;
+    HRESULT hr;
+    PWORD   name_ordinals = NULL;
+    CHAR    *fname, *forwarder;
+    PWSTR   endPtr;
+    SIZE_T  remaining, len;
+    WCHAR   *wname = NULL, *wforward = NULL, *ename = NULL, *eforward = NULL;
+    SIZE_T  wname_cch = 1024, wforward_cch = 1024, ename_cch = 2048, eforward_cch = 2048;
+    
     PIMAGE_EXPORT_DIRECTORY ExportTable;
+    LIST_ENTRY msg_lh;
+    WCHAR text_buffer[WDEP_MSG_LENGTH_BIG];
 
     define_3264_union(IMAGE_OPTIONAL_HEADER, opt_file_hdr);
 
@@ -674,13 +656,10 @@ BOOL get_exports(
         eforward = (WCHAR*)heap_calloc(NULL, eforward_cch * sizeof(WCHAR));
         if (wname == NULL || wforward == NULL || ename == NULL || eforward == NULL) {
             sendstring_plaintext_no_track(s, WDEP_STATUS_500);
-            __leave;
+            goto cleanup;
         }
 
-        dos_hdr = (PIMAGE_DOS_HEADER)context->module;
-        nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + dos_hdr->e_lfanew);
-        opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
-
+        opt_file_hdr.opt_file_hdr32 = (IMAGE_OPTIONAL_HEADER32*)((PBYTE)context->nt_file_hdr + sizeof(IMAGE_FILE_HEADER));
         switch (opt_file_hdr.opt_file_hdr32->Magic)
         {
         case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
@@ -694,7 +673,7 @@ BOOL get_exports(
             break;
 
         default:
-            __leave;
+            goto cleanup;
         }
 
         if ((dir_base > 0) && (dir_base < ImageSize) &&
@@ -703,18 +682,21 @@ BOOL get_exports(
                 (ULONG_PTR)context->module,
                 ImageSize))
         {
-            mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
+            if (!mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN)) {
+                build_ok = FALSE;
+                goto cleanup;
+            }
 
             ExportTable = (PIMAGE_EXPORT_DIRECTORY)(context->module + dir_base);
 
             // bounds for function array
             if (ExportTable->AddressOfFunctions < ImageSize) {
-                possibleBySize = (DWORD)((ImageSize - ExportTable->AddressOfFunctions) / sizeof(DWORD));
-                maxFunctionsToProcess = ExportTable->NumberOfFunctions;
-                if (maxFunctionsToProcess > possibleBySize)
-                    maxFunctionsToProcess = possibleBySize;
-                if (maxFunctionsToProcess > WDEP_MAX_EXPORT_FUNCTIONS)
-                    maxFunctionsToProcess = WDEP_MAX_EXPORT_FUNCTIONS;
+                funcs_by_size = (DWORD)((ImageSize - ExportTable->AddressOfFunctions) / sizeof(DWORD));
+                max_funcs = ExportTable->NumberOfFunctions;
+                if (max_funcs > funcs_by_size)
+                    max_funcs = funcs_by_size;
+                if (max_funcs > WDEP_MAX_EXPORT_FUNCTIONS)
+                    max_funcs = WDEP_MAX_EXPORT_FUNCTIONS;
                 ptrs = (DWORD*)(context->module + ExportTable->AddressOfFunctions);
             }
 
@@ -722,22 +704,22 @@ BOOL get_exports(
             if (ExportTable->AddressOfNames < ImageSize &&
                 ExportTable->AddressOfNameOrdinals < ImageSize)
             {
-                possibleNamesBySize = (DWORD)((ImageSize - ExportTable->AddressOfNames) / sizeof(DWORD));
-                maxNamesToProcess = ExportTable->NumberOfNames;
-                if (maxNamesToProcess > possibleNamesBySize)
-                    maxNamesToProcess = possibleNamesBySize;
-                if (maxNamesToProcess > maxFunctionsToProcess)
-                    maxNamesToProcess = maxFunctionsToProcess;
-                if (maxNamesToProcess > WDEP_MAX_EXPORT_FUNCTIONS)
-                    maxNamesToProcess = WDEP_MAX_EXPORT_FUNCTIONS;
+                names_by_size = (DWORD)((ImageSize - ExportTable->AddressOfNames) / sizeof(DWORD));
+                max_names = ExportTable->NumberOfNames;
+                if (max_names > names_by_size)
+                    max_names = names_by_size;
+                if (max_names > max_funcs)
+                    max_names = max_funcs;
+                if (max_names > WDEP_MAX_EXPORT_FUNCTIONS)
+                    max_names = WDEP_MAX_EXPORT_FUNCTIONS;
 
                 names = (DWORD*)(context->module + ExportTable->AddressOfNames);
                 name_ordinals = (WORD*)(context->module + ExportTable->AddressOfNameOrdinals);
 
-                if (maxNamesToProcess &&
-                    valid_image_range((ULONG_PTR)names, maxNamesToProcess * sizeof(DWORD),
+                if (max_names &&
+                    valid_image_range((ULONG_PTR)names, max_names * sizeof(DWORD),
                         (ULONG_PTR)context->module, ImageSize) &&
-                    valid_image_range((ULONG_PTR)name_ordinals, maxNamesToProcess * sizeof(WORD),
+                    valid_image_range((ULONG_PTR)name_ordinals, max_names * sizeof(WORD),
                         (ULONG_PTR)context->module, ImageSize))
                 {
                     names_valid = TRUE;
@@ -752,12 +734,19 @@ BOOL get_exports(
                 ExportTable->NumberOfNames,
                 ExportTable->Base);
 
-            if (SUCCEEDED(hr)) {
-                len = endPtr - text_buffer;
-                mlist_add(&msg_lh, text_buffer, len);
+            if (FAILED(hr) || !mlist_add(&msg_lh, text_buffer, endPtr - text_buffer)) {
+                build_ok = FALSE;
+                goto cleanup;
             }
 
-            for (i = 0; i < maxFunctionsToProcess; ++i)
+            if (!build_ok) {
+                mlist_traverse(&msg_lh, mlist_free, s, NULL);
+                sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+                status = FALSE;
+                goto cleanup;
+            }
+
+            for (i = 0; i < max_funcs; ++i)
             {
                 if (!valid_image_range((ULONG_PTR)&ptrs[i], sizeof(DWORD), (ULONG_PTR)context->module, ImageSize))
                     break;
@@ -765,25 +754,20 @@ BOOL get_exports(
                 if (!ptrs[i])
                     continue;
 
-                ++ctr;
                 fname = NULL;
                 forwarder = "";
                 hint = 0;
 
-                if (names_valid)
-                {
-                    for (p = 0; p < maxNamesToProcess; ++p)
-                    {
-                        if (name_ordinals[p] == i)
-                        {
+                if (names_valid) {
+                    for (p = 0; p < max_names; ++p) {
+                        if (name_ordinals[p] == i) {
                             hint = p;
                             fname = (char*)(context->module + names[p]);
                         }
                     }
                 }
 
-                if (fname == NULL)
-                {
+                if (fname == NULL) {
                     hint = MAXDWORD32;
                     fname = "";
                 }
@@ -793,8 +777,12 @@ BOOL get_exports(
                     forwarder = (char*)context->module + ptrs[i];
                 }
 
-                if (need_comma > 0)
-                    mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
+                if (need_comma > 0) {
+                    if (!mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN)) {
+                        build_ok = FALSE;
+                        goto cleanup;
+                    }
+                }
 
                 wname[0] = 0; wforward[0] = 0; ename[0] = 0; eforward[0] = 0;
 
@@ -823,17 +811,23 @@ BOOL get_exports(
                     L"\"forward\":\"%ws\"}",
                     ExportTable->Base + i, hint, ename, ptrs[i], eforward);
 
-                if (SUCCEEDED(hr)) {
-                    len = endPtr - text_buffer;
-                    mlist_add(&msg_lh, text_buffer, len);
+                if (FAILED(hr) || !mlist_add(&msg_lh, text_buffer, endPtr - text_buffer)) {
+                    build_ok = FALSE;
+                    goto cleanup;
                 }
 
                 need_comma = 1;
             }
-            mlist_add(&msg_lh, L"]}}", WSTRING_LEN(L"]}}"));
+            if (!mlist_add(&msg_lh, L"]}}", WSTRING_LEN(L"]}}"))) {
+                build_ok = FALSE;
+                goto cleanup;
+            }
         }
         else {
-            mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN);
+            if (!mlist_add(&msg_lh, JSON_RESPONSE_BEGIN, JSON_RESPONSE_BEGIN_LEN)) {
+                build_ok = FALSE;
+                goto cleanup;
+            }
             hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
                 &endPtr, (size_t*)&remaining, 0,
                 L"\"library\":{"
@@ -842,15 +836,24 @@ BOOL get_exports(
                 L"\"named\":0,"
                 L"\"base\":0,"
                 L"\"functions\":[]}}");
-            if (SUCCEEDED(hr)) {
-                len = endPtr - text_buffer;
-                mlist_add(&msg_lh, text_buffer, len);
+            if (FAILED(hr) || !mlist_add(&msg_lh, text_buffer, endPtr - text_buffer)) {
+                build_ok = FALSE;
+                goto cleanup;
             }
         }
 
-        mlist_add(&msg_lh, L"\r\n", WSTRING_LEN(L"\r\n"));
-        mlist_traverse(&msg_lh, mlist_send, s, context);
-        status = TRUE;
+        if (!mlist_add(&msg_lh, L"\r\n", WSTRING_LEN(L"\r\n"))) {
+            build_ok = FALSE;
+            goto cleanup;
+        }
+
+        if (build_ok) {
+            if (!mlist_traverse(&msg_lh, mlist_send, s, context)) {
+                build_ok = FALSE;
+                goto cleanup;
+            }
+            status = TRUE;
+        }
     }
     __except (ex_filter_dbg(context->filename, GetExceptionCode(), GetExceptionInformation()))
     {
@@ -859,11 +862,15 @@ BOOL get_exports(
         report_exception_to_client(s, ex_exports, GetExceptionCode());
     }
 
+cleanup:
+    if (!status && !IsListEmpty(&msg_lh)) {
+        mlist_traverse(&msg_lh, mlist_free, s, NULL);
+    }
+
     if (wname) heap_free(NULL, wname);
     if (wforward) heap_free(NULL, wforward);
     if (ename) heap_free(NULL, ename);
     if (eforward) heap_free(NULL, eforward);
-
     return status;
 }
 
@@ -948,7 +955,7 @@ static void process_thunks64(
     DWORD   fhint = 0, ordinal = 0;
     HRESULT hr;
     ULONG64 fbound = 0;
-    SIZE_T  remaining, len;
+    SIZE_T  remaining;
     PWSTR   endPtr;
     PCHAR   strfname = NULL;
     WCHAR   msg_text[WDEP_MSG_LENGTH_BIG];
@@ -1008,8 +1015,7 @@ static void process_thunks64(
             ordinal, fhint, strfname, fbound);
 
         if (SUCCEEDED(hr)) {
-            len = endPtr - msg_text;
-            mlist_add(msg_lh, msg_text, len);
+            mlist_add(msg_lh, msg_text, endPtr - msg_text);
         }
     }
 }
@@ -1028,7 +1034,7 @@ static void process_thunks32(
     INT     i, maxCount;
     DWORD   fhint = 0, ordinal = 0;
     HRESULT hr;
-    SIZE_T  remaining, len;
+    SIZE_T  remaining;
     ULONG64 fbound = 0;
     PWSTR   endPtr;
     PCHAR   strfname = NULL;
@@ -1089,8 +1095,7 @@ static void process_thunks32(
             ordinal, fhint, strfname, fbound);
 
         if (SUCCEEDED(hr)) {
-            len = endPtr - msg_text;
-            mlist_add(msg_lh, msg_text, len);
+            mlist_add(msg_lh, msg_text, endPtr - msg_text);
         }
     }
 }
@@ -1184,12 +1189,12 @@ static BOOL append_import_lib_header(
 )
 {
     HRESULT hr;
-    SIZE_T nameLenA;
-    SIZE_T allocWide, allocEsc;
-    PWCHAR wideName;
-    PWCHAR escName;
-    SIZE_T wideLen;
-    SIZE_T escLen;
+    SIZE_T  nameLenA;
+    SIZE_T  allocWide, allocEsc;
+    PWCHAR  wideName;
+    PWCHAR  escName;
+    SIZE_T  wideLen;
+    SIZE_T  escLen;
 
     hr = StringCchLengthA(ansiName, WDEP_MAX_FUNC_NAME_LEN, &nameLenA);
     if (FAILED(hr)) {
@@ -1252,21 +1257,17 @@ BOOL get_imports(
 )
 {
     BOOL                        status = FALSE, has_bound_imports = FALSE;
-
     DWORD                       si_dir_base = 0, di_dir_base = 0, dirsize = 0, c, import_exception = 0;
     DWORD                       invalid_std_entries = 0, invalid_dl_entries = 0;
     DWORD                       except_code_std = 0, except_code_delay = 0;
 
-    PIMAGE_FILE_HEADER          nt_file_hdr;
     PIMAGE_IMPORT_DESCRIPTOR    SImportTable;
     PIMAGE_DELAYLOAD_DESCRIPTOR DImportTable;
 
     DWORD_PTR                   ImageBase = 0, ImageSize = 0, SizeOfHeaders = 0;
     DWORD_PTR                   IModuleName, INameTable, delta, boundIAT, processed_libs = 0;
 
-    LIST_ENTRY                  msg_lh;
-    LIST_ENTRY                  std_lib_lh;
-    LIST_ENTRY                  delay_lib_lh;
+    LIST_ENTRY                  msg_lh, std_lib_lh, delay_lib_lh;
 
     WCHAR                       msg_text[WDEP_MSG_LENGTH_BIG];
 
@@ -1281,18 +1282,19 @@ BOOL get_imports(
 
     __try
     {
-        InitializeListHead(&msg_lh);
-        InitializeListHead(&std_lib_lh);
-        InitializeListHead(&delay_lib_lh);
-
+        //*(PBYTE)NULL = 0;
+        
         if (!context->module)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_404);
             return FALSE;
         }
 
-        nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + ((PIMAGE_DOS_HEADER)context->module)->e_lfanew);
-        opt_file_header.uptr = (PBYTE)nt_file_hdr + sizeof(IMAGE_FILE_HEADER);
+        InitializeListHead(&msg_lh);
+        InitializeListHead(&std_lib_lh);
+        InitializeListHead(&delay_lib_lh);
+
+        opt_file_header.uptr = (PBYTE)context->nt_file_hdr + sizeof(IMAGE_FILE_HEADER);
         switch (opt_file_header.opt_file_header32->Magic)
         {
         case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
@@ -1666,15 +1668,14 @@ LPBYTE pe32open(
         sections = (PIMAGE_SECTION_HEADER)((PBYTE)opt_file_hdr.opt_file_hdr64 + nt_file_hdr.SizeOfOptionalHeader);
 
         // Validate PE magic number
-        context->moduleMagic = opt_file_hdr.opt_file_hdr64->Magic;
-        if (context->moduleMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC &&
-            context->moduleMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+        if (opt_file_hdr.opt_file_hdr64->Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC &&
+            opt_file_hdr.opt_file_hdr64->Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
         {
             sendstring_plaintext_no_track(s, WDEP_STATUS_415);
             __leave;
         }
 
-        context->image_64bit = (context->moduleMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
+        context->image_64bit = (opt_file_hdr.opt_file_hdr64->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
 
         // Validate section and file alignment
         DWORD sec_align, file_align;
@@ -1872,7 +1873,6 @@ LPBYTE pe32open(
 
         context->image_dotnet = image_dotnet;
         context->image_fixed = image_fixed;
-
         status = 1;
     }
     __finally

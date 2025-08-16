@@ -59,15 +59,15 @@
 #define WDEP_MSG_LENGTH_MEDIUM  2048
 #define WDEP_MSG_LENGTH_BIG     4096
 
-#define WDEP_MAX_FUNC_NAME_LEN  0x10000
-
 typedef struct {
     unsigned char* module;
     wchar_t* filename;
     wchar_t* directory;
     LARGE_INTEGER file_size;
-    WORD moduleMagic;
-
+  
+    PIMAGE_DOS_HEADER dos_hdr;
+    PIMAGE_FILE_HEADER nt_file_hdr;
+    
     BOOL image_64bit;
     BOOL image_fixed;
     BOOL image_dotnet;

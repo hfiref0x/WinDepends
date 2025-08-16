@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Aug 11, 2025
+*  Modified on: Aug 15, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -20,7 +20,7 @@
 #define PAGE_SIZE 4096
 
 //
-// Import/Export limits
+// PE limits
 //
 #define WDEP_MAX_EXPORT_FUNCTIONS 65536
 #define WDEP_MAX_IMPORT_THUNKS 65536
@@ -28,6 +28,9 @@
 
 #define WDEP_IMPORT_SANITY_SCAN_MAX_LIBS 64
 #define WDEP_IMPORT_SANITY_PROBE_THUNKS 8
+
+#define WDEP_MAX_FUNC_NAME_LEN  0x10000
+#define WDEP_MAX_DATA_DIRS 256
 
 //
 // Windows Dependencies Exchange Protocol/1.0

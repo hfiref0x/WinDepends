@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Aug 16, 2025
+*  Modified on: Aug 17, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -710,8 +710,6 @@ BOOL get_exports(
                     max_names = names_by_size;
                 if (max_names > max_funcs)
                     max_names = max_funcs;
-                if (max_names > WDEP_MAX_EXPORT_FUNCTIONS)
-                    max_names = WDEP_MAX_EXPORT_FUNCTIONS;
 
                 names = (DWORD*)(context->module + ExportTable->AddressOfNames);
                 name_ordinals = (WORD*)(context->module + ExportTable->AddressOfNameOrdinals);
@@ -736,13 +734,6 @@ BOOL get_exports(
 
             if (FAILED(hr) || !mlist_add(&msg_lh, text_buffer, endPtr - text_buffer)) {
                 build_ok = FALSE;
-                goto cleanup;
-            }
-
-            if (!build_ok) {
-                mlist_traverse(&msg_lh, mlist_free, s, NULL);
-                sendstring_plaintext_no_track(s, WDEP_STATUS_500);
-                status = FALSE;
                 goto cleanup;
             }
 
@@ -790,16 +781,10 @@ BOOL get_exports(
                     MultiByteToWideChar(CP_ACP, 0, fname, -1, wname, (int)wname_cch);
                     if (!json_escape_string(wname, ename, ename_cch, &len)) ename[0] = 0;
                 }
-                else {
-                    ename[0] = 0;
-                }
 
                 if (*forwarder) {
                     MultiByteToWideChar(CP_ACP, 0, forwarder, -1, wforward, (int)wforward_cch);
                     if (!json_escape_string(wforward, eforward, eforward_cch, &len)) eforward[0] = 0;
-                }
-                else {
-                    eforward[0] = 0;
                 }
 
                 hr = StringCchPrintfEx(text_buffer, ARRAYSIZE(text_buffer),
@@ -951,14 +936,16 @@ static void process_thunks64(
     BOOL                    has_bound_imports
 )
 {
-    INT     maxCount, i;
+    INT     maxCount, i, conv;
     DWORD   fhint = 0, ordinal = 0;
     HRESULT hr;
     ULONG64 fbound = 0;
-    SIZE_T  remaining;
+    SIZE_T  remaining, nameEscLen;
     PWSTR   endPtr;
     PCHAR   strfname = NULL;
     WCHAR   msg_text[WDEP_MSG_LENGTH_BIG];
+    WCHAR   nameWide[WDEP_MSG_LENGTH_SMALL];
+    WCHAR   nameEsc[WDEP_MSG_LENGTH_MEDIUM];
 
     PIMAGE_IMPORT_BY_NAME   fname = NULL;
     PIMAGE_THUNK_DATA64     scan;
@@ -1000,7 +987,7 @@ static void process_thunks64(
                 ordinal = MAXDWORD32;
             }
             else {
-                strfname = (char*)"Error resolving function name";
+                strfname = (char*)"name resolve error";
                 fhint = MAXDWORD32;
                 ordinal = MAXDWORD32;
             }
@@ -1009,10 +996,23 @@ static void process_thunks64(
         if (i > 0)
             mlist_add(msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
+        nameWide[0] = 0;
+        nameEsc[0] = 0;
+
+        conv = MultiByteToWideChar(CP_ACP, 0, strfname, -1, nameWide, ARRAYSIZE(nameWide));
+        if (conv > 0) {
+            nameEscLen = 0;
+            if (!json_escape_string(nameWide, nameEsc, ARRAYSIZE(nameEsc), &nameEscLen))
+                StringCchCopy(nameEsc, ARRAYSIZE(nameEsc), L"name escape error");
+        }
+        else {
+            StringCchCopy(nameEsc, ARRAYSIZE(nameEsc), L"name convert error");
+        }
+
         hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
             &endPtr, (size_t*)&remaining, 0,
-            L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
-            ordinal, fhint, strfname, fbound);
+            L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%ws\",\"bound\":%llu}",
+            ordinal, fhint, nameEsc, fbound);
 
         if (SUCCEEDED(hr)) {
             mlist_add(msg_lh, msg_text, endPtr - msg_text);
@@ -1031,14 +1031,16 @@ static void process_thunks32(
     BOOL                    has_bound_imports
 )
 {
-    INT     i, maxCount;
+    INT     i, maxCount, conv;
     DWORD   fhint = 0, ordinal = 0;
     HRESULT hr;
-    SIZE_T  remaining;
+    SIZE_T  remaining, nameEscLen;
     ULONG64 fbound = 0;
     PWSTR   endPtr;
     PCHAR   strfname = NULL;
     WCHAR   msg_text[WDEP_MSG_LENGTH_BIG];
+    WCHAR   nameWide[WDEP_MSG_LENGTH_SMALL];
+    WCHAR   nameEsc[WDEP_MSG_LENGTH_MEDIUM];
 
     PIMAGE_IMPORT_BY_NAME   fname = NULL;
     PIMAGE_THUNK_DATA32     scan;
@@ -1080,7 +1082,7 @@ static void process_thunks32(
                 ordinal = MAXDWORD32;
             }
             else {
-                strfname = (char*)"Error resolving function name";
+                strfname = (char*)"name resolve error";
                 fhint = MAXDWORD32;
                 ordinal = MAXDWORD32;
             }
@@ -1089,10 +1091,23 @@ static void process_thunks32(
         if (i > 0)
             mlist_add(msg_lh, JSON_COMMA, JSON_COMMA_LEN);
 
+        nameWide[0] = 0;
+        nameEsc[0] = 0;
+
+        conv = MultiByteToWideChar(CP_ACP, 0, strfname, -1, nameWide, ARRAYSIZE(nameWide));
+        if (conv > 0) {
+            nameEscLen = 0;
+            if (!json_escape_string(nameWide, nameEsc, ARRAYSIZE(nameEsc), &nameEscLen))
+                StringCchCopy(nameEsc, ARRAYSIZE(nameEsc), L"name escape error");
+        }
+        else {
+            StringCchCopy(nameEsc, ARRAYSIZE(nameEsc), L"name convert error");
+        }
+
         hr = StringCchPrintfEx(msg_text, ARRAYSIZE(msg_text),
             &endPtr, (size_t*)&remaining, 0,
-            L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%S\",\"bound\":%llu}",
-            ordinal, fhint, strfname, fbound);
+            L"{\"ordinal\":%u,\"hint\":%u,\"name\":\"%ws\",\"bound\":%llu}",
+            ordinal, fhint, nameEsc, fbound);
 
         if (SUCCEEDED(hr)) {
             mlist_add(msg_lh, msg_text, endPtr - msg_text);

@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 16, 2025
+*  Modified on: Aug 17, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -965,7 +965,6 @@ VOID report_exception_to_client(
 * performing a simple zero-extended widening (no codepage conversion).
 * 
 */
-_Success_(return != 0)
 SIZE_T ansi_to_wide_copy(
     _In_z_ const char* src,
     _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,
@@ -980,7 +979,7 @@ SIZE_T ansi_to_wide_copy(
     i = 0;
     limit = dest_cch - 1;
 
-    while (src[i] && i < limit) {
+    while (i < limit && src[i]) {
         dest[i] = (WCHAR)(unsigned char)src[i];
         ++i;
     }

@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 16, 2025
+*  Modified on: Aug 17, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -166,7 +166,6 @@ VOID report_exception_to_client(
     _In_ exception_location location,
     _In_ DWORD exception_code);
 
-_Success_(return != 0)
 SIZE_T ansi_to_wide_copy(
     _In_z_ const char* src,
     _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,

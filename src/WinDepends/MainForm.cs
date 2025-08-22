@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        15 Aug 2025
 *  
 *  Codename:    VasilEk
 *
@@ -447,6 +447,63 @@ public partial class MainForm : Form
     }
 
     /// <summary>
+    /// Builds a display name for a module from the given raw name
+    /// </summary>
+    /// <param name="rawName">The original path or module name</param>
+    /// <param name="fullPaths">If true, returns rawName directly. If false processes the path to extract the last segment.</param>
+    /// <returns></returns>
+    private static string BuildModuleDisplayName(string rawName, bool fullPaths)
+    {
+        if (string.IsNullOrEmpty(rawName))
+            return rawName;
+
+        if (fullPaths)
+            return rawName;
+
+        string path = rawName.Replace('/', '\\');
+
+        // Trim trailing backslashes (any count) for consistent last-segment extraction
+        int len = path.Length;
+        while (len > 0 && path[len - 1] == '\\')
+            len--;
+        if (len == 0)
+            return rawName;
+        if (len != path.Length)
+            path = path.Substring(0, len);
+
+        bool isUnc = false;
+        int uncStart = 0;
+
+        // Extended UNC: \\?\UNC\server\share\...
+        if (path.Length >= 8 && path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+        {
+            isUnc = true;
+            uncStart = 8;
+        }
+        // Standard UNC: \\server\share\...
+        else if (path.Length >= 2 && path[0] == '\\' && path[1] == '\\' &&
+                 !(path.Length >= 4 && path[2] == '?' && path[3] == '\\')) // exclude \\?\
+        {
+            isUnc = true;
+            uncStart = 2;
+        }
+
+        // Always return last segment when not fullPaths. For UNC this is the file name;
+        // for non-UNC it's the file name.
+        int end = path.Length - 1;
+        int lastSep = path.LastIndexOf('\\', end);
+        int segStart = lastSep >= 0 ? lastSep + 1 : 0;
+
+        if (isUnc && segStart < uncStart)
+            segStart = uncStart; // handle \\server or \\?\UNC\server edge
+
+        if (segStart >= path.Length)
+            return rawName; // fallback (should not normally occur)
+
+        return path.Substring(segStart);
+    }
+
+    /// <summary>
     /// AddModuleEntry core implementation. Shared between normal and session files.
     /// </summary>
     /// <param name="module">The module to add</param>
@@ -487,12 +544,7 @@ public partial class MainForm : Form
         }
 
         // 4. Format display name
-        string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-
-        if (!m_Configuration.FullPaths)
-        {
-            moduleDisplayName = Path.GetFileName(moduleDisplayName);
-        }
+        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets), m_Configuration.FullPaths);
 
         if (m_Configuration.UpperCaseModuleNames)
         {
@@ -705,16 +757,7 @@ public partial class MainForm : Form
             {
                 string displayName = module.GetModuleNameRespectApiSet(resolveApiSets);
 
-                if (!fullPaths && !string.IsNullOrEmpty(displayName))
-                {
-                    int lastSeparatorPos = Math.Max(
-                        displayName.LastIndexOf('\\'),
-                        displayName.LastIndexOf('/')
-                    );
-
-                    if (lastSeparatorPos >= 0 && lastSeparatorPos < displayName.Length - 1)
-                        displayName = displayName.Substring(lastSeparatorPos + 1);
-                }
+                displayName = BuildModuleDisplayName(displayName, fullPaths);
 
                 if (upperCase && !string.IsNullOrEmpty(displayName))
                     displayName = displayName.ToUpperInvariant();
@@ -3224,12 +3267,7 @@ public partial class MainForm : Form
             ImageIndex = module.GetIconIndexForModuleCompact()
         };
 
-        string moduleDisplayName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
-
-        if (!m_Configuration.FullPaths)
-        {
-            moduleDisplayName = Path.GetFileName(moduleDisplayName);
-        }
+        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets), m_Configuration.FullPaths);
 
         if (m_Configuration.UpperCaseModuleNames)
         {

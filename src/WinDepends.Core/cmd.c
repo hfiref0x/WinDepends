@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 14, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -139,7 +139,7 @@ void cmd_query_knowndlls_list(
     _In_opt_ LPCWSTR params
 )
 {
-    BOOL is_wow64;
+    BOOL is_wow64, send_ok, response_ok;
     LIST_ENTRY msg_lh;
     PSUP_PATH_ELEMENT_ENTRY dlls_head, dll_entry;
     PWSTR dlls_path;
@@ -149,13 +149,13 @@ void cmd_query_knowndlls_list(
     PWSTR endPtr;
     SIZE_T remaining, len;
     WCHAR escapedName[1024];
+    PWSTR escapedPath;
+    SIZE_T pathLen, escPathLen, escPathAlloc;
 
     if (params == NULL || !gsup.Initialized) {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         return;
     }
-
-    InitializeListHead(&msg_lh);
 
     is_wow64 = (wcsncmp(params, L"32", 2) == 0);
 
@@ -170,60 +170,111 @@ void cmd_query_knowndlls_list(
         sz = MAX_PATH + gsup.KnownDllsNameCbMax + gsup.KnownDllsPathCbMax;
     }
 
-    if (sz == 0) {
+    if (sz == 0 || dlls_path == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
+
+    pathLen = wcslen(dlls_path);
+    escPathAlloc = (pathLen * 6) + 1;
+    escapedPath = (PWSTR)heap_calloc(NULL, escPathAlloc * sizeof(WCHAR));
+    if (escapedPath == NULL) {
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
+
+    if (!json_escape_string(dlls_path, escapedPath, escPathAlloc, &escPathLen)) {
+        heap_free(NULL, escapedPath);
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
         return;
     }
 
     buffer = (PWCH)heap_calloc(NULL, sz);
-    if (buffer) {
+    if (buffer == NULL) {
+        heap_free(NULL, escapedPath);
+        sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        return;
+    }
 
-        hr = StringCchPrintfEx(buffer,
-            sz / sizeof(WCHAR),
-            &endPtr,
-            (size_t*)&remaining,
-            0,
-            L"%ws{\"path\":\"%ws\", \"entries\":[",
-            WDEP_STATUS_OK,
-            dlls_path);
+    InitializeListHead(&msg_lh);
+    response_ok = FALSE;
 
-        if (SUCCEEDED(hr)) {
-            len = endPtr - buffer;
-            mlist_add(&msg_lh, buffer, len);
-        }
+    hr = StringCchPrintfEx(buffer,
+        sz / sizeof(WCHAR),
+        &endPtr,
+        (size_t*)&remaining,
+        0,
+        L"%ws{\"path\":\"%ws\", \"entries\":[",
+        WDEP_STATUS_OK,
+        escapedPath);
 
+    if (SUCCEEDED(hr)) {
+        response_ok = mlist_add(&msg_lh, buffer, endPtr - buffer);
+    }
+
+    if (response_ok) {
         i = 0;
         dll_entry = dlls_head->Next;
-        while (dll_entry != NULL) {
-            if (i > 0)
-                mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN);
+
+        while (dll_entry && response_ok) {
+
+            if (i > 0) {
+                if (!mlist_add(&msg_lh, JSON_COMMA, JSON_COMMA_LEN)) {
+                    response_ok = FALSE;
+                    break;
+                }
+            }
 
             if (!json_escape_string(dll_entry->Element, escapedName, ARRAYSIZE(escapedName), &len)) {
                 escapedName[0] = 0;
+                len = 0;
             }
 
-            hr = StringCchPrintfEx(buffer, sz / sizeof(WCHAR),
-                &endPtr, (size_t*)&remaining, 0,
+            hr = StringCchPrintfEx(
+                buffer,
+                sz / sizeof(WCHAR),
+                &endPtr,
+                (size_t*)&remaining,
+                0,
                 L"\"%ws\"",
-                escapedName);
+                escapedName
+            );
 
             if (SUCCEEDED(hr)) {
-                len = endPtr - buffer;
-                mlist_add(&msg_lh, buffer, len);
+                if (!mlist_add(&msg_lh, buffer, endPtr - buffer)) {
+                    response_ok = FALSE;
+                    break;
+                }
+            }
+            else {
+                response_ok = FALSE;
+                break;
             }
 
             dll_entry = dll_entry->Next;
-            i += 1;
+            ++i;
         }
 
-        mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"));
-        mlist_traverse(&msg_lh, mlist_send, s, NULL);
-
-        heap_free(NULL, buffer);
+        if (response_ok) {
+            if (!mlist_add(&msg_lh, L"]}\r\n", WSTRING_LEN(L"]}\r\n"))) {
+                response_ok = FALSE;
+            }
+        }
     }
-    else {
+
+    if (!response_ok) {
+        mlist_traverse(&msg_lh, mlist_free, s, NULL);
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
     }
+    else {
+        send_ok = mlist_traverse(&msg_lh, mlist_send, s, NULL);
+        if (!send_ok) {
+            sendstring_plaintext_no_track(s, WDEP_STATUS_500);
+        }
+    }
+
+    heap_free(NULL, buffer);
+    heap_free(NULL, escapedPath);
 }
 
 /*
@@ -535,6 +586,11 @@ pmodule_ctx cmd_open(
 
             context->module = pe32open(s, context);
             bResult = context->module != NULL;
+            if (bResult) {
+                // Remember common fields.
+                context->dos_hdr = (PIMAGE_DOS_HEADER)context->module;
+                context->nt_file_hdr = (PIMAGE_FILE_HEADER)(context->module + sizeof(DWORD) + context->dos_hdr->e_lfanew);
+            }
         }
 
     } while (FALSE);

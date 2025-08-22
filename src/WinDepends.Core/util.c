@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 17, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -28,48 +28,116 @@ BOOL ex_write_dump(
     _In_ LPCWSTR lpFileName
 )
 {
-    BOOL bResult;
+    BOOL bResult = FALSE;
     HMODULE hDbgHelp;
     HANDLE hFile;
-    WCHAR szBuffer[MAX_PATH * 2];
+    WCHAR szTempPath[MAX_PATH + 4];
+    WCHAR szBaseName[MAX_PATH];
+    WCHAR szFileName[MAX_PATH * 2];
+    WCHAR szDbg[MAX_PATH * 2];
+    WCHAR* pLeaf, * pDot;
+    const WCHAR* p;
     UINT cch;
-
+    SYSTEMTIME st;
     MINIDUMP_EXCEPTION_INFORMATION mdei;
-
     pfnMiniDumpWriteDump pMiniDumpWriteDump;
 
-    bResult = FALSE;
+    if (ExceptionPointers == NULL || lpFileName == NULL || *lpFileName == 0)
+        return FALSE;
+
+    // Resolve / load dbghelp
     hDbgHelp = GetModuleHandle(TEXT("dbghelp.dll"));
     if (hDbgHelp == NULL) {
-
-        RtlSecureZeroMemory(szBuffer, sizeof(szBuffer));
-        cch = GetSystemDirectory(szBuffer, MAX_PATH);
-        if (cch == 0 || cch > MAX_PATH) {
+        RtlSecureZeroMemory(szDbg, sizeof(szDbg));
+        cch = GetSystemDirectory(szDbg, MAX_PATH);
+        if (cch == 0 || cch > MAX_PATH)
             return FALSE;
-        }
-
-        if (FAILED(StringCchCat(szBuffer, ARRAYSIZE(szBuffer), L"\\dbghelp.dll"))) {
+        if (FAILED(StringCchCat(szDbg, ARRAYSIZE(szDbg), L"\\dbghelp.dll")))
             return FALSE;
-        }
-
-        hDbgHelp = LoadLibraryEx(szBuffer, 0, 0);
+        hDbgHelp = LoadLibraryEx(szDbg, 0, 0);
         if (hDbgHelp == NULL)
             return FALSE;
     }
 
     pMiniDumpWriteDump = (pfnMiniDumpWriteDump)GetProcAddress(hDbgHelp, "MiniDumpWriteDump");
-    if (pMiniDumpWriteDump) {
-        if (SUCCEEDED(StringCchPrintf(szBuffer, ARRAYSIZE(szBuffer), L"%ws.exception.dmp", lpFileName))) {
-            hFile = CreateFile(szBuffer, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-            if (hFile != INVALID_HANDLE_VALUE) {
-                mdei.ThreadId = GetCurrentThreadId();
-                mdei.ExceptionPointers = ExceptionPointers;
-                mdei.ClientPointers = FALSE;
-                bResult = pMiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &mdei, NULL, NULL);
-                CloseHandle(hFile);
-            }
-        }
+    if (pMiniDumpWriteDump == NULL)
+        return FALSE;
+
+    // Get temp directory
+    RtlSecureZeroMemory(szTempPath, sizeof(szTempPath));
+    cch = GetTempPath(ARRAYSIZE(szTempPath), szTempPath);
+    if (cch == 0 || cch >= ARRAYSIZE(szTempPath))
+        return FALSE;
+
+    // Extract leaf name
+    pLeaf = (WCHAR*)lpFileName;
+    for (p = lpFileName; *p; ++p) {
+        if (*p == L'\\' || *p == L'/')
+            pLeaf = (WCHAR*)(p + 1);
     }
+
+    // Copy leaf into base name buffer
+    RtlSecureZeroMemory(szBaseName, sizeof(szBaseName));
+    if (FAILED(StringCchCopy(szBaseName, ARRAYSIZE(szBaseName), pLeaf)))
+        return FALSE;
+
+    // Remove extension (last dot after last slash already handled)
+    pDot = NULL;
+    for (pLeaf = szBaseName; *pLeaf; ++pLeaf) {
+        if (*pLeaf == L'.')
+            pDot = pLeaf;
+    }
+    if (pDot)
+        *pDot = 0;
+
+    if (szBaseName[0] == 0)
+        if (FAILED(StringCchCopy(szBaseName, ARRAYSIZE(szBaseName), L"dump")))
+            return FALSE;
+
+    GetLocalTime(&st);
+
+    // Compose final file name in temp directory
+    // <temp>\<base>_YYYYMMDD_HHMMSS_PID_TID.exception.dmp
+    RtlSecureZeroMemory(szFileName, sizeof(szFileName));
+    if (FAILED(StringCchPrintf(
+        szFileName,
+        ARRAYSIZE(szFileName),
+        L"%ws%ws_%04u%02u%02u_%02u%02u%02u_%u_%u_exception.dmp",
+        szTempPath,
+        szBaseName,
+        (UINT)st.wYear, (UINT)st.wMonth, (UINT)st.wDay,
+        (UINT)st.wHour, (UINT)st.wMinute, (UINT)st.wSecond,
+        (UINT)GetCurrentProcessId(),
+        (UINT)GetCurrentThreadId())))
+    {
+        return FALSE;
+    }
+
+    hFile = CreateFile(szFileName,
+        GENERIC_WRITE,
+        0,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_TEMPORARY,
+        NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    mdei.ThreadId = GetCurrentThreadId();
+    mdei.ExceptionPointers = ExceptionPointers;
+    mdei.ClientPointers = FALSE;
+
+    bResult = pMiniDumpWriteDump(
+        GetCurrentProcess(),
+        GetCurrentProcessId(),
+        hFile,
+        MiniDumpNormal,
+        &mdei,
+        NULL,
+        NULL);
+
+    CloseHandle(hFile);
+
     return bResult;
 }
 
@@ -654,14 +722,14 @@ LPWSTR resolve_apiset_name(
 }
 
 /*
-* get_manifest
+* get_manifest_base64
 *
 * Purpose:
 *
 * Read SxS create process manifest from the file resource and return it as base64 encoded array.
 *
 */
-LPVOID get_manifest(
+LPVOID get_manifest_base64(
     _In_ HMODULE module
 )
 {
@@ -889,6 +957,48 @@ VOID report_exception_to_client(
 }
 
 /*
+* ansi_to_wide_copy
+*
+* Purpose:
+* 
+* Copies a NUL-terminated ANSI (assumed 8-bit) string to a wide string buffer
+* performing a simple zero-extended widening (no codepage conversion).
+* 
+*/
+SIZE_T ansi_to_wide_copy(
+    _In_z_ const char* src,
+    _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,
+    _In_ SIZE_T dest_cch
+)
+{
+    SIZE_T i, limit;
+
+    if (!src || !dest || dest_cch == 0)
+        return 0;
+
+    i = 0;
+    limit = dest_cch - 1;
+
+    while (i < limit && src[i]) {
+        dest[i] = (WCHAR)(unsigned char)src[i];
+        ++i;
+    }
+
+    if (src[i] != 0 && i == limit) {
+        if (i >= dest_cch) 
+            return 0;
+        dest[i] = 0;
+        return 0;
+    }
+
+    if (i >= dest_cch)
+        return 0;
+
+    dest[i] = 0;
+    return i;
+}
+
+/*
 * json_escape_string
 *
 * Purpose:
@@ -898,10 +1008,10 @@ VOID report_exception_to_client(
 */
 _Success_(return) 
 BOOL json_escape_string(
-    _In_ LPCWSTR src,
-    _Out_writes_to_(dest_cch, *out_len) LPWSTR dest,
+    _In_z_ LPCWSTR src,
+    _Out_writes_to_(dest_cch, *out_len) _Post_z_ LPWSTR dest,
     _In_ SIZE_T dest_cch,
-    _Out_ SIZE_T * out_len
+    _Out_opt_ SIZE_T * out_len
 )
 {
     SIZE_T used = 0;

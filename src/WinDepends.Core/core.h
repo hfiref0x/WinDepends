@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Aug 03, 2025
+*  Modified on: Aug 14, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -64,8 +64,10 @@ typedef struct {
     wchar_t* filename;
     wchar_t* directory;
     LARGE_INTEGER file_size;
-    WORD moduleMagic;
-
+  
+    PIMAGE_DOS_HEADER dos_hdr;
+    PIMAGE_FILE_HEADER nt_file_hdr;
+    
     BOOL image_64bit;
     BOOL image_fixed;
     BOOL image_dotnet;

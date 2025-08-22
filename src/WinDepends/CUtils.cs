@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        14 Aug 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -175,10 +175,16 @@ public static class CUtils
     public static UInt32 AllocationGranularity { get; private set; }
     static CUtils()
     {
-        using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+        try
         {
-            WindowsPrincipal principal = new(identity);
-            IsAdministrator = principal.IsInRole(WindowsBuiltInRole.Administrator);
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+            {
+                WindowsPrincipal principal = new(identity);
+                IsAdministrator = principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+        } catch
+        {
+            IsAdministrator = false;
         }
 
         NativeMethods.GetSystemInfo(out var systemInfo);
@@ -804,9 +810,14 @@ public static class CUtils
     public static List<Bitmap> SplitImageStrip(Bitmap strip, Size imageSize, Color transparencyColor)
     {
         List<Bitmap> images = new List<Bitmap>();
-        for (int i = 0; i < CConsts.ToolBarImageMax; i++)
+        int count = strip.Width / imageSize.Width;
+        if (count > CConsts.ToolBarImageMax)
+            count = CConsts.ToolBarImageMax;
+
+        for (int i = 0; i < count; i++)
         {
             Rectangle rect = new Rectangle(i * imageSize.Width, 0, imageSize.Width, imageSize.Height);
+            if (rect.Right > strip.Width) break;
             Bitmap image = strip.Clone(rect, strip.PixelFormat);
             image.MakeTransparent(transparencyColor);
             images.Add(image);
@@ -831,7 +842,11 @@ public static class CUtils
             (int)(originalSize.Height * scaleFactor)
         );
 
-        for (int i = 0; i < CConsts.ToolBarImageMax; i++)
+        int count = strip.Width / originalSize.Width;
+        if (count > CConsts.ToolBarImageMax)
+            count = CConsts.ToolBarImageMax;
+
+        for (int i = 0; i < count; i++)
         {
             Rectangle rect = new Rectangle(
                 i * originalSize.Width,
@@ -839,6 +854,8 @@ public static class CUtils
                 originalSize.Width,
                 originalSize.Height
             );
+
+            if (rect.Right > strip.Width) break;
 
             using (Bitmap originalImage = strip.Clone(rect, strip.PixelFormat))
             {
@@ -884,10 +901,9 @@ public static class CUtils
 
         // Get appropriate image strip
         var images = ProcessImageStrip(useClassic, scalingFactor, transparencyColor, desiredImageSize);
-
         imageList.Images.AddRange(images
-            .OrderBy(img => (ToolBarIconType)images.IndexOf(img))
-            .ToArray());
+             .OrderBy(img => (ToolBarIconType)images.IndexOf(img))
+             .ToArray());
 
         toolStrip.ImageList = imageList;
     }
@@ -920,6 +936,12 @@ public static class PeExceptionHelper
     private const uint STATUS_INTEGER_OVERFLOW = 0xC0000095;
     private const uint STATUS_STACK_OVERFLOW = 0xC00000FD;
     private const uint STATUS_IN_PAGE_ERROR = 0xC0000006;
+    private const uint STATUS_INVALID_IMAGE_FORMAT = 0xC000007B;
+
+    public static bool IsInvalidImageFormatException(uint exceptionCode)
+    {
+        return exceptionCode == STATUS_INVALID_IMAGE_FORMAT;
+    }
 
     /// <summary>
     /// Translates a Windows exception code to a human-readable string description
@@ -938,6 +960,8 @@ public static class PeExceptionHelper
                 return "STATUS_STACK_OVERFLOW";
             case STATUS_IN_PAGE_ERROR:
                 return "STATUS_IN_PAGE_ERROR";
+            case STATUS_INVALID_IMAGE_FORMAT:
+                return "STATUS_INVALID_IMAGE_FORMAT";
             default:
                 return "Unknown";
         }

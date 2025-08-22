@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Jun 2025
+*  DATE:        14 Aug 2025
 *  
 *  Implementation of basic sxs manifest parser class.
 *
@@ -133,7 +133,7 @@ internal partial class CSxsManifest
             manifestText = s_doubleQuotesRegex.Replace(manifestText, "\"$1\"");
 
             // Replace specific strings (garbage or bug).
-            manifestText = manifestText.Replace("SXS_PROCESSOR_ARCHITECTURE", "\"amd64\"", StringComparison.OrdinalIgnoreCase)
+            manifestText = manifestText.Replace("SXS_PROCESSOR_ARCHITECTURE", (IntPtr.Size == 8) ? "\"amd64\"" : "\"x86\"", StringComparison.OrdinalIgnoreCase)
                                    .Replace("SXS_ASSEMBLY_VERSION", "\"\"", StringComparison.OrdinalIgnoreCase)
                                    .Replace("SXS_ASSEMBLY_NAME", "\"\"", StringComparison.OrdinalIgnoreCase);
 

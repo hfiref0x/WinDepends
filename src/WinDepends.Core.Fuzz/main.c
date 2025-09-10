@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Aug 11, 2025
+*  Modified on: Aug 31, 2025
 *
 *      Project: WinDepends.Core.Fuzz
 *
@@ -25,6 +25,7 @@ static volatile LONG g_FailedFiles = 0;
 static volatile LONG g_JsonTotal = 0;
 static volatile LONG g_JsonValid = 0;
 static volatile LONG g_JsonInvalid = 0;
+static volatile LONG g_JsonTruncated = 0;
 
 #define CORE_TEST L"WinDepends.Core.Tests.exe"
 #ifdef _WIN64
@@ -234,21 +235,41 @@ static int IsLikelyJson(const char* line, size_t len)
     return 1;
 }
 
-static void ValidateAndReportJson(const char* line, size_t len)
+static void ValidateAndReportJsonWithFlag(const char* line, size_t len, BOOL truncated)
 {
     int ok;
     if (!g_EnableJsonValidation) return;
-    if (!IsLikelyJson(line, len)) return;
+
+    if (!truncated) {
+        if (!IsLikelyJson(line, len)) return;
+    }
+
     InterlockedIncrement(&g_JsonTotal);
     ok = ValidateJsonStrict(line, len);
     if (ok) {
         InterlockedIncrement(&g_JsonValid);
-        printf("[FUZZ][JSON][OK]\n");
+        if (truncated) {
+            printf("[FUZZ][JSON][OK] [TRUNCATED]\n");
+        }
+        else {
+            printf("[FUZZ][JSON][OK]\n");
+        }
     }
     else {
         InterlockedIncrement(&g_JsonInvalid);
-        printf("[FUZZ][JSON][INVALID]\n");
+        if (truncated) {
+            InterlockedIncrement(&g_JsonTruncated);
+            printf("[FUZZ][JSON][INVALID] [TRUNCATED]\n");
+        }
+        else {
+            printf("[FUZZ][JSON][INVALID]\n");
+        }
     }
+}
+
+static void ValidateAndReportJson(const char* line, size_t len)
+{
+    ValidateAndReportJsonWithFlag(line, len, FALSE);
 }
 
 /* ===================== END JSON VALIDATION ===================== */
@@ -273,7 +294,7 @@ HANDLE StartCoreApp()
     if (FAILED(hr))
         return NULL;
 
-    if (CreateProcess(NULL, szCoreAppPath, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+    if (CreateProcess(szCoreAppPath, szCmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         printf("[FUZZ][OK] Server process executed successfully\n");
         CloseHandle(pi.hThread);
         return pi.hProcess;
@@ -293,7 +314,9 @@ DWORD WINAPI ThreadProc(LPVOID Param)
     CHAR* pszLineBuf = NULL;
     DWORD bytesRead;
     SIZE_T lineLen = 0, i;
-    DWORD cchLineBuf = 16 * (1024 * 1024);
+    SIZE_T cchLineBuf = 1 * (1024 * 1024);
+    SIZE_T cchLineBufMax = 64 * (1024 * 1024);
+    BOOL truncatedLine = FALSE;
 
     pszLineBuf = (CHAR*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cchLineBuf);
     if (pszLineBuf) {
@@ -304,17 +327,47 @@ DWORD WINAPI ThreadProc(LPVOID Param)
 
             for (i = 0; i < bytesRead; i++) {
                 char c = chunk[i];
-                if (c == '\n' || lineLen + 1 >= cchLineBuf) {
+
+                if (c == '\n') {
                     pszLineBuf[lineLen] = 0;
                     printf("%s\n", pszLineBuf);
-                    ValidateAndReportJson(pszLineBuf, lineLen);
+                    ValidateAndReportJsonWithFlag(pszLineBuf, lineLen, truncatedLine);
                     lineLen = 0;
-                    if (c != '\n' && c != '\r') {
-                        pszLineBuf[lineLen++] = c;
-                    }
+                    truncatedLine = FALSE;
                 }
                 else if (c != '\r') {
-                    pszLineBuf[lineLen++] = c;
+                    if (lineLen + 1 >= cchLineBuf) {
+                        SIZE_T newCap;
+                        CHAR* pNew;
+
+                        if (cchLineBuf < cchLineBufMax) {
+                            newCap = cchLineBuf * 2;
+                            if (newCap > cchLineBufMax) newCap = cchLineBufMax;
+                            pNew = (CHAR*)HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, pszLineBuf, newCap);
+                            if (pNew) {
+                                pszLineBuf = pNew;
+                                cchLineBuf = newCap;
+                            }
+                            else {
+                                truncatedLine = TRUE;
+                            }
+                        }
+                        else {
+                            truncatedLine = TRUE;
+                        }
+
+                        if (truncatedLine) {
+                            pszLineBuf[lineLen] = 0;
+                            printf("%s\n", pszLineBuf);
+                            ValidateAndReportJsonWithFlag(pszLineBuf, lineLen, TRUE);
+                            lineLen = 0;
+                            truncatedLine = TRUE;
+                        }
+                    }
+
+                    if (lineLen + 1 < cchLineBuf) {
+                        pszLineBuf[lineLen++] = c;
+                    }
                 }
             }
             fflush(stdout);
@@ -323,7 +376,7 @@ DWORD WINAPI ThreadProc(LPVOID Param)
         if (lineLen) {
             pszLineBuf[lineLen] = 0;
             printf("%s\n", pszLineBuf);
-            ValidateAndReportJson(pszLineBuf, lineLen);
+            ValidateAndReportJsonWithFlag(pszLineBuf, lineLen, truncatedLine);
         }
 
         HeapFree(GetProcessHeap(), 0, pszLineBuf);
@@ -338,14 +391,17 @@ static void PrintSummary(void)
     LONG jsonTotal = g_JsonTotal;
     LONG jsonValid = g_JsonValid;
     LONG jsonInvalid = g_JsonInvalid;
-    printf("[FUZZ][SUMMARY] Files=%ld FailedFiles=%ld JSON_Total=%ld JSON_Valid=%ld JSON_Invalid=%ld\n",
-        totalFiles, failedFiles, jsonTotal, jsonValid, jsonInvalid);
+    LONG jsonTruncated = g_JsonTruncated;
+
+    printf("[FUZZ][SUMMARY] Files=%ld FailedFiles=%ld JSON_Total=%ld JSON_Valid=%ld JSON_Invalid=%ld JSON_Truncated=%ld\n",
+        totalFiles, failedFiles, jsonTotal, jsonValid, jsonInvalid, jsonTruncated);
 }
 
 void FuzzFromDirectory(LPWSTR directoryPath)
 {
     HRESULT hr;
     DWORD waitResult = 0, tid, cchFullPath = MAX_PATH * 2, cchCmdLine = MAX_PATH * 4;
+    DWORD exitCode = 0;
     HANDLE hChildOutRead, hChildOutWrite, hThread = NULL;
     HANDLE hFind = INVALID_HANDLE_VALUE, hServerProcess = NULL;
     LPWSTR ext;
@@ -461,13 +517,30 @@ void FuzzFromDirectory(LPWSTR directoryPath)
 
                 waitResult = WaitForSingleObject(pi.hProcess, 5000);
                 if (waitResult == WAIT_TIMEOUT) {
-                    g_FailedFiles++;
+                    InterlockedIncrement(&g_FailedFiles);
                     printf("\n[FUZZ][ERROR] Timeout reached, terminating test application\n");
                     TerminateProcess(pi.hProcess, (DWORD)ERROR_TIMEOUT);
                     WaitForSingleObject(pi.hProcess, 500);
                 }
                 else {
-                    g_TotalFiles++;
+                    if (GetExitCodeProcess(pi.hProcess, &exitCode)) {
+                        if (exitCode == 0) {
+                            InterlockedIncrement(&g_TotalFiles);
+                        }
+                        else {
+                            InterlockedIncrement(&g_FailedFiles);
+                            if (exitCode >= 0xC0000000 && exitCode < 0xD0000000) {
+                                printf("[FUZZ][ERROR] Test app crashed, code=0x%08lX\n", exitCode);
+                            }
+                            else {
+                                printf("[FUZZ][ERROR] Test app exited with code=0x%08lX\n", exitCode);
+                            }
+                        }
+                    }
+                    else {
+                        InterlockedIncrement(&g_FailedFiles);
+                        printf("[FUZZ][ERROR] GetExitCodeProcess failed (err=%lu)\n", GetLastError());
+                    }
                 }
                 if (hThread) {
                     WaitForSingleObject(hThread, 1500);
@@ -478,7 +551,7 @@ void FuzzFromDirectory(LPWSTR directoryPath)
                 CloseHandle(pi.hThread);
             }
             else {
-                g_FailedFiles++;
+                InterlockedIncrement(&g_FailedFiles);
                 printf("[FUZZ][ERROR] Executing test process failed (err=%lu)\n", GetLastError());
                 if (hChildOutWrite) {
                     CloseHandle(hChildOutWrite);
@@ -505,6 +578,11 @@ void FuzzFromDirectory(LPWSTR directoryPath)
 
 int wmain(int argc, wchar_t* argv[])
 {
+    UINT em;
+
+    em = SetErrorMode(0);
+    SetErrorMode(em | SEM_NOGPFAULTERRORBOX | SEM_FAILCRITICALERRORS);
+
     if (argc < 3) {
         printf("Usage: WinDepends.Core.Fuzz.exe <AppDirectory> <InputDirectory>\n");
         return 1;

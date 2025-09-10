@@ -3,11 +3,11 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Nov 30, 2024
+*  Modified on: Sep 01, 2025
 *
 *      Project: WinDepends.Core.Tests
 *
-*      Author:
+*      Author: WinDepends authors
 */
 
 #define WIN32_LEAN_AND_MEAN
@@ -16,6 +16,7 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <strsafe.h>
 #include <shellapi.h>
 
@@ -24,8 +25,6 @@
 
 #define APP_PORT        8209
 #define APP_ADDR        "127.0.0.1"
-#define APP_MAXUSERS    32
-#define APP_KEEPALIVE   1
 
 #define WDEP_STATUS_OK  L"WDEP/1.0 200 OK\r\n"
 #define WDEP_STATUS_208 L"WDEP/1.0 208 Already resolved\r\n"
@@ -47,8 +46,8 @@ int sendstring_plaintext(SOCKET s, const wchar_t* Buffer)
 typedef struct _BUFFER_CHAIN
 {
     struct _BUFFER_CHAIN* Next;
-    unsigned long           DataSize;
-    wchar_t                 Data[CC_CHAIN_DATA];
+    unsigned long         DataSize;
+    wchar_t               Data[CC_CHAIN_DATA];
 } BUFFER_CHAIN, * PBUFFER_CHAIN;
 
 PBUFFER_CHAIN recvdata(SOCKET s)
@@ -133,7 +132,7 @@ BOOL is_successful_request()
 
 void main()
 {
-    LPWSTR      *szArglist;
+    LPWSTR* szArglist;
     int         nArgs;
 
     WORD        wVersionRequested;
@@ -143,10 +142,18 @@ void main()
     WCHAR szBuffer[MAX_PATH * 2];
 
     struct sockaddr_in app_saddr = { 0 };
+    const wchar_t* envPort;
+    USHORT port = APP_PORT;
+    ULONG pval;
 
     printf("Starting WinDepends.Core.Tests . . .\r\n");
 
     szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
+    envPort = GetEnvironmentVariable(L"WINDEPENDS_PORT", szBuffer, ARRAYSIZE(szBuffer)) ? szBuffer : NULL;
+    if (envPort) {
+        pval = wcstoul(envPort, NULL, 10);
+        if (pval > 0 && pval <= 65535) port = (USHORT)pval;
+    }
 
     wVersionRequested = MAKEWORD(2, 2);
     wsaerr = WSAStartup(wVersionRequested, &wsadat);
@@ -165,7 +172,7 @@ void main()
     while (g_appsocket != INVALID_SOCKET)
     {
         app_saddr.sin_family = AF_INET;
-        app_saddr.sin_port = htons(APP_PORT);
+        app_saddr.sin_port = htons(port);
         e = inet_pton(AF_INET, APP_ADDR, &app_saddr.sin_addr);
         if (e != 1) {
             printf("Invalid IP address.\r\n");
@@ -261,13 +268,11 @@ void main()
         }
 
         Sleep(0);
-
         break;
     }
 
     if (g_appsocket != INVALID_SOCKET)
         closesocket(g_appsocket);
-    system("pause");
     WSACleanup();
     ExitProcess(0);
 }

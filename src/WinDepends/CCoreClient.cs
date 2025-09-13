@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Aug 2025
+*  DATE:        10 Sep 2025
 *  
 *  Core Server communication class.
 *
@@ -192,6 +192,33 @@ public class CCoreClient : IDisposable
     {
         Dispose(true);
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Resolves apiset module name for given file name.
+    /// </summary>
+    /// <param name="moduleName"></param>
+    /// <param name="contextModule"></param>
+    /// <returns></returns>
+    private string ResolveApiSetName(string moduleName, CModule contextModule)
+    {
+        // Try cache first
+        string resolvedName = CApiSetCacheManager.GetResolvedNameByApiSetName(moduleName);
+        if (resolvedName != null)
+            return resolvedName;
+
+        // Cache miss - resolve via server request
+        var resolvedInfo = (CCoreResolvedFileName)GetModuleInformationByType(
+            ModuleInformationType.ApiSetName, contextModule, moduleName);
+
+        if (resolvedInfo != null)
+        {
+            resolvedName = resolvedInfo.Name;
+            CApiSetCacheManager.AddApiSet(moduleName, resolvedName);
+            return resolvedName;
+        }
+
+        return moduleName; // Return original if resolution failed
     }
 
     /// <summary>
@@ -790,30 +817,14 @@ public class CCoreClient : IDisposable
                                    List<SearchOrderType> searchOrderUM,
                                    List<SearchOrderType> searchOrderKM)
     {
+        // Resolve ApiSet name if any.
         bool isApiSetContract = IsModuleNameApiSetContract(moduleName);
-
         if (isApiSetContract)
         {
-            string cachedName = CApiSetCacheManager.GetResolvedNameByApiSetName(moduleName);
-
-            if (cachedName == null)
-            {
-                var resolvedName = (CCoreResolvedFileName)GetModuleInformationByType(ModuleInformationType.ApiSetName,
-                    parentModule, moduleName);
-
-                if (resolvedName != null)
-                {
-                    CApiSetCacheManager.AddApiSet(moduleName, resolvedName.Name);
-                    moduleName = resolvedName.Name;
-                }
-            }
-            else
-            {
-                moduleName = cachedName;
-            }
-
+            moduleName = ResolveApiSetName(moduleName, parentModule);
         }
 
+        // Resolve module path.
         var moduleFileName = CPathResolver.ResolvePathForModule(moduleName,
                                                                 parentModule,
                                                                 searchOrderUM,
@@ -959,7 +970,7 @@ public class CCoreClient : IDisposable
             // Expand forwarders for this module once
             if (!m.ForwardersExpanded && m.ForwarderEntries.Count > 0)
             {
-                ExpandForwardersForModule(m, searchOrderUM, searchOrderKM, parentImportsHashTable);
+                ExpandForwardersForModule(m, searchOrderUM, searchOrderKM, parentImportsHashTable, null);
                 m.ForwardersExpanded = true;
             }
 
@@ -971,13 +982,73 @@ public class CCoreClient : IDisposable
         }
     }
 
+    private CModule CreateOrGetForwardNode(CModule parentModule,
+                                      string rawTarget,
+                                      string canonicalName,
+                                      string finalTargetName,
+                                      SearchOrderType resolvedBy,
+                                      bool isApiSetContract)
+    {
+        // First check for existing real (non-forward) module
+        var existingReal = parentModule.Dependents.FirstOrDefault(d =>
+            !d.IsForward &&
+            (d.FileName.Equals(finalTargetName, StringComparison.OrdinalIgnoreCase) ||
+             d.FileName.Equals(canonicalName, StringComparison.OrdinalIgnoreCase) ||
+             d.RawFileName.Equals(rawTarget, StringComparison.OrdinalIgnoreCase)));
+
+        if (existingReal != null)
+            return existingReal;
+
+        // Check for existing synthetic forward node
+        var forwardNode = parentModule.Dependents.FirstOrDefault(d =>
+            d.IsForward &&
+            (d.FileName.Equals(finalTargetName, StringComparison.OrdinalIgnoreCase) ||
+             d.FileName.Equals(canonicalName, StringComparison.OrdinalIgnoreCase) ||
+             d.RawFileName.Equals(rawTarget, StringComparison.OrdinalIgnoreCase)));
+
+        if (forwardNode == null)
+        {
+            forwardNode = new CModule(finalTargetName,
+                                     rawTarget, // keep original forward string module token
+                                     resolvedBy,
+                                     isApiSetContract)
+            {
+                IsKernelModule = parentModule.IsKernelModule,
+                IsForward = true
+            };
+            parentModule.Dependents.Add(forwardNode);
+        }
+
+        return forwardNode;
+    }
+
+    /// <summary>
+    /// Process forwarders for a module, creating synthetic dependency nodes as needed.
+    /// Uses a chain tracking mechanism to detect and prevent circular forwarding.
+    /// </summary>
+    /// <param name="forwardingChain">Set of modules in current forwarding chain to detect cycles</param>
     public void ExpandForwardersForModule(CModule module,
                                         List<SearchOrderType> searchOrderUM,
                                         List<SearchOrderType> searchOrderKM,
-                                        Dictionary<int, FunctionHashObject> parentImportsHashTable)
+                                        Dictionary<int, FunctionHashObject> parentImportsHashTable,
+                                        HashSet<string> forwardingChain = null)
     {
         if (module?.ForwarderEntries == null || module.ForwarderEntries.Count == 0)
             return;
+
+        // Initialize tracking set for first call in chain
+        bool isRootCall = forwardingChain == null;
+        forwardingChain ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Track this module to detect cycles
+        string moduleKey = Path.GetFileName(module.FileName).ToLowerInvariant();
+        if (!isRootCall && !forwardingChain.Add(moduleKey))
+        {
+            string cyclePath = string.Join(" → ", forwardingChain) + " → " + moduleKey;
+            _addLogMessage($"Circular forwarding detected: {cyclePath}",
+                LogMessageType.ErrorOrWarning);
+            return;
+        }
 
         var groups = module.ForwarderEntries
                            .GroupBy(f => f.TargetModuleName, StringComparer.OrdinalIgnoreCase);
@@ -986,61 +1057,29 @@ public class CCoreClient : IDisposable
         {
             string rawTarget = g.Key;
 
-            bool isApiSetContract = IsModuleNameApiSetContract(rawTarget);
-            string resolvedApiSetName = null;
-
-            if (isApiSetContract)
+            // Skip if we've detected this as part of a cycle
+            string targetKey = Path.GetFileName(rawTarget).ToLowerInvariant();
+            if (forwardingChain.Contains(targetKey))
             {
-                // Try cache first
-                resolvedApiSetName = CApiSetCacheManager.GetResolvedNameByApiSetName(rawTarget);
-                if (resolvedApiSetName == null)
-                {
-                    var resolvedInfo = (CCoreResolvedFileName)GetModuleInformationByType(
-                        ModuleInformationType.ApiSetName, module, rawTarget);
-                    if (resolvedInfo != null)
-                    {
-                        resolvedApiSetName = resolvedInfo.Name;
-                        CApiSetCacheManager.AddApiSet(rawTarget, resolvedApiSetName);
-                    }
-                }
+                _addLogMessage($"Skipping circular forward from {moduleKey} to {targetKey}",
+                    LogMessageType.ErrorOrWarning);
+                continue;
             }
 
-            string canonicalName = resolvedApiSetName ?? rawTarget;
-
+            bool isApiSetContract = IsModuleNameApiSetContract(rawTarget);
+            string canonicalName = isApiSetContract ? ResolveApiSetName(rawTarget, module) : rawTarget;
             string resolvedTargetPath = CPathResolver.ResolvePathForModule(
                 canonicalName, module, searchOrderUM, searchOrderKM, out SearchOrderType resolvedBy);
 
             string finalTargetName = string.IsNullOrEmpty(resolvedTargetPath) ? canonicalName : resolvedTargetPath;
 
-            // If a real non-forward module already exists (match by FileName OR RawFileName), skip synthetic.
-            var existingReal = module.Dependents.FirstOrDefault(d =>
-                !d.IsForward &&
-                (d.FileName.Equals(finalTargetName, StringComparison.OrdinalIgnoreCase) ||
-                 d.FileName.Equals(canonicalName, StringComparison.OrdinalIgnoreCase) ||
-                 d.RawFileName.Equals(rawTarget, StringComparison.OrdinalIgnoreCase)));
+            // Create the synthetic forward node
+            var forwardNode = CreateOrGetForwardNode(
+                module, rawTarget, canonicalName, finalTargetName, resolvedBy, isApiSetContract);
 
-            if (existingReal != null)
+            // If this returned an existing real module, skip processing this group
+            if (!forwardNode.IsForward)
                 continue;
-
-            // Reuse existing synthetic forward node if present (match by final or canonical or raw).
-            var forwardNode = module.Dependents.FirstOrDefault(d =>
-                d.IsForward &&
-                (d.FileName.Equals(finalTargetName, StringComparison.OrdinalIgnoreCase) ||
-                 d.FileName.Equals(canonicalName, StringComparison.OrdinalIgnoreCase) ||
-                 d.RawFileName.Equals(rawTarget, StringComparison.OrdinalIgnoreCase)));
-
-            if (forwardNode == null)
-            {
-                forwardNode = new CModule(finalTargetName,
-                                          rawTarget, // keep original forward string module token
-                                          resolvedBy,
-                                          isApiSetContract)
-                {
-                    IsKernelModule = module.IsKernelModule,
-                    IsForward = true
-                };
-                module.Dependents.Add(forwardNode);
-            }
 
             foreach (var fe in g)
             {
@@ -1076,6 +1115,12 @@ public class CCoreClient : IDisposable
 
                 parentImportsHashTable.TryAdd(fho.GenerateUniqueKey(), fho);
             }
+        }
+
+        // Remove this module from chain when done with this branch
+        if (!isRootCall)
+        {
+            forwardingChain.Remove(moduleKey);
         }
     }
 
@@ -1154,12 +1199,12 @@ public class CCoreClient : IDisposable
 
         if (imports.InvalidImportModuleCount != 0)
         {
-            _addLogMessage($"Invalid import entries found ({imports.InvalidImportModuleCount}) while processing {modName}", 
+            _addLogMessage($"Invalid import entries found ({imports.InvalidImportModuleCount}) while processing {modName}",
                 LogMessageType.ErrorOrWarning);
         }
         if (imports.InvalidDelayImportModuleCount != 0)
         {
-            _addLogMessage($"Invalid delay-load import entries found ({imports.InvalidDelayImportModuleCount}) while processing {modName}", 
+            _addLogMessage($"Invalid delay-load import entries found ({imports.InvalidDelayImportModuleCount}) while processing {modName}",
                 LogMessageType.ErrorOrWarning);
         }
     }
@@ -1232,7 +1277,7 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        if (SendCommandAndReceiveReplyAsObjectJSON(command, typeof(CCoreKnownDlls), null) 
+        if (SendCommandAndReceiveReplyAsObjectJSON(command, typeof(CCoreKnownDlls), null)
             is CCoreKnownDlls knownDllsObject)
         {
             knownDllsList.Clear();

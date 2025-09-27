@@ -80,7 +80,11 @@ public class CBufferChain
         Data = new char[CConsts.CoreServerChainSizeMax];
     }
 
-    public string BufferToString()
+    /// <summary> 
+    /// Concatenates all nodes in this buffer chain into a single string, trimming trailing nulls per node and skipping carriage-return and line-feed characters. 
+    /// </summary> 
+    /// <returns>The concatenated content without CR/LF characters.</returns>
+    public string BufferToStringNoCRLF()
     {
         var sb = new StringBuilder();
         var chain = this;
@@ -229,20 +233,15 @@ public class CCoreClient : IDisposable
     {
         CBufferChain idata = ReceiveReply();
         if (IsNullOrEmptyResponse(idata))
-        {
             return false;
-        }
 
         string response = new(idata.Data, 0, (int)Math.Min(idata.DataSize, idata.Data.Length));
         if (string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.Ordinal))
-        {
             return true;
-        }
 
         if (response.StartsWith(CConsts.WDEP_STATUS_600, StringComparison.Ordinal))
-        {
             CheckExceptionInReply(module);
-        }
+
         return false;
     }
 
@@ -268,7 +267,7 @@ public class CCoreClient : IDisposable
         var exceptionText = PeExceptionHelper.TranslateExceptionCode(ex.Code);
 
         _addLogMessage(
-            $"An exception {exceptionText} 0x{ex.Code:X8} occured while processing {location}" +
+            $"An exception {exceptionText} 0x{ex.Code:X8} occurred while processing {location}" +
             (!string.IsNullOrEmpty(moduleName) ? $" of {moduleName}" : ""),
             LogMessageType.ErrorOrWarning);
     }
@@ -278,7 +277,7 @@ public class CCoreClient : IDisposable
         CBufferChain idata = ReceiveReply();
         if (!IsNullOrEmptyResponse(idata))
         {
-            var reply = idata.BufferToString();
+            var reply = idata.BufferToStringNoCRLF();
             if (!string.IsNullOrEmpty(reply))
             {
                 OutputException(module, reply);
@@ -307,7 +306,7 @@ public class CCoreClient : IDisposable
             return null;
         }
 
-        string result = idata.BufferToString();
+        string result = idata.BufferToStringNoCRLF();
         if (string.IsNullOrEmpty(result))
         {
             return null;
@@ -390,7 +389,7 @@ public class CCoreClient : IDisposable
                         }
                         catch
                         {
-                            currentBuffer.DataSize = (uint)i;
+                            bufferChain.DataSize = (uint)i;
                             return currentBuffer;
                         }
 
@@ -511,7 +510,7 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Open Coff module and read for futher operations.
+    /// Open Coff module and read for further operations.
     /// </summary>
     public ModuleOpenStatus OpenModule(ref CModule module, CFileOpenSettings settings)
     {
@@ -579,7 +578,7 @@ public class CCoreClient : IDisposable
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
         }
 
-        response = idata.BufferToString();
+        response = idata.BufferToStringNoCRLF();
         if (string.IsNullOrEmpty(response))
         {
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
@@ -595,8 +594,14 @@ public class CCoreClient : IDisposable
             module.ModuleData.FileSize = fileInformation.FileSizeLow | ((ulong)fileInformation.FileSizeHigh << 32);
 
             long fileTime = ((long)fileInformation.LastWriteTimeHigh << 32) | fileInformation.LastWriteTimeLow;
-            module.ModuleData.FileTimeStamp = DateTime.FromFileTime(fileTime);
-
+            try
+            {
+                module.ModuleData.FileTimeStamp = DateTime.FromFileTime(fileTime < 0 ? 0 : fileTime);
+            }
+            catch
+            {
+                module.ModuleData.FileTimeStamp = DateTime.MinValue;
+            }
             return ModuleOpenStatus.Okay;
         }
 
@@ -1427,7 +1432,7 @@ public class CCoreClient : IDisposable
         if (idata != null)
         {
             ErrorStatus = ServerErrorStatus.NoErrors;
-            _addLogMessage($"Server has been started: {idata.BufferToString()}", LogMessageType.System);
+            _addLogMessage($"Server has been started: {idata.BufferToStringNoCRLF()}", LogMessageType.System);
             return true;
         }
         else

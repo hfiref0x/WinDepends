@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        11 Jun 2025
+*  DATE:        27 Sep 2025
 *
 *  MS Symbols resolver support class.
 *
@@ -229,6 +229,8 @@ public static class CSymbolResolver
     static SymFromAddrDelegate SymFromAddr;
     static UnDecorateSymbolNameDelegate UnDecorateSymbolName;
     static IntPtr DbgHelpModule { get; set; } = IntPtr.Zero;
+    static IntPtr CachedSymModuleBase { get; set; } = IntPtr.Zero;
+    static string CachedSymModuleName { get; set; } = string.Empty;
     static bool SymbolsInitialized { get; set; }
     public static bool UndecorationReady { get; set; }
     public static string DllPath { get; set; }
@@ -236,56 +238,7 @@ public static class CSymbolResolver
 
     static readonly SafeProcessHandle CurrentProcess = new(new IntPtr(-1), false);
 
-    private struct SymModuleItem
-    {
-        public IntPtr BaseAddress;
-    }
-
-    /// <summary>
-    /// Cache of loaded symbol modules.
-    /// </summary>
-    static readonly ConcurrentDictionary<string, SymModuleItem> symModulesCache = new();
-
-    /// <summary>
-    /// Caches a symbol module with its base address.
-    /// </summary>
-    /// <param name="symModuleName">The name of the symbol module.</param>
-    /// <param name="baseAddress">The base address of the module.</param>
-    public static void CacheSymModule(string symModuleName, IntPtr baseAddress)
-    {
-        var item = new SymModuleItem { BaseAddress = baseAddress };
-        symModulesCache.AddOrUpdate(symModuleName, item, (key, oldValue) => item);
-    }
-
-    /// <summary>
-    /// Retrieves a cached symbol module's base address by name.
-    /// </summary>
-    /// <param name="symModuleName">The name of the symbol module.</param>
-    /// <returns>The base address of the module if found, otherwise IntPtr.Zero.</returns>
-    public static IntPtr RetrieveCachedSymModule(string symModuleName)
-    {
-        if (symModulesCache.TryGetValue(symModuleName, out var item))
-        {
-            return item.BaseAddress;
-        }
-        else
-        {
-            return IntPtr.Zero;
-        }
-    }
-
-    /// <summary>
-    /// Unloads all cached symbol modules.
-    /// </summary>
-    public static void UnloadCachedSymModules()
-    {
-        foreach (var kvp in symModulesCache)
-        {
-            SymUnloadModule64(CurrentProcess, kvp.Value.BaseAddress);
-        }
-    }
-
-    /// <summary>
+     /// <summary>
     /// Clears all symbol-related function delegates.
     /// </summary>
     private static void ClearSymbolsDelegates()
@@ -419,6 +372,39 @@ public static class CSymbolResolver
         }
     }
 
+    public static IntPtr RetrieveCachedSymModule(string ModuleName)
+    {
+        if (string.IsNullOrEmpty(CachedSymModuleName))
+            return IntPtr.Zero;
+
+        if (CachedSymModuleName.Equals(ModuleName, StringComparison.OrdinalIgnoreCase))
+            return CachedSymModuleBase;
+
+        return IntPtr.Zero;
+    }
+
+    public static void CacheSymModule(IntPtr ModuleBase, string ModuleName)
+    {
+        if (ModuleBase == IntPtr.Zero) return;
+        if (string.IsNullOrEmpty(ModuleName)) return;
+
+        CachedSymModuleName = ModuleName;
+        CachedSymModuleBase = ModuleBase;
+    }
+
+    public static bool ClearCachedSymModule()
+    {
+        var result = false;
+        if (CachedSymModuleBase != IntPtr.Zero)
+        {
+            result = SymUnloadModule64(CurrentProcess, CachedSymModuleBase);
+            CachedSymModuleBase = IntPtr.Zero;
+            CachedSymModuleName = string.Empty;
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// Releases all resources used by the symbol resolver.
     /// </summary>
@@ -431,11 +417,9 @@ public static class CSymbolResolver
         {
             if (SymbolsInitialized)
             {
+                ClearCachedSymModule();
                 bResult = SymCleanup(CurrentProcess);
-                UnloadCachedSymModules();
             }
-
-            symModulesCache.Clear();
 
             NativeMethods.FreeLibrary(DbgHelpModule);
             DbgHelpModule = IntPtr.Zero;
@@ -481,21 +465,22 @@ public static class CSymbolResolver
     /// <returns>The handle of the loaded module, or IntPtr.Zero if loading failed.</returns>
     internal static IntPtr LoadModule(string fileName, UInt64 baseAddress)
     {
+        var symModule = IntPtr.Zero;
         if (!SymbolsInitialized)
-        {
             return IntPtr.Zero;
-        }
-        else
-        {
-            return SymLoadModuleEx(CurrentProcess,
-                                    IntPtr.Zero,
-                                    fileName,
-                                    null,
-                                    baseAddress,
-                                    0,
-                                    IntPtr.Zero,
-                                    0);
-        }
+
+        ClearCachedSymModule();
+        symModule = SymLoadModuleEx(CurrentProcess,
+                                IntPtr.Zero,
+                                fileName,
+                                null,
+                                baseAddress,
+                                0,
+                                IntPtr.Zero,
+                                0);
+
+        CacheSymModule(symModule, fileName);
+        return symModule;
     }
 
     /// <summary>
@@ -521,6 +506,9 @@ public static class CSymbolResolver
 
         if (SymFromAddr(CurrentProcess, address, out ulong displacement, ref symbolInfo))
         {
+            if (displacement != 0)
+                return false;
+
             symbolName = symbolInfo.Name;
             return true;
         }

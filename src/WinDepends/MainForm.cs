@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 Aug 2025
+*  DATE:        27 Sep 2025
 *  
 *  Codename:    VasilEk
 *
@@ -16,6 +16,7 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;
@@ -2852,17 +2853,12 @@ public partial class MainForm : Form
 
     private void PreloadSymbolForSelectedModule(CModule module)
     {
-        var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
-        if (moduleBase == IntPtr.Zero)
+        var symBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
+        if (symBase == IntPtr.Zero)
         {
             UpdateOperationStatus($"Please wait, loading symbols for \"{module.FileName}\"...");
-            moduleBase = CSymbolResolver.LoadModule(module.FileName, 0);
+            symBase = CSymbolResolver.LoadModule(module.FileName, 0);
             UpdateOperationStatus(string.Empty);
-
-            if (moduleBase != IntPtr.Zero)
-            {
-                CSymbolResolver.CacheSymModule(module.FileName, moduleBase);
-            }
         }
     }
 
@@ -3435,12 +3431,33 @@ public partial class MainForm : Form
             var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
             if (moduleBase != IntPtr.Zero)
             {
-                UInt64 address = Convert.ToUInt64(moduleBase) + function.Address;
-                if (CSymbolResolver.QuerySymbolForAddress(address, out string symName))
+                UInt64 functionAddress = 0;
+                //
+                // If function is parent import then lookup it by ordinal in module exports
+                // to query function actual address for symbols resolving.
+                //
+                if (!function.IsExportFunction && function.Address == 0)
                 {
-                    function.IsNameFromSymbols = true;
-                    function.RawName = symName;
-                    functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, function);
+                    var exportFunction = module.ModuleData.Exports.Find(item => item.Ordinal == function.Ordinal);
+                    if (exportFunction != null)
+                    {
+                        functionAddress = exportFunction.Address;
+                    }
+                }
+                else
+                {
+                    functionAddress = function.Address;
+                }
+
+                if (functionAddress != 0)
+                {
+                    var symAddress = Convert.ToUInt64(moduleBase) + functionAddress;
+                    if (CSymbolResolver.QuerySymbolForAddress(symAddress, out string symName))
+                    {
+                        function.IsNameFromSymbols = true;
+                        function.RawName = symName;
+                        functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, function);
+                    }
                 }
             }
         }

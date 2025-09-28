@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        27 Sep 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -37,7 +37,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2508;
+    public const uint VersionBuild = 2509;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -184,6 +184,8 @@ public static class CConsts
     public const string DbgHelpDll = "dbghelp.dll";
     public const string SymbolsDownloadLink = "*https://msdl.microsoft.com/download/symbols";
     public const string SymbolsDefaultStoreDirectory = "WinDepends\\Symbols";
+    public const string DebuggersString = "Debuggers";
+    public const string WindowsKitsString = "Windows Kits";
 
     //
     // Urls.

@@ -16,8 +16,9 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
-using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -46,7 +47,12 @@ public enum SymbolResolverInitResult
     /// <summary>
     /// Successfully initialized for name undecoration only.
     /// </summary>
-    SuccessForUndecorationOnly = 2
+    SuccessForUndecorationOnly = 2,
+
+    /// <summary>
+    /// Successfully initialized with symbol functionality using better dbghelp.dll version.
+    /// </summary>
+    SuccessWithSymbolsAlternateDll = 3
 }
 
 /// <summary>
@@ -238,7 +244,7 @@ public static class CSymbolResolver
 
     static readonly SafeProcessHandle CurrentProcess = new(new IntPtr(-1), false);
 
-     /// <summary>
+    /// <summary>
     /// Clears all symbol-related function delegates.
     /// </summary>
     private static void ClearSymbolsDelegates()
@@ -332,6 +338,7 @@ public static class CSymbolResolver
     /// <list type="bullet">
     ///   <item><description><see cref="SymbolResolverInitResult.DllLoadFailure"/> if DbgHelp.dll could not be loaded</description></item>
     ///   <item><description><see cref="SymbolResolverInitResult.InitializationFailure"/> if initialization failed</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbolsAlternateDll"/> if successfully initialized with a better dbghelp.dll</description></item>
     ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbols"/> if successfully initialized with symbols</description></item>
     ///   <item><description><see cref="SymbolResolverInitResult.SuccessForUndecorationOnly"/> if successfully initialized for name undecoration only</description></item>
     /// </list>
@@ -340,8 +347,57 @@ public static class CSymbolResolver
     {
         DllPath = dllPath;
         StorePath = storePath;
+        string candidatePath = dllPath;
+        bool usedAlternateDll = false;
 
-        DbgHelpModule = NativeMethods.LoadLibraryEx(dllPath, IntPtr.Zero, 0);
+        try
+        {
+            if (string.IsNullOrWhiteSpace(candidatePath) || !File.Exists(candidatePath))
+            {
+                candidatePath = FindDbgHelpDll();
+                if (string.IsNullOrEmpty(candidatePath))
+                {
+                    candidatePath = CConsts.DbgHelpDll;
+                }
+                else
+                {
+                    usedAlternateDll = !IsSystemDbgHelp(candidatePath);
+                }
+            }
+            else
+            {
+                if (IsSystemDbgHelp(candidatePath))
+                {
+                    var best = FindDbgHelpDll();
+                    if (!string.IsNullOrEmpty(best) && !PathsEqual(best, candidatePath))
+                    {
+                        usedAlternateDll = !IsSystemDbgHelp(best);
+                        candidatePath = best;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            candidatePath = CConsts.DbgHelpDll;
+            usedAlternateDll = false;
+        }
+
+        DbgHelpModule = NativeMethods.LoadLibraryEx(candidatePath, IntPtr.Zero, 0);
+        if (DbgHelpModule == IntPtr.Zero && !string.Equals(candidatePath, CConsts.DbgHelpDll, StringComparison.OrdinalIgnoreCase))
+        {
+            DbgHelpModule = NativeMethods.LoadLibraryEx(CConsts.DbgHelpDll, IntPtr.Zero, 0);
+            if (DbgHelpModule != IntPtr.Zero)
+            {
+                DllPath = CConsts.DbgHelpDll;
+                usedAlternateDll = false;
+            }
+        }
+        else
+        {
+            DllPath = candidatePath;
+        }
+
         if (DbgHelpModule == IntPtr.Zero)
         {
             return SymbolResolverInitResult.DllLoadFailure;
@@ -364,7 +420,12 @@ public static class CSymbolResolver
 
         if (useSymbols)
         {
-            return SymbolsInitialized ? SymbolResolverInitResult.SuccessWithSymbols : SymbolResolverInitResult.InitializationFailure;
+            if (!SymbolsInitialized)
+                return SymbolResolverInitResult.InitializationFailure;
+
+            return usedAlternateDll
+                ? SymbolResolverInitResult.SuccessWithSymbolsAlternateDll
+                : SymbolResolverInitResult.SuccessWithSymbols;
         }
         else
         {
@@ -516,4 +577,207 @@ public static class CSymbolResolver
         return false;
     }
 
+    /// <summary>
+    /// Finds the best available dbghelp.dll for current process architecture.
+    /// </summary>
+    /// <returns>
+    /// Full path to the preferred dbghelp.dll if found; otherwise null.
+    /// Preference order: Windows Kits Debuggers (by highest file version) for current arch,
+    /// then common Program Files Windows Kits locations, then the system copy.
+    /// </returns>
+    internal static string FindDbgHelpDll()
+    {
+        try
+        {
+            var arch = GetProcessArchFolderName();
+            var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var root in EnumerateWindowsKitsRoots())
+            {
+                try
+                {
+                    var p = Path.Combine(root, CConsts.DebuggersString, arch, CConsts.DbgHelpDll);
+                    if (File.Exists(p)) candidates.Add(p);
+                }
+                catch { }
+            }
+
+            try
+            {
+                var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+                AddIfExists(candidates, CombineParts(pf86, CConsts.WindowsKitsString, "10", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
+                AddIfExists(candidates, CombineParts(pf, CConsts.WindowsKitsString, "10", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
+                AddIfExists(candidates, CombineParts(pf86, CConsts.WindowsKitsString, "8.1", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
+                AddIfExists(candidates, CombineParts(pf, CConsts.WindowsKitsString, "8.1", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
+            }
+            catch { }
+
+            try
+            {
+                var sys = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
+                if (File.Exists(sys)) candidates.Add(sys);
+            }
+            catch { }
+
+            if (candidates.Count == 0)
+                return null;
+
+            string best = null;
+            Version bestVer = null;
+
+            foreach (var c in candidates)
+            {
+                try
+                {
+                    var fi = FileVersionInfo.GetVersionInfo(c);
+                    var ver = new Version(
+                        SafePart(fi.FileMajorPart),
+                        SafePart(fi.FileMinorPart),
+                        SafePart(fi.FileBuildPart),
+                        SafePart(fi.FilePrivatePart));
+
+                    if (best == null || ver > bestVer)
+                    {
+                        best = c;
+                        bestVer = ver;
+                    }
+                }
+                catch
+                {
+                    if (best == null)
+                        best = c;
+                }
+            }
+
+            return best;
+        }
+        catch
+        {
+            return null;
+        }
+
+        static void AddIfExists(ISet<string> set, string p)
+        {
+            try { if (!string.IsNullOrEmpty(p) && File.Exists(p)) set.Add(p); } catch { }
+        }
+
+        static int SafePart(int v) => v < 0 ? 0 : v;
+    }
+
+    /// <summary>
+    /// Enumerates installed Windows Kits root directories from HKLM for both 64-bit and 32-bit registry views.
+    /// </summary>
+    /// <returns>
+    /// A sequence of root paths (e.g., "C:\Program Files (x86)\Windows Kits\10\") suitable for composing Debuggers\<arch>\dbghelp.dll.
+    /// </returns>
+    private static IEnumerable<string> EnumerateWindowsKitsRoots()
+    {
+        var results = new List<string>();
+        string subKey = @"SOFTWARE\Microsoft\Windows Kits\Installed Roots";
+        string[] valueNames = new[] { "KitsRoot10", "KitsRoot81", "KitsRoot" };
+
+        foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+        {
+            try
+            {
+                using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+                using var key = baseKey.OpenSubKey(subKey);
+                if (key == null) continue;
+
+                foreach (var name in valueNames)
+                {
+                    var v = key.GetValue(name) as string;
+                    if (!string.IsNullOrWhiteSpace(v))
+                        results.Add(v);
+                }
+            }
+            catch
+            {
+                // ignore and continue
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Returns the folder name used by Windows Kits Debuggers for the current process architecture.
+    /// </summary>
+    /// <returns>"x64", "x86", "arm64", or "arm". Defaults to "x86" if detection fails.</returns>
+    private static string GetProcessArchFolderName()
+    {
+        try
+        {
+            var a = RuntimeInformation.ProcessArchitecture;
+            if (a == Architecture.X64) return "x64";
+            if (a == Architecture.X86) return "x86";
+            if (a == Architecture.Arm64) return "arm64";
+            if (a == Architecture.Arm) return "arm";
+        }
+        catch
+        {
+            if (Environment.Is64BitProcess) return "x64";
+            return "x86";
+        }
+        return "x86";
+    }
+
+    private static string CombineParts(params string[] parts)
+    {
+        try { return Path.Combine(parts); } catch { return null; }
+    }
+
+    /// <summary>
+    /// Determines whether the specified path points to the system-provided dbghelp.dll (System32 or SysWOW64).
+    /// </summary>
+    /// <param name="path">Path to test.</param>
+    /// <returns>True if the path resolves to the OS-shipped dbghelp.dll; otherwise false.</returns>
+    private static bool IsSystemDbgHelp(string path)
+    {
+        try
+        {
+            var sys32 = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
+            if (PathsEqual(path, sys32)) return true;
+
+            try
+            {
+                var sysX86 = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
+                if (!string.IsNullOrEmpty(sysX86))
+                {
+                    var sysWow64 = Path.Combine(sysX86, CConsts.DbgHelpDll);
+                    if (PathsEqual(path, sysWow64)) return true;
+                }
+            }
+            catch { }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Compares two file system paths for equality using full path normalization and case-insensitive comparison.
+    /// </summary>
+    /// <param name="a">First path.</param>
+    /// <param name="b">Second path.</param>
+    /// <returns>True if both paths refer to the same location; otherwise false.</returns>
+    private static bool PathsEqual(string a, string b)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
+            var pa = Path.GetFullPath(a).TrimEnd('\\');
+            var pb = Path.GetFullPath(b).TrimEnd('\\');
+            return string.Equals(pa, pb, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        }
+    }
 }

@@ -182,7 +182,8 @@ public static class CUtils
                 WindowsPrincipal principal = new(identity);
                 IsAdministrator = principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
-        } catch
+        }
+        catch
         {
             IsAdministrator = false;
         }

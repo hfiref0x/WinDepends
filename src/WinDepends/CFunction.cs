@@ -198,7 +198,7 @@ public class CFunction
 
     /// <summary>
     /// Extracts forwarder target module file name from a forwarder string (e.g. "NTDLL.Rtl..." -> "NTDLL.dll").
-    /// Returns empty string if input is null/invalid or already malformed.
+    /// Always returns a name with .dll extension or empty string if invalid.
     /// </summary>
     public static string ExtractForwarderModule(string? forwarder)
     {
@@ -209,12 +209,17 @@ public class CFunction
         if (dotIndex <= 0)
             return string.Empty;
 
-        string name = forwarder.AsSpan(0, dotIndex).ToString();
+        ReadOnlySpan<char> nameSpan = forwarder.AsSpan(0, dotIndex);
 
-        if (!name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-            name += ".dll";
+        // Check if name already ends with .dll (case-insensitive)
+        if (nameSpan.Length > 4 &&
+            nameSpan.Slice(nameSpan.Length - 4).Equals(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            return nameSpan.ToString();
+        }
 
-        return name;
+        // Append .dll extension
+        return string.Concat(nameSpan, ".dll");
     }
 
     /// <summary>
@@ -449,6 +454,17 @@ public class CFunction
                         else
                         {
                             newKind = isForward ? FunctionKind.ExportForwardedFunctionCalledAtLeastOnce : FunctionKind.ExportFunctionCalledAtLeastOnce;
+                        }
+                    }
+                    else
+                    {
+                        if (isCPlusPlusName)
+                        {
+                            newKind = isForward ? FunctionKind.ExportForwardedCPlusPlusFunction : FunctionKind.ExportCPlusPlusFunction;
+                        }
+                        else
+                        {
+                            newKind = isForward ? FunctionKind.ExportForwardedFunction : FunctionKind.ExportFunction;
                         }
                     }
 

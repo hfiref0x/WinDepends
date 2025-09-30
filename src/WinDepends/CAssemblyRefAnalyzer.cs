@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Aug 2025
+*  DATE:        29 Sep 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -79,6 +79,7 @@ public static class CAssemblyRefAnalyzer
     private static readonly ConcurrentDictionary<string, (string path, string source, DateTime expiration)> _resolutionCache =
         new ConcurrentDictionary<string, (string, string, DateTime)>();
     private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(30);
+    private static long _resolutionCounter = 0;
 
     private static readonly HashSet<string> _systemAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -228,6 +229,14 @@ public static class CAssemblyRefAnalyzer
         return createAssemblyNameObjectDelegate(out ppAssemblyNameObj, szAssemblyName, flags, pvReserved);
     }
 
+    private static void ReleaseComObject(object obj)
+    {
+        if (obj != null && Marshal.IsComObject(obj))
+        {
+            Marshal.ReleaseComObject(obj);
+        }
+    }
+
     #endregion
     /// <summary>
     /// Analyzes a .NET assembly file and returns a list of all its assembly references with resolved paths.
@@ -287,16 +296,25 @@ public static class CAssemblyRefAnalyzer
                 IsSystemAssembly = IsSystemAssembly(reference.name)
             };
 
-            string[] parts = reference.displayName?.Split(',');
-            if (parts != null && parts.Length >= 3)
+            if (!string.IsNullOrEmpty(reference.displayName))
             {
-                asmRef.Version = parts[1].Split('=')[1].Trim();
-                asmRef.Culture = parts[2].Split('=')[1].Trim();
+                string[] parts = reference.displayName.Split(',');
+                if (parts.Length >= 3)
+                {
+                    string[] versionParts = parts[1].Split('=');
+                    string[] cultureParts = parts[2].Split('=');
+
+                    if (versionParts.Length >= 2)
+                        asmRef.Version = versionParts[1].Trim();
+                    if (cultureParts.Length >= 2)
+                        asmRef.Culture = cultureParts[1].Trim();
+                }
             }
 
             string publicKeyToken = reference.publicKeyToken;
             if (bindingRedirects != null &&
                 bindingRedirects.TryGetValue(reference.name, out var redirect) &&
+                !string.IsNullOrEmpty(asmRef.Version) &&
                 Version.TryParse(asmRef.Version, out var version))
             {
                 if (version >= redirect.minVersion && version <= redirect.maxVersion)
@@ -334,51 +352,57 @@ public static class CAssemblyRefAnalyzer
     private static Dictionary<string, string> BatchFindInGac(List<(string name, string publicKeyToken)> assemblies, CpuType cpuType)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IAssemblyEnum enumObj = null;
+
         if (!TryLoadFusion())
             return result;
 
-        // First create a lookup for quick matching
         var assemblyLookup = assemblies.ToDictionary(
             a => a.name.ToLowerInvariant(),
             a => a.publicKeyToken,
             StringComparer.OrdinalIgnoreCase);
 
-        IAssemblyEnum enumObj;
         int hr = CreateAssemblyEnum(out enumObj, IntPtr.Zero, null, 2 /* GAC */, IntPtr.Zero);
         if (hr != 0 || enumObj == null)
             return result;
 
         try
         {
-            while (enumObj.GetNextAssembly(IntPtr.Zero, out var foundName, 0) == 0 && foundName != null)
+            IAssemblyName foundName;
+            while (enumObj.GetNextAssembly(IntPtr.Zero, out foundName, 0) == 0 && foundName != null)
             {
-                // Get display name
-                int disp = 1024;
-                var sb = new System.Text.StringBuilder(1024);
-                foundName.GetDisplayName(sb, ref disp, 0x0);
-                string display = sb.ToString();
-
-                // Extract the assembly name from display name
-                string[] parts = display.Split(',');
-                if (parts.Length > 0)
+                try
                 {
-                    string name = parts[0].Trim().ToLowerInvariant();
+                    int disp = 1024;
+                    var sb = new System.Text.StringBuilder(1024);
+                    foundName.GetDisplayName(sb, ref disp, 0x0);
+                    string display = sb.ToString();
 
-                    // Check if it's one of our target assemblies
-                    if (assemblyLookup.TryGetValue(name, out string publicKeyToken))
+                    string[] parts = display.Split(',');
+                    if (parts.Length > 0)
                     {
-                        if (display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+                        string name = parts[0].Trim().ToLowerInvariant();
+
+                        if (assemblyLookup.TryGetValue(name, out string publicKeyToken))
                         {
-                            string path = GetAssemblyPathFromGacDisplay(display, cpuType);
-                            if (File.Exists(path) && IsValidArchitecture(path, cpuType))
-                                result[name] = path;
+                            if (display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+                            {
+                                string path = GetAssemblyPathFromGacDisplay(display, cpuType);
+                                if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitecture(path, cpuType))
+                                    result[name] = path;
+                            }
                         }
                     }
                 }
+                finally
+                {
+                    ReleaseComObject(foundName);
+                }
             }
         }
-        catch
+        finally
         {
+            ReleaseComObject(enumObj);
         }
 
         return result;
@@ -434,7 +458,6 @@ public static class CAssemblyRefAnalyzer
         }
         catch
         {
-            // Ignore errors parsing config file
         }
         return redirects;
     }
@@ -577,8 +600,8 @@ public static class CAssemblyRefAnalyzer
             _resolutionCache.TryRemove(cacheKey, out _);
         }
 
-        // Periodically clean up expired cache entries (approximately every 100 resolutions)
-        if (Thread.CurrentThread.ManagedThreadId % 10 == 0 && _resolutionCache.Count > 100)
+        long counter = Interlocked.Increment(ref _resolutionCounter);
+        if (counter % 100 == 0 && _resolutionCache.Count > 100)
         {
             var now = DateTime.UtcNow;
             var expiredKeys = _resolutionCache
@@ -812,9 +835,9 @@ public static class CAssemblyRefAnalyzer
                         bool req32 = (flags & CorFlags.Requires32Bit) != 0;
 
                         if (machine == System.Reflection.PortableExecutable.Machine.I386 && ilOnly && !req32)
-                            return true; // AnyCPU
+                            return true;
                         if (machine == System.Reflection.PortableExecutable.Machine.Amd64)
-                            return true; // x64
+                            return true;
                         return false;
                     }
                 }
@@ -910,40 +933,52 @@ public static class CAssemblyRefAnalyzer
     /// </summary>
     public static string FindInGac(string assemblyName, string publicKeyToken, CpuType cpuType)
     {
+        IAssemblyName nameObj = null;
+        IAssemblyEnum enumObj = null;
+
         if (string.IsNullOrEmpty(publicKeyToken) || publicKeyToken == "null")
             return null;
 
-        IAssemblyName nameObj;
         int hr = CreateAssemblyNameObject(out nameObj, assemblyName, 0, IntPtr.Zero);
         if (hr != 0 || nameObj == null)
             return null;
 
-        hr = CreateAssemblyEnum(out var enumObj, IntPtr.Zero, nameObj, 2 /* GAC */, IntPtr.Zero);
-        if (hr != 0 || enumObj == null)
-            return null;
-
         try
         {
-            while (enumObj.GetNextAssembly(IntPtr.Zero, out var foundName, 0) == 0 && foundName != null)
-            {
-                int disp = 1024;
-                var sb = new System.Text.StringBuilder(1024);
-                foundName.GetDisplayName(sb, ref disp, 0x0);
-                string display = sb.ToString();
+            hr = CreateAssemblyEnum(out enumObj, IntPtr.Zero, nameObj, 2 /* GAC */, IntPtr.Zero);
+            if (hr != 0 || enumObj == null)
+                return null;
 
-                if (display.StartsWith(assemblyName + ",", StringComparison.OrdinalIgnoreCase) &&
-                    display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+            IAssemblyName foundName;
+            while (enumObj.GetNextAssembly(IntPtr.Zero, out foundName, 0) == 0 && foundName != null)
+            {
+                try
                 {
-                    string path = GetAssemblyPathFromGacDisplay(display, cpuType);
-                    if (File.Exists(path) && IsValidArchitecture(path, cpuType))
-                        return path;
+                    int disp = 1024;
+                    var sb = new System.Text.StringBuilder(1024);
+                    foundName.GetDisplayName(sb, ref disp, 0x0);
+                    string display = sb.ToString();
+
+                    if (display.StartsWith(assemblyName + ",", StringComparison.OrdinalIgnoreCase) &&
+                        display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string path = GetAssemblyPathFromGacDisplay(display, cpuType);
+                        if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitecture(path, cpuType))
+                            return path;
+                    }
+                }
+                finally
+                {
+                    ReleaseComObject(foundName);
                 }
             }
         }
-        catch
+        finally
         {
-            // Exception handling
+            ReleaseComObject(enumObj);
+            ReleaseComObject(nameObj);
         }
+
         return null;
     }
 
@@ -961,7 +996,7 @@ public static class CAssemblyRefAnalyzer
         string culture = parts[2].Split('=')[1].Trim();
         string pkt = parts[3].Split('=')[1].Trim();
 
-        if (culture.Equals("neutral", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(culture, "neutral", StringComparison.OrdinalIgnoreCase))
             culture = "neutral";
 
         string archSuffix = "GAC_MSIL";

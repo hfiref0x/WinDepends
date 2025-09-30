@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Sep 2025
+*  DATE:        30 Sep 2025
 *  
 *  Core Server communication class.
 *
@@ -86,7 +86,7 @@ public class CBufferChain
     /// <returns>The concatenated content without CR/LF characters.</returns>
     public string BufferToStringNoCRLF()
     {
-        var sb = new StringBuilder();
+        var sb = new StringBuilder(DataSize > 0 ? (int)DataSize : 256);
         var chain = this;
 
         do
@@ -386,18 +386,24 @@ public class CCoreClient : IDisposable
                         try
                         {
                             bufferChain.Data[i] = br.ReadChar();
+                            bufferChain.DataSize++;
+                            if (bufferChain.Data[i] == '\n' && previousChar == '\r')
+                            {
+                                ErrorStatus = ServerErrorStatus.NoErrors;
+                                return currentBuffer;
+                            }
                         }
-                        catch
+                        catch (EndOfStreamException)
                         {
                             bufferChain.DataSize = (uint)i;
-                            return currentBuffer;
+                            ErrorStatus = ServerErrorStatus.SocketException;
+                            return i > 0 || currentBuffer != bufferChain ? currentBuffer : null;
                         }
-
-                        bufferChain.DataSize++;
-
-                        if (bufferChain.Data[i] == '\n' && previousChar == '\r')
+                        catch (IOException)
                         {
-                            return currentBuffer;
+                            bufferChain.DataSize = (uint)i;
+                            ErrorStatus = ServerErrorStatus.SocketException;
+                            return i > 0 || currentBuffer != bufferChain ? currentBuffer : null;
                         }
 
                         previousChar = bufferChain.Data[i];
@@ -1056,6 +1062,7 @@ public class CCoreClient : IDisposable
         }
 
         var groups = module.ForwarderEntries
+                           .Where(f => f.TargetModuleName != null)
                            .GroupBy(f => f.TargetModuleName, StringComparer.OrdinalIgnoreCase);
 
         foreach (var g in groups)
@@ -1157,9 +1164,12 @@ public class CCoreClient : IDisposable
                     string rawTargetModule = CFunction.ExtractForwarderModule(cf.ForwardName);
                     if (!string.IsNullOrEmpty(rawTargetModule))
                     {
+                        string moduleFileName = Path.GetFileName(module.FileName);
+                        string rawFileName = Path.GetFileName(module.RawFileName);
+
                         // Skip self-forward
-                        if (!rawTargetModule.Equals(module.FileName, StringComparison.OrdinalIgnoreCase) &&
-                            !rawTargetModule.Equals(module.RawFileName, StringComparison.OrdinalIgnoreCase))
+                        if (!rawTargetModule.Equals(moduleFileName, StringComparison.OrdinalIgnoreCase) &&
+                            !rawTargetModule.Equals(rawFileName, StringComparison.OrdinalIgnoreCase))
                         {
                             var fe = new CForwarderEntry
                             {

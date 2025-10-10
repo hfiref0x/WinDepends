@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 Sep 2025
+*  DATE:        10 Oct 2025
 *  
 *  Core Server communication class.
 *
@@ -258,7 +258,7 @@ public class CCoreClient : IDisposable
         if (ex == null) return;
 
         var locations = new[] { "image headers", "data directories", "imports", "exports" };
-        var location = ex.Location >= 0 && ex.Location < locations.Length ? locations[ex.Location] : string.Empty;
+        var location = ex.Location < locations.Length ? locations[ex.Location] : string.Empty;
 
         if (module != null)
             module.OtherErrorsPresent = true;
@@ -1142,10 +1142,7 @@ public class CCoreClient : IDisposable
     /// </summary>
     void ProcessExports(CModule module,
                         bool collectForwarders,
-                        CCoreExports rawExports,
-                        List<SearchOrderType> searchOrderUM,
-                        List<SearchOrderType> searchOrderKM,
-                        Dictionary<int, FunctionHashObject> parentImportsHashTable)
+                        CCoreExports rawExports)
     {
         if (module == null || rawExports?.Library == null)
             return;
@@ -1239,7 +1236,7 @@ public class CCoreClient : IDisposable
         CCoreExports rawExports = (CCoreExports)GetModuleInformationByType(ModuleInformationType.Exports, module);
         if (rawExports != null)
         {
-            ProcessExports(module, CollectForwarders, rawExports, searchOrderUM, searchOrderKM, parentImportsHashTable);
+            ProcessExports(module, CollectForwarders, rawExports);
         }
 
         //

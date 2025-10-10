@@ -2872,7 +2872,7 @@ public partial class MainForm : Form
         if (symBase == IntPtr.Zero)
         {
             UpdateOperationStatus($"Please wait, loading symbols for \"{module.FileName}\"...");
-            symBase = CSymbolResolver.LoadModule(module.FileName, 0);
+            CSymbolResolver.LoadModule(module.FileName, 0);
             UpdateOperationStatus(string.Empty);
         }
     }

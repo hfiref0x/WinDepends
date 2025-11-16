@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Aug 11, 2025
+*  Modified on: Nov 07, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -17,16 +17,36 @@
 #define APP_ADDR            "127.0.0.1"
 #define APP_MAXUSERS        1
 #define APP_KEEPALIVE       1
-
-static long g_threads = 0;
-static long long g_client_sockets_created = 0;
-static long long g_client_sockets_closed = 0;
-static int g_shutdown = 0;
-SOCKET     g_appsocket = INVALID_SOCKET;
+#define MIN_WCHAR_CMD_BYTES 4
 
 #define cmd_debug_log   L"cmd %s, param: %s\r\n"
 
-int recvcmd(SOCKET s, char* buffer, int buffer_size)
+typedef struct _SERVER_CONTEXT {
+    volatile LONG threads;
+    volatile LONG64 sockets_created;
+    volatile LONG64 sockets_closed;
+    volatile LONG shutdown;
+    SOCKET app_socket;
+} SERVER_CONTEXT, * PSERVER_CONTEXT;
+
+typedef struct _CLIENT_THREAD_PARAM {
+    SOCKET client_socket;
+    PSERVER_CONTEXT server_ctx;
+} CLIENT_THREAD_PARAM, * PCLIENT_THREAD_PARAM;
+
+/*
+* recvcmd
+*
+* Purpose:
+*
+* Receive and parse command from client socket.
+*
+*/
+int recvcmd(
+    _In_ SOCKET s,
+    _Out_writes_bytes_(buffer_size) char* buffer,
+    _In_ int buffer_size
+)
 {
     int	l, p = 0, wp;
     wchar_t* ubuf, prev;
@@ -42,7 +62,7 @@ int recvcmd(SOCKET s, char* buffer, int buffer_size)
         buffer_size -= l;
         p += l;
 
-        if ((p >= 4) && ((p & 1) == 0))
+        if ((p >= MIN_WCHAR_CMD_BYTES) && ((p & 1) == 0))
         {
             wp = 0;
             prev = L'\0';
@@ -64,19 +84,39 @@ int recvcmd(SOCKET s, char* buffer, int buffer_size)
     return 0;
 }
 
-VOID server_shutdown()
+/*
+* server_shutdown
+*
+* Purpose:
+*
+* Signal server shutdown and close listening socket.
+*
+*/
+VOID server_shutdown(
+    _Inout_ PSERVER_CONTEXT ctx
+)
 {
-    g_shutdown = 1;
-    closesocket(g_appsocket);
-    g_appsocket = INVALID_SOCKET;
+    InterlockedExchange(&ctx->shutdown, 1);
+
+    if (ctx->app_socket != INVALID_SOCKET) {
+        closesocket(ctx->app_socket);
+        ctx->app_socket = INVALID_SOCKET;
+    }
 }
 
+/*
+* client_thread
+*
+* Purpose:
+*
+* Client connection handler thread.
+*
+*/
 DWORD WINAPI client_thread(
-    _In_ SOCKET s
+    _In_ LPVOID param
 )
 {
     int         rcv_buffer_size = (sizeof(wchar_t) * 65536) + 4096;
-    size_t      i;
     wchar_t*    rcvbuf = NULL, * cmd, * params;
     HANDLE      hheap = NULL;
     WCHAR       hello_msg[200];
@@ -84,7 +124,16 @@ DWORD WINAPI client_thread(
     // Variable used to hold module context data.
     module_ctx  *pmctx = NULL;
 
-    InterlockedIncrement(&g_threads);
+    SOCKET s;
+    PSERVER_CONTEXT server_ctx;
+    PCLIENT_THREAD_PARAM thread_param;
+
+    thread_param = (PCLIENT_THREAD_PARAM)param;
+    s = thread_param->client_socket;
+    server_ctx = thread_param->server_ctx;
+    heap_free(NULL, thread_param);
+
+    InterlockedIncrement(&server_ctx->threads);
     
     StringCchPrintf(hello_msg, 
         ARRAYSIZE(hello_msg), 
@@ -101,14 +150,13 @@ DWORD WINAPI client_thread(
         hheap = HeapCreate(0, (SIZE_T)(256 * 1024), 0);
         if (!hheap)
             break;
-
+        
         rcvbuf = HeapAlloc(hheap, 0, rcv_buffer_size);
         while (rcvbuf)
         {
             if (!recvcmd(s, (char*)rcvbuf, rcv_buffer_size))
                 break;
 
-            i = 0;
             cmd = rcvbuf;
             while ((*cmd != L'\0') && (isalpha(*cmd) == 0))
                 ++cmd;
@@ -187,7 +235,7 @@ DWORD WINAPI client_thread(
                 // Server shutdown.
                 //
             case ce_shutdown:
-                server_shutdown();
+                server_shutdown(server_ctx);
                 break;
 
                 //
@@ -254,19 +302,30 @@ recv_loop_end:
     }
 
     closesocket(s);
-    InterlockedIncrement64(&g_client_sockets_closed);
-    InterlockedDecrement(&g_threads);
+    InterlockedIncrement64(&server_ctx->sockets_closed);
+    InterlockedDecrement(&server_ctx->threads);
 
-    printf("MAIN LOOP stats: g_threads=%i, APP_MAXUSERS=%i, g_client_sockets_created=%lli, g_client_sockets_closed=%lli\r\n",
-        InterlockedCompareExchange(&g_threads, 0, 0),
+    printf("MAIN LOOP stats: threads=%i, max_users=%i, sockets_created=%lli, sockets_closed=%lli\r\n",
+        InterlockedCompareExchange(&server_ctx->threads, 0, 0),
         APP_MAXUSERS,
-        InterlockedCompareExchange64(&g_client_sockets_created, 0, 0),
-        InterlockedCompareExchange64(&g_client_sockets_closed, 0, 0)
+        InterlockedCompareExchange64(&server_ctx->sockets_created, 0, 0),
+        InterlockedCompareExchange64(&server_ctx->sockets_closed, 0, 0)
     );
+
     return 0;
 }
 
-void socket_set_keepalive(SOCKET s) 
+/*
+* socket_set_keepalive
+*
+* Purpose:
+*
+* Configure TCP keepalive settings for client socket.
+*
+*/
+void socket_set_keepalive(
+    _In_ SOCKET s
+) 
 {
     int opt;
     DWORD bytesReturned;
@@ -299,80 +358,112 @@ void socket_set_keepalive(SOCKET s)
     }
 }
 
-void connect_loop()
+/*
+* connect_loop
+*
+* Purpose:
+*
+* Accept incoming client connections and spawn handler threads.
+*
+*/
+void connect_loop(
+    _Inout_ PSERVER_CONTEXT ctx
+)
 {
     DWORD   tid;
-    HANDLE  th = NULL;
+    HANDLE  client_handle = NULL;
     int     inaddr_size;
-    SOCKET  clientsocket = 0;
+    SOCKET  client_socket = 0;
     struct  sockaddr_in client_saddr = { 0 };
+    PCLIENT_THREAD_PARAM thread_param;
 
-    while ((g_appsocket != INVALID_SOCKET) && (!g_shutdown)) {
+    while ((ctx->app_socket != INVALID_SOCKET) &&
+        (InterlockedCompareExchange(&ctx->shutdown, 0, 0) == 0)) {
 
         memset(&client_saddr, 0, sizeof(client_saddr));
         inaddr_size = sizeof(client_saddr);
-        clientsocket = accept(g_appsocket, (struct sockaddr*)&client_saddr, &inaddr_size);
-        if (clientsocket == INVALID_SOCKET)
+        client_socket = accept(ctx->app_socket, (struct sockaddr*)&client_saddr, &inaddr_size);
+        if (client_socket == INVALID_SOCKET)
             continue;
 
-        InterlockedIncrement64(&g_client_sockets_created);
+        InterlockedIncrement64(&ctx->sockets_created);
 
-        if (InterlockedCompareExchange(&g_threads, 0, 0) < APP_MAXUSERS)
+        if (InterlockedCompareExchange(&ctx->threads, 0, 0) < APP_MAXUSERS)
         {
-            if (APP_KEEPALIVE)
-                socket_set_keepalive(clientsocket);
+            thread_param = (PCLIENT_THREAD_PARAM)heap_calloc(NULL, sizeof(CLIENT_THREAD_PARAM));
+            if (thread_param) {
+                thread_param->client_socket = client_socket;
+                thread_param->server_ctx = ctx;
 
-            th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)client_thread, (LPVOID)(DWORD_PTR)clientsocket, 0, &tid);
-            if (!th) {
-                printf("Error starting client thread.\r\n");
+                if (APP_KEEPALIVE)
+                    socket_set_keepalive(client_socket);
+
+                client_handle = CreateThread(NULL, 0, client_thread, thread_param, 0, &tid);
+                if (client_handle) {
+                    CloseHandle(client_handle);
+                }
+                else {
+                    printf("Error starting client thread.\r\n");
+                    heap_free(NULL, thread_param);
+                    closesocket(client_socket);
+                    InterlockedIncrement64(&ctx->sockets_closed);
+                }
+            }
+            else {
+                closesocket(client_socket);
+                InterlockedIncrement64(&ctx->sockets_closed);
             }
         }
         else
         {
             printf("Maximum allowed clients connected.\r\n");
+            closesocket(client_socket);
+            InterlockedIncrement64(&ctx->sockets_closed);
         }
 
-        if (!th)
-        {
-            closesocket(clientsocket);
-            InterlockedIncrement64(&g_client_sockets_closed);
-        }
-
-        printf("MAIN LOOP stats: g_threads=%i, APP_MAXUSERS=%i, g_client_sockets_created=%lli, g_client_sockets_closed=%lli\r\n",
-            InterlockedCompareExchange(&g_threads, 0, 0),
+        printf("MAIN LOOP stats: threads=%i, max_users=%i, sockets_created=%lli, sockets_closed=%lli\r\n",
+            InterlockedCompareExchange(&ctx->threads, 0, 0),
             APP_MAXUSERS,
-            InterlockedCompareExchange64(&g_client_sockets_created, 0, 0),
-            InterlockedCompareExchange64(&g_client_sockets_closed, 0, 0)
+            InterlockedCompareExchange64(&ctx->sockets_created, 0, 0),
+            InterlockedCompareExchange64(&ctx->sockets_closed, 0, 0)
         );
     }
-
-    if (th != NULL)
-        CloseHandle(th);
 }
 
+/*
+* server_watchdog_thread
+*
+* Purpose:
+*
+* Monitor server activity and initiate shutdown if idle timeout expires.
+*
+*/
 DWORD WINAPI server_watchdog_thread(
     _In_ PVOID parameter
 )
 {
-    UNREFERENCED_PARAMETER(parameter);
+    INT timeout;
+    PSERVER_CONTEXT ctx;
+
+    ctx = (PSERVER_CONTEXT)parameter;
 
 #ifdef _DEBUG
-    INT timeout = 60;
+    timeout = 60;
 #else
-    INT timeout = 10;
+    timeout = 10;
 #endif
 
     do {
 
         Sleep(1000);
 
-        if (InterlockedCompareExchange(&g_threads, 0, 0) == 0) {
+        if (InterlockedCompareExchange(&ctx->threads, 0, 0) == 0) {
 
             --timeout;
             printf("waiting for clients, timeout %i\r\n", timeout);
 
             if (timeout == 0) {
-                server_shutdown();
+                server_shutdown(ctx);
                 break;
             }
         }
@@ -389,6 +480,14 @@ DWORD WINAPI server_watchdog_thread(
     return 0;
 }
 
+/*
+* select_server_port
+*
+* Purpose:
+*
+* Parse server port from command line or return default.
+*
+*/
 u_short select_server_port(
     VOID
 )
@@ -427,16 +526,15 @@ int CALLBACK WinMain(
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nCmdShow);
 #endif
-    HANDLE      th;
-    DWORD       tid, error_code = ERROR_SUCCESS;
-    WORD        wVersionRequested;
-    WSADATA     wsadat = { 0 };
-    int         wsaerr, e;
-    BOOL        opt;
- 
+    HANDLE th;
+    DWORD tid, error_code = ERROR_SUCCESS;
+    WORD wVersionRequested;
+    WSADATA wsadat = { 0 };
+    int wsaerr, e;
+    BOOL opt;
     struct sockaddr_in app_saddr = { 0 };
-
-    u_short     server_port;
+    u_short server_port;
+    SERVER_CONTEXT server_ctx;
 
 #ifdef _CONSOLE
     printf("Starting WinDepends.Core, verbose mode\r\n");
@@ -444,13 +542,17 @@ int CALLBACK WinMain(
     printf("Starting WinDepends.Core . . .\r\n");
 #endif
 
+    RtlSecureZeroMemory(&server_ctx, sizeof(SERVER_CONTEXT));
+    server_ctx.app_socket = INVALID_SOCKET;
+
     utils_init();
 
     server_port = select_server_port();
 
-    th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)server_watchdog_thread, NULL, 0, &tid);
+    th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)server_watchdog_thread, &server_ctx, 0, &tid);
     if (th) {
         CloseHandle(th);
+        th = NULL;
     }
     else {
         printf("Error starting server watchdog.\r\n");
@@ -464,14 +566,14 @@ int CALLBACK WinMain(
         ExitProcess(SERVER_ERROR_WSASTARTUP);
     }
 
-    g_appsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (g_appsocket == INVALID_SOCKET)
+    server_ctx.app_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (server_ctx.app_socket == INVALID_SOCKET)
         printf("Socket create error.\r\n");
 
-    while (g_appsocket != INVALID_SOCKET)
+    while (server_ctx.app_socket != INVALID_SOCKET)
     {
         opt = 1;
-        e = setsockopt(g_appsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+        e = setsockopt(server_ctx.app_socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
         if (e != 0) {
             printf("Socket init error.\r\n");
             error_code = SERVER_ERROR_SOCKETINIT;
@@ -487,27 +589,27 @@ int CALLBACK WinMain(
             break;
         }
 
-        e = bind(g_appsocket, (const struct sockaddr*)&app_saddr, sizeof(app_saddr));
+        e = bind(server_ctx.app_socket, (const struct sockaddr*)&app_saddr, sizeof(app_saddr));
         if (e != 0) {
             printf("Failed to start server. Can not bind to address.\r\n");
             error_code = SERVER_ERROR_BIND;
             break;
         }
 
-        e = listen(g_appsocket, SOMAXCONN);
+        e = listen(server_ctx.app_socket, SOMAXCONN);
         if (e != 0) {
             printf("Unable to listen socket.\r\n");
             error_code = SERVER_ERROR_LISTEN;
             break;
         }
 
-        connect_loop();
+        connect_loop(&server_ctx);
 
         break;
     }
 
-    if (g_appsocket != INVALID_SOCKET)
-        closesocket(g_appsocket);
+    if (server_ctx.app_socket != INVALID_SOCKET)
+        closesocket(server_ctx.app_socket);
 
     printf("Goodbye!\r\n");
     WSACleanup();

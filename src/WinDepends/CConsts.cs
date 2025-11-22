@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Oct 2025
+*  DATE:        19 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -138,10 +138,28 @@ public static class CConsts
     public const string LVExportsName = "LVExports";
 
     /// <summary>
-    /// Up, down sort marks.
+    /// Up sort mark.
     /// </summary>
     public const string AscendSortMark = "\u25B2";
+    /// <summary>
+    /// Down sort mark.
+    /// </summary>
     public const string DescendSortMark = "\u25BC";
+
+    //
+    // WinDepends.Core commands
+    //
+    public const string CMD_HEADERS = "headers\r\n";
+    public const string CMD_IMPORTS = "imports\r\n";
+    public const string CMD_EXPORTS = "exports\r\n";
+    public const string CMD_DATADIRS = "datadirs\r\n";
+    public const string CMD_KNOWNDLLS32 = "knowndlls 32\r\n";
+    public const string CMD_KNOWNDLLS64 = "knowndlls 64\r\n";
+    public const string CMD_CALLSTATS = "callstats\r\n";
+    public const string CMD_APISETNINFO = "apisetnsinfo\r\n";
+    public const string CMD_CLOSE = "close\r\n";
+    public const string CMD_EXIT = "exit\r\n";
+    public const string CMD_SHUTDOWN = "shutdown\r\n";
 
     //
     // Session file extension

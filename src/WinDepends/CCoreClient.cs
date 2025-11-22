@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Oct 2025
+*  DATE:        20 Nov 2025
 *  
 *  Core Server communication class.
 *
@@ -23,56 +23,87 @@ using System.Text;
 
 namespace WinDepends;
 
+/// <summary>
+/// Specifies the type of module information to retrieve from the server.
+/// </summary>
 public enum ModuleInformationType
 {
+    /// <summary>PE file headers information.</summary>
     Headers,
+    /// <summary>Import table information.</summary>
     Imports,
+    /// <summary>Export table information.</summary>
     Exports,
+    /// <summary>Data directories information.</summary>
     DataDirectories,
+    /// <summary>API Set contract resolution.</summary>
     ApiSetName
 }
 
+/// <summary>
+/// Indicates the current error status of server communication.
+/// </summary>
 public enum ServerErrorStatus
 {
+    /// <summary>No errors occurred.</summary>
     NoErrors = 0,
+    /// <summary>Server process needs to be restarted.</summary>
     ServerNeedRestart,
+    /// <summary>Network stream is not initialized.</summary>
     NetworkStreamNotInitialized,
+    /// <summary>Socket communication error occurred.</summary>
     SocketException,
+    /// <summary>General exception occurred.</summary>
     GeneralException
 }
 
+/// <summary>
+/// Represents the result of a module open operation.
+/// </summary>
 public enum ModuleOpenStatus
 {
+    /// <summary>Module opened successfully.</summary>
     Okay,
+    /// <summary>Unspecified error occurred.</summary>
     ErrorUnspecified,
+    /// <summary>Failed to send command to server.</summary>
     ErrorSendCommand,
+    /// <summary>Received data is invalid or corrupted.</summary>
     ErrorReceivedDataInvalid,
+    /// <summary>Module file was not found.</summary>
     ErrorFileNotFound,
+    /// <summary>Failed to map module file into memory.</summary>
     ErrorFileNotMapped,
+    /// <summary>Cannot read module file headers.</summary>
     ErrorCannotReadFileHeaders,
+    /// <summary>Module has invalid headers or signatures.</summary>
     ErrorInvalidHeadersOrSignatures
 }
 
-public enum CCoreClientSerializerType : int
-{
-    Headers = 0,
-    Imports,
-    Exports,
-    DataDirectories,
-    ResolvedFileName,
-    ApiSetNamespace,
-    CallStats,
-    KnownDlls,
-    FileInformation,
-    Exception
-}
-
-public class CBufferChain
+/// <summary>
+/// Represents a linked chain of character buffers used for receiving data from the server.
+/// </summary>
+/// <remarks>
+/// This class implements a simple linked list of character arrays to handle variable-length
+/// server responses without requiring pre-allocation of large buffers.
+/// </remarks>
+public class CBufferChain // keep as simple as possible
 {
     private CBufferChain _next;
+
+    /// <summary>
+    /// Gets or sets the number of characters stored in this buffer node.
+    /// </summary>
     public uint DataSize;
+
+    /// <summary>
+    /// Gets or sets the character array containing the data.
+    /// </summary>
     public char[] Data;
 
+    /// <summary>
+    /// Gets or sets the next buffer node in the chain.
+    /// </summary>
     public CBufferChain Next { get => _next; set => _next = value; }
 
     public CBufferChain()
@@ -80,15 +111,33 @@ public class CBufferChain
         Data = new char[CConsts.CoreServerChainSizeMax];
     }
 
-    /// <summary> 
-    /// Concatenates all nodes in this buffer chain into a single string, trimming trailing nulls per node and skipping carriage-return and line-feed characters. 
-    /// </summary> 
+    /// <summary>
+    /// Concatenates all nodes in this buffer chain into a single string, 
+    /// trimming trailing nulls per node and skipping carriage-return and line-feed characters.
+    /// </summary>
     /// <returns>The concatenated content without CR/LF characters.</returns>
     public string BufferToStringNoCRLF()
     {
-        var sb = new StringBuilder(DataSize > 0 ? (int)DataSize : 256);
+        int estimatedLength = 0;
         var chain = this;
 
+        // First pass: calculate total length
+        do
+        {
+            if (chain.Data is { Length: > 0 })
+            {
+                int length = chain.Data.Length;
+                while (length > 0 && chain.Data[length - 1] == '\0')
+                    length--;
+                estimatedLength += length;
+            }
+            chain = chain.Next;
+        } while (chain != null);
+
+        var sb = new StringBuilder(estimatedLength > 0 ? estimatedLength : 256);
+        chain = this;
+
+        // Second pass: build string
         do
         {
             if (chain.Data is { Length: > 0 } data)
@@ -113,21 +162,45 @@ public class CBufferChain
     }
 }
 
+/// <summary>
+/// Provides communication interface with the WinDepends.Core server process.
+/// </summary>
+/// <remarks>
+/// This class manages the lifecycle of the server process, handles network communication,
+/// and provides methods for querying PE module information. It implements thread-safe
+/// disposal using atomic operations and ensures proper cleanup of network resources.
+/// </remarks>
 public class CCoreClient : IDisposable
 {
-    private bool _disposed;
+    private int _disposed;
     private Process _serverProcess;     // WinDepends.Core instance.
     private TcpClient _clientConnection;
     private NetworkStream _dataStream;
     private readonly AddLogMessageCallback _addLogMessage;
     private string _serverApplication;
+    
+    /// <summary>
+    /// Gets the TCP client connection to the server.
+    /// </summary>
     public TcpClient ClientConnection => _clientConnection;
+
+    /// <summary>
+    /// Gets the IP address used for server communication.
+    /// </summary>
     public string IPAddress { get; }
+
+    /// <summary>
+    /// Gets or sets the port number used for server communication.
+    /// </summary>
     public int Port { get; set; }
-    private readonly DataContractJsonSerializer[] _serializers;
+    
+    private readonly Dictionary<Type, DataContractJsonSerializer> _serializerCache;
 
     private const int CORE_CONNECTION_TIMEOUT = 3000;
     private const int CORE_NETWORK_TIMEOUT = 5000;
+    private const int SERVER_START_ATTEMPTS = 5;
+    private const int SERVER_START_DELAY_MS = 100;
+    private const int SHUTDOWN_WAIT_MS = 100;
 
     private static readonly HashSet<string> s_forbiddenKernelLibs = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -143,55 +216,84 @@ public class CCoreClient : IDisposable
         CConsts.BootVidDll
     };
 
+    /// <summary>
+    /// Gets or sets the current error status of server communication.
+    /// </summary>
     public ServerErrorStatus ErrorStatus { get; set; }
 
+    /// <summary>
+    /// Gets the process ID of the running server process.
+    /// </summary>
+    /// <returns>The process ID, or -1 if the server is not running.</returns>
     public int ServerProcessId => _serverProcess?.Id ?? -1;
 
+    /// <summary>
+    /// Gets the path to the server application executable.
+    /// </summary>
+    /// <returns>The server application path.</returns>
     public string GetServerApplication()
     {
         return _serverApplication;
     }
 
+    /// <summary>
+    /// Sets the path to the server application executable.
+    /// </summary>
+    /// <param name="value">The server application path.</param>
     public void SetServerApplication(string value)
     {
         _serverApplication = value;
     }
 
-    public CCoreClient(string serverApplication, string ipAddress,
-                       AddLogMessageCallback logMessageCallback)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CCoreClient"/> class.
+    /// </summary>
+    /// <param name="serverApplication">Path to the server executable.</param>
+    /// <param name="ipAddress">IP address for server communication.</param>
+    /// <param name="logMessageCallback">Callback for logging messages.</param>
+    /// <exception cref="ArgumentNullException">Thrown when logMessageCallback is null.</exception>
+    public CCoreClient(string serverApplication, string ipAddress, AddLogMessageCallback logMessageCallback)
     {
         _addLogMessage = logMessageCallback ?? throw new ArgumentNullException(nameof(logMessageCallback));
         SetServerApplication(serverApplication);
         IPAddress = ipAddress;
         ErrorStatus = ServerErrorStatus.NoErrors;
 
-        _serializers = new DataContractJsonSerializer[10];
-        _serializers[(int)CCoreClientSerializerType.Headers] = new DataContractJsonSerializer(typeof(CCoreImageHeaders));
-        _serializers[(int)CCoreClientSerializerType.Imports] = new DataContractJsonSerializer(typeof(CCoreImports));
-        _serializers[(int)CCoreClientSerializerType.Exports] = new DataContractJsonSerializer(typeof(CCoreExports));
-        _serializers[(int)CCoreClientSerializerType.DataDirectories] = new DataContractJsonSerializer(typeof(CCoreDirectoryEntry));
-        _serializers[(int)CCoreClientSerializerType.ResolvedFileName] = new DataContractJsonSerializer(typeof(CCoreResolvedFileName));
-        _serializers[(int)CCoreClientSerializerType.ApiSetNamespace] = new DataContractJsonSerializer(typeof(CCoreApiSetNamespaceInfo));
-        _serializers[(int)CCoreClientSerializerType.CallStats] = new DataContractJsonSerializer(typeof(CCoreCallStats));
-        _serializers[(int)CCoreClientSerializerType.KnownDlls] = new DataContractJsonSerializer(typeof(CCoreKnownDlls));
-        _serializers[(int)CCoreClientSerializerType.FileInformation] = new DataContractJsonSerializer(typeof(CCoreFileInformation));
-        _serializers[(int)CCoreClientSerializerType.Exception] = new DataContractJsonSerializer(typeof(CCoreException));
+        _serializerCache = new Dictionary<Type, DataContractJsonSerializer>
+        {
+            [typeof(CCoreImageHeaders)] = new DataContractJsonSerializer(typeof(CCoreImageHeaders)),
+            [typeof(CCoreImports)] = new DataContractJsonSerializer(typeof(CCoreImports)),
+            [typeof(CCoreExports)] = new DataContractJsonSerializer(typeof(CCoreExports)),
+            [typeof(CCoreDirectoryEntry)] = new DataContractJsonSerializer(typeof(CCoreDirectoryEntry)),
+            [typeof(CCoreResolvedFileName)] = new DataContractJsonSerializer(typeof(CCoreResolvedFileName)),
+            [typeof(CCoreApiSetNamespaceInfo)] = new DataContractJsonSerializer(typeof(CCoreApiSetNamespaceInfo)),
+            [typeof(CCoreCallStats)] = new DataContractJsonSerializer(typeof(CCoreCallStats)),
+            [typeof(CCoreKnownDlls)] = new DataContractJsonSerializer(typeof(CCoreKnownDlls)),
+            [typeof(CCoreFileInformation)] = new DataContractJsonSerializer(typeof(CCoreFileInformation)),
+            [typeof(CCoreException)] = new DataContractJsonSerializer(typeof(CCoreException))
+        };
     }
 
+    /// <summary>
+    /// Releases the unmanaged resources used by the <see cref="CCoreClient"/> and optionally releases the managed resources.
+    /// </summary>
+    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
     protected void Dispose(bool disposing)
     {
-        if (_disposed)
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
         {
             return;
         }
+
         if (disposing)
         {
             DisconnectClient();
         }
-
-        _disposed = true;
     }
 
+    /// <summary>
+    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+    /// </summary>
     public void Dispose()
     {
         Dispose(true);
@@ -199,11 +301,21 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Resolves apiset module name for given file name.
+    /// Throws an <see cref="ObjectDisposedException"/> if the client has been disposed.
     /// </summary>
-    /// <param name="moduleName"></param>
-    /// <param name="contextModule"></param>
-    /// <returns></returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the client has been disposed.</exception>
+    private void ThrowIfDisposed()
+    {
+        if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+            throw new ObjectDisposedException(nameof(CCoreClient));
+    }
+
+    /// <summary>
+    /// Resolves an API Set contract name to its implementation module name.
+    /// </summary>
+    /// <param name="moduleName">The API Set contract name to resolve.</param>
+    /// <param name="contextModule">The module context for resolution.</param>
+    /// <returns>The resolved module name, or the original name if resolution fails.</returns>
     private string ResolveApiSetName(string moduleName, CModule contextModule)
     {
         // Try cache first
@@ -222,13 +334,14 @@ public class CCoreClient : IDisposable
             return resolvedName;
         }
 
-        return moduleName; // Return original if resolution failed
+        return moduleName;
     }
 
     /// <summary>
-    /// Checks if the server reply indicate success.
+    /// Checks if the server reply indicates a successful operation.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="module">Optional module context for error reporting.</param>
+    /// <returns>true if the request was successful; otherwise, false.</returns>
     public bool IsRequestSuccessful(CModule module = null)
     {
         CBufferChain idata = ReceiveReply();
@@ -245,6 +358,11 @@ public class CCoreClient : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Determines whether a module name represents an API Set contract.
+    /// </summary>
+    /// <param name="moduleName">The module name to check.</param>
+    /// <returns>true if the name represents an API Set contract; otherwise, false.</returns>
     public static bool IsModuleNameApiSetContract(string moduleName)
     {
         return moduleName?.Length >= 4 &&
@@ -252,6 +370,11 @@ public class CCoreClient : IDisposable
                moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Outputs exception information to the log.
+    /// </summary>
+    /// <param name="module">The module where the exception occurred.</param>
+    /// <param name="reply">The exception data from the server.</param>
     public void OutputException(CModule module, string reply)
     {
         var ex = (CCoreException)DeserializeDataJSON(typeof(CCoreException), reply);
@@ -272,6 +395,10 @@ public class CCoreClient : IDisposable
             LogMessageType.ErrorOrWarning);
     }
 
+    /// <summary>
+    /// Checks the server reply for exception information and logs it.
+    /// </summary>
+    /// <param name="module">The module context for the exception.</param>
     public void CheckExceptionInReply(CModule module)
     {
         CBufferChain idata = ReceiveReply();
@@ -285,10 +412,17 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Sends a command to the server and receives the reply as a deserialized object.
+    /// </summary>
+    /// <param name="command">The command string to send to the server.</param>
+    /// <param name="objectType">The type to deserialize the response into.</param>
+    /// <param name="module">The module context for error reporting.</param>
+    /// <returns>The deserialized object, or null if the request failed.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the client has been disposed.</exception>
     public object SendCommandAndReceiveReplyAsObjectJSON(string command, Type objectType, CModule module)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(CCoreClient));
+        ThrowIfDisposed();
 
         if (!SendRequest(command))
         {
@@ -316,14 +450,14 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Send command to depends-core
+    /// Sends a command message to the server.
     /// </summary>
-    /// <param name="message"></param>
-    /// <returns></returns>
+    /// <param name="message">The message to send.</param>
+    /// <returns>true if the message was sent successfully; otherwise, false.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the client has been disposed.</exception>
     private bool SendRequest(string message)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(CCoreClient));
+        ThrowIfDisposed();
 
         // Communication failure, server need restart.
         if (_clientConnection == null || !_clientConnection.Connected)
@@ -357,13 +491,13 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Receive reply from depends-core and store it into temporary object.
+    /// Receives a reply from the server and stores it in a buffer chain.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>A <see cref="CBufferChain"/> containing the server response, or null if an error occurred.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the client has been disposed.</exception>
     private CBufferChain ReceiveReply()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(CCoreClient));
+        ThrowIfDisposed();
 
         if (_dataStream == null)
         {
@@ -422,33 +556,27 @@ public class CCoreClient : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Gets a cached JSON serializer for the specified type.
+    /// </summary>
+    /// <param name="objectType">The type to get a serializer for.</param>
+    /// <returns>A <see cref="DataContractJsonSerializer"/> for the specified type.</returns>
     private DataContractJsonSerializer GetSerializerForType(Type objectType)
     {
-        if (objectType == typeof(CCoreImageHeaders))
-            return _serializers[(int)CCoreClientSerializerType.Headers];
-        if (objectType == typeof(CCoreImports))
-            return _serializers[(int)CCoreClientSerializerType.Imports];
-        if (objectType == typeof(CCoreExports))
-            return _serializers[(int)CCoreClientSerializerType.Exports];
-        if (objectType == typeof(CCoreDirectoryEntry))
-            return _serializers[(int)CCoreClientSerializerType.DataDirectories];
-        if (objectType == typeof(CCoreResolvedFileName))
-            return _serializers[(int)CCoreClientSerializerType.ResolvedFileName];
-        if (objectType == typeof(CCoreApiSetNamespaceInfo))
-            return _serializers[(int)CCoreClientSerializerType.ApiSetNamespace];
-        if (objectType == typeof(CCoreCallStats))
-            return _serializers[(int)CCoreClientSerializerType.CallStats];
-        if (objectType == typeof(CCoreKnownDlls))
-            return _serializers[(int)CCoreClientSerializerType.KnownDlls];
-        if (objectType == typeof(CCoreFileInformation))
-            return _serializers[(int)CCoreClientSerializerType.FileInformation];
-        if (objectType == typeof(CCoreException))
-            return _serializers[(int)CCoreClientSerializerType.Exception];
+        if (_serializerCache.TryGetValue(objectType, out var serializer))
+            return serializer;
 
         // Fallback for unknown types
         return new DataContractJsonSerializer(objectType);
     }
 
+    /// <summary>
+    /// Deserializes JSON data into an object of the specified type.
+    /// </summary>
+    /// <param name="FileName">The filename for error reporting.</param>
+    /// <param name="objectType">The type to deserialize into.</param>
+    /// <param name="data">The JSON data string.</param>
+    /// <returns>The deserialized object, or null if deserialization fails.</returns>
     object DeserializeDataJSON(string FileName, Type objectType, string data)
     {
         if (string.IsNullOrEmpty(data))
@@ -469,6 +597,12 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Deserializes JSON data into an object of the specified type.
+    /// </summary>
+    /// <param name="objectType">The type to deserialize into.</param>
+    /// <param name="data">The JSON data string.</param>
+    /// <returns>The deserialized object, or null if deserialization fails.</returns>
     object DeserializeDataJSON(Type objectType, string data)
     {
         if (string.IsNullOrEmpty(data))
@@ -488,6 +622,11 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Determines whether a buffer chain is null or contains an empty response.
+    /// </summary>
+    /// <param name="buffer">The buffer chain to check.</param>
+    /// <returns>true if the buffer is null or empty; otherwise, false.</returns>
     public static bool IsNullOrEmptyResponse(CBufferChain buffer)
     {
         // Check for null.
@@ -504,6 +643,14 @@ public class CCoreClient : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Sets error flags on a module based on the open operation result.
+    /// </summary>
+    /// <param name="module">The module to update.</param>
+    /// <param name="fileNotFound">Whether the file was not found.</param>
+    /// <param name="invalid">Whether the file is invalid.</param>
+    /// <param name="status">The module open status to return.</param>
+    /// <returns>The specified <paramref name="status"/>.</returns>
     private static ModuleOpenStatus SetModuleError(CModule module, bool fileNotFound, bool invalid, ModuleOpenStatus status)
     {
         if (fileNotFound)
@@ -516,15 +663,81 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Open Coff module and read for further operations.
+    /// Generates a cryptographically secure random port number within the specified range.
     /// </summary>
+    /// <param name="minPort">The minimum port number (inclusive).</param>
+    /// <param name="maxPort">The maximum port number (inclusive).</param>
+    /// <returns>A random port number between minPort and maxPort.</returns>
+    private static int GenerateSecureRandomPort(int minPort, int maxPort)
+    {
+        using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+        {
+            byte[] randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            uint randomValue = BitConverter.ToUInt32(randomBytes, 0);
+            return minPort + (int)(randomValue % (uint)(maxPort - minPort + 1));
+        }
+    }
+
+    /// <summary>
+    /// Validates and canonicalizes a server executable path.
+    /// </summary>
+    /// <param name="filePath">The path to validate.</param>
+    /// <param name="canonicalPath">Outputs the canonical (full) path if validation succeeds.</param>
+    /// <param name="errorMessage">Outputs an error message if validation fails.</param>
+    /// <returns>true if the path is valid; otherwise, false.</returns>
+    private static bool ValidateServerPath(string filePath, out string canonicalPath, out string errorMessage)
+    {
+        canonicalPath = null;
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            errorMessage = "Server application path is not specified";
+            return false;
+        }
+
+        try
+        {
+            canonicalPath = Path.GetFullPath(filePath);
+
+            if (!File.Exists(canonicalPath))
+            {
+                errorMessage = "Server application file does not exist";
+                return false;
+            }
+
+            string extension = Path.GetExtension(canonicalPath);
+            if (!extension.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "Server application must be an executable file";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException ||
+                                   ex is PathTooLongException || ex is UnauthorizedAccessException)
+        {
+            errorMessage = $"Invalid server path: {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Opens a COFF module on the server for analysis.
+    /// </summary>
+    /// <param name="module">The module to open.</param>
+    /// <param name="settings">Settings for opening the module.</param>
+    /// <returns>A <see cref="ModuleOpenStatus"/> indicating the result of the operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when module is null.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the client has been disposed.</exception>
     public ModuleOpenStatus OpenModule(ref CModule module, CFileOpenSettings settings)
     {
         if (module == null)
             throw new ArgumentNullException(nameof(module));
 
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(CCoreClient));
+        ThrowIfDisposed();
 
         string cmd = $"open file \"{module.FileName}\"";
 
@@ -615,23 +828,39 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Close previously opened module.
+    /// Closes the currently opened module on the server.
     /// </summary>
+    /// <returns>true if the close command was sent successfully; otherwise, false.</returns>
     public bool CloseModule()
     {
-        return SendRequest("close\r\n");
+        return SendRequest(CConsts.CMD_CLOSE);
     }
 
+    /// <summary>
+    /// Sends an exit request to the server.
+    /// </summary>
+    /// <returns>true if the exit command was sent successfully; otherwise, false.</returns>
     public bool ExitRequest()
     {
-        return SendRequest("exit\r\n");
+        return SendRequest(CConsts.CMD_EXIT);
     }
 
+    /// <summary>
+    /// Sends a shutdown request to the server.
+    /// </summary>
+    /// <returns>true if the shutdown command was sent successfully; otherwise, false.</returns>
     public bool ShutdownRequest()
     {
-        return SendRequest("shutdown\r\n");
+        return SendRequest(CConsts.CMD_SHUTDOWN);
     }
 
+    /// <summary>
+    /// Retrieves module information of the specified type from the server.
+    /// </summary>
+    /// <param name="moduleInformationType">The type of information to retrieve.</param>
+    /// <param name="module">The module context.</param>
+    /// <param name="parameters">Optional parameters for the request.</param>
+    /// <returns>The requested module information object, or null if the request fails.</returns>
     public object GetModuleInformationByType(ModuleInformationType moduleInformationType, CModule module, string parameters = null)
     {
         string cmd;
@@ -640,19 +869,19 @@ public class CCoreClient : IDisposable
         switch (moduleInformationType)
         {
             case ModuleInformationType.Headers:
-                cmd = "headers\r\n";
+                cmd = CConsts.CMD_HEADERS;
                 objectType = typeof(CCoreImageHeaders);
                 break;
             case ModuleInformationType.Imports:
-                cmd = "imports\r\n";
+                cmd = CConsts.CMD_IMPORTS;
                 objectType = typeof(CCoreImports);
                 break;
             case ModuleInformationType.Exports:
-                cmd = "exports\r\n";
+                cmd = CConsts.CMD_EXPORTS;
                 objectType = typeof(CCoreExports);
                 break;
             case ModuleInformationType.DataDirectories:
-                cmd = "datadirs\r\n";
+                cmd = CConsts.CMD_DATADIRS;
                 objectType = typeof(CCoreDirectoryEntry);
                 break;
             case ModuleInformationType.ApiSetName:
@@ -666,23 +895,40 @@ public class CCoreClient : IDisposable
         return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, module);
     }
 
+    /// <summary>
+    /// Gets the data directories for the specified module.
+    /// </summary>
+    /// <param name="module">The module to query.</param>
+    /// <returns>A list of data directory entries, or null if the request fails.</returns>
     public List<CCoreDirectoryEntry> GetModuleDataDirectories(CModule module)
     {
         return (List<CCoreDirectoryEntry>)GetModuleInformationByType(ModuleInformationType.DataDirectories, module);
     }
 
+    /// <summary>
+    /// Gets API Set namespace information from the server.
+    /// </summary>
+    /// <returns>API Set namespace information, or null if the request fails.</returns>
     public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo()
     {
         return (CCoreApiSetNamespaceInfo)SendCommandAndReceiveReplyAsObjectJSON(
-            "apisetnsinfo\r\n", typeof(CCoreApiSetNamespaceInfo), null);
+            CConsts.CMD_APISETNINFO, typeof(CCoreApiSetNamespaceInfo), null);
     }
 
+    /// <summary>
+    /// Gets call statistics from the server.
+    /// </summary>
+    /// <returns>Call statistics information, or null if the request fails.</returns>
     public CCoreCallStats GetCoreCallStats()
     {
         return (CCoreCallStats)SendCommandAndReceiveReplyAsObjectJSON(
-              "callstats\r\n", typeof(CCoreCallStats), null);
+              CConsts.CMD_CALLSTATS, typeof(CCoreCallStats), null);
     }
 
+    /// <summary>
+    /// Handles and logs import processing exceptions.
+    /// </summary>
+    /// <param name="imports">The import information containing exception data.</param>
     private void HandleImportExceptions(CCoreImports imports)
     {
         bool exceptStd = (imports.Exception & 1) != 0;
@@ -717,6 +963,11 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Retrieves and populates module header information.
+    /// </summary>
+    /// <param name="module">The module to populate with header information.</param>
+    /// <returns>true if headers were retrieved successfully; otherwise, false.</returns>
     public bool GetModuleHeadersInformation(CModule module)
     {
         if (module == null)
@@ -788,6 +1039,11 @@ public class CCoreClient : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Determines whether a module is a kernel-mode module based on its imports.
+    /// </summary>
+    /// <param name="module">The module to check.</param>
+    /// <param name="imports">The import information for the module.</param>
     private static void CheckIfKernelModule(CModule module, CCoreImports imports)
     {
         // Skip check if already determined to be a kernel module
@@ -821,6 +1077,16 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Adds a dependent module to a parent module's dependency list.
+    /// </summary>
+    /// <param name="parentModule">The parent module.</param>
+    /// <param name="DelayLibraries">Whether this is a delay-load dependency.</param>
+    /// <param name="moduleName">The module name to add.</param>
+    /// <param name="rawModuleName">The raw (unresolved) module name.</param>
+    /// <param name="searchOrderUM">User-mode search order list.</param>
+    /// <param name="searchOrderKM">Kernel-mode search order list.</param>
+    /// <returns>The newly created dependent module.</returns>
     public CModule AddDependentModule(CModule parentModule,
                                    bool DelayLibraries,
                                    string moduleName,
@@ -858,6 +1124,10 @@ public class CCoreClient : IDisposable
         return dependent;
     }
 
+    /// <summary>
+    /// Processes .NET assembly references for a module.
+    /// </summary>
+    /// <param name="module">The module to process.</param>
     void ProcessNetAssemblies(CModule module)
     {
         var dependencies = CAssemblyRefAnalyzer.GetAssemblyDependencies(module);
@@ -885,6 +1155,15 @@ public class CCoreClient : IDisposable
         CAssemblyRefAnalyzer.ClearCache();
     }
 
+    /// <summary>
+    /// Processes import libraries for a module and adds them as dependencies.
+    /// </summary>
+    /// <param name="module">The module to process.</param>
+    /// <param name="DelayLibraries">Whether these are delay-load imports.</param>
+    /// <param name="LibraryList">The list of imported libraries.</param>
+    /// <param name="searchOrderUM">User-mode search order list.</param>
+    /// <param name="searchOrderKM">Kernel-mode search order list.</param>
+    /// <param name="parentImportsHashTable">Hash table for tracking parent imports.</param>
     public void ProcessImports(CModule module,
                                 bool DelayLibraries,
                                 List<CCoreImportLibrary> LibraryList,
@@ -908,10 +1187,13 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Parse a forwarder string of form "MODULE.Func", "MODULE.#123", "MODULE.?Decorated@@YAXXZ", etc.
-    /// Extract target module base (before first '.'), target function name or ordinal.
-    /// Returns false if format is not recognizable.
+    /// Parses a forwarder string to extract the target module and function information.
     /// </summary>
+    /// <param name="forwarder">The forwarder string (e.g., "MODULE.Function" or "MODULE.#123").</param>
+    /// <param name="targetModule">Outputs the target module name.</param>
+    /// <param name="targetFunctionName">Outputs the target function name (empty if by ordinal).</param>
+    /// <param name="targetOrdinal">Outputs the target ordinal (UInt32.MaxValue if by name).</param>
+    /// <returns>true if parsing succeeded; otherwise, false.</returns>
     private static bool TryParseForwarderTarget(string forwarder,
                                                    out string targetModule,
                                                    out string targetFunctionName,
@@ -961,6 +1243,13 @@ public class CCoreClient : IDisposable
         return !string.IsNullOrEmpty(targetFunctionName);
     }
 
+    /// <summary>
+    /// Expands all forwarder modules in the dependency tree starting from the root module.
+    /// </summary>
+    /// <param name="root">The root module to start from.</param>
+    /// <param name="searchOrderUM">User-mode search order list.</param>
+    /// <param name="searchOrderKM">Kernel-mode search order list.</param>
+    /// <param name="parentImportsHashTable">Hash table for tracking parent imports.</param>
     public void ExpandAllForwarderModules(CModule root,
                                         List<SearchOrderType> searchOrderUM,
                                         List<SearchOrderType> searchOrderKM,
@@ -993,6 +1282,16 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Creates or retrieves a forward node for a target module.
+    /// </summary>
+    /// <param name="parentModule">The parent module.</param>
+    /// <param name="rawTarget">The raw target module name.</param>
+    /// <param name="canonicalName">The canonical module name.</param>
+    /// <param name="finalTargetName">The final resolved target name.</param>
+    /// <param name="resolvedBy">How the name was resolved.</param>
+    /// <param name="isApiSetContract">Whether this is an API Set contract.</param>
+    /// <returns>The forward node module.</returns>
     private CModule CreateOrGetForwardNode(CModule parentModule,
                                       string rawTarget,
                                       string canonicalName,
@@ -1034,10 +1333,14 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Process forwarders for a module, creating synthetic dependency nodes as needed.
+    /// Expands forwarders for a specific module, creating synthetic dependency nodes as needed.
     /// Uses a chain tracking mechanism to detect and prevent circular forwarding.
     /// </summary>
-    /// <param name="forwardingChain">Set of modules in current forwarding chain to detect cycles</param>
+    /// <param name="module">The module to process.</param>
+    /// <param name="searchOrderUM">User-mode search order list.</param>
+    /// <param name="searchOrderKM">Kernel-mode search order list.</param>
+    /// <param name="parentImportsHashTable">Hash table for tracking parent imports.</param>
+    /// <param name="forwardingChain">Set of modules in current forwarding chain to detect cycles.</param>
     public void ExpandForwardersForModule(CModule module,
                                         List<SearchOrderType> searchOrderUM,
                                         List<SearchOrderType> searchOrderKM,
@@ -1137,9 +1440,11 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Populate module exports, validate existing parent imports, then
-    /// process forwarders to synthesize dependency edges and usage entries.
+    /// Populates module exports, validates existing parent imports, and processes forwarders.
     /// </summary>
+    /// <param name="module">The module to process.</param>
+    /// <param name="collectForwarders">Whether to collect forwarder information.</param>
+    /// <param name="rawExports">The raw export data from the server.</param>
     void ProcessExports(CModule module,
                         bool collectForwarders,
                         CCoreExports rawExports)
@@ -1202,9 +1507,13 @@ public class CCoreClient : IDisposable
                 break;
             }
         }
-
     }
 
+    /// <summary>
+    /// Checks and logs invalid import entries.
+    /// </summary>
+    /// <param name="module">The module being processed.</param>
+    /// <param name="imports">The import information.</param>
     private void CheckInvalidImports(CModule module, CCoreImports imports)
     {
         string modName = module?.FileName ?? "<unknown>";
@@ -1221,6 +1530,15 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Retrieves and processes import and export information for a module.
+    /// </summary>
+    /// <param name="module">The module to process.</param>
+    /// <param name="searchOrderUM">User-mode search order list.</param>
+    /// <param name="searchOrderKM">Kernel-mode search order list.</param>
+    /// <param name="parentImportsHashTable">Hash table for tracking parent imports.</param>
+    /// <param name="EnableExperimentalFeatures">Whether to enable experimental features (.NET analysis).</param>
+    /// <param name="CollectForwarders">Whether to collect forwarder information from exports.</param>
     public void GetModuleImportExportInformation(CModule module,
                                                  List<SearchOrderType> searchOrderUM,
                                                  List<SearchOrderType> searchOrderKM,
@@ -1267,6 +1585,11 @@ public class CCoreClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Sets the API Set schema namespace source for the server.
+    /// </summary>
+    /// <param name="fileName">Path to the API Set schema file, or null/empty to use default.</param>
+    /// <returns>true if the command was sent and acknowledged successfully; otherwise, false.</returns>
     public bool SetApiSetSchemaNamespaceUse(string fileName)
     {
         string cmd = "apisetmapsrc";
@@ -1281,6 +1604,13 @@ public class CCoreClient : IDisposable
         return SendRequest(cmd) && IsRequestSuccessful();
     }
 
+    /// <summary>
+    /// Retrieves Known DLLs information of a specific type from the server.
+    /// </summary>
+    /// <param name="command">The command to send to the server.</param>
+    /// <param name="knownDllsList">List to populate with Known DLL names.</param>
+    /// <param name="knownDllsPath">Outputs the Known DLLs directory path.</param>
+    /// <returns>true if the information was retrieved successfully; otherwise, false.</returns>
     private bool GetKnownDllsByType(string command, List<string> knownDllsList, out string knownDllsPath)
     {
         if (knownDllsList == null)
@@ -1305,6 +1635,14 @@ public class CCoreClient : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Retrieves both 32-bit and 64-bit Known DLLs information from the server.
+    /// </summary>
+    /// <param name="knownDlls">List to populate with 64-bit Known DLL names.</param>
+    /// <param name="knownDlls32">List to populate with 32-bit Known DLL names.</param>
+    /// <param name="knownDllsPath">Outputs the 64-bit Known DLLs directory path.</param>
+    /// <param name="knownDllsPath32">Outputs the 32-bit Known DLLs directory path.</param>
+    /// <returns>true if both 32-bit and 64-bit information was retrieved successfully; otherwise, false.</returns>
     public bool GetKnownDllsAll(List<string> knownDlls, List<string> knownDlls32, out string knownDllsPath, out string knownDllsPath32)
     {
         if (knownDlls == null || knownDlls32 == null)
@@ -1314,12 +1652,19 @@ public class CCoreClient : IDisposable
             return false;
         }
 
-        bool result32 = GetKnownDllsByType("knowndlls 32\r\n", knownDlls32, out knownDllsPath32);
-        bool result64 = GetKnownDllsByType("knowndlls 64\r\n", knownDlls, out knownDllsPath);
+        bool result32 = GetKnownDllsByType(CConsts.CMD_KNOWNDLLS32, knownDlls32, out knownDllsPath32);
+        bool result64 = GetKnownDllsByType(CConsts.CMD_KNOWNDLLS64, knownDlls, out knownDllsPath);
 
         return result32 && result64;
     }
 
+    /// <summary>
+    /// Cleans up resources after a failed connection attempt.
+    /// </summary>
+    /// <remarks>
+    /// This method forcibly terminates the server process if it's still running,
+    /// closes network streams and connections, and sets the error status.
+    /// </remarks>
     private void CleanupFailedConnection()
     {
         // Safely terminate process if it's still running
@@ -1344,78 +1689,127 @@ public class CCoreClient : IDisposable
         ErrorStatus = ServerErrorStatus.GeneralException;
     }
 
+    /// <summary>
+    /// Starts the server process and establishes a network connection.
+    /// </summary>
+    /// <returns>true if the server started and connection was established successfully; otherwise, false.</returns>
+    /// <remarks>
+    /// <para>
+    /// This method performs the following operations:
+    /// </para>
+    /// <list type="number">
+    /// <item>Validates the server executable path</item>
+    /// <item>Attempts to start the server process with a cryptographically secure random port</item>
+    /// <item>Establishes a TCP connection to the server</item>
+    /// <item>Waits for and validates the server's HELLO message</item>
+    /// </list>
+    /// <para>
+    /// The method will retry up to <see cref="SERVER_START_ATTEMPTS"/> times if port conflicts occur.
+    /// In DEBUG builds, the server console window is visible for debugging purposes.
+    /// In RELEASE builds, the server runs hidden with no console window.
+    /// </para>
+    /// </remarks>
     public bool ConnectClient()
     {
-        _serverProcess = null;
-        string errMessage = string.Empty;
+        Process tempProcess = null;
+        TcpClient tempConnection = null;
+        NetworkStream tempStream = null;
+        string errMessage, fileName, canonicalPath, validationError, arguments;
 
         try
         {
-            string fileName = GetServerApplication();
+            fileName = GetServerApplication();
 
-            if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
+            if (!ValidateServerPath(fileName, out canonicalPath, out validationError))
             {
-                throw new FileNotFoundException(fileName ?? "Server application not specified");
+                throw new InvalidOperationException(validationError);
             }
 
-            int startAttempts = 5;
+            int startAttempts = SERVER_START_ATTEMPTS;
             int portNumber;
-            Random rnd = new(Environment.ProcessId);
 
             do
             {
-                portNumber = rnd.Next(CConsts.MinPortNumber, CConsts.MaxPortNumber);
+                portNumber = GenerateSecureRandomPort(CConsts.MinPortNumber, CConsts.MaxPortNumber);
+                arguments = $"port {portNumber}";
+
                 ProcessStartInfo processInfo = new()
                 {
-                    FileName = fileName,
-                    Arguments = $"port {portNumber}",
-                    UseShellExecute = false
+                    FileName = canonicalPath,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+#if DEBUG
+                    CreateNoWindow = false,
+#else
+                    CreateNoWindow = true,
+#endif
+                    WorkingDirectory = Path.GetDirectoryName(canonicalPath)
                 };
 
-                _serverProcess = Process.Start(processInfo);
+                tempProcess = Process.Start(processInfo);
 
-                if (_serverProcess == null)
+                if (tempProcess == null)
                 {
                     throw new Exception("Core process start failure");
                 }
 
-                Thread.Sleep(100);
+                Thread.Sleep(SERVER_START_DELAY_MS);
 
-                if (_serverProcess.HasExited)
+                if (tempProcess.HasExited)
                 {
-                    if (_serverProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
+                    if (tempProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
                     {
-                        throw new Exception($"Server process exited with code {_serverProcess.ExitCode}");
+                        throw new Exception($"Server process exited with code {tempProcess.ExitCode}");
                     }
+                    tempProcess.Dispose();
+                    tempProcess = null;
                 }
                 else
                 {
-                    _clientConnection = new();
+                    tempConnection = new();
 
-                    Task connectTask = _clientConnection.ConnectAsync(IPAddress, portNumber);
+                    Task connectTask = tempConnection.ConnectAsync(IPAddress, portNumber);
                     if (Task.WaitAny(new[] { connectTask }, CORE_CONNECTION_TIMEOUT) == 0)
                     {
-                        if (_clientConnection.Connected)
+                        if (tempConnection.Connected)
                         {
-                            _dataStream = _clientConnection.GetStream();
-                            _dataStream.ReadTimeout = CORE_NETWORK_TIMEOUT;
-                            _dataStream.WriteTimeout = CORE_NETWORK_TIMEOUT;
+                            tempStream = tempConnection.GetStream();
+                            tempStream.ReadTimeout = CORE_NETWORK_TIMEOUT;
+                            tempStream.WriteTimeout = CORE_NETWORK_TIMEOUT;
                             Port = portNumber;
                             break;
                         }
                     }
 
-                    _clientConnection.Dispose();
-                    _clientConnection = null;
+                    tempConnection.Dispose();
+                    tempConnection = null;
                 }
-
 
             } while (--startAttempts > 0);
 
             // We couldn't connect server after all attempts.
-            if (_clientConnection == null || !_clientConnection.Connected)
+            if (tempConnection == null || !tempConnection.Connected)
             {
                 throw new Exception("Failed to connect to server after multiple attempts");
+            }
+
+            _serverProcess = tempProcess;
+            _clientConnection = tempConnection;
+            _dataStream = tempStream;
+
+            CBufferChain idata = ReceiveReply();
+            if (idata != null)
+            {
+                ErrorStatus = ServerErrorStatus.NoErrors;
+                _addLogMessage($"Server has been started: {idata.BufferToStringNoCRLF()}", LogMessageType.System);
+                return true;
+            }
+            else
+            {
+                ErrorStatus = ServerErrorStatus.ServerNeedRestart;
+                _addLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
+                CleanupFailedConnection();
+                return false;
             }
         }
         catch (Exception ex)
@@ -1430,27 +1824,33 @@ public class CCoreClient : IDisposable
                 errMessage = ex.Message;
             }
 
+            tempStream?.Close();
+            tempConnection?.Close();
+            tempProcess?.Dispose();
+
             CleanupFailedConnection();
             _addLogMessage($"Server failed to start: {errMessage}", LogMessageType.ErrorOrWarning);
             return false;
         }
-
-        CBufferChain idata = ReceiveReply();
-        if (idata != null)
-        {
-            ErrorStatus = ServerErrorStatus.NoErrors;
-            _addLogMessage($"Server has been started: {idata.BufferToStringNoCRLF()}", LogMessageType.System);
-            return true;
-        }
-        else
-        {
-            ErrorStatus = ServerErrorStatus.ServerNeedRestart;
-            _addLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
-            CleanupFailedConnection();
-            return false;
-        }
     }
 
+    /// <summary>
+    /// Disconnects from the server and performs cleanup of all network resources.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This method attempts a graceful shutdown by:
+    /// </para>
+    /// <list type="number">
+    /// <item>Sending a shutdown request to the server</item>
+    /// <item>Waiting briefly for the server to exit gracefully</item>
+    /// <item>Forcibly terminating the server process if necessary</item>
+    /// <item>Closing and disposing all network resources</item>
+    /// </list>
+    /// <para>
+    /// This method is safe to call multiple times and handles exceptions internally.
+    /// </para>
+    /// </remarks>
     public void DisconnectClient()
     {
         try
@@ -1458,7 +1858,7 @@ public class CCoreClient : IDisposable
             if (_serverProcess != null && !_serverProcess.HasExited)
             {
                 ShutdownRequest();
-                Thread.Sleep(100);
+                Thread.Sleep(SHUTDOWN_WAIT_MS);
 
                 if (!_serverProcess.HasExited)
                 {

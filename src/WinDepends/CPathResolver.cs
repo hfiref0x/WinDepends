@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Aug 2025
+*  DATE:        20 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -460,6 +460,10 @@ public static class CPathResolver
                 try
                 {
                     full = Path.GetFullPath(direct);
+                    if (full.Contains("..", StringComparison.Ordinal))
+                    {
+                        return string.Empty;
+                    }
                 }
                 catch
                 {

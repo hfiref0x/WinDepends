@@ -1406,12 +1406,8 @@ public class CModuleComparer : IComparer<CModule>
         {
             case (int)ModuleColumns.Name when !_fullPaths:
                 {
-                    if (x._cachedFileName == null)
-                        x._cachedFileName = Path.GetFileName(x.FileName);
-
-                    if (y._cachedFileName == null)
-                        y._cachedFileName = Path.GetFileName(y.FileName);
-
+                    x._cachedFileName ??= Path.GetFileName(x.FileName ?? string.Empty);
+                    y._cachedFileName ??= Path.GetFileName(y.FileName ?? string.Empty);
                     comparisonResult = _ignoreCase.Compare(x._cachedFileName, y._cachedFileName);
                     break;
                 }

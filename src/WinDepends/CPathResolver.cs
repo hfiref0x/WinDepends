@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Nov 2025
+*  DATE:        22 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -14,7 +14,6 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
-
 using System.Reflection.PortableExecutable;
 using System.Text;
 
@@ -25,6 +24,9 @@ namespace WinDepends;
 /// </summary>
 public static class CPathResolver
 {
+    private const uint InitialSearchPathBufferSize = 2048;
+    private const uint MaxSearchPathBufferSize = (uint)int.MaxValue;
+
     public static string WindowsDirectory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
     public static string System16Directory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), CConsts.HostSys16Dir);
     public static string System32Directory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.System);
@@ -41,12 +43,81 @@ public static class CPathResolver
     public static string KnownDllsPath32 { get; set; } = string.Empty;
     public static string[] PathEnvironment { get; } =
             (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(";", StringSplitOptions.RemoveEmptyEntries);
-    public static List<string> KnownDlls { get; set; } = [];
-    public static List<string> KnownDlls32 { get; set; } = [];
+    private static readonly List<string> _knownDllsList = [];
+    private static readonly List<string> _knownDlls32List = [];
+    private static HashSet<string> _knownDllsSet = new(StringComparer.OrdinalIgnoreCase);
+    private static HashSet<string> _knownDlls32Set = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets or sets the list of known 64-bit DLLs. Setting this property updates the internal lookup cache.
+    /// </summary>
+    public static List<string> KnownDlls
+    {
+        get => _knownDllsList;
+        set
+        {
+            HashSet<string> newSet;
+
+            _knownDllsList.Clear();
+
+            if (value != null)
+            {
+                _knownDllsList.AddRange(value);
+                newSet = new HashSet<string>(value, StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                newSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            _knownDllsSet = newSet;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the list of known 32-bit DLLs. Setting this property updates the internal lookup cache.
+    /// </summary>
+    public static List<string> KnownDlls32
+    {
+        get => _knownDlls32List;
+        set
+        {
+            HashSet<string> newSet;
+
+            _knownDlls32List.Clear();
+
+            if (value != null)
+            {
+                _knownDlls32List.AddRange(value);
+                newSet = new HashSet<string>(value, StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                newSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            _knownDlls32Set = newSet;
+        }
+    }
 
     static CSxsEntries ManifestSxsDependencies = [];
     public static CActCtxHelper ActCtxHelper { get; set; }
     static bool AutoElevate { get; set; }
+
+    /// <summary>
+    /// Synchronizes the internal HashSet with the public List for KnownDlls.
+    /// Call this after external code populates the KnownDlls list.
+    /// </summary>
+    public static void SyncKnownDllsCache()
+    {
+        HashSet<string> newSet, newSet32;
+
+        newSet = new HashSet<string>(_knownDllsList, StringComparer.OrdinalIgnoreCase);
+        newSet32 = new HashSet<string>(_knownDlls32List, StringComparer.OrdinalIgnoreCase);
+
+        _knownDllsSet = newSet;
+        _knownDlls32Set = newSet32;
+    }
 
     /// <summary>
     /// Queries information about the main module and initializes the resolver.
@@ -54,6 +125,12 @@ public static class CPathResolver
     /// <param name="module">The main module to analyze.</param>
     public static void QueryFileInformation(CModule module)
     {
+        if (module == null)
+        {
+            Initialized = false;
+            return;
+        }
+
         if (Initialized)
         {
             return;
@@ -78,14 +155,40 @@ public static class CPathResolver
     }
 
     /// <summary>
+    /// Combines a directory path with a file name and validates the resulting path exists.
+    /// </summary>
+    /// <param name="directory">The directory path.</param>
+    /// <param name="fileName">The file name to combine.</param>
+    /// <returns>The full path if the file exists, otherwise an empty string.</returns>
+    private static string CombineAndValidatePath(string directory, string fileName)
+    {
+        string result;
+
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+            return string.Empty;
+
+        try
+        {
+            result = Path.Combine(directory, fileName);
+            return File.Exists(result) ? result : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
     /// Searches for the file in environment PATH directories.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromEnvironmentPathDirectories(string fileName)
     {
         foreach (string path in PathEnvironment)
         {
-            var result = Path.Combine(path, fileName);
-            if (File.Exists(result))
+            string result = CombineAndValidatePath(path, fileName);
+            if (!string.IsNullOrEmpty(result))
             {
                 return result;
             }
@@ -97,13 +200,24 @@ public static class CPathResolver
     /// <summary>
     /// Searches for the file in the application manifest.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <param name="Is64bitFile">True for 64-bit files, false for 32-bit files.</param>
+    /// <returns>The full path if found in manifest, otherwise an empty string.</returns>
     static internal string PathFromManifest(string fileName, bool Is64bitFile = true)
     {
+        if (string.IsNullOrEmpty(fileName))
+            return string.Empty;
+
         if (!FileIsInKnownDlls(fileName, Is64bitFile))
         {
             foreach (var sxsEntry in ManifestSxsDependencies)
             {
-                if (Path.GetFileName(sxsEntry.FilePath).Equals(fileName, StringComparison.OrdinalIgnoreCase))
+                if (sxsEntry?.FilePath == null)
+                    continue;
+
+                string sxsFileName = Path.GetFileName(sxsEntry.FilePath);
+
+                if (string.Equals(sxsFileName, fileName, StringComparison.OrdinalIgnoreCase))
                 {
                     return sxsEntry.FilePath;
                 }
@@ -116,54 +230,61 @@ public static class CPathResolver
     /// <summary>
     /// Searches for the file in the specified application directory.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <param name="directoryName">The directory to search in.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromApplicationDirectory(string fileName, string directoryName)
     {
-        if (string.IsNullOrEmpty(directoryName))
-        {
-            return string.Empty;
-        }
-
-        string result = Path.Combine(directoryName, fileName);
-        return File.Exists(result) ? result : string.Empty;
+        return CombineAndValidatePath(directoryName, fileName);
     }
 
     /// <summary>
     /// Searches for the file in the Windows directory.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromWindowsDirectory(string fileName)
     {
-        string result = Path.Combine(WindowsDirectory, fileName);
-        return File.Exists(result) ? result : string.Empty;
+        return CombineAndValidatePath(WindowsDirectory, fileName);
     }
 
     /// <summary>
     /// Searches for the file in the System directory.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromSystem16Directory(string fileName)
     {
-        string result = Path.Combine(System16Directory, fileName);
-        return File.Exists(result) ? result : string.Empty;
+        return CombineAndValidatePath(System16Directory, fileName);
     }
 
     /// <summary>
     /// Searches for the file in the system drivers directory.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromSystemDriversDirectory(string fileName)
     {
-        string result = Path.Combine(SystemDriversDirectory, fileName);
-        return File.Exists(result) ? result : string.Empty;
+        return CombineAndValidatePath(SystemDriversDirectory, fileName);
     }
 
     /// <summary>
     /// Searches for the file in the user-specified directories.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <param name="userDirectories">List of user-defined search directories.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromUserDirectory(string fileName, List<string> userDirectories)
     {
         string result;
+
+        if (userDirectories == null || userDirectories.Count == 0)
+            return string.Empty;
+
         foreach (var entry in userDirectories)
         {
-            result = Path.Combine(entry, fileName);
-            if (File.Exists(result))
+            result = CombineAndValidatePath(entry, fileName);
+            if (!string.IsNullOrEmpty(result))
             {
                 return result;
             }
@@ -175,46 +296,54 @@ public static class CPathResolver
     /// <summary>
     /// Searches for the file in the appropriate system directory.
     /// </summary>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <param name="Is64bitFile">True for System32, false for SysWOW64.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromSystemDirectory(string fileName, bool Is64bitFile = true)
     {
         string sysDirectory = Is64bitFile ? System32Directory : SysWowDirectory;
-        string result = Path.Combine(sysDirectory, fileName);
-        return File.Exists(result) ? result : string.Empty;
+        return CombineAndValidatePath(sysDirectory, fileName);
     }
 
     /// <summary>
-    /// Checks if the file is in the KnownDlls registry list.
+    /// Checks if the file is in the KnownDlls list.
     /// </summary>
+    /// <param name="fileName">The file name to check.</param>
+    /// <param name="Is64bitFile">True for 64-bit known DLLs, false for 32-bit.</param>
+    /// <returns>True if the file is in the KnownDlls list, otherwise false.</returns>
     static internal bool FileIsInKnownDlls(string fileName, bool Is64bitFile = true)
     {
-        List<string> dllsList = Is64bitFile ? KnownDlls : KnownDlls32;
+        HashSet<string> dllsSet;
 
-        return dllsList.Contains(fileName, StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(fileName))
+            return false;
+
+        dllsSet = Is64bitFile ? _knownDllsSet : _knownDlls32Set;
+        return dllsSet.Contains(fileName);
     }
 
     /// <summary>
-    /// Gets the path to a file from the KnownDlls registry key.
+    /// Gets the path to a file from the KnownDlls key.
     /// </summary>
+    /// <param name="fileName">The file name to resolve.</param>
+    /// <param name="Is64bitFile">True for 64-bit known DLLs, false for 32-bit.</param>
+    /// <returns>The full path if the file is a known DLL and exists, otherwise an empty string.</returns>
     static internal string PathFromKnownDlls(string fileName, bool Is64bitFile = true)
     {
-        List<string> dllsList = (Is64bitFile) ? KnownDlls : KnownDlls32;
-        string dllsDir = (Is64bitFile) ? KnownDllsPath : KnownDllsPath32;
+        string dllsDir;
 
-        foreach (string dll in dllsList)
-        {
-            if (string.Equals(dll, fileName, StringComparison.OrdinalIgnoreCase))
-            {
-                string result = Path.Combine(dllsDir, fileName);
-                return File.Exists(result) ? result : string.Empty;
-            }
-        }
+        if (!FileIsInKnownDlls(fileName, Is64bitFile))
+            return string.Empty;
 
-        return string.Empty;
+        dllsDir = Is64bitFile ? KnownDllsPath : KnownDllsPath32;
+        return CombineAndValidatePath(dllsDir, fileName);
     }
 
     /// <summary>
     /// Determines the replacement directory based on CPU architecture.
     /// </summary>
+    /// <param name="cpuArchitecture">The CPU architecture identifier.</param>
+    /// <returns>The replacement directory name for the specified architecture.</returns>
     static string GetReplacementDirectory(ushort cpuArchitecture)
     {
         return cpuArchitecture switch
@@ -230,8 +359,14 @@ public static class CPathResolver
     /// <summary>
     /// Applies file path architecture redirection for cross-architecture loading.
     /// </summary>
+    /// <param name="filePath">The file path to redirect.</param>
+    /// <param name="cpuArchitecture">The target CPU architecture.</param>
+    /// <returns>The redirected path if applicable, otherwise the original path.</returns>
     static internal string ApplyFilePathArchRedirection(string filePath, ushort cpuArchitecture)
     {
+        if (string.IsNullOrEmpty(filePath))
+            return string.Empty;
+
         string result = filePath;
 
         string[] pathRedirectExempt =
@@ -268,6 +403,9 @@ public static class CPathResolver
     /// <summary>
     /// Searches for a file in the application's .local directory.
     /// </summary>
+    /// <param name="applicationName">The application name to build the .local directory path.</param>
+    /// <param name="fileName">The file name to search for.</param>
+    /// <returns>The full path if found, otherwise an empty string.</returns>
     static internal string PathFromDotLocal(string applicationName, string fileName)
     {
         // DotLocal
@@ -309,6 +447,9 @@ public static class CPathResolver
         if (string.IsNullOrEmpty(fileName))
             return string.Empty;
 
+        if (ActCtxHelper == null)
+            return string.Empty;
+
         bool needsDeactivation = false;
         IntPtr cookie = IntPtr.Zero;
 
@@ -326,12 +467,15 @@ public static class CPathResolver
                     return string.Empty;
             }
 
-            uint bufferSize = 2048;
+            uint bufferSize = InitialSearchPathBufferSize;
             StringBuilder path = new((int)bufferSize);
 
             uint charsCopied = NativeMethods.SearchPath(null, fileName, null, bufferSize, path, out _);
             if (charsCopied > bufferSize)
             {
+                if (charsCopied > MaxSearchPathBufferSize)
+                    return string.Empty;
+
                 // Buffer was too small
                 path.Capacity = (int)charsCopied;
                 charsCopied = NativeMethods.SearchPath(null, fileName, null, charsCopied, path, out _);
@@ -339,7 +483,11 @@ public static class CPathResolver
 
             return charsCopied > 0 ? path.ToString(0, (int)charsCopied) : string.Empty;
         }
-        catch (Exception)
+        catch (OutOfMemoryException)
+        {
+            return string.Empty;
+        }
+        catch (System.ComponentModel.Win32Exception)
         {
             return string.Empty;
         }
@@ -359,14 +507,22 @@ public static class CPathResolver
     /// <summary>
     /// Resolves a kernel module path based on search order.
     /// </summary>
+    /// <param name="fileName">The file name to resolve.</param>
+    /// <param name="searchOrderKM">Kernel mode search order list.</param>
+    /// <param name="is64bitMachine">True if the target is 64-bit architecture.</param>
+    /// <param name="resolver">Output parameter indicating which resolver found the file.</param>
+    /// <returns>The resolved path if found, otherwise an empty string.</returns>
     private static string ResolveKernelModulePath(
         string fileName,
         List<SearchOrderType> searchOrderKM,
         bool is64bitMachine,
         out SearchOrderType resolver)
     {
-        resolver = SearchOrderType.None;
         string result;
+        resolver = SearchOrderType.None;
+
+        if (searchOrderKM == null)
+            return string.Empty;
 
         foreach (var searchOrder in searchOrderKM)
         {
@@ -392,6 +548,11 @@ public static class CPathResolver
     /// <summary>
     /// Resolves a path based on a specific search order type.
     /// </summary>
+    /// <param name="searchOrder">The search order type to use.</param>
+    /// <param name="fileName">The file name to resolve.</param>
+    /// <param name="is64bitMachine">True if the target is 64-bit architecture.</param>
+    /// <param name="needRedirection">True if architecture redirection is needed.</param>
+    /// <returns>The resolved path if found, otherwise an empty string.</returns>
     private static string ResolveBySearchOrder(SearchOrderType searchOrder, string fileName, bool is64bitMachine, bool needRedirection)
     {
         string resolvedPath = string.Empty;
@@ -419,6 +580,8 @@ public static class CPathResolver
                 // Resolve path using activation context.
                 return PathFromWinSXS(fileName);
             }
+
+            return string.Empty;
         }
 
         return searchOrder switch
@@ -437,6 +600,13 @@ public static class CPathResolver
     /// <summary>
     /// Resolves a user mode module path based on search order.
     /// </summary>
+    /// <param name="fileName">The file name to resolve.</param>
+    /// <param name="searchOrderUM">User mode search order list.</param>
+    /// <param name="is64bitMachine">True if the target is 64-bit architecture.</param>
+    /// <param name="needRedirection">True if architecture redirection is needed.</param>
+    /// <param name="moduleMachine">The module's machine type.</param>
+    /// <param name="resolver">Output parameter indicating which resolver found the file.</param>
+    /// <returns>The resolved path if found, otherwise an empty string.</returns>
     private static string ResolveUserModulePath(
         string fileName,
         List<SearchOrderType> searchOrderUM,
@@ -445,6 +615,7 @@ public static class CPathResolver
         ushort moduleMachine,
         out SearchOrderType resolver)
     {
+        string result;
         resolver = SearchOrderType.None;
 
         // Direct absolute/UNC path handling.
@@ -460,22 +631,18 @@ public static class CPathResolver
                 try
                 {
                     full = Path.GetFullPath(direct);
-                    if (full.Contains("..", StringComparison.Ordinal))
-                    {
-                        return string.Empty;
-                    }
+                    resolver = SearchOrderType.ApplicationDirectory;
+                    return full;
                 }
                 catch
                 {
                     return string.Empty;
                 }
-
-                resolver = SearchOrderType.ApplicationDirectory;
-                return full;
             }
         }
 
-        string result;
+        if (searchOrderUM == null)
+            return string.Empty;
 
         foreach (var searchOrder in searchOrderUM)
         {
@@ -502,22 +669,35 @@ public static class CPathResolver
     /// <summary>
     /// Resolves the full path for a module based on search order rules.
     /// </summary>
+    /// <param name="partiallyResolvedFileName">The partially resolved file name.</param>
+    /// <param name="parentModule">The parent module requesting the resolution.</param>
+    /// <param name="searchOrderUM">User mode search order list.</param>
+    /// <param name="searchOrderKM">Kernel mode search order list.</param>
+    /// <param name="resolver">Output parameter indicating which resolver found the file.</param>
+    /// <returns>The fully resolved path if found, otherwise an empty string.</returns>
     static internal string ResolvePathForModule(string partiallyResolvedFileName,
                                                 CModule parentModule,
                                                 List<SearchOrderType> searchOrderUM,
                                                 List<SearchOrderType> searchOrderKM,
                                                 out SearchOrderType resolver)
     {
-        bool is64bitMachine = parentModule.Is64bitArchitecture();
-        ushort moduleMachine = parentModule.ModuleData.Machine;
+        bool is64bitMachine, needRedirection;
+        ushort moduleMachine;
 
-        var needRedirection = CUtils.SystemProcessorArchitecture switch
+        resolver = SearchOrderType.None;
+
+        if (parentModule == null || string.IsNullOrEmpty(partiallyResolvedFileName))
+            return string.Empty;
+
+        is64bitMachine = parentModule.Is64bitArchitecture();
+        moduleMachine = parentModule.ModuleData.Machine;
+
+        needRedirection = CUtils.SystemProcessorArchitecture switch
         {
-            NativeMethods.PROCESSOR_ARCHITECTURE_INTEL => (moduleMachine != (ushort)Machine.I386),
-            NativeMethods.PROCESSOR_ARCHITECTURE_AMD64 => (moduleMachine != (ushort)Machine.Amd64),
-            NativeMethods.PROCESSOR_ARCHITECTURE_IA64 => (moduleMachine != (ushort)Machine.IA64),
-            // FIXME
-            NativeMethods.PROCESSOR_ARCHITECTURE_ARM64 => (moduleMachine != (ushort)Machine.Arm64),
+            NativeMethods.PROCESSOR_ARCHITECTURE_INTEL => moduleMachine != (ushort)Machine.I386,
+            NativeMethods.PROCESSOR_ARCHITECTURE_AMD64 => moduleMachine != (ushort)Machine.Amd64,
+            NativeMethods.PROCESSOR_ARCHITECTURE_IA64 => moduleMachine != (ushort)Machine.IA64,
+            NativeMethods.PROCESSOR_ARCHITECTURE_ARM64 => moduleMachine != (ushort)Machine.Arm64,
             _ => false,
         };
 

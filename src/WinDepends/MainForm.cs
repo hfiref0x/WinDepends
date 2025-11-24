@@ -195,6 +195,7 @@ public partial class MainForm : Form
             {
                 CPathResolver.KnownDllsPath = path;
                 CPathResolver.KnownDllsPath32 = path32;
+                CPathResolver.SyncKnownDllsCache();
             }
 
             _coreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);

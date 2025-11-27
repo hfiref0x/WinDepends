@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        25 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -74,6 +74,7 @@ public class CConfiguration
     public bool HighlightApiSet { get; set; }
     [DataMember]
     public bool ExpandForwarders { get; set; }
+    [DataMember]
     public bool EnableExperimentalFeatures { get; set; }
     [DataMember]
     public int HistoryDepth { get; set; }
@@ -118,12 +119,35 @@ public class CConfiguration
     [DataMember]
     public int WindowState { get; set; }
 
+    private static readonly List<SearchOrderType> DefaultSearchOrderUM =
+    [
+        SearchOrderType.WinSXS,
+        SearchOrderType.KnownDlls,
+        SearchOrderType.ApplicationDirectory,
+        SearchOrderType.System32Directory,
+        SearchOrderType.SystemDirectory,
+        SearchOrderType.WindowsDirectory,
+        SearchOrderType. EnvironmentPathDirectories,
+        SearchOrderType.UserDefinedDirectory
+    ];
+
+    private static readonly List<SearchOrderType> DefaultSearchOrderKM =
+    [
+        SearchOrderType.System32Directory,
+        SearchOrderType.SystemDriversDirectory,
+        SearchOrderType.ApplicationDirectory,
+        SearchOrderType.UserDefinedDirectory
+    ];
+
     public CConfiguration()
     {
     }
 
     public CConfiguration(CConfiguration other)
     {
+        if (other == null)
+            throw new ArgumentNullException(nameof(other));
+
         UpperCaseModuleNames = other.UpperCaseModuleNames;
         ShowToolBar = other.ShowToolBar;
         ShowStatusBar = other.ShowStatusBar;
@@ -166,26 +190,8 @@ public class CConfiguration
         WindowHeight = other.WindowHeight;
         WindowState = other.WindowState;
 
-        SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM ??
-        [
-            SearchOrderType.WinSXS,
-            SearchOrderType.KnownDlls,
-            SearchOrderType.ApplicationDirectory,
-            SearchOrderType.System32Directory,
-            SearchOrderType.SystemDirectory,
-            SearchOrderType.WindowsDirectory,
-            SearchOrderType.EnvironmentPathDirectories,
-            SearchOrderType.UserDefinedDirectory
-        ]);
-
-        SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM ??
-        [
-            SearchOrderType.System32Directory,
-            SearchOrderType.SystemDriversDirectory,
-            SearchOrderType.ApplicationDirectory,
-            SearchOrderType.UserDefinedDirectory
-        ]);
-
+        SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM ?? DefaultSearchOrderUM);
+        SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM ?? DefaultSearchOrderKM);
         UserSearchOrderDirectoriesUM = new List<string>(other.UserSearchOrderDirectoriesUM ?? []);
         UserSearchOrderDirectoriesKM = new List<string>(other.UserSearchOrderDirectoriesKM ?? []);
         MRUList = new List<string>(other.MRUList ?? []);
@@ -230,42 +236,30 @@ public class CConfiguration
             SymbolsHighlightColor = Color.Yellow;
 
             string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-            CoreServerAppLocation = $"{Path.GetDirectoryName(Application.ExecutablePath)}\\{CConsts.WinDependsCoreApp}.{cpuArch}.exe";
+            string exeDir = Path.GetDirectoryName(Application.ExecutablePath);
+            CoreServerAppLocation = Path.Combine(exeDir, $"{CConsts.WinDependsCoreApp}.{cpuArch}.exe");
 
-            SearchOrderListUM =
-            [
-                SearchOrderType.WinSXS,
-                SearchOrderType.KnownDlls,
-                SearchOrderType.ApplicationDirectory,
-                SearchOrderType.System32Directory,
-                SearchOrderType.SystemDirectory,
-                SearchOrderType.WindowsDirectory,
-                SearchOrderType.EnvironmentPathDirectories,
-                SearchOrderType.UserDefinedDirectory
-            ];
-
+            SearchOrderListUM = new List<SearchOrderType>(DefaultSearchOrderUM);
             UserSearchOrderDirectoriesUM = [];
 
-            SearchOrderListKM =
-            [
-                SearchOrderType.System32Directory,
-                SearchOrderType.SystemDriversDirectory,
-                SearchOrderType.ApplicationDirectory,
-                SearchOrderType.UserDefinedDirectory
-            ];
-
+            SearchOrderListKM = new List<SearchOrderType>(DefaultSearchOrderKM);
             UserSearchOrderDirectoriesKM = [];
         }
     }
-
 }
 
 static class CConfigManager
 {
-    public static CConfiguration LoadConfiguration()
+    private static string GetConfigurationFilePath()
     {
         string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-        string fileName = $"{Path.GetDirectoryName(Application.ExecutablePath)}\\{CConsts.ShortProgramName}.{cpuArch}.settings.bin";
+        string exeDir = Path.GetDirectoryName(Application.ExecutablePath);
+        return Path.Combine(exeDir, $"{CConsts.ShortProgramName}.{cpuArch}.settings.bin");
+    }
+
+    public static CConfiguration LoadConfiguration()
+    {
+        string fileName = GetConfigurationFilePath();
 
         if (!File.Exists(fileName))
         {
@@ -279,7 +273,10 @@ static class CConfigManager
             //
             // Test configuration if it loaded, these lists cannot be null, if they are - configuration is broken, reset it.
             //
-            if (confObj == null || confObj.MRUList == null || confObj.SearchOrderListUM == null || confObj.SearchOrderListKM == null)
+            if (confObj == null ||
+                confObj.MRUList == null ||
+                confObj.SearchOrderListUM == null ||
+                confObj.SearchOrderListKM == null)
             {
                 return new CConfiguration(true);
             }
@@ -300,8 +297,10 @@ static class CConfigManager
 
     public static void SaveConfiguration(CConfiguration configuration)
     {
-        string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-        string fileName = $"{Path.GetDirectoryName(Application.ExecutablePath)}\\{CConsts.ShortProgramName}.{cpuArch}.settings.bin";
+        if (configuration == null)
+            return;
+
+        string fileName = GetConfigurationFilePath();
 
         try
         {

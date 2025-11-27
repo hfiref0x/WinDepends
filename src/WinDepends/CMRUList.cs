@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        15 May 2025
+*  DATE:        25 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -24,9 +24,9 @@ namespace WinDepends;
 /// </summary>
 public sealed class CMRUList : IDisposable
 {
-    private const int InitialCapacity = 10;
     private readonly HashSet<string> _filePaths;
     private readonly LinkedList<FileInfo> _files = new();
+    private readonly object _syncRoot = new();
 
     private readonly ToolStripMenuItem _menuBase;
     private readonly ToolStripSeparator _separator;
@@ -85,29 +85,53 @@ public sealed class CMRUList : IDisposable
 
     private void LoadInitialFiles(IEnumerable<string> initialFiles)
     {
-        foreach (var file in (initialFiles ?? Enumerable.Empty<string>()))
+        if (initialFiles == null)
+            return;
+
+        foreach (var file in initialFiles)
         {
-            if (File.Exists(file)) AddFileInternal(file);
+            if (!string.IsNullOrEmpty(file) && File.Exists(file))
+            {
+                AddFileInternal(file);
+            }
         }
     }
 
     private void AddFileInternal(string filePath)
     {
-        if (string.IsNullOrEmpty(filePath)) return;
+        if (string.IsNullOrEmpty(filePath)) 
+            return;
 
-        lock (_files)
+        lock (_syncRoot)
         {
-            if (!File.Exists(filePath)) return;
+            if (!File.Exists(filePath)) 
+                return;
 
-            var fi = new FileInfo(filePath);
+            FileInfo fi;
+
+            try
+            {
+                fi = new FileInfo(filePath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or
+                                        PathTooLongException or
+                                        System.Security.SecurityException or
+                                        UnauthorizedAccessException or
+                                        NotSupportedException)
+            { 
+                return; 
+            }
+
             string fullPath = fi.FullName;
 
             // Remove existing entry if present
             if (_filePaths.Contains(fullPath))
             {
-                var existing = _files.First(f =>
-                    f.FullName.Equals(fullPath, StringComparison.OrdinalIgnoreCase));
-                _files.Remove(existing);
+                var existing = FindFileNode(fullPath);
+                if (existing != null)
+                {
+                    _files.Remove(existing);
+                }
                 _filePaths.Remove(fullPath);
             }
 
@@ -116,13 +140,27 @@ public sealed class CMRUList : IDisposable
             _filePaths.Add(fullPath);
 
             // Enforce maximum entries
-            while (_files.Count > MaxEntries)
+            while (_files.Count > MaxEntries && _files.Last != null)
             {
                 var last = _files.Last.Value;
                 _files.RemoveLast();
                 _filePaths.Remove(last.FullName);
             }
         }
+    }
+
+    private LinkedListNode<FileInfo> FindFileNode(string fullPath)
+    {
+        var node = _files.First;
+        while (node != null)
+        {
+            if (node.Value.FullName.Equals(fullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return node;
+            }
+            node = node.Next;
+        }
+        return null;
     }
 
     public void AddFile(string filePath)
@@ -133,14 +171,20 @@ public sealed class CMRUList : IDisposable
 
     public void RemoveFile(string filePath)
     {
-        lock (_files)
-        {
-            if (!_filePaths.Contains(filePath)) return;
+        if (string.IsNullOrEmpty(filePath))
+            return;
 
-            var existing = _files.First(f =>
-                f.FullName.Equals(filePath, StringComparison.OrdinalIgnoreCase));
-            _files.Remove(existing);
-            _filePaths.Remove(existing.FullName);
+        lock (_syncRoot)
+        {
+            if (!_filePaths.Contains(filePath))
+                return;
+
+            var existing = FindFileNode(filePath);
+            if (existing != null)
+            {
+                _files.Remove(existing);
+                _filePaths.Remove(existing.Value.FullName);
+            }
         }
 
         RefreshUI();
@@ -151,9 +195,9 @@ public sealed class CMRUList : IDisposable
         MaxEntries = Math.Clamp(newMaxEntries, 1, CConsts.HistoryDepthMax);
         ShowFullPath = showFullPath;
 
-        lock (_files)
+        lock (_syncRoot)
         {
-            while (_files.Count > MaxEntries)
+            while (_files.Count > MaxEntries && _files.Last != null)
             {
                 var last = _files.Last.Value;
                 _files.RemoveLast();
@@ -166,7 +210,7 @@ public sealed class CMRUList : IDisposable
 
     public List<string> GetCurrentItems()
     {
-        lock (_files)
+        lock (_syncRoot)
         {
             return _files
                 .Select(f => f.FullName)
@@ -176,13 +220,20 @@ public sealed class CMRUList : IDisposable
 
     private void RefreshUI()
     {
-        _separator.Visible = _files.Count > 0;
+        List<FileInfo> snapshot;
+        lock (_syncRoot)
+        {
+            snapshot = [.. _files];
+        }
+
+        _separator.Visible = snapshot.Count > 0;
 
         // Update visible menu items
         int index = 0;
-        foreach (var file in _files)
+        foreach (var file in snapshot)
         {
-            if (index >= CConsts.HistoryDepthMax) break;
+            if (index >= CConsts.HistoryDepthMax)
+                break;
 
             UpdateMenuItem(_menuItems[index], file, index + 1);
             index++;
@@ -248,14 +299,27 @@ public sealed class CMRUList : IDisposable
     }
 
     private void HandleMouseEnter(object sender, EventArgs e)
-        => _statusLabel.Text = _statusText;
+    {
+        if (_statusLabel != null)
+        {
+            _statusLabel.Text = _statusText;
+        }
+    }
 
     private void HandleMouseLeave(object sender, EventArgs e)
-        => _statusLabel.Text = string.Empty;
+    {
+        if (_statusLabel != null)
+        {
+            _statusLabel.Text = string.Empty;
+        }
+    }
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed) 
+            return;
+
+        _disposed = true;
 
         foreach (var item in _menuItems)
         {
@@ -265,12 +329,10 @@ public sealed class CMRUList : IDisposable
 
         _separator.Dispose();
         _menuItems.Clear();
-        _files.Clear();
-        _filePaths.Clear();
-
-        _disposed = true;
-        GC.SuppressFinalize(this);
+        lock (_syncRoot)
+        {
+            _files.Clear();
+            _filePaths.Clear();
+        }
     }
-
-    ~CMRUList() => Dispose();
 }

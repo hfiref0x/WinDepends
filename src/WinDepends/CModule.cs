@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        25 Nov 2025
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -25,7 +25,7 @@ namespace WinDepends;
 /// Represents file system attributes of a file.
 /// </summary>
 [Flags]
-public enum FileAttributes : uint
+public enum ModuleFileAttributes : uint
 {
     /// <summary>
     /// The file is read-only.
@@ -99,23 +99,23 @@ public enum FileAttributes : uint
 }
 
 /// <summary>
-/// FileAttributes extension to return short name of attributes.
+/// ModuleFileAttributes extension to return short name of attributes.
 /// </summary>
-public static class FileAttributesExtension
+public static class ModuleFileAttributesExtension
 {
-    public static string ShortName(this FileAttributes fileAttributes)
+    public static string ShortName(this ModuleFileAttributes fileAttributes)
     {
         Span<char> buffer = stackalloc char[8];
         int count = 0;
 
-        if ((fileAttributes & FileAttributes.Hidden) == FileAttributes.Hidden) buffer[count++] = 'H';
-        if ((fileAttributes & FileAttributes.System) == FileAttributes.System) buffer[count++] = 'S';
-        if ((fileAttributes & FileAttributes.Archive) == FileAttributes.Archive) buffer[count++] = 'A';
-        if ((fileAttributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly) buffer[count++] = 'R';
-        if ((fileAttributes & FileAttributes.Compressed) == FileAttributes.Compressed) buffer[count++] = 'C';
-        if ((fileAttributes & FileAttributes.Temporary) == FileAttributes.Temporary) buffer[count++] = 'T';
-        if ((fileAttributes & FileAttributes.Offline) == FileAttributes.Offline) buffer[count++] = 'O';
-        if ((fileAttributes & FileAttributes.Encrypted) == FileAttributes.Encrypted) buffer[count++] = 'E';
+        if ((fileAttributes & ModuleFileAttributes.Hidden) == ModuleFileAttributes.Hidden) buffer[count++] = 'H';
+        if ((fileAttributes & ModuleFileAttributes.System) == ModuleFileAttributes.System) buffer[count++] = 'S';
+        if ((fileAttributes & ModuleFileAttributes.Archive) == ModuleFileAttributes.Archive) buffer[count++] = 'A';
+        if ((fileAttributes & ModuleFileAttributes.ReadOnly) == ModuleFileAttributes.ReadOnly) buffer[count++] = 'R';
+        if ((fileAttributes & ModuleFileAttributes.Compressed) == ModuleFileAttributes.Compressed) buffer[count++] = 'C';
+        if ((fileAttributes & ModuleFileAttributes.Temporary) == ModuleFileAttributes.Temporary) buffer[count++] = 'T';
+        if ((fileAttributes & ModuleFileAttributes.Offline) == ModuleFileAttributes.Offline) buffer[count++] = 'O';
+        if ((fileAttributes & ModuleFileAttributes.Encrypted) == ModuleFileAttributes.Encrypted) buffer[count++] = 'E';
 
         return new string(buffer[..count]);
     }
@@ -636,7 +636,7 @@ public class CModuleData
     [DataMember]
     public UInt64 FileSize { get; set; }
     [DataMember]
-    public FileAttributes Attributes { get; set; } = FileAttributes.Normal;
+    public ModuleFileAttributes Attributes { get; set; } = ModuleFileAttributes.Normal;
     [DataMember]
     public uint LinkChecksum { get; set; }
     [DataMember]
@@ -669,12 +669,11 @@ public class CModuleData
     public string SubsystemVersion { get; set; }
     [DataMember]
     public uint ImageFixed { get; set; } = 0;
-    [DataMember]
 
     //
     // .NET specific properties
     //
-
+    [DataMember]
     public uint ImageDotNet { get; set; } = 0;
     [DataMember]
     public uint CorFlags { get; set; } = 0;
@@ -720,6 +719,9 @@ public class CModuleData
     /// <param name="other">The <see cref="CModuleData"/> object to copy from.</param>
     public CModuleData(CModuleData other)
     {
+        if (other == null)
+            throw new ArgumentNullException(nameof(other));
+
         FileTimeStamp = other.FileTimeStamp;
         LinkTimeStamp = other.LinkTimeStamp;
         FileSize = other.FileSize;
@@ -755,6 +757,13 @@ public class CModuleData
         DebugDirTypes = other.DebugDirTypes != null ?
             new List<uint>(other.DebugDirTypes) :
             new List<uint>();
+
+        // Specifically ignore Exports field.
+        // Because this constructor is only used when forming duplicate module entries.
+
+        //Exports = other.Exports != null
+        //    ? new List<CFunction>(other.Exports)
+        //    : [];
     }
 }
 
@@ -1049,11 +1058,16 @@ public class CModule
     /// <returns>
     /// <c>true</c> if the module targets a 64-bit architecture; otherwise, <c>false</c>.
     /// </returns>
-    public bool Is64bitArchitecture() =>
-        ModuleData.Machine == (uint)Machine.Amd64 ||
-        ModuleData.Machine == (uint)Machine.IA64 ||
-        ModuleData.Machine == (uint)Machine.Arm64 ||
-        ModuleData.Machine == (uint)Machine.LoongArch64;
+    public bool Is64bitArchitecture()
+    {
+        if (ModuleData == null)
+            return false;
+
+        return ModuleData.Machine == (uint)Machine.Amd64 ||
+               ModuleData.Machine == (uint)Machine.IA64 ||
+               ModuleData.Machine == (uint)Machine.Arm64 ||
+               ModuleData.Machine == (uint)Machine.LoongArch64;
+    }
 
     /// <summary>
     /// Gets the appropriate icon index for displaying this module in the tree view.
@@ -1140,7 +1154,7 @@ public class CModule
 
             if (bDuplicateAndExportError)
             {
-                return is64bit ? (int)ModuleIconType.DuplicateModule64Warning : (int)ModuleIconType.DuplicateModuleWarning;
+                return is64bit ? (int)ModuleIconType.ForwardedModule64DuplicateWarning : (int)ModuleIconType.ForwardedModuleDuplicateWarning;
             }
 
             if (bDuplicate)
@@ -1267,7 +1281,9 @@ public class CModule
     /// </returns>
     public override int GetHashCode()
     {
-        return FileName?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
+        return FileName != null
+            ? StringComparer.OrdinalIgnoreCase.GetHashCode(FileName)
+            : 0;
     }
 
     /// <summary>
@@ -1310,19 +1326,17 @@ public class CModule
     /// </returns>
     public byte[] GetManifestDataAsArray()
     {
+        if (string.IsNullOrEmpty(ManifestData))
+            return null;
+
         try
         {
-            if (!string.IsNullOrEmpty(ManifestData))
-            {
-                return Convert.FromBase64String(ManifestData);
-            }
+            return Convert.FromBase64String(ManifestData);
         }
-        catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException)
+        catch (FormatException)
         {
             return null;
         }
-
-        return null;
     }
 
     /// <summary>
@@ -1346,6 +1360,9 @@ public class CModule
     /// </remarks>
     public CFunction ResolveFunctionForOrdinal(uint ordinal)
     {
+        if (ModuleData?.Exports == null)
+            return null;
+
         foreach (var function in ModuleData.Exports)
         {
             if (function.Ordinal == ordinal && !function.SnapByOrdinal())
@@ -1356,7 +1373,6 @@ public class CModule
 
         return null;
     }
-
 }
 
 /// <summary>
@@ -1402,12 +1418,16 @@ public class CModuleComparer : IComparer<CModule>
 
         int comparisonResult;
 
+        CModuleData xData = x.ModuleData;
+        CModuleData yData = y.ModuleData;
+
         switch (_fieldIndex)
         {
             case (int)ModuleColumns.Name when !_fullPaths:
                 {
-                    x._cachedFileName ??= Path.GetFileName(x.FileName ?? string.Empty);
-                    y._cachedFileName ??= Path.GetFileName(y.FileName ?? string.Empty);
+                    x._cachedFileName ??= Path.GetFileName(x.FileName);
+                    y._cachedFileName ??= Path.GetFileName(y.FileName);
+
                     comparisonResult = _ignoreCase.Compare(x._cachedFileName, y._cachedFileName);
                     break;
                 }
@@ -1421,35 +1441,35 @@ public class CModuleComparer : IComparer<CModule>
                 break;
 
             case (int)ModuleColumns.LinkChecksum:
-                comparisonResult = x.ModuleData.LinkChecksum.CompareTo(y.ModuleData.LinkChecksum);
+                comparisonResult = CompareModuleDataValue(xData?.LinkChecksum, yData?.LinkChecksum);
                 break;
 
             case (int)ModuleColumns.RealChecksum:
-                comparisonResult = x.ModuleData.RealChecksum.CompareTo(y.ModuleData.RealChecksum);
+                comparisonResult = CompareModuleDataValue(xData?.RealChecksum, yData?.RealChecksum);
                 break;
 
             case (int)ModuleColumns.VirtualSize:
-                comparisonResult = x.ModuleData.VirtualSize.CompareTo(y.ModuleData.VirtualSize);
+                comparisonResult = CompareModuleDataValue(xData?.VirtualSize, yData?.VirtualSize);
                 break;
 
             case (int)ModuleColumns.PrefferedBase:
-                comparisonResult = x.ModuleData.PreferredBase.CompareTo(y.ModuleData.PreferredBase);
+                comparisonResult = CompareModuleDataValue(xData?.PreferredBase, yData?.PreferredBase);
                 break;
 
             case (int)ModuleColumns.LinkTimeStamp:
-                comparisonResult = x.ModuleData.LinkTimeStamp.CompareTo(y.ModuleData.LinkTimeStamp);
+                comparisonResult = CompareModuleDataValue(xData?.LinkTimeStamp, yData?.LinkTimeStamp);
                 break;
 
             case (int)ModuleColumns.FileTimeStamp:
-                comparisonResult = x.ModuleData.FileTimeStamp.CompareTo(y.ModuleData.FileTimeStamp);
+                comparisonResult = CompareModuleDataValue(xData?.FileTimeStamp, yData?.FileTimeStamp);
                 break;
 
             case (int)ModuleColumns.FileSize:
-                comparisonResult = x.ModuleData.FileSize.CompareTo(y.ModuleData.FileSize);
+                comparisonResult = CompareModuleDataValue(xData?.FileSize, yData?.FileSize);
                 break;
 
             case (int)ModuleColumns.CPU:
-                comparisonResult = x.ModuleData.Machine.CompareTo(y.ModuleData.Machine);
+                comparisonResult = CompareModuleDataValue(xData?.Machine, yData?.Machine);
                 break;
 
             default:
@@ -1459,7 +1479,16 @@ public class CModuleComparer : IComparer<CModule>
 
         return _sortOrder == SortOrder.Descending ? -comparisonResult : comparisonResult;
     }
+
+    private static int CompareModuleDataValue<T>(T? x, T? y) where T : struct, IComparable<T>
+    {
+        if (!x.HasValue && !y.HasValue) return 0;
+        if (!x.HasValue) return -1;
+        if (!y.HasValue) return 1;
+        return x.Value.CompareTo(y.Value);
+    }
 }
+
 public class CForwarderEntry
 {
     public string TargetModuleName;      // Raw module token from forward string (before resolution)
@@ -1477,11 +1506,13 @@ public class CForwarderEntry
             return h;
         }
     }
-    public override bool Equals(object o)
+    public override bool Equals(object obj)
     {
-        if (o is not CForwarderEntry e) return false;
-        return string.Equals(TargetModuleName, e.TargetModuleName, StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(TargetFunctionName, e.TargetFunctionName, StringComparison.Ordinal) &&
-               TargetOrdinal == e.TargetOrdinal;
+        if (obj is not CForwarderEntry other)
+            return false;
+
+        return string.Equals(TargetModuleName, other.TargetModuleName, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(TargetFunctionName, other.TargetFunctionName, StringComparison.Ordinal) &&
+               TargetOrdinal == other.TargetOrdinal;
     }
 }

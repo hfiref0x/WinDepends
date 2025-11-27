@@ -806,7 +806,7 @@ public class CCoreClient : IDisposable
         var fileInformation = (CCoreFileInformation)DeserializeDataJSON(typeof(CCoreFileInformation), response);
         if (fileInformation != null)
         {
-            module.ModuleData.Attributes = (FileAttributes)fileInformation.FileAttributes;
+            module.ModuleData.Attributes = (ModuleFileAttributes)fileInformation.FileAttributes;
             module.ModuleData.RealChecksum = fileInformation.RealChecksum;
             module.ModuleData.ImageFixed = fileInformation.ImageFixed;
             module.ModuleData.ImageDotNet = fileInformation.ImageDotNet;

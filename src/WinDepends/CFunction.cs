@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        25 Nov 2025
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -194,7 +194,7 @@ public class CFunction
 
     public bool SnapByOrdinal() => (Ordinal != UInt32.MaxValue && string.IsNullOrEmpty(RawName));
     public bool IsForward() => (!string.IsNullOrEmpty(ForwardName));
-    public bool IsNameDecorated() => RawName.StartsWith('?');
+    public bool IsNameDecorated() => !string.IsNullOrEmpty(RawName) && RawName.StartsWith('?');
 
     /// <summary>
     /// Extracts forwarder target module file name from a forwarder string (e.g. "NTDLL.Rtl..." -> "NTDLL.dll").
@@ -209,17 +209,14 @@ public class CFunction
         if (dotIndex <= 0)
             return string.Empty;
 
-        ReadOnlySpan<char> nameSpan = forwarder.AsSpan(0, dotIndex);
+        string moduleName = forwarder.Substring(0, dotIndex);
 
-        // Check if name already ends with .dll (case-insensitive)
-        if (nameSpan.Length > 4 &&
-            nameSpan.Slice(nameSpan.Length - 4).Equals(".dll", StringComparison.OrdinalIgnoreCase))
+        if (moduleName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
         {
-            return nameSpan.ToString();
+            return moduleName;
         }
 
-        // Append .dll extension
-        return string.Concat(nameSpan, ".dll");
+        return moduleName + ".dll";
     }
 
     /// <summary>
@@ -476,8 +473,15 @@ public class CFunction
         {
             // Import function processing.
 
-            functionList = module.OriginalInstanceId != 0 ?
-                    CUtils.InstanceIdToModule(module.OriginalInstanceId, modulesList)?.ModuleData.Exports : module.ModuleData.Exports;
+            if (module.OriginalInstanceId != 0)
+            {
+                var originalModule = CUtils.InstanceIdToModule(module.OriginalInstanceId, modulesList);
+                functionList = originalModule?.ModuleData?.Exports;
+            }
+            else
+            {
+                functionList = module.ModuleData?.Exports;
+            }
 
             if (isOrdinal)
             {

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        11 Oct 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -21,7 +21,7 @@ namespace WinDepends;
 
 public partial class ConfigurationForm : Form
 {
-    readonly CCoreClient m_CoreClient;
+    readonly CCoreClient _coreClient;
     readonly string m_CurrentFileName = string.Empty;
     readonly bool m_Is64bitFile;
     bool m_SearchOrderExpand = true;
@@ -39,7 +39,7 @@ public partial class ConfigurationForm : Form
         m_CurrentFileName = currentFileName;
         m_Is64bitFile = is64bitFile;
         m_CurrentConfiguration = currentConfiguration;
-        m_CoreClient = coreClient;
+        _coreClient = coreClient;
         m_CurrentPageIndex = pageIndex;
     }
 
@@ -206,7 +206,7 @@ public partial class ConfigurationForm : Form
     {
         labelServerStatus.Font = new Font(labelServerStatus.Font, FontStyle.Bold);
 
-        if (m_CoreClient == null || m_CoreClient.ClientConnection == null || !m_CoreClient.ClientConnection.Connected)
+        if (_coreClient == null || _coreClient.ClientConnection == null || !_coreClient.ClientConnection.Connected)
         {
             labelServerStatus.Text = "Connection Error";
             labelServerStatus.ForeColor = Color.Red;
@@ -215,23 +215,23 @@ public partial class ConfigurationForm : Form
             return;
         }
 
-        var pid = m_CoreClient.ServerProcessId;
+        var pid = _coreClient.ServerProcessId;
         labelSrvPid.Text = (pid < 0) ? "-" : pid.ToString();
 
         labelServerStatus.Text = "Connected";
         labelServerStatus.ForeColor = Color.Green;
         buttonServerConnect.Text = "Reconnect";
-        labelSrvPort.Text = m_CoreClient.Port.ToString();
+        labelSrvPort.Text = _coreClient.Port.ToString();
     }
 
     private void ShowApiSetNamespaceInformation()
     {
-        if (m_CoreClient == null || m_CoreClient.ClientConnection == null || !m_CoreClient.ClientConnection.Connected)
+        if (_coreClient == null || _coreClient.ClientConnection == null || !_coreClient.ClientConnection.Connected)
         {
             return;
         }
 
-        CCoreApiSetNamespaceInfo nsinfo = m_CoreClient.GetApiSetNamespaceInfo();
+        CCoreApiSetNamespaceInfo nsinfo = _coreClient.GetApiSetNamespaceInfo();
         if (nsinfo != null)
         {
             labelApiSetVersion.Text = $"Version: {nsinfo.Version}";
@@ -843,7 +843,7 @@ public partial class ConfigurationForm : Form
         if (browseFileDialog.ShowDialog() == DialogResult.OK)
         {
             serverAppLocationTextBox.Text = browseFileDialog.FileName;
-            m_CoreClient?.SetServerApplication(browseFileDialog.FileName);
+            _coreClient?.SetServerApplication(browseFileDialog.FileName);
             CheckServerFileState(browseFileDialog.FileName);
         }
     }
@@ -908,17 +908,17 @@ public partial class ConfigurationForm : Form
 
     private void ConnectServerButtonClick(object sender, EventArgs e)
     {
-        if (m_CoreClient != null)
+        if (_coreClient != null)
         {
-            if (m_CoreClient.ClientConnection != null)
+            if (_coreClient.ClientConnection != null)
             {
-                if (m_CoreClient.ClientConnection.Connected)
+                if (_coreClient.ClientConnection.Connected)
                 {
-                    m_CoreClient.DisconnectClient();
+                    _coreClient.DisconnectClient();
                 }
             }
 
-            m_CoreClient.ConnectClient();
+            _coreClient.ConnectClient();
             ShowServerStatusAndSetControls();
         }
     }
@@ -950,7 +950,7 @@ public partial class ConfigurationForm : Form
             apisetTextBox.Text = browseFileDialog.FileName;
             m_CurrentConfiguration.ApiSetSchemaFile = browseFileDialog.FileName;
 
-            m_CoreClient?.SetApiSetSchemaNamespaceUse(m_CurrentConfiguration.ApiSetSchemaFile);
+            _coreClient?.SetApiSetSchemaNamespaceUse(m_CurrentConfiguration.ApiSetSchemaFile);
             ShowApiSetNamespaceInformation();
         }
     }

@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 11, 2024
 *
-*  Modified on: Aug 17, 2025
+*  Modified on: Oct 27, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -33,6 +33,9 @@ DWORD ALIGN_UP(DWORD p, DWORD a)
     r = p % a;
     if (r == 0)
         return p;
+    
+    if (p > MAXDWORD - (a - r))
+        return MAXDWORD;
 
     return p + a - r;
 }
@@ -848,7 +851,7 @@ BOOL get_exports(
     }
 
 cleanup:
-    if (!status && !IsListEmpty(&msg_lh)) {
+    if (!IsListEmpty(&msg_lh)) {
         mlist_traverse(&msg_lh, mlist_free, s, NULL);
     }
 

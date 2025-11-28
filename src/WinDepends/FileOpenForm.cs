@@ -25,9 +25,9 @@ public partial class FileOpenForm : Form
 
     public FileOpenForm(bool bEscKeyEnabled, CFileOpenSettings fileOpenSettings, string fileName)
     {
-        settings = fileOpenSettings;
+        settings = fileOpenSettings ?? throw new ArgumentNullException(nameof(fileOpenSettings));
         escKeyEnabled = bEscKeyEnabled;
-        displayedFileName = fileName;
+        displayedFileName = fileName ?? string.Empty;
         InitializeComponent();
     }
 

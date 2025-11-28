@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 17, 2025
+*  Modified on: Oct 27, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -50,7 +50,7 @@ BOOL ex_write_dump(
     if (hDbgHelp == NULL) {
         RtlSecureZeroMemory(szDbg, sizeof(szDbg));
         cch = GetSystemDirectory(szDbg, MAX_PATH);
-        if (cch == 0 || cch > MAX_PATH)
+        if (cch == 0 || cch >= MAX_PATH)
             return FALSE;
         if (FAILED(StringCchCat(szDbg, ARRAYSIZE(szDbg), L"\\dbghelp.dll")))
             return FALSE;
@@ -447,13 +447,12 @@ BOOL build_knowndlls_list(
                 break;
             }
 
-            dllEntry = (PSUP_PATH_ELEMENT_ENTRY)heap_calloc(NULL, sizeof(SUP_PATH_ELEMENT_ENTRY));
-            if (dllEntry) {
+            if (_wcsicmp(pDirInfo->TypeName.Buffer, L"Section") == 0) {
 
-                if (_wcsicmp(pDirInfo->TypeName.Buffer, L"Section") == 0) {
+                dllEntry = (PSUP_PATH_ELEMENT_ENTRY)heap_calloc(NULL, sizeof(SUP_PATH_ELEMENT_ENTRY));
+                if (dllEntry) {
 
                     cbNameEntry = (SIZE_T)pDirInfo->Name.MaximumLength;
-
                     dllEntry->Element = (PWSTR)heap_calloc(NULL, cbNameEntry);
 
                     if (dllEntry->Element) {
@@ -467,6 +466,9 @@ BOOL build_knowndlls_list(
                         }
 
                         dllsHead->Next = dllEntry;
+                    }
+                    else {
+                        heap_free(NULL, dllEntry);
                     }
                 }
             }
@@ -664,7 +666,7 @@ LPWSTR resolve_apiset_name(
         if (gsup.Initialized == FALSE) {
             return NULL;
         }
-
+        RtlInitEmptyUnicodeString(&ParentName, NULL, 0);
         gsup.RtlInitUnicodeString(&Name, apiset_name);
         if (parent_name) {
             gsup.RtlInitUnicodeString(&ParentName, parent_name);
@@ -676,15 +678,15 @@ LPWSTR resolve_apiset_name(
         switch (ApiSetNamespace->Version) {
 
         case API_SET_SCHEMA_VERSION_V2:
-            Status = ApiSetResolveToHostV2(ApiSetNamespace, &Name, NULL, &ResolvedName);
+            Status = ApiSetResolveToHostV2(ApiSetNamespace, &Name, (parent_name != NULL) ? &ParentName : NULL, &ResolvedName);
             break;
 
         case API_SET_SCHEMA_VERSION_V4:
-            Status = ApiSetResolveToHostV4(ApiSetNamespace, &Name, NULL, &ResolvedName);
+            Status = ApiSetResolveToHostV4(ApiSetNamespace, &Name, (parent_name != NULL) ? &ParentName : NULL, &ResolvedName);
             break;
 
         case API_SET_SCHEMA_VERSION_V6:
-            Status = ApiSetResolveToHostV6(ApiSetNamespace, &Name, NULL, &ResolvedName);
+            Status = ApiSetResolveToHostV6(ApiSetNamespace, &Name, (parent_name != NULL) ? &ParentName : NULL, &ResolvedName);
             break;
 
         default:
@@ -803,16 +805,25 @@ LPVOID get_manifest_base64(
 * Query tokens from parameters string.
 *
 */
+/*
+* get_params_token
+*
+* Purpose:
+*
+* Query tokens from parameters string.
+*
+*/
 _Success_(return) BOOL get_params_token(
     _In_ LPCWSTR params,
     _In_ ULONG token_index,
     _Out_ LPWSTR buffer,
-    _In_ ULONG buffer_length, //in chars
+    _In_ ULONG buffer_length,
     _Out_ PULONG token_len
 )
 {
     ULONG c, plen = 0;
     WCHAR divider;
+    BOOL overflow = FALSE;
 
     *token_len = 0;
 
@@ -845,11 +856,17 @@ _Success_(return) BOOL get_params_token(
 
         while ((*params != '"') && (*params != divider) && (*params != 0)) {
             plen++;
-            if (c == token_index)
-                if ((plen < buffer_length) && (buffer != NULL)) {
-                    *buffer = *params;
-                    buffer++;
+            if (c == token_index) {
+                if (plen < buffer_length) {
+                    if (buffer != NULL) {
+                        *buffer = *params;
+                        buffer++;
+                    }
                 }
+                else {
+                    overflow = TRUE;
+                }
+            }
             params++;
         }
 
@@ -864,7 +881,7 @@ zero_term_exit:
 
     *token_len = plen;
 
-    return (plen < buffer_length) ? TRUE : FALSE;
+    return (plen < buffer_length && !overflow) ? TRUE : FALSE;
 }
 
 /*
@@ -967,35 +984,23 @@ VOID report_exception_to_client(
 */
 SIZE_T ansi_to_wide_copy(
     _In_z_ const char* src,
-    _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,
+    _Out_writes_(dest_cch) _Post_z_ WCHAR* dest,
     _In_ SIZE_T dest_cch
 )
 {
-    SIZE_T i, limit;
-
     if (!src || !dest || dest_cch == 0)
         return 0;
 
-    i = 0;
-    limit = dest_cch - 1;
-
-    while (i < limit && src[i]) {
+    SIZE_T i = 0;
+    while (i < dest_cch - 1 && src[i] != '\0') {
         dest[i] = (WCHAR)(unsigned char)src[i];
-        ++i;
+        i++;
     }
 
-    if (src[i] != 0 && i == limit) {
-        if (i >= dest_cch) 
-            return 0;
-        dest[i] = 0;
-        return 0;
+    if (i < dest_cch) {
+        dest[i] = L'\0';
     }
-
-    if (i >= dest_cch)
-        return 0;
-
-    dest[i] = 0;
-    return i;
+    return (src[i] == '\0') ? i : 0;
 }
 
 /*

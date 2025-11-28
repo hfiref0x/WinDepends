@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Sep 2025
+*  DATE:        25 Nov 2025
 *  
 *  Codename:    VasilEk
 *
@@ -48,7 +48,7 @@ public partial class MainForm : Form
     /// <summary>
     /// Depends-core interface class.
     /// </summary>
-    readonly CCoreClient m_CoreClient;
+    readonly CCoreClient _coreClient;
 
     /// <summary>
     /// Depends current context, must be initialized.
@@ -186,18 +186,19 @@ public partial class MainForm : Form
         //
         // Start server app.
         //       
-        m_CoreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AddLogMessage);
-        if (m_CoreClient.ConnectClient())
+        _coreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AddLogMessage);
+        if (_coreClient.ConnectClient())
         {
-            if (m_CoreClient.GetKnownDllsAll(CPathResolver.KnownDlls,
+            if (_coreClient.GetKnownDllsAll(CPathResolver.KnownDlls,
                 CPathResolver.KnownDlls32,
                 out string path, out string path32))
             {
                 CPathResolver.KnownDllsPath = path;
                 CPathResolver.KnownDllsPath32 = path32;
+                CPathResolver.SyncKnownDllsCache();
             }
 
-            m_CoreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
+            _coreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
         }
 
         // Display this message after server initialization message.
@@ -281,7 +282,7 @@ public partial class MainForm : Form
         {
             case ModuleOpenStatus.Okay:
 
-                module.IsProcessed = m_CoreClient.GetModuleHeadersInformation(module);
+                module.IsProcessed = _coreClient.GetModuleHeadersInformation(module);
 
                 //
                 // If this is root module, setup resolver.
@@ -291,16 +292,20 @@ public partial class MainForm : Form
                     CPathResolver.QueryFileInformation(module);
                 }
 
-                m_CoreClient.GetModuleImportExportInformation(module,
+                _coreClient.GetModuleImportExportInformation(module,
                     m_Configuration.SearchOrderListUM,
                     m_Configuration.SearchOrderListKM,
                     m_ParentImportsHashTable,
                     settings.EnableExperimentalFeatures,
                     settings.ExpandForwarders);
 
-                if (m_Configuration.ExpandForwarders)
+                //
+                // Collect forwarders if exists.
+                // Has local settings priority over global.
+                //
+                if (settings.ExpandForwarders)
                 {
-                    m_CoreClient.ExpandAllForwarderModules(module, m_Configuration.SearchOrderListUM,
+                    _coreClient.ExpandAllForwarderModules(module, m_Configuration.SearchOrderListUM,
                         m_Configuration.SearchOrderListKM,
                         m_ParentImportsHashTable);
                 }
@@ -308,10 +313,10 @@ public partial class MainForm : Form
                 CCoreCallStats stats = null;
                 if (settings.UseStats)
                 {
-                    stats = m_CoreClient.GetCoreCallStats();
+                    stats = _coreClient.GetCoreCallStats();
                 }
 
-                m_CoreClient.CloseModule();
+                _coreClient.CloseModule();
 
                 //
                 // Display statistics.
@@ -620,7 +625,7 @@ public partial class MainForm : Form
 
             // Open and process module
             mod.InstanceId = mod.GetHashCode();
-            ModuleOpenStatus openStatus = m_CoreClient.OpenModule(
+            ModuleOpenStatus openStatus = _coreClient.OpenModule(
                 ref mod,
                 effectiveSettings);
 
@@ -671,15 +676,18 @@ public partial class MainForm : Form
         switch (cacheType)
         {
             case DisplayCacheType.Imports:
-                LVImportsCache = [];
+                Array.Clear(LVImportsCache, 0, LVImportsCache.Length);
+                Array.Resize(ref LVImportsCache, 0);
                 LVImportsFirstItem = 0;
                 break;
             case DisplayCacheType.Exports:
-                LVExportsCache = [];
+                Array.Clear(LVExportsCache, 0, LVExportsCache.Length);
+                Array.Resize(ref LVExportsCache, 0);
                 LVExportsFirstItem = 0;
                 break;
             case DisplayCacheType.Modules:
-                LVModulesCache = [];
+                Array.Clear(LVModulesCache, 0, LVModulesCache.Length);
+                Array.Resize(ref LVModulesCache, 0);
                 LVModulesFirstItem = 0;
                 break;
         }
@@ -1039,7 +1047,7 @@ public partial class MainForm : Form
         }
         finally
         {
-            m_CoreClient?.Dispose();
+            _coreClient?.Dispose();
         }
     }
 
@@ -1601,7 +1609,7 @@ public partial class MainForm : Form
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
                                                   optConfig,
-                                                  m_CoreClient,
+                                                  _coreClient,
                                                   pageIndex))
         {
             if (configForm.ShowDialog() == DialogResult.OK)
@@ -1641,7 +1649,7 @@ public partial class MainForm : Form
 
                 if (m_Configuration.UseApiSetSchemaFile != bUseApiSetSchemaFilePrev)
                 {
-                    m_CoreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
+                    _coreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
                 }
 
                 if (m_Configuration.UseSymbols != bUseSymbolsPrev)

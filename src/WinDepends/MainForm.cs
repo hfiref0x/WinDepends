@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Oct 2025
+*  DATE:        25 Nov 2025
 *  
 *  Codename:    VasilEk
 *
@@ -299,7 +299,11 @@ public partial class MainForm : Form
                     settings.EnableExperimentalFeatures,
                     settings.ExpandForwarders);
 
-                if (m_Configuration.ExpandForwarders)
+                //
+                // Collect forwarders if exists.
+                // Has local settings priority over global.
+                //
+                if (settings.ExpandForwarders)
                 {
                     _coreClient.ExpandAllForwarderModules(module, m_Configuration.SearchOrderListUM,
                         m_Configuration.SearchOrderListKM,

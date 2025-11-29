@@ -12,7 +12,7 @@
 + Windows 7 (Not Officially Supported, refer to https://github.com/hfiref0x/WinDepends/issues/11 for more info)
 
 ##### Runtime Frameworks:
-+ [.NET Desktop Runtime 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
++ [.NET Desktop Runtime 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 
 
 # Project Overview
@@ -61,12 +61,12 @@ No installation required. Copy the folder, run WinDepends.exe. To uninstall, clo
 
 # Building and Other Information
 
-+ Build platform: Microsoft Visual Studio 2022 (latest SDK).
-+ Client: C# (WinForms, .NET 8.0).
++ Build platform: Microsoft Visual Studio 2026 (latest SDK).
++ Client: C# (WinForms, .NET 10.0).
 + Server: C (no special SDKs/headers).
 + Source code includes: Server tests (WinDepends.Core.Tests) and a fuzzer (WinDepends.Core.Fuzz).
 + Modern style toolbar images: https://icons8.com.
-+ Frameworks/SDKs updated only with LTS releases (e.g., .NET 10).
++ Frameworks/SDKs updated only with LTS releases.
 
 # Support Our Work
 

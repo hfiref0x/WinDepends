@@ -11,12 +11,17 @@ install:
 - ps: |
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $installScript = "$env:TEMP\dotnet-install.ps1"
-    Invoke-WebRequest -Uri "https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.ps1" -OutFile $installScript -UseBasicParsing
-   
-    & $installScript -Channel 10. 0 -InstallDir "C:\dotnet10"
-   
-    C:\dotnet10\dotnet. exe --list-sdks
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dotnet/install-scripts/main/src/dotnet-install.ps1" -OutFile $installScript -UseBasicParsing
+    
+    & $installScript -Channel 10.0 -Quality ga -InstallDir "C:\dotnet10"
+    
+    if (-not (Test-Path "C:\dotnet10\dotnet.exe")) {
+        & $installScript -Channel 10.0 -Quality preview -InstallDir "C:\dotnet10"
+    }
+    
+    # Verify
+    C:\dotnet10\dotnet.exe --list-sdks
 before_build:
-- ps: C:\dotnet10\dotnet. exe restore src\windepends. sln
+- ps: C:\dotnet10\dotnet.exe restore src\windepends.sln
 build_script:
 - ps: C:\dotnet10\dotnet.exe build src\WinDepends.sln -c Release --no-restore

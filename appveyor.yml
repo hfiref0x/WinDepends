@@ -1,4 +1,4 @@
-version: 1.0.{build}
+version: 1.0. {build}
 branches:
   only:
   - master
@@ -9,26 +9,14 @@ shallow_clone: true
 clone_folder: c:\projects\windepends
 install:
 - ps: |
-    # Download and install .NET 10 SDK
-    Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install. ps1" -OutFile "dotnet-install.ps1"
-    .\dotnet-install.ps1 -Channel 10.0 -InstallDir "C:\Program Files\dotnet"
-    
-    # Verify installation
-    & "C:\Program Files\dotnet\dotnet.exe" --list-sdks
-    
-    # Set environment to use new SDK
-    $env:PATH = "C:\Program Files\dotnet;$env:PATH"
-    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
-    
-    # Create global. json to force SDK version
-    @{ "sdk" = @{ "version" = "10. 0.100"; "rollForward" = "latestMajor" } } | ConvertTo-Json | Set-Content -Path "src\global.json"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $installScript = "$env:TEMP\dotnet-install.ps1"
+    Invoke-WebRequest -Uri "https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.ps1" -OutFile $installScript -UseBasicParsing
+   
+    & $installScript -Channel 10. 0 -InstallDir "C:\dotnet10"
+   
+    C:\dotnet10\dotnet. exe --list-sdks
 before_build:
-- ps: |
-    $env:PATH = "C:\Program Files\dotnet;$env:PATH"
-    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
-    & "C:\Program Files\dotnet\dotnet.exe" restore src\windepends.sln
+- ps: C:\dotnet10\dotnet. exe restore src\windepends. sln
 build_script:
-- ps: |
-    $env:PATH = "C:\Program Files\dotnet;$env:PATH"
-    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
-    & "C:\Program Files\dotnet\dotnet. exe" build src\WinDepends.sln -c Release --no-restore
+- ps: C:\dotnet10\dotnet.exe build src\WinDepends.sln -c Release --no-restore

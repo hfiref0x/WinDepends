@@ -99,14 +99,15 @@ public partial class MainForm : Form
     bool ShutdownInProgress;
 
     /// <summary>
-    /// Log search releated variables.
+    /// Log search state.
     /// </summary>
-    public RichTextBoxFinds LogFindOptions { get; set; }
-    public int LogSearchPosition { get; set; }
-    public string LogFindText { get; set; }
-    public int LogIndexOfSearchText { get; set; }
+    readonly LogSearchState _logSearchState = new();
     private FindDialogForm _findDialog;
 
+    /// <summary>
+    /// Gets the log search state for use by FindDialogForm.
+    /// </summary>
+    public LogSearchState LogSearchState => _logSearchState;
 
     readonly Dictionary<uint, string> m_DebugAbbreviations = new()
     {
@@ -2580,40 +2581,44 @@ public partial class MainForm : Form
 
     public void LogFindString()
     {
-        if (string.IsNullOrEmpty(LogFindText))
+        int startPos;
+        int index;
+
+        if (string.IsNullOrEmpty(_logSearchState.FindText))
             return;
 
         this.Activate();
         reLog.Focus();
 
-        int startPos = LogSearchPosition;
+        startPos = _logSearchState.SearchPosition;
 
-        if (LogIndexOfSearchText >= 0 && LogIndexOfSearchText == reLog.SelectionStart &&
-            reLog.SelectionLength == LogFindText.Length)
+        if (_logSearchState.IndexOfSearchText >= 0 &&
+            _logSearchState.IndexOfSearchText == reLog.SelectionStart &&
+            reLog.SelectionLength == _logSearchState.FindText.Length)
         {
-            if (!LogFindOptions.HasFlag(RichTextBoxFinds.Reverse))
-                startPos = LogIndexOfSearchText + LogFindText.Length;
+            if (!_logSearchState.FindOptions.HasFlag(RichTextBoxFinds.Reverse))
+                startPos = _logSearchState.IndexOfSearchText + _logSearchState.FindText.Length;
             else
-                startPos = LogIndexOfSearchText;
+                startPos = _logSearchState.IndexOfSearchText;
         }
 
-        int index = FindMyText(LogFindText, startPos, LogFindOptions);
+        index = FindMyText(_logSearchState.FindText, startPos, _logSearchState.FindOptions);
 
         if (index != -1)
         {
-            reLog.Select(index, LogFindText.Length);
+            reLog.Select(index, _logSearchState.FindText.Length);
             reLog.ScrollToCaret();
 
-            LogSearchPosition = !LogFindOptions.HasFlag(RichTextBoxFinds.Reverse)
-                ? index + LogFindText.Length
+            _logSearchState.SearchPosition = !_logSearchState.FindOptions.HasFlag(RichTextBoxFinds.Reverse)
+                ? index + _logSearchState.FindText.Length
                 : index - 1;
 
-            LogIndexOfSearchText = index;
+            _logSearchState.IndexOfSearchText = index;
         }
         else
         {
             reLog.SelectionLength = 0;
-            LogIndexOfSearchText = -1;
+            _logSearchState.IndexOfSearchText = -1;
         }
     }
 
@@ -2623,16 +2628,6 @@ public partial class MainForm : Form
         if (_findDialog == null || _findDialog.IsDisposed)
         {
             _findDialog = new FindDialogForm(this, m_Configuration.EscKeyEnabled);
-
-            this.FormClosing += (s, e) =>
-            {
-                if (_findDialog != null && !_findDialog.IsDisposed)
-                {
-                    _findDialog.Close();
-                    _findDialog.Dispose();
-                }
-            };
-
             _findDialog.Owner = this;
             _findDialog.Show();
         }
@@ -4043,6 +4038,12 @@ public partial class MainForm : Form
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
         ShutdownInProgress = true;
+
+        if (_findDialog != null && !_findDialog.IsDisposed)
+        {
+            _findDialog.Close();
+            _findDialog.Dispose();
+        }
 
         // Remember window position, size and state.
         Rectangle bounds = this.WindowState == FormWindowState.Normal

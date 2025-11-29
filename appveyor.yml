@@ -8,12 +8,13 @@ platform: Any CPU
 shallow_clone: true
 clone_folder: c:\projects\windepends
 environment:
-  DOTNET_SDK_VERSION: 8.0.401
+  DOTNET_SDK_VERSION: 10.0.100
+install:
+- ps: |
+    Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "dotnet-install.ps1"
+    .\dotnet-install.ps1 -Version $env:DOTNET_SDK_VERSION -InstallDir "C:\Program Files\dotnet"
+    dotnet --list-sdks
 before_build:
-- ps: >-
-    nuget restore src\windepends.sln
-
-    dotnet build /version
-build:
-  project: src/WinDepends.sln
-  verbosity: minimal
+- ps: dotnet restore src\windepends.sln
+build_script:
+- ps: dotnet build src\WinDepends.sln -c Release --no-restore

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Jun 2025
+*  DATE:        29 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -70,28 +70,28 @@ public partial class FindDialogForm : Form
 
     private void FindButton_Click(object sender, EventArgs e)
     {
-        mainForm.LogFindOptions = RichTextBoxFinds.None;
-        if (MatchWholeCheckBox.Checked) mainForm.LogFindOptions |= RichTextBoxFinds.WholeWord;
-        if (MatchCaseCheckBox.Checked) mainForm.LogFindOptions |= RichTextBoxFinds.MatchCase;
-        mainForm.LogFindText = FindTextBox.Text;
+        mainForm.LogSearchState.FindOptions = RichTextBoxFinds.None;
+        if (MatchWholeCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.WholeWord;
+        if (MatchCaseCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.MatchCase;
+        mainForm.LogSearchState.FindText = FindTextBox.Text;
         mainForm.LogFindString();
     }
 
     private void FindDialogForm_Load(object sender, EventArgs e)
     {
-        MatchWholeCheckBox.Checked = mainForm.LogFindOptions.HasFlag(RichTextBoxFinds.WholeWord);
-        MatchCaseCheckBox.Checked = mainForm.LogFindOptions.HasFlag(RichTextBoxFinds.MatchCase);
-        FindTextBox.Text = mainForm.LogFindText;
+        MatchWholeCheckBox.Checked = mainForm.LogSearchState.FindOptions.HasFlag(RichTextBoxFinds.WholeWord);
+        MatchCaseCheckBox.Checked = mainForm.LogSearchState.FindOptions.HasFlag(RichTextBoxFinds.MatchCase);
+        FindTextBox.Text = mainForm.LogSearchState.FindText;
     }
 
     private void MatchWholeCheckBox_Click(object sender, EventArgs e)
     {
-        if (MatchWholeCheckBox.Checked) mainForm.LogFindOptions |= RichTextBoxFinds.WholeWord;
+        if (MatchWholeCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.WholeWord;
     }
 
     private void MatchCaseCheckBox_Click(object sender, EventArgs e)
     {
-        if (MatchCaseCheckBox.Checked) mainForm.LogFindOptions |= RichTextBoxFinds.MatchCase;
+        if (MatchCaseCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.MatchCase;
     }
 
     private void FindDialogForm_KeyDown(object sender, KeyEventArgs e)

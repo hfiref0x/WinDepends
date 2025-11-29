@@ -7,6 +7,7 @@ configuration: Release
 platform: Any CPU
 shallow_clone: true
 clone_folder: c:\projects\windepends
+<<<<<<< Updated upstream
 environment:
   DOTNET_SDK_VERSION: 8.0.401
 before_build:
@@ -17,3 +18,30 @@ before_build:
 build:
   project: src/WinDepends.sln
   verbosity: minimal
+=======
+install:
+- ps: |
+    # Download and install .NET 10 SDK
+    Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install. ps1" -OutFile "dotnet-install.ps1"
+    .\dotnet-install.ps1 -Channel 10.0 -InstallDir "C:\Program Files\dotnet"
+    
+    # Verify installation
+    & "C:\Program Files\dotnet\dotnet.exe" --list-sdks
+    
+    # Set environment to use new SDK
+    $env:PATH = "C:\Program Files\dotnet;$env:PATH"
+    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
+    
+    # Create global. json to force SDK version
+    @{ "sdk" = @{ "version" = "10. 0.100"; "rollForward" = "latestMajor" } } | ConvertTo-Json | Set-Content -Path "src\global.json"
+before_build:
+- ps: |
+    $env:PATH = "C:\Program Files\dotnet;$env:PATH"
+    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
+    & "C:\Program Files\dotnet\dotnet.exe" restore src\windepends.sln
+build_script:
+- ps: |
+    $env:PATH = "C:\Program Files\dotnet;$env:PATH"
+    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
+    & "C:\Program Files\dotnet\dotnet. exe" build src\WinDepends.sln -c Release --no-restore
+>>>>>>> Stashed changes

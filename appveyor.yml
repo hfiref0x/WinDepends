@@ -7,18 +7,6 @@ configuration: Release
 platform: Any CPU
 shallow_clone: true
 clone_folder: c:\projects\windepends
-<<<<<<< Updated upstream
-environment:
-  DOTNET_SDK_VERSION: 8.0.401
-before_build:
-- ps: >-
-    nuget restore src\windepends.sln
-
-    dotnet build /version
-build:
-  project: src/WinDepends.sln
-  verbosity: minimal
-=======
 install:
 - ps: |
     # Download and install .NET 10 SDK
@@ -44,4 +32,3 @@ build_script:
     $env:PATH = "C:\Program Files\dotnet;$env:PATH"
     $env:DOTNET_ROOT = "C:\Program Files\dotnet"
     & "C:\Program Files\dotnet\dotnet. exe" build src\WinDepends.sln -c Release --no-restore
->>>>>>> Stashed changes

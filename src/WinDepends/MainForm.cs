@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2025
+*  DATE:        29 Nov 2025
 *  
 *  Codename:    VasilEk
 *
@@ -53,50 +53,50 @@ public partial class MainForm : Form
     /// <summary>
     /// Depends current context, must be initialized.
     /// </summary>
-    CDepends m_Depends;
+    CDepends _depends;
 
     /// <summary>
     /// Most Recently Used file list.
     /// </summary>
-    CMRUList? m_MRUList;
+    CMRUList? _mruList;
 
     /// <summary>
     /// Program settings.
     /// </summary>
-    CConfiguration m_Configuration;
+    CConfiguration _configuration;
 
     /// <summary>
     /// Workaround for WinForms glitches.
     /// </summary>
-    Control? focusedControl;
+    Control? _focusedControl;
 
     /// <summary>
     /// Root node of TVModules, must be initialized with AddModule*** routine.
     /// </summary>
-    TreeNode? m_RootNode;
+    TreeNode? _rootNode;
 
     //
     // Flags used in Highlight instance operations
     //
-    bool m_InstanceStopSearch;
-    bool m_InstanceSelfFound;
+    bool _instanceStopSearch;
+    bool _instanceSelfFound;
 
-    Form m_FunctionsHintForm;
-    Form m_ModulesHintForm;
+    Form _functionsHintForm;
+    Form _modulesHintForm;
     bool _disposingHintForms;
 
-    string m_FunctionLookupText = string.Empty;
-    string m_ModuleLookupText = string.Empty;
+    string _functionLookupText = string.Empty;
+    string _moduleLookupText = string.Empty;
 
-    string m_SearchFunctionName;
-    UInt32 m_SearchOrdinal;
+    string? _searchFunctionName;
+    UInt32 _searchOrdinal;
 
-    readonly string[] CommandLineArgs;
+    readonly string[] _commandLineArgs;
 
     /// <summary>
     /// Flag to let the others know when WinDepends application is shutting down.
     /// </summary>
-    bool ShutdownInProgress;
+    bool _shutdownInProgress;
 
     /// <summary>
     /// Log search state.
@@ -109,7 +109,7 @@ public partial class MainForm : Form
     /// </summary>
     public LogSearchState LogSearchState => _logSearchState;
 
-    readonly Dictionary<uint, string> m_DebugAbbreviations = new()
+    readonly Dictionary<uint, string> _debugAbbreviations = new()
     {
         [(uint)DebugEntryType.Coff] = "DBG",
         [(uint)DebugEntryType.CodeView] = "CV",
@@ -135,19 +135,19 @@ public partial class MainForm : Form
 
     int LVModulesFirstItem;
 
-    List<CFunction> m_CurrentExportsList = [];
-    List<CFunction> m_CurrentImportsList = [];
+    List<CFunction> _currentExportsList = [];
+    List<CFunction> _currentImportsList = [];
 
-    readonly Dictionary<int, FunctionHashObject> m_ParentImportsHashTable = [];
+    readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
-    readonly List<CModule> m_LoadedModulesList = [];
+    readonly List<CModule> _loadedModulesList = [];
 
     SortOrder LVImportsSortOrder = SortOrder.Ascending;
     SortOrder LVExportsSortOrder = SortOrder.Ascending;
     SortOrder LVModulesSortOrder = SortOrder.Ascending;
 
-    private bool isCurrentlyOverLink = false;
-    private int currentLinkInstanceId = 0;
+    private bool _isCurrentlyOverLink = false;
+    private int _currentLinkInstanceId = 0;
 
     private readonly ToolTip moduleToolTip = new ToolTip();
     private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
@@ -156,7 +156,7 @@ public partial class MainForm : Form
     {
         InitializeComponent();
 
-        ShutdownInProgress = false;
+        _shutdownInProgress = false;
 
         //
         // Add welcome message to the log.
@@ -165,29 +165,29 @@ public partial class MainForm : Form
             $"version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild} BETA",
             LogMessageType.ContentDefined, Color.Black, true);
 
-        m_Configuration = CConfigManager.LoadConfiguration();
-        CPathResolver.UserDirectoriesKM = m_Configuration.UserSearchOrderDirectoriesKM;
-        CPathResolver.UserDirectoriesUM = m_Configuration.UserSearchOrderDirectoriesUM;
+        _configuration = CConfigManager.LoadConfiguration();
+        CPathResolver.UserDirectoriesKM = _configuration.UserSearchOrderDirectoriesKM;
+        CPathResolver.UserDirectoriesUM = _configuration.UserSearchOrderDirectoriesUM;
 
-        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(m_Configuration.SymbolsDllPath,
-                m_Configuration.SymbolsStorePath, m_Configuration.UseSymbols);
+        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(_configuration.SymbolsDllPath,
+                _configuration.SymbolsStorePath, _configuration.UseSymbols);
 
         if (dbghelpInit != SymbolResolverInitResult.InitializationFailure &&
             dbghelpInit != SymbolResolverInitResult.DllLoadFailure)
         {
-            m_Configuration.SymbolsDllPath = CSymbolResolver.DllPath;
-            m_Configuration.SymbolsStorePath = CSymbolResolver.StorePath;
+            _configuration.SymbolsDllPath = CSymbolResolver.DllPath;
+            _configuration.SymbolsStorePath = CSymbolResolver.StorePath;
         }
 
         //
         // Check for command line parameters.
         //
-        CommandLineArgs = Environment.GetCommandLineArgs();
+        _commandLineArgs = Environment.GetCommandLineArgs();
 
         //
         // Start server app.
         //       
-        _coreClient = new(m_Configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AddLogMessage);
+        _coreClient = new(_configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AddLogMessage);
         if (_coreClient.ConnectClient())
         {
             if (_coreClient.GetKnownDllsAll(CPathResolver.KnownDlls,
@@ -199,7 +199,7 @@ public partial class MainForm : Form
                 CPathResolver.SyncKnownDllsCache();
             }
 
-            _coreClient.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
+            _coreClient.SetApiSetSchemaNamespaceUse(_configuration.ApiSetSchemaFile);
         }
 
         // Display this message after server initialization message.
@@ -214,8 +214,8 @@ public partial class MainForm : Form
         LVModules.VirtualMode = true;
         LVModules.VirtualListSize = 0;
 
-        m_FunctionsHintForm = CreateHintForm(CConsts.HintFormLabelControl);
-        m_ModulesHintForm = CreateHintForm(CConsts.HintFormLabelControl);
+        _functionsHintForm = CreateHintForm(CConsts.HintFormLabelControl);
+        _modulesHintForm = CreateHintForm(CConsts.HintFormLabelControl);
 
         moduleToolTip.AutoPopDelay = 2000;
         moduleToolTip.InitialDelay = 500;
@@ -277,6 +277,26 @@ public partial class MainForm : Form
         return resultForm;
     }
 
+    private static string FormatByteSize(UInt64 bytes)
+    {
+        return bytes switch
+        {
+            >= 1024 * 1024 => $"{bytes / (1024 * 1024)} MB",
+            >= 1024 => $"{bytes / 1024} KB",
+            _ => $"{bytes} byte"
+        };
+    }
+
+    private void LogModuleStats(CCoreCallStats stats, string moduleFileName)
+    {
+        if (stats == null)
+            return;
+
+        var statsData = $"[STATS {Path.GetFileName(moduleFileName)}] Received: {FormatByteSize(stats.TotalBytesSent)}, " +
+                        $"\"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
+        AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
+    }
+
     private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, CFileOpenSettings settings, bool currentModuleIsRoot)
     {
         switch (openStatus)
@@ -294,9 +314,9 @@ public partial class MainForm : Form
                 }
 
                 _coreClient.GetModuleImportExportInformation(module,
-                    m_Configuration.SearchOrderListUM,
-                    m_Configuration.SearchOrderListKM,
-                    m_ParentImportsHashTable,
+                    _configuration.SearchOrderListUM,
+                    _configuration.SearchOrderListKM,
+                    _parentImportsHashTable,
                     settings.EnableExperimentalFeatures,
                     settings.ExpandForwarders);
 
@@ -306,9 +326,9 @@ public partial class MainForm : Form
                 //
                 if (settings.ExpandForwarders)
                 {
-                    _coreClient.ExpandAllForwarderModules(module, m_Configuration.SearchOrderListUM,
-                        m_Configuration.SearchOrderListKM,
-                        m_ParentImportsHashTable);
+                    _coreClient.ExpandAllForwarderModules(module, _configuration.SearchOrderListUM,
+                        _configuration.SearchOrderListKM,
+                        _parentImportsHashTable);
                 }
 
                 CCoreCallStats stats = null;
@@ -324,22 +344,7 @@ public partial class MainForm : Form
                 //
                 if (settings.UseStats && stats != null)
                 {
-                    string sizeText;
-                    if (stats.TotalBytesSent >= 1024 * 1024)
-                    {
-                        sizeText = $"{stats.TotalBytesSent / (1024 * 1024)} MB";
-                    }
-                    else if (stats.TotalBytesSent >= 1024)
-                    {
-                        sizeText = $"{stats.TotalBytesSent / 1024} KB";
-                    }
-                    else
-                    {
-                        sizeText = $"{stats.TotalBytesSent} byte";
-                    }
-
-                    var statsData = $"[STATS {Path.GetFileName(module.FileName)}] Received: {sizeText}, \"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
-                    AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
+                    LogModuleStats(stats, module.FileName);
                 }
 
                 if (module.ExportContainErrors)
@@ -348,8 +353,8 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
-                bool isCpuMismatch = module.ModuleData.Machine != m_Depends.RootModule.ModuleData.Machine;
-                bool isRootImageDotNet = m_Depends.RootModule.ModuleData.ImageDotNet == 1;
+                bool isCpuMismatch = module.ModuleData.Machine != _depends.RootModule.ModuleData.Machine;
+                bool isRootImageDotNet = _depends.RootModule.ModuleData.ImageDotNet == 1;
 
                 if (isCpuMismatch && !isRootImageDotNet)
                 {
@@ -471,53 +476,27 @@ public partial class MainForm : Form
     /// <returns></returns>
     private static string BuildModuleDisplayName(string rawName, bool fullPaths)
     {
-        if (string.IsNullOrEmpty(rawName))
+        if (string.IsNullOrEmpty(rawName) || fullPaths)
             return rawName;
 
-        if (fullPaths)
+        string normalized = rawName.Replace('/', '\\').TrimEnd('\\');
+
+        if (string.IsNullOrEmpty(normalized))
             return rawName;
 
-        string path = rawName.Replace('/', '\\');
-
-        // Trim trailing backslashes (any count) for consistent last-segment extraction
-        int len = path.Length;
-        while (len > 0 && path[len - 1] == '\\')
-            len--;
-        if (len == 0)
-            return rawName;
-        if (len != path.Length)
-            path = path.Substring(0, len);
-
-        bool isUnc = false;
-        int uncStart = 0;
-
-        // Extended UNC: \\?\UNC\server\share\...
-        if (path.Length >= 8 && path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+        // Handle extended UNC: \\?\UNC\server\share\... 
+        if (normalized.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
         {
-            isUnc = true;
-            uncStart = 8;
+            normalized = normalized.Substring(8);
         }
-        // Standard UNC: \\server\share\...
-        else if (path.Length >= 2 && path[0] == '\\' && path[1] == '\\' &&
-                 !(path.Length >= 4 && path[2] == '?' && path[3] == '\\')) // exclude \\?\
+        // Handle \\? \ prefix
+        else if (normalized.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
         {
-            isUnc = true;
-            uncStart = 2;
+            normalized = normalized.Substring(4);
         }
 
-        // Always return last segment when not fullPaths. For UNC this is the file name;
-        // for non-UNC it's the file name.
-        int end = path.Length - 1;
-        int lastSep = path.LastIndexOf('\\', end);
-        int segStart = lastSep >= 0 ? lastSep + 1 : 0;
-
-        if (isUnc && segStart < uncStart)
-            segStart = uncStart; // handle \\server or \\?\UNC\server edge
-
-        if (segStart >= path.Length)
-            return rawName; // fallback (should not normally occur)
-
-        return path.Substring(segStart);
+        int lastSep = normalized.LastIndexOf('\\');
+        return lastSep >= 0 ? normalized.Substring(lastSep + 1) : normalized;
     }
 
     /// <summary>
@@ -540,7 +519,7 @@ public partial class MainForm : Form
 
         // 2. Check if module already exists
         bool isNewModule = true;
-        CModule origInstance = CUtils.GetModuleByHash(module.FileName, m_LoadedModulesList);
+        CModule origInstance = CUtils.GetModuleByHash(module.FileName, _loadedModulesList);
 
         if (origInstance != null)
         {
@@ -561,9 +540,9 @@ public partial class MainForm : Form
         }
 
         // 4. Format display name
-        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets), m_Configuration.FullPaths);
+        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets), _configuration.FullPaths);
 
-        if (m_Configuration.UpperCaseModuleNames)
+        if (_configuration.UpperCaseModuleNames)
         {
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
         }
@@ -575,7 +554,7 @@ public partial class MainForm : Form
             Tag = module,
             ImageIndex = module.ModuleImageIndex,
             SelectedImageIndex = module.ModuleImageIndex,
-            ForeColor = (module.IsApiSetContract && m_Configuration.HighlightApiSet) ? Color.Blue : Color.Black
+            ForeColor = (module.IsApiSetContract && _configuration.HighlightApiSet) ? Color.Blue : Color.Black
         };
 
         // 6. Add to tree in correct location
@@ -595,8 +574,8 @@ public partial class MainForm : Form
         // 7. Update module collections if new
         if (isNewModule)
         {
-            m_LoadedModulesList.Add(module);
-            LVModules.VirtualListSize = m_LoadedModulesList.Count;
+            _loadedModulesList.Add(module);
+            LVModules.VirtualListSize = _loadedModulesList.Count;
         }
 
         return tvNode;
@@ -640,7 +619,7 @@ public partial class MainForm : Form
         return AddModuleEntryCore(
             module,
             parentNode,
-            m_Configuration.ModuleNodeDepthMax,
+            _configuration.ModuleNodeDepthMax,
             processModule);
     }
 
@@ -656,7 +635,7 @@ public partial class MainForm : Form
         return AddModuleEntryCore(
             module,
             parentNode,
-            m_Depends.SessionNodeMaxDepth);
+            _depends.SessionNodeMaxDepth);
     }
 
     /// <summary>
@@ -665,11 +644,8 @@ public partial class MainForm : Form
     /// <returns>Name of the focused control.</returns>
     private string? FindFocusedListControlName()
     {
-        if (TVModules.Focused) return TVModules.Name;
-        if (LVModules.Focused) return LVModules.Name;
-        if (LVImports.Focused) return LVImports.Name;
-        if (LVExports.Focused) return LVExports.Name;
-        return null;
+        Control[] controls = [TVModules, LVModules, LVImports, LVExports];
+        return controls.FirstOrDefault(c => c.Focused)?.Name;
     }
 
     private void ResetDisplayCache(DisplayCacheType cacheType)
@@ -707,7 +683,7 @@ public partial class MainForm : Form
     {
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
-        m_LoadedModulesList.Clear();
+        _loadedModulesList.Clear();
         LVModules.Invalidate();
     }
     private void ClearModuleLinks()
@@ -760,13 +736,13 @@ public partial class MainForm : Form
         if (startNode == null)
             return;
 
-        Stack<TreeNode> nodeStack = new(Math.Min(TVModules.GetNodeCount(true), 1024));
+        Stack<TreeNode> nodeStack = new(Math.Min(TVModules.GetNodeCount(true), CConsts.MaxTreeNodeStackSize));
         nodeStack.Push(startNode);
 
-        bool fullPaths = m_Configuration.FullPaths;
-        bool upperCase = m_Configuration.UpperCaseModuleNames;
-        bool highlightApiSet = m_Configuration.HighlightApiSet;
-        bool resolveApiSets = m_Configuration.ResolveAPIsets;
+        bool fullPaths = _configuration.FullPaths;
+        bool upperCase = _configuration.UpperCaseModuleNames;
+        bool highlightApiSet = _configuration.HighlightApiSet;
+        bool resolveApiSets = _configuration.ResolveAPIsets;
 
         while (nodeStack.Count > 0)
         {
@@ -812,7 +788,7 @@ public partial class MainForm : Form
         {
             case FileViewUpdateAction.TreeViewAutoExpandsChange:
                 {
-                    if (m_Configuration.AutoExpands)
+                    if (_configuration.AutoExpands)
                     {
                         TVModules.ExpandAll();
                     }
@@ -822,7 +798,7 @@ public partial class MainForm : Form
             case FileViewUpdateAction.ModulesTreeAndListChange:
                 {
                     TVModules.BeginUpdate();
-                    TreeViewUpdateNode(m_RootNode);
+                    TreeViewUpdateNode(_rootNode);
                     TVModules.EndUpdate();
 
                     UpdateItemsView(LVModules, DisplayCacheType.Modules);
@@ -853,8 +829,8 @@ public partial class MainForm : Form
         LVExports.SmallImageList = CUtils.CreateImageList(Properties.Resources.FunctionIcons,
             CConsts.FunctionIconsWidth, CConsts.FunctionIconsHeight, Color.Magenta);
 
-        LVExports.Columns[m_Configuration.SortColumnExports].Text =
-            $"{CConsts.AscendSortMark} {LVExports.Columns[m_Configuration.SortColumnExports].Text}";
+        LVExports.Columns[_configuration.SortColumnExports].Text =
+            $"{CConsts.AscendSortMark} {LVExports.Columns[_configuration.SortColumnExports].Text}";
     }
 
     /// <summary>
@@ -872,7 +848,7 @@ public partial class MainForm : Form
 
     bool CreateOrUpdateToolbarImageStrip()
     {
-        bool useClassic = m_Configuration.ToolBarTheme == ToolBarThemeType.Classic;
+        bool useClassic = _configuration.ToolBarTheme == ToolBarThemeType.Classic;
 
         Size desiredSize = useClassic
             ? new Size(CConsts.ToolBarIconsWidthClassic, CConsts.ToolBarIconsHeigthClassic)
@@ -894,11 +870,11 @@ public partial class MainForm : Form
 
     public void RestoreWindowSettings()
     {
-        int? left = m_Configuration.WindowLeft;
-        int? top = m_Configuration.WindowTop;
-        int? height = m_Configuration.WindowHeight;
-        int? width = m_Configuration.WindowWidth;
-        int? state = m_Configuration.WindowState;
+        int? left = _configuration.WindowLeft;
+        int? top = _configuration.WindowTop;
+        int? height = _configuration.WindowHeight;
+        int? width = _configuration.WindowWidth;
+        int? state = _configuration.WindowState;
 
         bool hasValidDimensions = width.GetValueOrDefault() >= CConsts.MinValidWidth &&
                              height.GetValueOrDefault() >= CConsts.MinValidHeight;
@@ -944,11 +920,11 @@ public partial class MainForm : Form
         //
         // Create and load Most Recently Used files.
         //
-        m_MRUList = new CMRUList(FileMenuItem,
+        _mruList = new CMRUList(FileMenuItem,
             FileMenuItem.DropDownItems.IndexOf(MenuOpenNewInstance),
-            m_Configuration.MRUList,
-            m_Configuration.HistoryDepth,
-            m_Configuration.HistoryShowFullPath,
+            _configuration.MRUList,
+            _configuration.HistoryDepth,
+            _configuration.HistoryShowFullPath,
             OpenInputFile,
             toolBarStatusLabel);
 
@@ -983,10 +959,10 @@ public partial class MainForm : Form
         //
         // Check toolbar buttons depending on settings.
         //
-        AutoExpandToolButton.Checked = m_Configuration.AutoExpands;
-        ViewFullPathsToolButton.Checked = m_Configuration.FullPaths;
-        ViewUndecoratedToolButton.Checked = m_Configuration.ViewUndecorated;
-        ResolveAPISetsToolButton.Checked = m_Configuration.ResolveAPIsets;
+        AutoExpandToolButton.Checked = _configuration.AutoExpands;
+        ViewFullPathsToolButton.Checked = _configuration.FullPaths;
+        ViewUndecoratedToolButton.Checked = _configuration.ViewUndecorated;
+        ResolveAPISetsToolButton.Checked = _configuration.ResolveAPIsets;
 
         //
         // Disable Save/Copy buttons by default.
@@ -1008,9 +984,9 @@ public partial class MainForm : Form
         //
         // Open file (if it was submitted through command line).
         //
-        if (CommandLineArgs.Length > 1)
+        if (_commandLineArgs.Length > 1)
         {
-            var fName = CommandLineArgs[1];
+            var fName = _commandLineArgs[1];
             if (!string.IsNullOrEmpty(fName) && File.Exists(fName))
             {
                 fileOpened = OpenInputFile(fName);
@@ -1036,11 +1012,11 @@ public partial class MainForm : Form
             ClearModuleLinks();
             moduleToolTip?.Dispose();
 
-            if (m_MRUList != null && m_Configuration != null)
+            if (_mruList != null && _configuration != null)
             {
-                m_Configuration.MRUList.Clear();
-                m_Configuration.MRUList.AddRange(m_MRUList.GetCurrentItems());
-                CConfigManager.SaveConfiguration(m_Configuration);
+                _configuration.MRUList.Clear();
+                _configuration.MRUList.AddRange(_mruList.GetCurrentItems());
+                CConfigManager.SaveConfiguration(_configuration);
             }
         }
         catch (Exception)
@@ -1067,7 +1043,7 @@ public partial class MainForm : Form
         Color outputColor = Color.Black;
         bool boldText = false;
 
-        if (ShutdownInProgress)
+        if (_shutdownInProgress)
             return;
 
         switch (messageType)
@@ -1098,7 +1074,7 @@ public partial class MainForm : Form
 
         if (moduleMessage)
         {
-            m_Depends.ModuleAnalysisLog.Add(new LogEntry(message, outputColor));
+            _depends.ModuleAnalysisLog.Add(new LogEntry(message, outputColor));
         }
 
         if (!reLog.IsDisposed)
@@ -1162,13 +1138,13 @@ public partial class MainForm : Form
             ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
             : Environment.Is64BitProcess ? CConsts.SixtyFourBitsMsg : "";
 
-        m_MRUList.AddFile(fileName);
+        _mruList.AddFile(fileName);
         this.Text = $"{CConsts.ProgramName}{suffix} [{Path.GetFileName(fileName)}]";
     }
 
     private void MenuCloseItem_Click(object sender, EventArgs e)
     {
-        if (m_Depends != null)
+        if (_depends != null)
         {
             CloseInputFile();
         }
@@ -1179,7 +1155,7 @@ public partial class MainForm : Form
     /// </summary>
     private void CloseInputFile()
     {
-        if (m_Depends != null)
+        if (_depends != null)
         {
             var programTitle = CUtils.IsAdministrator
            ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
@@ -1187,8 +1163,8 @@ public partial class MainForm : Form
 
             this.Text = $"{CConsts.ProgramName}{programTitle}";
 
-            m_Depends = null;
-            m_RootNode = null;
+            _depends = null;
+            _rootNode = null;
         }
 
         ResetFileView();
@@ -1208,7 +1184,7 @@ public partial class MainForm : Form
 
         if (bSessionFile)
         {
-            if (m_Configuration.ClearLogOnFileOpen)
+            if (_configuration.ClearLogOnFileOpen)
             {
                 RichEditLog_ClearLog();
             }
@@ -1219,11 +1195,11 @@ public partial class MainForm : Form
             //
             // Display file open settings dialog depending on global settings.
             //
-            CFileOpenSettings fileOpenSettings = new(m_Configuration);
+            CFileOpenSettings fileOpenSettings = new(_configuration);
 
             if (!fileOpenSettings.UseAsDefault)
             {
-                using (FileOpenForm fileOpenForm = new(m_Configuration.EscKeyEnabled, fileOpenSettings, fileName))
+                using (FileOpenForm fileOpenForm = new(_configuration.EscKeyEnabled, fileOpenSettings, fileName))
                 {
                     //
                     // Update global settings if use as default is checked.
@@ -1232,14 +1208,14 @@ public partial class MainForm : Form
                     {
                         if (fileOpenSettings.UseAsDefault)
                         {
-                            m_Configuration.UseStats = fileOpenSettings.UseStats;
-                            m_Configuration.ProcessRelocsForImage = fileOpenSettings.ProcessRelocsForImage;
-                            m_Configuration.UseCustomImageBase = fileOpenSettings.UseCustomImageBase;
-                            m_Configuration.CustomImageBase = fileOpenSettings.CustomImageBase;
-                            m_Configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
-                            m_Configuration.ExpandForwarders = fileOpenSettings.ExpandForwarders;
-                            m_Configuration.EnableExperimentalFeatures = fileOpenSettings.EnableExperimentalFeatures;
-                            m_Configuration.AnalysisSettingsUseAsDefault = true;
+                            _configuration.UseStats = fileOpenSettings.UseStats;
+                            _configuration.ProcessRelocsForImage = fileOpenSettings.ProcessRelocsForImage;
+                            _configuration.UseCustomImageBase = fileOpenSettings.UseCustomImageBase;
+                            _configuration.CustomImageBase = fileOpenSettings.CustomImageBase;
+                            _configuration.PropagateSettingsOnDependencies = fileOpenSettings.PropagateSettingsOnDependencies;
+                            _configuration.ExpandForwarders = fileOpenSettings.ExpandForwarders;
+                            _configuration.EnableExperimentalFeatures = fileOpenSettings.EnableExperimentalFeatures;
+                            _configuration.AnalysisSettingsUseAsDefault = true;
                         }
                     }
                     else
@@ -1258,35 +1234,35 @@ public partial class MainForm : Form
 
             AddLogMessage($"Openning \"{fileName}\" for analysis.", LogMessageType.Information);
 
-            if (m_Configuration.ClearLogOnFileOpen)
+            if (_configuration.ClearLogOnFileOpen)
             {
                 RichEditLog_ClearLog();
             }
 
-            m_ParentImportsHashTable.Clear();
+            _parentImportsHashTable.Clear();
 
             // Create new root object and output it submodules.
-            m_Depends = new(fileName)
+            _depends = new(fileName)
             {
                 // Remember node max depth value.
-                SessionNodeMaxDepth = m_Configuration.ModuleNodeDepthMax
+                SessionNodeMaxDepth = _configuration.ModuleNodeDepthMax
             };
 
-            if (m_Depends.RootModule != null)
+            if (_depends.RootModule != null)
             {
                 CPathResolver.Initialized = false;
                 using (CActCtxHelper sxsHelper = new(fileName))
                 {
                     CPathResolver.ActCtxHelper = sxsHelper;
 
-                    PopulateObjectToLists(m_Depends.RootModule, false, fileOpenSettings);
+                    PopulateObjectToLists(_depends.RootModule, false, fileOpenSettings);
 
-                    m_RootNode?.Expand();
+                    _rootNode?.Expand();
 
                     LVModules.BeginUpdate();
 
-                    LVModulesSort(LVModules, m_Configuration.SortColumnModules,
-                       LVModulesSortOrder, m_LoadedModulesList, DisplayCacheType.Modules);
+                    LVModulesSort(LVModules, _configuration.SortColumnModules,
+                       LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
 
                     LVModules.EndUpdate();
 
@@ -1300,7 +1276,7 @@ public partial class MainForm : Form
         {
             PostOpenFileUpdateControls(fileName);
 
-            if (m_Configuration.AutoExpands)
+            if (_configuration.AutoExpands)
             {
                 TVModules.ExpandAll();
             }
@@ -1401,8 +1377,8 @@ public partial class MainForm : Form
     {
         CloseInputFile();
 
-        m_Depends = LoadSessionObjectFromFile(fileName, m_Configuration.CompressSessionFiles);
-        if (m_Depends == null)
+        _depends = LoadSessionObjectFromFile(fileName, _configuration.CompressSessionFiles);
+        if (_depends == null)
         {
             // Deserialization failed, leaving.
             return false;
@@ -1410,25 +1386,25 @@ public partial class MainForm : Form
 
         AddLogMessage($"Openning session file \"{fileName}\"", LogMessageType.System);
 
-        if (m_Depends.RootModule != null)
+        if (_depends.RootModule != null)
         {
-            PopulateObjectToLists(m_Depends.RootModule, true, null);
+            PopulateObjectToLists(_depends.RootModule, true, null);
 
             // Restore important module related warnings/errors in the log.
-            foreach (var entry in m_Depends.ModuleAnalysisLog)
+            foreach (var entry in _depends.ModuleAnalysisLog)
             {
                 AddLogMessage(entry.LoggedMessage, LogMessageType.ContentDefined,
                     entry.EntryColor, true, false);
             }
 
             // Expand root module.
-            m_RootNode?.Expand();
+            _rootNode?.Expand();
         }
         else
         {
             // Corrupted file, leaving.
-            m_Depends = null;
-            m_RootNode = null;
+            _depends = null;
+            _rootNode = null;
             return false;
         }
 
@@ -1452,25 +1428,25 @@ public partial class MainForm : Form
         if (loadFromObject)
         {
             // Add root session module.
-            m_RootNode = AddSessionModuleEntry(module, null);
+            _rootNode = AddSessionModuleEntry(module, null);
 
             // Add root session module dependencies.
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddSessionModuleEntry(importModule, m_RootNode));
+                baseNodes.Add(AddSessionModuleEntry(importModule, _rootNode));
             }
         }
         else
         {
             // Add root module.
-            m_RootNode = AddModuleEntry(module, fileOpenSettings, null);
+            _rootNode = AddModuleEntry(module, fileOpenSettings, null);
 
             // Add root module dependencies.
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddModuleEntry(importModule, fileOpenSettings, m_RootNode));
+                baseNodes.Add(AddModuleEntry(importModule, fileOpenSettings, _rootNode));
             }
         }
 
@@ -1528,7 +1504,7 @@ public partial class MainForm : Form
 
     private void MenuAbout_Click(object sender, EventArgs e)
     {
-        using (AboutForm aboutForm = new(m_Configuration.EscKeyEnabled))
+        using (AboutForm aboutForm = new(_configuration.EscKeyEnabled))
         {
             aboutForm.ShowDialog();
         }
@@ -1536,10 +1512,10 @@ public partial class MainForm : Form
 
     private void ApplySymbolsConfiguration()
     {
-        if (m_Configuration.UseSymbols)
+        if (_configuration.UseSymbols)
         {
-            var symStorePath = m_Configuration.SymbolsStorePath;
-            var symDllPath = m_Configuration.SymbolsDllPath;
+            var symStorePath = _configuration.SymbolsStorePath;
+            var symDllPath = _configuration.SymbolsDllPath;
 
             //
             // Set defaults in case if nothing selected.
@@ -1547,21 +1523,21 @@ public partial class MainForm : Form
             if (string.IsNullOrEmpty(symDllPath))
             {
                 symDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
-                m_Configuration.SymbolsDllPath = symDllPath;
+                _configuration.SymbolsDllPath = symDllPath;
             }
             if (string.IsNullOrEmpty(symStorePath))
             {
                 symStorePath = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
-                m_Configuration.SymbolsStorePath = symStorePath;
+                _configuration.SymbolsStorePath = symStorePath;
             }
 
             CSymbolResolver.ReleaseSymbolResolver();
-            var result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, m_Configuration.UseSymbols);
+            var result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, _configuration.UseSymbols);
             if (result != SymbolResolverInitResult.InitializationFailure &&
                 result != SymbolResolverInitResult.DllLoadFailure)
             {
-                m_Configuration.SymbolsDllPath = CSymbolResolver.DllPath;
-                m_Configuration.SymbolsStorePath = CSymbolResolver.StorePath;
+                _configuration.SymbolsDllPath = CSymbolResolver.DllPath;
+                _configuration.SymbolsStorePath = CSymbolResolver.StorePath;
             }
             LogSymbolsInitializationResult(result);
         }
@@ -1584,11 +1560,11 @@ public partial class MainForm : Form
     {
         bool is64bitFile = true;
         string currentFileName = string.Empty;
-        CConfiguration optConfig = new(m_Configuration);
-        if (m_Depends != null)
+        CConfiguration optConfig = new(_configuration);
+        if (_depends != null)
         {
-            is64bitFile = m_Depends.RootModule.Is64bitArchitecture();
-            currentFileName = Path.GetDirectoryName(m_Depends.RootModule.FileName);
+            is64bitFile = _depends.RootModule.Is64bitArchitecture();
+            currentFileName = Path.GetDirectoryName(_depends.RootModule.FileName);
         }
         else
         {
@@ -1598,14 +1574,14 @@ public partial class MainForm : Form
             }
         }
 
-        var bAutoExpandPrev = m_Configuration.AutoExpands;
-        var bFullPathPrev = m_Configuration.FullPaths;
-        var bUpperCaseModulesNamesPrev = m_Configuration.UpperCaseModuleNames;
-        var bUndecoratedPrev = m_Configuration.ViewUndecorated;
-        var bResolveAPISetsPrev = m_Configuration.ResolveAPIsets;
-        var bHighlightAPISetsPrev = m_Configuration.HighlightApiSet;
-        var bUseApiSetSchemaFilePrev = m_Configuration.UseApiSetSchemaFile;
-        var bUseSymbolsPrev = m_Configuration.UseSymbols;
+        var bAutoExpandPrev = _configuration.AutoExpands;
+        var bFullPathPrev = _configuration.FullPaths;
+        var bUpperCaseModulesNamesPrev = _configuration.UpperCaseModuleNames;
+        var bUndecoratedPrev = _configuration.ViewUndecorated;
+        var bResolveAPISetsPrev = _configuration.ResolveAPIsets;
+        var bHighlightAPISetsPrev = _configuration.HighlightApiSet;
+        var bUseApiSetSchemaFilePrev = _configuration.UseApiSetSchemaFile;
+        var bUseSymbolsPrev = _configuration.UseSymbols;
 
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
@@ -1615,45 +1591,45 @@ public partial class MainForm : Form
         {
             if (configForm.ShowDialog() == DialogResult.OK)
             {
-                m_Configuration = optConfig;
+                _configuration = optConfig;
 
                 //
                 // Re-display MRU list.
                 //
-                m_MRUList.UpdateSettings(m_Configuration.HistoryDepth, m_Configuration.HistoryShowFullPath);
+                _mruList.UpdateSettings(_configuration.HistoryDepth, _configuration.HistoryShowFullPath);
 
                 //
                 // Check toolbar buttons depending on settings.
                 //
-                AutoExpandToolButton.Checked = m_Configuration.AutoExpands;
-                ViewFullPathsToolButton.Checked = m_Configuration.FullPaths;
-                ViewUndecoratedToolButton.Checked = m_Configuration.ViewUndecorated;
-                ResolveAPISetsToolButton.Checked = m_Configuration.ResolveAPIsets;
+                AutoExpandToolButton.Checked = _configuration.AutoExpands;
+                ViewFullPathsToolButton.Checked = _configuration.FullPaths;
+                ViewUndecoratedToolButton.Checked = _configuration.ViewUndecorated;
+                ResolveAPISetsToolButton.Checked = _configuration.ResolveAPIsets;
 
                 //
                 // Update settings only if there are changed settings.
                 //
-                if (m_Configuration.AutoExpands != bAutoExpandPrev ||
-                    m_Configuration.FullPaths != bFullPathPrev ||
-                    m_Configuration.ResolveAPIsets != bResolveAPISetsPrev ||
-                    m_Configuration.HighlightApiSet != bHighlightAPISetsPrev ||
-                    m_Configuration.UpperCaseModuleNames != bUpperCaseModulesNamesPrev)
+                if (_configuration.AutoExpands != bAutoExpandPrev ||
+                    _configuration.FullPaths != bFullPathPrev ||
+                    _configuration.ResolveAPIsets != bResolveAPISetsPrev ||
+                    _configuration.HighlightApiSet != bHighlightAPISetsPrev ||
+                    _configuration.UpperCaseModuleNames != bUpperCaseModulesNamesPrev)
                 {
                     UpdateFileView(FileViewUpdateAction.TreeViewAutoExpandsChange);
                     UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
                 }
 
-                if (m_Configuration.ViewUndecorated != bUndecoratedPrev)
+                if (_configuration.ViewUndecorated != bUndecoratedPrev)
                 {
                     UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 }
 
-                if (m_Configuration.UseApiSetSchemaFile != bUseApiSetSchemaFilePrev)
+                if (_configuration.UseApiSetSchemaFile != bUseApiSetSchemaFilePrev)
                 {
-                    _coreClient?.SetApiSetSchemaNamespaceUse(m_Configuration.ApiSetSchemaFile);
+                    _coreClient?.SetApiSetSchemaNamespaceUse(_configuration.ApiSetSchemaFile);
                 }
 
-                if (m_Configuration.UseSymbols != bUseSymbolsPrev)
+                if (_configuration.UseSymbols != bUseSymbolsPrev)
                 {
                     ApplySymbolsConfiguration();
                 }
@@ -1683,17 +1659,17 @@ public partial class MainForm : Form
             if (LVImports.Focused && LVImports.SelectedIndices.Count > 0)
             {
                 selectedItemIndex = LVImports.SelectedIndices[0];
-                if (selectedItemIndex < m_CurrentImportsList.Count)
+                if (selectedItemIndex < _currentImportsList.Count)
                 {
-                    function = m_CurrentImportsList[selectedItemIndex];
+                    function = _currentImportsList[selectedItemIndex];
                 }
             }
             else if (LVExports.Focused && LVExports.SelectedIndices.Count > 0)
             {
                 selectedItemIndex = LVExports.SelectedIndices[0];
-                if (selectedItemIndex < m_CurrentExportsList.Count)
+                if (selectedItemIndex < _currentExportsList.Count)
                 {
-                    function = m_CurrentExportsList[selectedItemIndex];
+                    function = _currentExportsList[selectedItemIndex];
                 }
             }
 
@@ -1702,7 +1678,7 @@ public partial class MainForm : Form
                 fName = function.RawName;
                 Process.Start(new ProcessStartInfo()
                 {
-                    FileName = new StringBuilder(m_Configuration.ExternalFunctionHelpURL).Replace("%1", fName).ToString(),
+                    FileName = new StringBuilder(_configuration.ExternalFunctionHelpURL).Replace("%1", fName).ToString(),
                     Verb = "open",
                     UseShellExecute = true
                 });
@@ -1723,7 +1699,7 @@ public partial class MainForm : Form
         if (LVModules.Focused && LVModules.SelectedIndices.Count > 0)
         {
             var selectedItemIndex = LVModules.SelectedIndices[0];
-            module = m_LoadedModulesList[selectedItemIndex];
+            module = _loadedModulesList[selectedItemIndex];
         }
         else
         {
@@ -1743,8 +1719,8 @@ public partial class MainForm : Form
                 {
                     Process.Start(new ProcessStartInfo()
                     {
-                        Arguments = new StringBuilder(m_Configuration.ExternalViewerArguments).Replace("%1", module.FileName).ToString(),
-                        FileName = m_Configuration.ExternalViewerCommand,
+                        Arguments = new StringBuilder(_configuration.ExternalViewerArguments).Replace("%1", module.FileName).ToString(),
+                        FileName = _configuration.ExternalViewerCommand,
                         WindowStyle = ProcessWindowStyle.Normal
                     });
 
@@ -1776,7 +1752,7 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void MainForm_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Escape && m_Configuration.EscKeyEnabled)
+        if (e.KeyCode == Keys.Escape && _configuration.EscKeyEnabled)
         {
             this.Close();
         }
@@ -1817,10 +1793,10 @@ public partial class MainForm : Form
         //
         // Windows Forms focus glitch workaround.
         //
-        if (focusedControl != null)
+        if (_focusedControl != null)
         {
-            focusedControl.Focus();
-            focusedControl = null;
+            _focusedControl.Focus();
+            _focusedControl = null;
         }
     }
 
@@ -1832,7 +1808,7 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void SplitContainer_MouseDown(object sender, MouseEventArgs e)
     {
-        focusedControl = CUtils.IsControlFocused(this.Controls);
+        _focusedControl = CUtils.IsControlFocused(this.Controls);
     }
 
     /// <summary>
@@ -1847,22 +1823,22 @@ public partial class MainForm : Form
         switch (Convert.ToInt32(toolStripButton.Tag))
         {
             case CConsts.TagFullPaths:
-                m_Configuration.FullPaths = toolStripButton.Checked;
+                _configuration.FullPaths = toolStripButton.Checked;
                 UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
                 break;
 
             case CConsts.TagAutoExpand:
-                m_Configuration.AutoExpands = toolStripButton.Checked;
+                _configuration.AutoExpands = toolStripButton.Checked;
                 UpdateFileView(FileViewUpdateAction.TreeViewAutoExpandsChange);
                 break;
 
             case CConsts.TagViewUndecorated:
-                m_Configuration.ViewUndecorated = toolStripButton.Checked;
+                _configuration.ViewUndecorated = toolStripButton.Checked;
                 UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 break;
 
             case CConsts.TagResolveAPIsets:
-                m_Configuration.ResolveAPIsets = toolStripButton.Checked;
+                _configuration.ResolveAPIsets = toolStripButton.Checked;
                 UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
                 break;
 
@@ -1897,25 +1873,25 @@ public partial class MainForm : Form
         switch (Convert.ToInt32(menuItem.Tag))
         {
             case CConsts.TagFullPaths:
-                m_Configuration.FullPaths = menuItem.Checked;
+                _configuration.FullPaths = menuItem.Checked;
                 ViewFullPathsToolButton.Checked = menuItem.Checked;
                 UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
                 break;
 
             case CConsts.TagAutoExpand:
-                m_Configuration.AutoExpands = menuItem.Checked;
+                _configuration.AutoExpands = menuItem.Checked;
                 AutoExpandToolButton.Checked = menuItem.Checked;
                 UpdateFileView(FileViewUpdateAction.TreeViewAutoExpandsChange);
                 break;
 
             case CConsts.TagViewUndecorated:
-                m_Configuration.ViewUndecorated = menuItem.Checked;
+                _configuration.ViewUndecorated = menuItem.Checked;
                 ViewUndecoratedToolButton.Checked = menuItem.Checked;
                 UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 break;
 
             case CConsts.TagResolveAPIsets:
-                m_Configuration.ResolveAPIsets = menuItem.Checked;
+                _configuration.ResolveAPIsets = menuItem.Checked;
                 ResolveAPISetsToolButton.Checked = menuItem.Checked;
                 UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
                 break;
@@ -1937,8 +1913,8 @@ public partial class MainForm : Form
 
     private void ModuleTreeContextMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        moduleTreeAutoExpandMenuItem.Checked = m_Configuration.AutoExpands;
-        moduleTreeFullPathsMenuItem.Checked = m_Configuration.FullPaths;
+        moduleTreeAutoExpandMenuItem.Checked = _configuration.AutoExpands;
+        moduleTreeFullPathsMenuItem.Checked = _configuration.FullPaths;
         ViewModuleSetMenuItems(true);
     }
 
@@ -1966,8 +1942,8 @@ public partial class MainForm : Form
 
     private void ModuleTreeAutoExpandMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.AutoExpands = !m_Configuration.AutoExpands;
-        AutoExpandToolButton.Checked = m_Configuration.AutoExpands;
+        _configuration.AutoExpands = !_configuration.AutoExpands;
+        AutoExpandToolButton.Checked = _configuration.AutoExpands;
     }
 
     private void ViewModuleSetMenuItems(bool bContextMenu)
@@ -1988,12 +1964,12 @@ public partial class MainForm : Form
             CModule obj = (CModule)TVModules.SelectedNode.Tag;
             if (obj != null)
             {
-                m_InstanceStopSearch = false;
-                bPrevInstanceEnabled = (null != TreeViewFindNodeInstancePrev(m_RootNode, TVModules.SelectedNode, obj.FileName));
+                _instanceStopSearch = false;
+                bPrevInstanceEnabled = (null != TreeViewFindNodeInstancePrev(_rootNode, TVModules.SelectedNode, obj.FileName));
 
-                m_InstanceSelfFound = false;
-                m_InstanceStopSearch = false;
-                bNextInstanceEnabled = (null != TreeViewFindNodeInstanceNext(m_RootNode, TVModules.SelectedNode, obj.FileName));
+                _instanceSelfFound = false;
+                _instanceStopSearch = false;
+                bNextInstanceEnabled = (null != TreeViewFindNodeInstanceNext(_rootNode, TVModules.SelectedNode, obj.FileName));
             }
         }
 
@@ -2002,13 +1978,13 @@ public partial class MainForm : Form
             case CConsts.TVModulesName:
                 bMatchingItemEnabled = (TVModules.Nodes.Count > 0);
                 text = "Module In List";
-                bOriginalInstanceEnabled = (null != (CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, m_LoadedModulesList)));
+                bOriginalInstanceEnabled = (null != (CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, _loadedModulesList)));
                 break;
 
             case CConsts.LVModulesName:
                 bMatchingItemEnabled = (LVModules.Items.Count > 0);
                 text = "Module In Tree";
-                bOriginalInstanceEnabled = (null != (CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, m_LoadedModulesList)));
+                bOriginalInstanceEnabled = (null != (CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, _loadedModulesList)));
                 break;
 
             case CConsts.LVImportsName:
@@ -2122,19 +2098,19 @@ public partial class MainForm : Form
         //
         // Set check state for menu items in MainMenu->View tool strip.
         //
-        mainMenuAutoExpandItem.Checked = m_Configuration.AutoExpands;
-        mainMenuFullPathsItem.Checked = m_Configuration.FullPaths;
-        mainMenuUndecorateCFunctionsItem.Checked = m_Configuration.ViewUndecorated;
-        mainMenuResolveApiSetsItem.Checked = m_Configuration.ResolveAPIsets;
-        mainMenuShowToolBarItem.Checked = m_Configuration.ShowToolBar;
-        manuMenuShowStatusBarItem.Checked = m_Configuration.ShowStatusBar;
+        mainMenuAutoExpandItem.Checked = _configuration.AutoExpands;
+        mainMenuFullPathsItem.Checked = _configuration.FullPaths;
+        mainMenuUndecorateCFunctionsItem.Checked = _configuration.ViewUndecorated;
+        mainMenuResolveApiSetsItem.Checked = _configuration.ResolveAPIsets;
+        mainMenuShowToolBarItem.Checked = _configuration.ShowToolBar;
+        manuMenuShowStatusBarItem.Checked = _configuration.ShowStatusBar;
 
         //
         // Enable/disable view instance items depending on active control.
         //
         ViewModuleSetMenuItems(false);
 
-        var sessionOpened = m_Depends != null;
+        var sessionOpened = _depends != null;
 
         //
         // Enable/Disable refresh button.
@@ -2181,7 +2157,7 @@ public partial class MainForm : Form
 
                 lvSrc = LVImports;
                 lvDst = LVExports;
-                funcSrc = m_CurrentImportsList;
+                funcSrc = _currentImportsList;
             }
             else
             {
@@ -2189,7 +2165,7 @@ public partial class MainForm : Form
 
                 lvSrc = LVExports;
                 lvDst = LVImports;
-                funcSrc = m_CurrentExportsList;
+                funcSrc = _currentExportsList;
             }
 
             ListViewItem lvResult = FindMatchingFunctionInList(lvSrc, lvDst, funcSrc);
@@ -2214,7 +2190,7 @@ public partial class MainForm : Form
 
     private void ModuleViewPopupMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        toolStripMenuItem11.Checked = m_Configuration.FullPaths;
+        toolStripMenuItem11.Checked = _configuration.FullPaths;
         SetPopupMenuItemText(false);
     }
 
@@ -2254,15 +2230,15 @@ public partial class MainForm : Form
 
     private void FunctionPopupMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        undecorateFunctionToolStripMenuItem.Checked = m_Configuration.ViewUndecorated;
-        resolveAPIsetsToolStripMenuItem.Checked = m_Configuration.ResolveAPIsets;
+        undecorateFunctionToolStripMenuItem.Checked = _configuration.ViewUndecorated;
+        resolveAPIsetsToolStripMenuItem.Checked = _configuration.ResolveAPIsets;
         SetPopupMenuItemText(true);
     }
 
     private void UndecorateFunctionToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.ViewUndecorated = !m_Configuration.ViewUndecorated;
-        ViewUndecoratedToolButton.Checked = m_Configuration.ViewUndecorated;
+        _configuration.ViewUndecorated = !_configuration.ViewUndecorated;
+        ViewUndecoratedToolButton.Checked = _configuration.ViewUndecorated;
         UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
     }
 
@@ -2278,8 +2254,8 @@ public partial class MainForm : Form
 
     private void ModuleFullPathsMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.FullPaths = !m_Configuration.FullPaths;
-        ViewFullPathsToolButton.Checked = m_Configuration.FullPaths;
+        _configuration.FullPaths = !_configuration.FullPaths;
+        ViewFullPathsToolButton.Checked = _configuration.FullPaths;
         UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
     }
 
@@ -2376,7 +2352,7 @@ public partial class MainForm : Form
     private void CopyFunctionNamesToClipboard(ListView listView, List<CFunction> functions)
     {
         var textBuilder = new StringBuilder();
-        bool viewUndecorated = m_Configuration.ViewUndecorated;
+        bool viewUndecorated = _configuration.ViewUndecorated;
 
         foreach (int itemIndex in listView.SelectedIndices)
         {
@@ -2399,7 +2375,7 @@ public partial class MainForm : Form
         foreach (int itemIndex in listView.SelectedIndices)
         {
             CModule module = moduleList[itemIndex];
-            textBuilder.AppendLine(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets));
+            textBuilder.AppendLine(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets));
         }
 
         CUtils.SetClipboardData(textBuilder.ToString());
@@ -2430,22 +2406,22 @@ public partial class MainForm : Form
         switch (controlName)
         {
             case CConsts.LVImportsName:
-                CopyFunctionNamesToClipboard(LVImports, m_CurrentImportsList);
+                CopyFunctionNamesToClipboard(LVImports, _currentImportsList);
                 break;
 
             case CConsts.LVExportsName:
-                CopyFunctionNamesToClipboard(LVExports, m_CurrentExportsList);
+                CopyFunctionNamesToClipboard(LVExports, _currentExportsList);
                 break;
 
             case CConsts.LVModulesName:
-                CopyModuleNamesToClipboard(LVModules, m_LoadedModulesList);
+                CopyModuleNamesToClipboard(LVModules, _loadedModulesList);
                 break;
 
             case CConsts.TVModulesName:
                 var selectedNode = TVModules.SelectedNode;
                 if (selectedNode != null && selectedNode.Tag is CModule module)
                 {
-                    var moduleName = module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets);
+                    var moduleName = module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets);
 
                     if (!string.IsNullOrEmpty(moduleName))
                     {
@@ -2627,7 +2603,7 @@ public partial class MainForm : Form
         // If dialog doesn't exist or was disposed, create a new one
         if (_findDialog == null || _findDialog.IsDisposed)
         {
-            _findDialog = new FindDialogForm(this, m_Configuration.EscKeyEnabled);
+            _findDialog = new FindDialogForm(this, _configuration.EscKeyEnabled);
             _findDialog.Owner = this;
             _findDialog.Show();
         }
@@ -2693,8 +2669,8 @@ public partial class MainForm : Form
 
     private void ResolveAPIsetsToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.ResolveAPIsets = !m_Configuration.ResolveAPIsets;
-        ResolveAPISetsToolButton.Checked = m_Configuration.ResolveAPIsets;
+        _configuration.ResolveAPIsets = !_configuration.ResolveAPIsets;
+        ResolveAPISetsToolButton.Checked = _configuration.ResolveAPIsets;
         UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
     }
 
@@ -2705,8 +2681,8 @@ public partial class MainForm : Form
             int selectedIndex = SourceList.SelectedIndices[0];
             if (selectedIndex >= 0 && selectedIndex < FunctionsList.Count)
             {
-                m_SearchFunctionName = FunctionsList[selectedIndex].RawName;
-                m_SearchOrdinal = FunctionsList[selectedIndex].Ordinal;
+                _searchFunctionName = FunctionsList[selectedIndex].RawName;
+                _searchOrdinal = FunctionsList[selectedIndex].Ordinal;
 
                 return DestinationList.FindItemWithText(null);
             }
@@ -2724,11 +2700,11 @@ public partial class MainForm : Form
         {
             lvSrc = LVImports;
             lvDst = LVExports;
-            funcSrc = m_CurrentImportsList;
+            funcSrc = _currentImportsList;
         }
         else if (LVExports.Focused)
         {
-            funcSrc = m_CurrentExportsList;
+            funcSrc = _currentExportsList;
             lvSrc = LVExports;
             lvDst = LVImports;
         }
@@ -2771,12 +2747,12 @@ public partial class MainForm : Form
         {
             int selectedItemIndex = LVModules.SelectedIndices[0];
 
-            if (selectedItemIndex < m_LoadedModulesList.Count)
+            if (selectedItemIndex < _loadedModulesList.Count)
             {
-                CModule selectedListViewModule = m_LoadedModulesList[selectedItemIndex];
+                CModule selectedListViewModule = _loadedModulesList[selectedItemIndex];
                 TVModules.BeginUpdate();
 
-                TreeNode resultNode = CUtils.TreeViewFindModuleNodeByObject(selectedListViewModule, m_RootNode);
+                TreeNode resultNode = CUtils.TreeViewFindModuleNodeByObject(selectedListViewModule, _rootNode);
 
                 if (resultNode != null)
                 {
@@ -2811,18 +2787,18 @@ public partial class MainForm : Form
         List<PropertyElement> si = [];
         var isLocal = true;
 
-        if (m_Depends != null)
+        if (_depends != null)
         {
-            isLocal = !m_Depends.IsSavedSessionView;
+            isLocal = !_depends.IsSavedSessionView;
 
             if (isLocal)
             {
                 CUtils.CollectSystemInformation(si);
-                m_Depends.SystemInformation = si;
+                _depends.SystemInformation = si;
             }
             else
             {
-                si = m_Depends.SystemInformation;
+                si = _depends.SystemInformation;
             }
         }
         else
@@ -2838,14 +2814,14 @@ public partial class MainForm : Form
 
     private void StatusBarToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.ShowStatusBar = (sender as ToolStripMenuItem).Checked;
-        StatusBar.Visible = m_Configuration.ShowStatusBar;
+        _configuration.ShowStatusBar = (sender as ToolStripMenuItem).Checked;
+        StatusBar.Visible = _configuration.ShowStatusBar;
     }
 
     private void ToolbarToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.ShowToolBar = (sender as ToolStripMenuItem).Checked;
-        MainToolBar.Visible = m_Configuration.ShowToolBar;
+        _configuration.ShowToolBar = (sender as ToolStripMenuItem).Checked;
+        MainToolBar.Visible = _configuration.ShowToolBar;
     }
 
     private void HighlightMatching_Click(object sender, EventArgs e)
@@ -2891,32 +2867,32 @@ public partial class MainForm : Form
         //
         // Parent imports.
         //       
-        m_CurrentImportsList = module.ParentImports;
+        _currentImportsList = module.ParentImports;
 
         if (module.OriginalInstanceId != 0)
         {
             // Duplicate module, exports from the original instance.
-            CModule origInstance = CUtils.InstanceIdToModule(module.OriginalInstanceId, m_LoadedModulesList);
+            CModule origInstance = CUtils.InstanceIdToModule(module.OriginalInstanceId, _loadedModulesList);
 
             // Set list from original instance if it present, otherwise create new empty list. 
-            m_CurrentExportsList = origInstance?.ModuleData.Exports ?? [];
+            _currentExportsList = origInstance?.ModuleData.Exports ?? [];
         }
         else
         {
             //
             // Original module
             //
-            m_CurrentExportsList = module.ModuleData.Exports;
+            _currentExportsList = module.ModuleData.Exports;
         }
 
         //
         // Update function icons.
         //
-        ResolveFunctionKindForList(m_CurrentImportsList, module, m_LoadedModulesList);
-        ResolveFunctionKindForList(m_CurrentExportsList, module, m_LoadedModulesList);
+        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList);
+        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList);
 
-        UpdateListViewInternal(LVExports, m_CurrentExportsList, m_Configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
-        UpdateListViewInternal(LVImports, m_CurrentImportsList, m_Configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
+        UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
+        UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
 
         void UpdateListViewInternal(ListView listView, List<CFunction> functionList, int sortColumn, SortOrder sortOrder, DisplayCacheType displayCacheType)
         {
@@ -2931,7 +2907,7 @@ public partial class MainForm : Form
         {
             foreach (CFunction function in currentList)
             {
-                function.ResolveFunctionKind(module, modulesList, m_ParentImportsHashTable);
+                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable);
             }
         }
     }
@@ -2966,10 +2942,10 @@ public partial class MainForm : Form
     {
         TVModules.BeginUpdate();
 
-        CModule origInstance = CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, m_LoadedModulesList);
+        CModule origInstance = CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, _loadedModulesList);
         if (origInstance != null)
         {
-            var tvNode = CUtils.TreeViewFindModuleNodeByObject(origInstance, m_RootNode);
+            var tvNode = CUtils.TreeViewFindModuleNodeByObject(origInstance, _rootNode);
             if (tvNode != null)
             {
                 TVModules.SelectedNode = tvNode;
@@ -2986,13 +2962,13 @@ public partial class MainForm : Form
     {
         TreeNode lastNode = null;
 
-        while (currentNode != null && !m_InstanceStopSearch)
+        while (currentNode != null && !_instanceStopSearch)
         {
             if (currentNode.Tag is CModule obj && obj.FileName.Equals(moduleName, StringComparison.OrdinalIgnoreCase))
             {
                 if (currentNode == selectedNode)
                 {
-                    m_InstanceStopSearch = true;
+                    _instanceStopSearch = true;
                     break;
                 }
                 else
@@ -3001,7 +2977,7 @@ public partial class MainForm : Form
                 }
             }
 
-            if (currentNode.Nodes.Count != 0 && !m_InstanceStopSearch)
+            if (currentNode.Nodes.Count != 0 && !_instanceStopSearch)
             {
                 var tvNode = TreeViewFindNodeInstancePrev(currentNode.Nodes[0], selectedNode, moduleName);
                 if (tvNode != null)
@@ -3020,22 +2996,22 @@ public partial class MainForm : Form
     {
         TreeNode lastNode = null;
 
-        while (currentNode != null && !m_InstanceStopSearch)
+        while (currentNode != null && !_instanceStopSearch)
         {
             if (currentNode.Tag is CModule obj && obj.FileName.Equals(moduleName, StringComparison.OrdinalIgnoreCase))
             {
                 if (currentNode == selectedNode)
                 {
-                    m_InstanceSelfFound = true;
+                    _instanceSelfFound = true;
                 }
-                else if (m_InstanceSelfFound)
+                else if (_instanceSelfFound)
                 {
-                    m_InstanceStopSearch = true;
+                    _instanceStopSearch = true;
                     lastNode = currentNode;
                 }
             }
 
-            if (currentNode.Nodes.Count != 0 && !m_InstanceStopSearch)
+            if (currentNode.Nodes.Count != 0 && !_instanceStopSearch)
             {
                 var tvNode = TreeViewFindNodeInstanceNext(currentNode.Nodes[0], selectedNode, moduleName);
                 if (tvNode != null)
@@ -3057,11 +3033,11 @@ public partial class MainForm : Form
             return;
         }
 
-        m_InstanceStopSearch = false;
+        _instanceStopSearch = false;
 
         if (bNextInstance)
         {
-            m_InstanceSelfFound = false;
+            _instanceSelfFound = false;
         }
 
         TVModules.BeginUpdate();
@@ -3070,11 +3046,11 @@ public partial class MainForm : Form
 
         if (bNextInstance)
         {
-            tvNode = TreeViewFindNodeInstanceNext(m_RootNode, TVModules.SelectedNode, obj.FileName);
+            tvNode = TreeViewFindNodeInstanceNext(_rootNode, TVModules.SelectedNode, obj.FileName);
         }
         else
         {
-            tvNode = TreeViewFindNodeInstancePrev(m_RootNode, TVModules.SelectedNode, obj.FileName);
+            tvNode = TreeViewFindNodeInstancePrev(_rootNode, TVModules.SelectedNode, obj.FileName);
         }
 
         if (tvNode != null)
@@ -3100,7 +3076,7 @@ public partial class MainForm : Form
 
     private void MainMenu_FileDropDown(object sender, EventArgs e)
     {
-        bool bSessionAllocated = m_Depends != null;
+        bool bSessionAllocated = _depends != null;
         MenuSaveAsItem.Visible = bSessionAllocated;
         MenuSaveItem.Visible = bSessionAllocated;
         MenuCloseItem.Visible = bSessionAllocated;
@@ -3151,7 +3127,7 @@ public partial class MainForm : Form
         string fileName;
         bool jsonOutput = false;
 
-        if (m_Depends == null)
+        if (_depends == null)
         {
             return;
         }
@@ -3159,12 +3135,12 @@ public partial class MainForm : Form
         // We want new filename for our session view.
         if (saveAs)
         {
-            m_Depends.IsSavedSessionView = false;
-            m_Depends.SessionFileName = string.Empty;
+            _depends.IsSavedSessionView = false;
+            _depends.SessionFileName = string.Empty;
         }
 
         // This is new session.
-        if (!m_Depends.IsSavedSessionView && string.IsNullOrEmpty(m_Depends.SessionFileName))
+        if (!_depends.IsSavedSessionView && string.IsNullOrEmpty(_depends.SessionFileName))
         {
             if (SaveFileDialog1.ShowDialog() != DialogResult.OK)
             {
@@ -3181,19 +3157,19 @@ public partial class MainForm : Form
             else // WDS optionally packed file.
             {
                 // Save system information into file also.
-                if (m_Depends.SystemInformation.Count == 0)
+                if (_depends.SystemInformation.Count == 0)
                 {
-                    CUtils.CollectSystemInformation(m_Depends.SystemInformation);
+                    CUtils.CollectSystemInformation(_depends.SystemInformation);
                 }
 
-                m_Depends.IsSavedSessionView = true;
-                m_Depends.SessionFileName = fileName;
+                _depends.IsSavedSessionView = true;
+                _depends.SessionFileName = fileName;
             }
         }
         else
         {
             // This is loaded session, just save as is.
-            fileName = m_Depends.SessionFileName;
+            fileName = _depends.SessionFileName;
         }
 
         bool bSaved = false;
@@ -3202,19 +3178,19 @@ public partial class MainForm : Form
         {
             if (useCompression)
             {
-                bSaved = CUtils.SavePackedObjectToFile(fileName, m_Depends, typeof(CDepends), UpdateOperationStatus);
+                bSaved = CUtils.SavePackedObjectToFile(fileName, _depends, typeof(CDepends), UpdateOperationStatus);
             }
             else
             {
-                bSaved = CUtils.SaveObjectToFilePlainText(fileName, m_Depends, typeof(CDepends));
+                bSaved = CUtils.SaveObjectToFilePlainText(fileName, _depends, typeof(CDepends));
             }
         }
         catch (Exception ex)
         {
             if (!jsonOutput)
             {
-                m_Depends.IsSavedSessionView = false;
-                m_Depends.SessionFileName = string.Empty;
+                _depends.IsSavedSessionView = false;
+                _depends.SessionFileName = string.Empty;
             }
 
             string exceptionMessage;
@@ -3242,12 +3218,12 @@ public partial class MainForm : Form
 
     private void MainMenuSave_Click(object sender, EventArgs e)
     {
-        SaveSessionObjectToFile(false, m_Configuration.CompressSessionFiles);
+        SaveSessionObjectToFile(false, _configuration.CompressSessionFiles);
     }
 
     private void MainMenuSaveAs_Click(object sender, EventArgs e)
     {
-        SaveSessionObjectToFile(true, m_Configuration.CompressSessionFiles);
+        SaveSessionObjectToFile(true, _configuration.CompressSessionFiles);
     }
 
     private void TVModules_AfterSelect(object sender, TreeViewEventArgs e)
@@ -3255,7 +3231,7 @@ public partial class MainForm : Form
         CModule module = (CModule)e.Node.Tag;
         if (module != null)
         {
-            if (m_Configuration.UseSymbols) PreloadSymbolForSelectedModule(module);
+            if (_configuration.UseSymbols) PreloadSymbolForSelectedModule(module);
             BuildFunctionListForSelectedModule(module);
         }
     }
@@ -3281,9 +3257,9 @@ public partial class MainForm : Form
             ImageIndex = module.GetIconIndexForModuleCompact()
         };
 
-        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets), m_Configuration.FullPaths);
+        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets), _configuration.FullPaths);
 
-        if (m_Configuration.UpperCaseModuleNames)
+        if (_configuration.UpperCaseModuleNames)
         {
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
         }
@@ -3336,8 +3312,8 @@ public partial class MainForm : Form
                 ? ((Machine)moduleData.Machine).FriendlyName()
                 : $"0x{moduleData.Machine:X4}";
 
-            bool isCpuMismatch = m_Depends.RootModule.ModuleData.Machine != moduleData.Machine;
-            bool isRootModuleNet = m_Depends.RootModule.ModuleData.ImageDotNet == 1;
+            bool isCpuMismatch = _depends.RootModule.ModuleData.Machine != moduleData.Machine;
+            bool isRootModuleNet = _depends.RootModule.ModuleData.ImageDotNet == 1;
             if (isCpuMismatch && !isRootModuleNet)
             {
                 lvItem.UseItemStyleForSubItems = false;
@@ -3359,7 +3335,7 @@ public partial class MainForm : Form
                 var sb = new StringBuilder();
                 foreach (var entry in moduleData.DebugDirTypes.Distinct())
                 {
-                    if (m_DebugAbbreviations.TryGetValue(entry, out var abbr))
+                    if (_debugAbbreviations.TryGetValue(entry, out var abbr))
                     {
                         if (sb.Length > 0) sb.Append(',');
                         sb.Append(abbr);
@@ -3433,18 +3409,18 @@ public partial class MainForm : Form
             var resolvedFunction = module.ResolveFunctionForOrdinal(function.Ordinal);
             if (resolvedFunction != null)
             {
-                functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, resolvedFunction);
+                functionName = TryUndecorateFunction(_configuration.ViewUndecorated, resolvedFunction);
             }
         }
         else
         {
-            functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, function);
+            functionName = TryUndecorateFunction(_configuration.ViewUndecorated, function);
         }
 
         //
         // Nothing found, attempt to resolve using symbols.
         //
-        if (string.IsNullOrEmpty(functionName) && m_Configuration.UseSymbols)
+        if (string.IsNullOrEmpty(functionName) && _configuration.UseSymbols)
         {
             var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
             if (moduleBase != IntPtr.Zero)
@@ -3474,7 +3450,7 @@ public partial class MainForm : Form
                     {
                         function.IsNameFromSymbols = true;
                         function.RawName = symName;
-                        functionName = TryUndecorateFunction(m_Configuration.ViewUndecorated, function);
+                        functionName = TryUndecorateFunction(_configuration.ViewUndecorated, function);
                     }
                 }
             }
@@ -3488,7 +3464,7 @@ public partial class MainForm : Form
         if (function.IsNameFromSymbols)
         {
             lvItem.UseItemStyleForSubItems = false;
-            lvItem.SubItems.Add(functionName, Color.Black, m_Configuration.SymbolsHighlightColor, lvItem.Font);
+            lvItem.SubItems.Add(functionName, Color.Black, _configuration.SymbolsHighlightColor, lvItem.Font);
         }
         else
         {
@@ -3521,7 +3497,7 @@ public partial class MainForm : Form
         else
         {
             var selectedModule = TVModules.SelectedNode?.Tag as CModule;
-            e.Item = LVCreateFunctionEntry(m_CurrentExportsList[e.ItemIndex], selectedModule);
+            e.Item = LVCreateFunctionEntry(_currentExportsList[e.ItemIndex], selectedModule);
         }
     }
 
@@ -3542,7 +3518,7 @@ public partial class MainForm : Form
         else
         {
             var selectedModule = TVModules.SelectedNode?.Tag as CModule;
-            e.Item = LVCreateFunctionEntry(m_CurrentImportsList[e.ItemIndex], selectedModule);
+            e.Item = LVCreateFunctionEntry(_currentImportsList[e.ItemIndex], selectedModule);
         }
     }
 
@@ -3562,7 +3538,7 @@ public partial class MainForm : Form
         }
         else
         {
-            e.Item = LVCreateModuleEntry(m_LoadedModulesList[e.ItemIndex]);
+            e.Item = LVCreateModuleEntry(_loadedModulesList[e.ItemIndex]);
         }
     }
 
@@ -3583,9 +3559,9 @@ public partial class MainForm : Form
         LVExportsCache = new ListViewItem[length];
         var selectedModule = TVModules.SelectedNode?.Tag as CModule;
 
-        for (int i = 0, j = LVExportsFirstItem; i < length && j < m_CurrentExportsList.Count; i++, j++)
+        for (int i = 0, j = LVExportsFirstItem; i < length && j < _currentExportsList.Count; i++, j++)
         {
-            LVExportsCache[i] = LVCreateFunctionEntry(m_CurrentExportsList[j], selectedModule);
+            LVExportsCache[i] = LVCreateFunctionEntry(_currentExportsList[j], selectedModule);
         }
     }
 
@@ -3606,9 +3582,9 @@ public partial class MainForm : Form
         LVImportsCache = new ListViewItem[length];
         var selectedModule = TVModules.SelectedNode?.Tag as CModule;
 
-        for (int i = 0, j = LVImportsFirstItem; i < length && j < m_CurrentImportsList.Count; i++, j++)
+        for (int i = 0, j = LVImportsFirstItem; i < length && j < _currentImportsList.Count; i++, j++)
         {
-            LVImportsCache[i] = LVCreateFunctionEntry(m_CurrentImportsList[j], selectedModule);
+            LVImportsCache[i] = LVCreateFunctionEntry(_currentImportsList[j], selectedModule);
         }
     }
 
@@ -3628,9 +3604,9 @@ public partial class MainForm : Form
         int length = e.EndIndex - e.StartIndex + 1;
         LVModulesCache = new ListViewItem[length];
 
-        for (int i = 0, j = LVModulesFirstItem; i < length && j < m_LoadedModulesList.Count; i++, j++)
+        for (int i = 0, j = LVModulesFirstItem; i < length && j < _loadedModulesList.Count; i++, j++)
         {
-            LVModulesCache[i] = LVCreateModuleEntry(m_LoadedModulesList[j]);
+            LVModulesCache[i] = LVCreateModuleEntry(_loadedModulesList[j]);
         }
     }
 
@@ -3642,13 +3618,13 @@ public partial class MainForm : Form
     private void LVFunctionsSearchForVirtualItem(List<CFunction> itemList, SearchForVirtualItemEventArgs e)
     {
         // Search by ordinal.
-        if (string.IsNullOrEmpty(m_SearchFunctionName))
+        if (string.IsNullOrEmpty(_searchFunctionName))
         {
-            if (m_SearchOrdinal != UInt32.MaxValue)
+            if (_searchOrdinal != UInt32.MaxValue)
             {
                 foreach (var entry in itemList)
                 {
-                    if (entry.Ordinal == m_SearchOrdinal)
+                    if (entry.Ordinal == _searchOrdinal)
                     {
                         e.Index = itemList.IndexOf(entry);
                         return;
@@ -3661,7 +3637,7 @@ public partial class MainForm : Form
             // Search by name.
             foreach (var entry in itemList)
             {
-                if (entry.RawName.Equals(m_SearchFunctionName, StringComparison.OrdinalIgnoreCase))
+                if (entry.RawName.Equals(_searchFunctionName, StringComparison.OrdinalIgnoreCase))
                 {
                     e.Index = itemList.IndexOf(entry);
                     return;
@@ -3669,11 +3645,11 @@ public partial class MainForm : Form
             }
 
             // If item is not found, search by ordinal if possible.
-            if (m_SearchOrdinal != UInt32.MaxValue)
+            if (_searchOrdinal != UInt32.MaxValue)
             {
                 foreach (var entry in itemList)
                 {
-                    if (entry.Ordinal == m_SearchOrdinal)
+                    if (entry.Ordinal == _searchOrdinal)
                     {
                         e.Index = itemList.IndexOf(entry);
                         return;
@@ -3690,7 +3666,7 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVImportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
-        LVFunctionsSearchForVirtualItem(m_CurrentImportsList, e);
+        LVFunctionsSearchForVirtualItem(_currentImportsList, e);
     }
 
     /// <summary>
@@ -3700,7 +3676,7 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVExportsSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
-        LVFunctionsSearchForVirtualItem(m_CurrentExportsList, e);
+        LVFunctionsSearchForVirtualItem(_currentExportsList, e);
     }
 
     /// <summary>
@@ -3710,11 +3686,11 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVModulesSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
-        foreach (var module in m_LoadedModulesList)
+        foreach (var module in _loadedModulesList)
         {
             if (module.FileName.Equals(e.Text, StringComparison.OrdinalIgnoreCase))
             {
-                e.Index = m_LoadedModulesList.IndexOf(module);
+                e.Index = _loadedModulesList.IndexOf(module);
                 return;
             }
         }
@@ -3742,17 +3718,17 @@ public partial class MainForm : Form
     private void LVExportsColumnClick(object sender, ColumnClickEventArgs e)
     {
         int columnIndex = e.Column;
-        m_Configuration.SortColumnExports = columnIndex;
+        _configuration.SortColumnExports = columnIndex;
         LVExportsSortOrder = (LVExportsSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
-        LVFunctionsSort(LVExports, columnIndex, LVExportsSortOrder, m_CurrentExportsList, DisplayCacheType.Exports);
+        LVFunctionsSort(LVExports, columnIndex, LVExportsSortOrder, _currentExportsList, DisplayCacheType.Exports);
     }
 
     private void LVImportsColumnClick(object sender, ColumnClickEventArgs e)
     {
         int columnIndex = e.Column;
-        m_Configuration.SortColumnImports = columnIndex;
+        _configuration.SortColumnImports = columnIndex;
         LVImportsSortOrder = (LVImportsSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
-        LVFunctionsSort(LVImports, columnIndex, LVImportsSortOrder, m_CurrentImportsList, DisplayCacheType.Imports);
+        LVFunctionsSort(LVImports, columnIndex, LVImportsSortOrder, _currentImportsList, DisplayCacheType.Imports);
     }
 
     /// <summary>
@@ -3765,7 +3741,7 @@ public partial class MainForm : Form
     /// <param name="cacheType"></param>
     private void LVModulesSort(ListView listView, int columnIndex, SortOrder sortOrder, List<CModule> moduleList, DisplayCacheType cacheType)
     {
-        IComparer<CModule> modulesComparer = new CModuleComparer(sortOrder, columnIndex, m_Configuration.FullPaths);
+        IComparer<CModule> modulesComparer = new CModuleComparer(sortOrder, columnIndex, _configuration.FullPaths);
         moduleList.Sort(modulesComparer);
         //
         // Reset listview items cache.
@@ -3777,9 +3753,9 @@ public partial class MainForm : Form
     private void LVModulesColumnClick(object sender, ColumnClickEventArgs e)
     {
         int columnIndex = e.Column;
-        m_Configuration.SortColumnModules = columnIndex;
+        _configuration.SortColumnModules = columnIndex;
         LVModulesSortOrder = (LVModulesSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
-        LVModulesSort(LVModules, columnIndex, LVModulesSortOrder, m_LoadedModulesList, DisplayCacheType.Modules);
+        LVModulesSort(LVModules, columnIndex, LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
     }
 
     private void ViewOpenModuleLocationItem_Click(object sender, EventArgs e)
@@ -3793,7 +3769,7 @@ public partial class MainForm : Form
     /// <param name="status"></param>
     private void UpdateOperationStatus(string status)
     {
-        if (ShutdownInProgress)
+        if (_shutdownInProgress)
             return;
 
         if (toolBarStatusLabel.Owner.InvokeRequired)
@@ -3813,9 +3789,9 @@ public partial class MainForm : Form
 
     private void ViewRefreshItem_Click(object sender, EventArgs e)
     {
-        if (m_Depends != null)
+        if (_depends != null)
         {
-            var fName = m_Depends.RootModule.RawFileName;
+            var fName = _depends.RootModule.RawFileName;
             OpenInputFile(fName);
         }
     }
@@ -3836,30 +3812,30 @@ public partial class MainForm : Form
             return;
         }
 
-        m_FunctionLookupText += char.ToLower(e.KeyChar);
+        _functionLookupText += char.ToLower(e.KeyChar);
 
-        if (m_FunctionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
+        if (_functionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
-            hintLabel.Text = "Search: " + m_FunctionLookupText;
+            hintLabel.Text = "Search: " + _functionLookupText;
             hintLabel.Size = hintLabel.PreferredSize;
 
             Point location = lvDst.PointToScreen(new Point(lvDst.Bounds.Left, lvDst.Bounds.Bottom));
 
-            m_FunctionsHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
-            m_FunctionsHintForm.Location = location;
-            m_FunctionsHintForm.Show();
+            _functionsHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
+            _functionsHintForm.Location = location;
+            _functionsHintForm.Show();
         }
 
-        List<CFunction> currentList = lvDst == LVImports ? m_CurrentImportsList : m_CurrentExportsList;
+        List<CFunction> currentList = lvDst == LVImports ? _currentImportsList : _currentExportsList;
 
-        m_SearchOrdinal = UInt32.MaxValue;
-        m_SearchFunctionName = string.Empty;
+        _searchOrdinal = UInt32.MaxValue;
+        _searchFunctionName = string.Empty;
 
-        var matchingItem = currentList.FirstOrDefault(item => item.RawName.StartsWith(m_FunctionLookupText, StringComparison.OrdinalIgnoreCase));
+        var matchingItem = currentList.FirstOrDefault(item => item.RawName.StartsWith(_functionLookupText, StringComparison.OrdinalIgnoreCase));
         if (matchingItem != null)
         {
-            m_SearchFunctionName = matchingItem.RawName;
-            m_SearchOrdinal = matchingItem.Ordinal;
+            _searchFunctionName = matchingItem.RawName;
+            _searchOrdinal = matchingItem.Ordinal;
 
             lvDst.BeginUpdate();
             lvDst.SelectedIndices.Clear();
@@ -3876,8 +3852,8 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        m_FunctionsHintForm.Hide();
-        m_FunctionLookupText = "";
+        _functionsHintForm.Hide();
+        _functionLookupText = "";
     }
 
     private async void LVModules_KeyPress(object sender, KeyPressEventArgs e)
@@ -3894,23 +3870,23 @@ public partial class MainForm : Form
             return;
         }
 
-        m_ModuleLookupText += char.ToLower(e.KeyChar);
+        _moduleLookupText += char.ToLower(e.KeyChar);
 
-        if (m_ModulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
+        if (_modulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
-            hintLabel.Text = "Search: " + m_ModuleLookupText;
+            hintLabel.Text = "Search: " + _moduleLookupText;
             hintLabel.Size = hintLabel.PreferredSize;
 
             Point location = new(LVModules.Bounds.Left, LVModules.Bounds.Bottom);
-            m_ModulesHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
-            m_ModulesHintForm.Location = LVModules.PointToScreen(location);
-            m_ModulesHintForm.Show();
+            _modulesHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
+            _modulesHintForm.Location = LVModules.PointToScreen(location);
+            _modulesHintForm.Show();
         }
 
-        CModule matchingModule = m_LoadedModulesList.FirstOrDefault(module =>
+        CModule matchingModule = _loadedModulesList.FirstOrDefault(module =>
         {
-            string moduleName = Path.GetFileName(module.GetModuleNameRespectApiSet(m_Configuration.ResolveAPIsets));
-            return moduleName.StartsWith(m_ModuleLookupText, StringComparison.OrdinalIgnoreCase);
+            string moduleName = Path.GetFileName(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets));
+            return moduleName.StartsWith(_moduleLookupText, StringComparison.OrdinalIgnoreCase);
         });
 
         if (matchingModule != null)
@@ -3931,20 +3907,20 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        m_ModulesHintForm.Hide();
-        m_ModuleLookupText = "";
+        _modulesHintForm.Hide();
+        _moduleLookupText = "";
     }
 
     private void LVFunctions_Leave(object sender, EventArgs e)
     {
-        m_FunctionsHintForm.Hide();
-        m_FunctionLookupText = "";
+        _functionsHintForm.Hide();
+        _functionLookupText = "";
     }
 
     private void LVModules_Leave(object sender, EventArgs e)
     {
-        m_ModulesHintForm.Hide();
-        m_ModuleLookupText = "";
+        _modulesHintForm.Hide();
+        _moduleLookupText = "";
     }
 
     private void RichEditEnableInterfaceButtons(bool enable)
@@ -4026,18 +4002,18 @@ public partial class MainForm : Form
 
     private void SymStateMenuItem_Click(object sender, EventArgs e)
     {
-        m_Configuration.UseSymbols = symStateChangeMenuItem.Checked;
+        _configuration.UseSymbols = symStateChangeMenuItem.Checked;
         ApplySymbolsConfiguration();
     }
 
     private void StatusBarPopupMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        symStateChangeMenuItem.Checked = m_Configuration.UseSymbols;
+        symStateChangeMenuItem.Checked = _configuration.UseSymbols;
     }
 
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
-        ShutdownInProgress = true;
+        _shutdownInProgress = true;
 
         if (_findDialog != null && !_findDialog.IsDisposed)
         {
@@ -4052,17 +4028,17 @@ public partial class MainForm : Form
 
         if (bounds.Width >= CConsts.MinValidWidth && bounds.Height >= CConsts.MinValidHeight)
         {
-            m_Configuration.WindowLeft = bounds.Left;
-            m_Configuration.WindowTop = bounds.Top;
-            m_Configuration.WindowWidth = bounds.Width;
-            m_Configuration.WindowHeight = bounds.Height;
+            _configuration.WindowLeft = bounds.Left;
+            _configuration.WindowTop = bounds.Top;
+            _configuration.WindowWidth = bounds.Width;
+            _configuration.WindowHeight = bounds.Height;
         }
 
         FormWindowState state = (this.WindowState == FormWindowState.Minimized)
             ? FormWindowState.Normal
             : this.WindowState;
 
-        m_Configuration.WindowState = (int)state;
+        _configuration.WindowState = (int)state;
     }
 
     private void MainForm_DpiChanged(object sender, DpiChangedEventArgs e)
@@ -4078,12 +4054,12 @@ public partial class MainForm : Form
 
         if (tag == CConsts.TagTbUseClassic)
         {
-            m_Configuration.ToolBarTheme = ToolBarThemeType.Classic;
+            _configuration.ToolBarTheme = ToolBarThemeType.Classic;
             mainMenuModernToolbar.Checked = false;
         }
         else if (tag == CConsts.TagTbUseModern)
         {
-            m_Configuration.ToolBarTheme = ToolBarThemeType.Modern;
+            _configuration.ToolBarTheme = ToolBarThemeType.Modern;
             mainMenuClassicToolbar.Checked = false;
         }
 
@@ -4092,8 +4068,8 @@ public partial class MainForm : Form
 
     private void MainMenuToolBarTheme_OnDropDownOpening(object sender, EventArgs e)
     {
-        mainMenuClassicToolbar.Checked = m_Configuration.ToolBarTheme == ToolBarThemeType.Classic;
-        mainMenuModernToolbar.Checked = m_Configuration.ToolBarTheme == ToolBarThemeType.Modern;
+        mainMenuClassicToolbar.Checked = _configuration.ToolBarTheme == ToolBarThemeType.Classic;
+        mainMenuModernToolbar.Checked = _configuration.ToolBarTheme == ToolBarThemeType.Modern;
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
@@ -4125,24 +4101,24 @@ public partial class MainForm : Form
         try
         {
             // Close and dispose hint forms
-            if (m_FunctionsHintForm != null)
+            if (_functionsHintForm != null)
             {
-                if (!m_FunctionsHintForm.IsDisposed)
+                if (!_functionsHintForm.IsDisposed)
                 {
-                    m_FunctionsHintForm.Close();
-                    m_FunctionsHintForm.Dispose();
+                    _functionsHintForm.Close();
+                    _functionsHintForm.Dispose();
                 }
-                m_FunctionsHintForm = null;
+                _functionsHintForm = null;
             }
 
-            if (m_ModulesHintForm != null)
+            if (_modulesHintForm != null)
             {
-                if (!m_ModulesHintForm.IsDisposed)
+                if (!_modulesHintForm.IsDisposed)
                 {
-                    m_ModulesHintForm.Close();
-                    m_ModulesHintForm.Dispose();
+                    _modulesHintForm.Close();
+                    _modulesHintForm.Dispose();
                 }
-                m_ModulesHintForm = null;
+                _modulesHintForm = null;
             }
         }
         catch (Exception)
@@ -4256,14 +4232,14 @@ public partial class MainForm : Form
         }
 
         // Only change cursor if state changed
-        if (overLink != isCurrentlyOverLink ||
-            (overLink && instanceId != currentLinkInstanceId))
+        if (overLink != _isCurrentlyOverLink ||
+            (overLink && instanceId != _currentLinkInstanceId))
         {
             reLog.Cursor = overLink ? Cursors.Hand : Cursors.Default;
-            isCurrentlyOverLink = overLink;
-            currentLinkInstanceId = instanceId;
+            _isCurrentlyOverLink = overLink;
+            _currentLinkInstanceId = instanceId;
 
-            CModule module = m_LoadedModulesList.FirstOrDefault(m => m.InstanceId == instanceId);
+            CModule module = _loadedModulesList.FirstOrDefault(m => m.InstanceId == instanceId);
             if (module != null)
             {
                 string tooltipText = $"Click to navigate to module: {Path.GetFileName(module.FileName)}";

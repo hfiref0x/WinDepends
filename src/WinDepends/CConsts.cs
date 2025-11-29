@@ -124,6 +124,9 @@ public static class CConsts
     /// </summary>
     public const int ModuleColumnsCount = 20;
 
+    public const int FindDialogVerticalOffset = 100;
+    public const int MaxTreeNodeStackSize = 1024;
+
     /// <summary>
     /// Setting value names.
     /// </summary>

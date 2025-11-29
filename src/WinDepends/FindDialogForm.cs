@@ -44,7 +44,7 @@ public partial class FindDialogForm : Form
             Point mainFormPoint = mainForm.PointToScreen(new Point(0, 0));
             this.Location = new Point(
                 mainFormPoint.X + mainForm.Width - this.Width - 20,
-                mainFormPoint.Y + 100);
+                mainFormPoint.Y + CConsts.FindDialogVerticalOffset);
         }
     }
 

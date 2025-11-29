@@ -19,6 +19,6 @@ install:
     & $installScript -Channel 10.0 -InstallDir "C:\dotnet10"
     C:\dotnet10\dotnet.exe --list-sdks
 before_build:
-- ps: C:\dotnet10\dotnet.exe restore src\windepends. sln
+- ps: C:\dotnet10\dotnet.exe restore src\windepends.sln
 build_script:
 - ps: C:\dotnet10\dotnet.exe build src\WinDepends.sln -c Release --no-restore

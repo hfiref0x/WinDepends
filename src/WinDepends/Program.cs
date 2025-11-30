@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Jun 2025
+*  DATE:        30 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -36,8 +36,15 @@ internal static class Program
     ///  The main entry point for the application.
     /// </summary>
     [STAThread]
-    static void Main()
+    static int Main(string[] args)
     {
+        // Check if running in CLI mode
+        if (CCliHandler.ShouldRunAsCli(args))
+        {
+            return CCliHandler.Run(args);
+        }
+
+        // GUI mode
         AppDomain currentDomain = AppDomain.CurrentDomain;
         currentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandler);
 
@@ -48,5 +55,7 @@ internal static class Program
         SetCurrentProcessExplicitAppUserModelID("hfiref0x.WinDepends");
 
         Application.Run(new MainForm());
+
+        return 0;
     }
 }

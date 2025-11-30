@@ -19,13 +19,13 @@ namespace WinDepends;
 public partial class FindDialogForm : Form
 {
     private readonly MainForm mainForm;
-    readonly bool escKeyEnabled;
+    readonly CConfiguration _config;
 
-    public FindDialogForm(MainForm parent, bool bEscKeyEnabled)
+    public FindDialogForm(MainForm parent, CConfiguration currentConfiguration)
     {
         InitializeComponent();
         mainForm = parent;
-        escKeyEnabled = bEscKeyEnabled;
+        _config = currentConfiguration;
 
         this.StartPosition = FormStartPosition.Manual;
         this.TopMost = false;
@@ -96,7 +96,7 @@ public partial class FindDialogForm : Form
 
     private void FindDialogForm_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Escape && escKeyEnabled)
+        if (e.KeyCode == Keys.Escape && _config.EscKeyEnabled)
         {
             this.Hide();
         }

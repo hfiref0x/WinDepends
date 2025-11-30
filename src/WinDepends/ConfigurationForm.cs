@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Oct 2025
+*  DATE:        29 Nov 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -26,7 +26,7 @@ public partial class ConfigurationForm : Form
     readonly bool m_Is64bitFile;
     bool m_SearchOrderExpand = true;
     bool m_SearchOrderDriversExpand = true;
-    readonly CConfiguration m_CurrentConfiguration;
+    readonly CConfiguration _config;
     TreeNode m_UserDefinedDirectoryNodeUM;
     TreeNode m_UserDefinedDirectoryNodeKM;
     readonly int m_CurrentPageIndex;
@@ -38,7 +38,7 @@ public partial class ConfigurationForm : Form
         InitializeComponent();
         m_CurrentFileName = currentFileName;
         m_Is64bitFile = is64bitFile;
-        m_CurrentConfiguration = currentConfiguration;
+        _config = currentConfiguration;
         _coreClient = coreClient;
         m_CurrentPageIndex = pageIndex;
     }
@@ -304,50 +304,50 @@ public partial class ConfigurationForm : Form
 
         shellIntegrationWarningLabel.Enabled = !CUtils.IsAdministrator;
         shellIntegrationWarningLabel.Visible = !CUtils.IsAdministrator;
-        chBoxUseESCKey.Checked = m_CurrentConfiguration.EscKeyEnabled;
-        cbHistoryFullPath.Checked = m_CurrentConfiguration.HistoryShowFullPath;
-        historyUpDown.Value = m_CurrentConfiguration.HistoryDepth;
-        nodeMaxDepthUpDown.Value = m_CurrentConfiguration.ModuleNodeDepthMax;
-        chBoxAnalysisEnableExperimentalFeatures.Checked = m_CurrentConfiguration.EnableExperimentalFeatures;
-        chBoxExpandForwarders.Checked = m_CurrentConfiguration.ExpandForwarders;
-        chBoxAutoExpands.Checked = m_CurrentConfiguration.AutoExpands;
-        chBoxFullPaths.Checked = m_CurrentConfiguration.FullPaths;
-        chBoxUndecorateSymbols.Checked = m_CurrentConfiguration.ViewUndecorated;
-        chBoxResolveApiSets.Checked = m_CurrentConfiguration.ResolveAPIsets;
-        chBoxHighlightApiSet.Checked = m_CurrentConfiguration.HighlightApiSet;
-        chBoxApiSetNamespace.Checked = m_CurrentConfiguration.UseApiSetSchemaFile;
-        chBoxUpperCase.Checked = m_CurrentConfiguration.UpperCaseModuleNames;
-        chBoxCompressSessionFiles.Checked = m_CurrentConfiguration.CompressSessionFiles;
-        chBoxClearLogOnFileOpen.Checked = m_CurrentConfiguration.ClearLogOnFileOpen;
-        cbCustomImageBase.Enabled = m_CurrentConfiguration.UseCustomImageBase;
-        if (m_CurrentConfiguration.UseCustomImageBase)
+        chBoxUseESCKey.Checked = _config.EscKeyEnabled;
+        cbHistoryFullPath.Checked = _config.HistoryShowFullPath;
+        historyUpDown.Value = _config.HistoryDepth;
+        nodeMaxDepthUpDown.Value = _config.ModuleNodeDepthMax;
+        chBoxAnalysisEnableExperimentalFeatures.Checked = _config.EnableExperimentalFeatures;
+        chBoxExpandForwarders.Checked = _config.ExpandForwarders;
+        chBoxAutoExpands.Checked = _config.AutoExpands;
+        chBoxFullPaths.Checked = _config.FullPaths;
+        chBoxUndecorateSymbols.Checked = _config.ViewUndecorated;
+        chBoxResolveApiSets.Checked = _config.ResolveAPIsets;
+        chBoxHighlightApiSet.Checked = _config.HighlightApiSet;
+        chBoxApiSetNamespace.Checked = _config.UseApiSetSchemaFile;
+        chBoxUpperCase.Checked = _config.UpperCaseModuleNames;
+        chBoxCompressSessionFiles.Checked = _config.CompressSessionFiles;
+        chBoxClearLogOnFileOpen.Checked = _config.ClearLogOnFileOpen;
+        cbCustomImageBase.Enabled = _config.UseCustomImageBase;
+        if (_config.UseCustomImageBase)
         {
-            m_CurrentConfiguration.ProcessRelocsForImage = true;
+            _config.ProcessRelocsForImage = true;
         }
-        chBoxProcessRelocs.Checked = m_CurrentConfiguration.ProcessRelocsForImage;
-        chBoxUseStats.Checked = m_CurrentConfiguration.UseStats;
-        chBoxAnalysisDefaultEnabled.Checked = m_CurrentConfiguration.AnalysisSettingsUseAsDefault;
-        chBoxPropagateSettings.Checked = m_CurrentConfiguration.PropagateSettingsOnDependencies;
-        chBoxUseSymbols.Checked = m_CurrentConfiguration.UseSymbols;
+        chBoxProcessRelocs.Checked = _config.ProcessRelocsForImage;
+        chBoxUseStats.Checked = _config.UseStats;
+        chBoxAnalysisDefaultEnabled.Checked = _config.AnalysisSettingsUseAsDefault;
+        chBoxPropagateSettings.Checked = _config.PropagateSettingsOnDependencies;
+        chBoxUseSymbols.Checked = _config.UseSymbols;
 
-        groupBoxSymbols.Enabled = m_CurrentConfiguration.UseSymbols;
+        groupBoxSymbols.Enabled = _config.UseSymbols;
 
-        commandTextBox.Text = m_CurrentConfiguration.ExternalViewerCommand;
-        argumentsTextBox.Text = m_CurrentConfiguration.ExternalViewerArguments;
+        commandTextBox.Text = _config.ExternalViewerCommand;
+        argumentsTextBox.Text = _config.ExternalViewerArguments;
 
-        searchOnlineTextBox.Text = m_CurrentConfiguration.ExternalFunctionHelpURL;
+        searchOnlineTextBox.Text = _config.ExternalFunctionHelpURL;
 
-        serverAppLocationTextBox.Text = m_CurrentConfiguration.CoreServerAppLocation;
+        serverAppLocationTextBox.Text = _config.CoreServerAppLocation;
 
-        symbolsStoreTextBox.Text = m_CurrentConfiguration.SymbolsStorePath;
-        dbghelpTextBox.Text = m_CurrentConfiguration.SymbolsDllPath;
+        symbolsStoreTextBox.Text = _config.SymbolsStorePath;
+        dbghelpTextBox.Text = _config.SymbolsDllPath;
 
-        panelSymColor.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
+        panelSymColor.BackColor = _config.SymbolsHighlightColor;
 
-        buttonApiSetBrowse.Enabled = m_CurrentConfiguration.UseApiSetSchemaFile;
-        if (m_CurrentConfiguration.UseApiSetSchemaFile)
+        buttonApiSetBrowse.Enabled = _config.UseApiSetSchemaFile;
+        if (_config.UseApiSetSchemaFile)
         {
-            apisetTextBox.Text = m_CurrentConfiguration.ApiSetSchemaFile;
+            apisetTextBox.Text = _config.ApiSetSchemaFile;
         }
 
         //
@@ -361,13 +361,13 @@ public partial class ConfigurationForm : Form
         // Search order UM/KM.
         //
         CreateSearchOrderView(TVSearchOrder,
-            m_CurrentConfiguration.SearchOrderListUM,
-            m_CurrentConfiguration.UserSearchOrderDirectoriesUM,
+            _config.SearchOrderListUM,
+            _config.UserSearchOrderDirectoriesUM,
             ref m_UserDefinedDirectoryNodeUM);
 
         CreateSearchOrderView(TVSearchOrderDrivers,
-            m_CurrentConfiguration.SearchOrderListKM,
-            m_CurrentConfiguration.UserSearchOrderDirectoriesKM,
+            _config.SearchOrderListKM,
+            _config.UserSearchOrderDirectoriesKM,
             ref m_UserDefinedDirectoryNodeKM);
 
         //
@@ -400,15 +400,15 @@ public partial class ConfigurationForm : Form
         cbCustomImageBase.Items.Clear();
         cbCustomImageBase.Items.Add($"0x{CUtils.MinAppAddress:X}");
         cbCustomImageBase.Items.Add($"0x{CConsts.DefaultAppStartAddress:X}");
-        if (!SelectComboBoxItemByUintValue(m_CurrentConfiguration.CustomImageBase))
+        if (!SelectComboBoxItemByUintValue(_config.CustomImageBase))
         {
-            var i = cbCustomImageBase.Items.Add($"0x{m_CurrentConfiguration.CustomImageBase:X}");
+            var i = cbCustomImageBase.Items.Add($"0x{_config.CustomImageBase:X}");
             cbCustomImageBase.SelectedIndex = i;
         }
 
         labelAllocGran.Text = $"0x{CUtils.AllocationGranularity:X}";
 
-        CheckServerFileState(m_CurrentConfiguration.CoreServerAppLocation);
+        CheckServerFileState(_config.CoreServerAppLocation);
         ShowServerStatusAndSetControls();
         ShowApiSetNamespaceInformation();
 
@@ -430,7 +430,7 @@ public partial class ConfigurationForm : Form
 
     private void ConfigurationForm_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Escape && m_CurrentConfiguration.EscKeyEnabled)
+        if (e.KeyCode == Keys.Escape && _config.EscKeyEnabled)
         {
             this.Close();
         }
@@ -438,7 +438,7 @@ public partial class ConfigurationForm : Form
 
     private void HistoryFullPath_Click(object sender, EventArgs e)
     {
-        m_CurrentConfiguration.HistoryShowFullPath = cbHistoryFullPath.Checked;
+        _config.HistoryShowFullPath = cbHistoryFullPath.Checked;
     }
 
     private void ChBox_Click(object sender, EventArgs e)
@@ -451,82 +451,82 @@ public partial class ConfigurationForm : Form
         switch (Convert.ToInt32(checkBox.Tag))
         {
             case CConsts.TagUseESC:
-                m_CurrentConfiguration.EscKeyEnabled = isChecked;
+                _config.EscKeyEnabled = isChecked;
                 break;
 
             case CConsts.TagFullPaths:
-                m_CurrentConfiguration.FullPaths = isChecked;
+                _config.FullPaths = isChecked;
                 break;
 
             case CConsts.TagAutoExpand:
-                m_CurrentConfiguration.AutoExpands = isChecked;
+                _config.AutoExpands = isChecked;
                 break;
 
             case CConsts.TagViewUndecorated:
-                m_CurrentConfiguration.ViewUndecorated = isChecked;
+                _config.ViewUndecorated = isChecked;
                 break;
 
             case CConsts.TagResolveAPIsets:
-                m_CurrentConfiguration.ResolveAPIsets = isChecked;
+                _config.ResolveAPIsets = isChecked;
                 break;
 
             case CConsts.TagUpperCaseModuleNames:
-                m_CurrentConfiguration.UpperCaseModuleNames = isChecked;
+                _config.UpperCaseModuleNames = isChecked;
                 break;
 
             case CConsts.TagClearLogOnFileOpen:
-                m_CurrentConfiguration.ClearLogOnFileOpen = isChecked;
+                _config.ClearLogOnFileOpen = isChecked;
                 break;
 
             case CConsts.TagCompressSessionFiles:
-                m_CurrentConfiguration.CompressSessionFiles = isChecked;
+                _config.CompressSessionFiles = isChecked;
                 break;
 
             case CConsts.TagUseApiSetSchemaFile:
-                m_CurrentConfiguration.UseApiSetSchemaFile = isChecked;
+                _config.UseApiSetSchemaFile = isChecked;
                 buttonApiSetBrowse.Enabled = isChecked;
                 break;
 
             case CConsts.TagHighlightApiSet:
-                m_CurrentConfiguration.HighlightApiSet = isChecked;
+                _config.HighlightApiSet = isChecked;
                 break;
 
             case CConsts.TagProcessRelocsForImage:
-                m_CurrentConfiguration.ProcessRelocsForImage = isChecked;
+                _config.ProcessRelocsForImage = isChecked;
                 break;
 
             case CConsts.TagUseCustomImageBase:
-                m_CurrentConfiguration.UseCustomImageBase = isChecked;
-                if (m_CurrentConfiguration.UseCustomImageBase)
+                _config.UseCustomImageBase = isChecked;
+                if (_config.UseCustomImageBase)
                 {
-                    m_CurrentConfiguration.ProcessRelocsForImage = true;
+                    _config.ProcessRelocsForImage = true;
                     chBoxProcessRelocs.Checked = true;
                 }
                 cbCustomImageBase.Enabled = isChecked;
                 break;
 
             case CConsts.TagUseStats:
-                m_CurrentConfiguration.UseStats = isChecked;
+                _config.UseStats = isChecked;
                 break;
 
             case CConsts.TagAnalysisDefaultEnabled:
-                m_CurrentConfiguration.AnalysisSettingsUseAsDefault = isChecked;
+                _config.AnalysisSettingsUseAsDefault = isChecked;
                 break;
 
             case CConsts.TagPropagateSettingsEnabled:
-                m_CurrentConfiguration.PropagateSettingsOnDependencies = isChecked;
+                _config.PropagateSettingsOnDependencies = isChecked;
                 break;
 
             case CConsts.TagUseSymbols:
-                m_CurrentConfiguration.UseSymbols = isChecked;
+                _config.UseSymbols = isChecked;
                 groupBoxSymbols.Enabled = isChecked;
                 break;
 
             case CConsts.TagEnableExperimentalFeatures:
-                m_CurrentConfiguration.EnableExperimentalFeatures = isChecked;
+                _config.EnableExperimentalFeatures = isChecked;
                 break;
             case CConsts.TagExpandForwarders:
-                m_CurrentConfiguration.ExpandForwarders = isChecked;
+                _config.ExpandForwarders = isChecked;
                 break;
         }
     }
@@ -575,37 +575,37 @@ public partial class ConfigurationForm : Form
             }
         }
 
-        m_CurrentConfiguration.ExternalViewerCommand = commandTextBox.Text;
-        m_CurrentConfiguration.ExternalViewerArguments = argumentsTextBox.Text;
-        m_CurrentConfiguration.ExternalFunctionHelpURL = searchOnlineTextBox.Text;
-        m_CurrentConfiguration.CoreServerAppLocation = serverAppLocationTextBox.Text;
+        _config.ExternalViewerCommand = commandTextBox.Text;
+        _config.ExternalViewerArguments = argumentsTextBox.Text;
+        _config.ExternalFunctionHelpURL = searchOnlineTextBox.Text;
+        _config.CoreServerAppLocation = serverAppLocationTextBox.Text;
 
-        if (m_CurrentConfiguration.UseApiSetSchemaFile && (!string.IsNullOrEmpty(apisetTextBox.Text)))
+        if (_config.UseApiSetSchemaFile && (!string.IsNullOrEmpty(apisetTextBox.Text)))
         {
-            m_CurrentConfiguration.ApiSetSchemaFile = apisetTextBox.Text;
+            _config.ApiSetSchemaFile = apisetTextBox.Text;
         }
         else
         {
-            m_CurrentConfiguration.ApiSetSchemaFile = string.Empty;
+            _config.ApiSetSchemaFile = string.Empty;
         }
 
         SetSearchOrderList(TVSearchOrder,
-            m_CurrentConfiguration.SearchOrderListUM,
-            m_CurrentConfiguration.UserSearchOrderDirectoriesUM,
+            _config.SearchOrderListUM,
+            _config.UserSearchOrderDirectoriesUM,
             m_UserDefinedDirectoryNodeUM);
 
         SetSearchOrderList(TVSearchOrderDrivers,
-            m_CurrentConfiguration.SearchOrderListKM,
-            m_CurrentConfiguration.UserSearchOrderDirectoriesKM,
+            _config.SearchOrderListKM,
+            _config.UserSearchOrderDirectoriesKM,
             m_UserDefinedDirectoryNodeKM);
 
-        if (m_CurrentConfiguration.UseCustomImageBase && cbCustomImageBase.SelectedItem != null)
+        if (_config.UseCustomImageBase && cbCustomImageBase.SelectedItem != null)
         {
             uint selectedValue = CUtils.ParseMinAppAddressValue(cbCustomImageBase.SelectedItem.ToString());
-            m_CurrentConfiguration.CustomImageBase = selectedValue;
+            _config.CustomImageBase = selectedValue;
         }
 
-        if (m_CurrentConfiguration.UseSymbols)
+        if (_config.UseSymbols)
         {
             string symDllPath = dbghelpTextBox.Text;
             string symStorePath = symbolsStoreTextBox.Text;
@@ -630,9 +630,9 @@ public partial class ConfigurationForm : Form
                 }
             }
 
-            m_CurrentConfiguration.SymbolsDllPath = symDllPath;
-            m_CurrentConfiguration.SymbolsStorePath = symStorePath;
-            m_CurrentConfiguration.SymbolsHighlightColor = panelSymColor.BackColor;
+            _config.SymbolsDllPath = symDllPath;
+            _config.SymbolsStorePath = symStorePath;
+            _config.SymbolsHighlightColor = panelSymColor.BackColor;
 
         }
 
@@ -850,12 +850,12 @@ public partial class ConfigurationForm : Form
 
     private void HistoryUpDown_ValueChanged(object sender, EventArgs e)
     {
-        m_CurrentConfiguration.HistoryDepth = Convert.ToInt32(historyUpDown.Value);
+        _config.HistoryDepth = Convert.ToInt32(historyUpDown.Value);
     }
 
     private void NodeMaxDepth_ValueChanged(object sender, EventArgs e)
     {
-        m_CurrentConfiguration.ModuleNodeDepthMax = Convert.ToInt32(nodeMaxDepthUpDown.Value);
+        _config.ModuleNodeDepthMax = Convert.ToInt32(nodeMaxDepthUpDown.Value);
     }
 
     private void CbMinAppAddressKeyUp(object sender, KeyEventArgs e)
@@ -948,9 +948,9 @@ public partial class ConfigurationForm : Form
         if (browseFileDialog.ShowDialog() == DialogResult.OK)
         {
             apisetTextBox.Text = browseFileDialog.FileName;
-            m_CurrentConfiguration.ApiSetSchemaFile = browseFileDialog.FileName;
+            _config.ApiSetSchemaFile = browseFileDialog.FileName;
 
-            _coreClient?.SetApiSetSchemaNamespaceUse(m_CurrentConfiguration.ApiSetSchemaFile);
+            _coreClient?.SetApiSetSchemaNamespaceUse(_config.ApiSetSchemaFile);
             ShowApiSetNamespaceInformation();
         }
     }
@@ -978,8 +978,8 @@ public partial class ConfigurationForm : Form
     {
         if (colorDialog.ShowDialog() == DialogResult.OK)
         {
-            m_CurrentConfiguration.SymbolsHighlightColor = colorDialog.Color;
-            panelSymColor.BackColor = m_CurrentConfiguration.SymbolsHighlightColor;
+            _config.SymbolsHighlightColor = colorDialog.Color;
+            panelSymColor.BackColor = _config.SymbolsHighlightColor;
         }
     }
 

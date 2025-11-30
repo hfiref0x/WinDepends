@@ -2603,7 +2603,7 @@ public partial class MainForm : Form
         // If dialog doesn't exist or was disposed, create a new one
         if (_findDialog == null || _findDialog.IsDisposed)
         {
-            _findDialog = new FindDialogForm(this, _configuration.EscKeyEnabled);
+            _findDialog = new FindDialogForm(this, _configuration);
             _findDialog.Owner = this;
             _findDialog.Show();
         }
@@ -4247,5 +4247,9 @@ public partial class MainForm : Form
                     moduleToolTip.SetToolTip(reLog, tooltipText);
             }
         }
+    }
+
+    private void MainForm_Shown(object sender, EventArgs e)
+    {
     }
 }

@@ -1735,7 +1735,6 @@
             FormClosing += MainForm_FormClosing;
             FormClosed += MainForm_FormClosed;
             Load += MainForm_Load;
-            Shown += MainForm_Shown;
             DpiChanged += MainForm_DpiChanged;
             KeyDown += MainForm_KeyDown;
             splitContainerBottom.Panel1.ResumeLayout(false);

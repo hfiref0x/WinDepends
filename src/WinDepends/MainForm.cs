@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Nov 2025
+*  DATE:        10 Dec 2025
 *  
 *  Codename:    VasilEk
 *
@@ -293,8 +293,58 @@ public partial class MainForm : Form
             return;
 
         var statsData = $"[STATS {Path.GetFileName(moduleFileName)}] Received: {FormatByteSize(stats.TotalBytesSent)}, " +
-                        $"\"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (µs): {stats.TotalTimeSpent}";
+                        $"\"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (\u00B5s): {stats.TotalTimeSpent}";
         AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
+    }
+
+    private static bool IsManagedAnyCpuLike(CModule module)
+    {
+        if (module == null)
+            return false;
+
+        if (module.ModuleData.ImageDotNet != 1)
+            return false;
+
+        try
+        {
+            using var fs = new FileStream(module.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var peReader = new PEReader(fs);
+
+            var corHeader = peReader.PEHeaders?.CorHeader;
+            if (corHeader == null)
+                return false;
+
+            var flags = corHeader.Flags;
+            bool ilOnly = (flags & CorFlags.ILOnly) != 0;
+            bool req32 = (flags & CorFlags.Requires32Bit) != 0;
+
+            var machine = peReader.PEHeaders.CoffHeader.Machine;
+
+            if (machine == Machine.I386 && ilOnly && !req32)
+                return true;
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsCpuMismatchForDisplay(CModule module, CModule rootModule)
+    {
+        bool isRootImageDotNet = rootModule.ModuleData.ImageDotNet == 1;
+
+        if (isRootImageDotNet)
+            return false;
+
+        if (module.ModuleData.Machine == rootModule.ModuleData.Machine)
+            return false;
+
+        if (IsManagedAnyCpuLike(module))
+            return false;
+
+        return true;
     }
 
     private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, CFileOpenSettings settings, bool currentModuleIsRoot)
@@ -353,10 +403,9 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
-                bool isCpuMismatch = module.ModuleData.Machine != _depends.RootModule.ModuleData.Machine;
-                bool isRootImageDotNet = _depends.RootModule.ModuleData.ImageDotNet == 1;
+                bool isCpuMismatch = IsCpuMismatchForDisplay(module, _depends.RootModule);
 
-                if (isCpuMismatch && !isRootImageDotNet)
+                if (isCpuMismatch)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
@@ -479,8 +528,17 @@ public partial class MainForm : Form
         if (string.IsNullOrEmpty(rawName) || fullPaths)
             return rawName;
 
-        string normalized = rawName.Replace('/', '\\').TrimEnd('\\');
+        string normalized = rawName.Replace('/', '\\');
+        if (string.IsNullOrEmpty(normalized))
+            return rawName;
 
+        // Preserve roots before any trimming/normalization that could drop the last separator.
+        // Drive root: C:\
+        // UNC share root: \\server\share\
+        if (IsDriveRootPath(normalized) || IsUncShareRootPath(normalized))
+            return normalized;
+
+        normalized = normalized.TrimEnd('\\');
         if (string.IsNullOrEmpty(normalized))
             return rawName;
 
@@ -489,7 +547,7 @@ public partial class MainForm : Form
         {
             normalized = normalized.Substring(8);
         }
-        // Handle \\? \ prefix
+        // Handle \\?\ prefix
         else if (normalized.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
         {
             normalized = normalized.Substring(4);
@@ -497,6 +555,62 @@ public partial class MainForm : Form
 
         int lastSep = normalized.LastIndexOf('\\');
         return lastSep >= 0 ? normalized.Substring(lastSep + 1) : normalized;
+    }
+
+    private static bool IsDriveRootPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return false;
+
+        // C:\
+        if (path.Length == 3 &&
+            char.IsLetter(path[0]) &&
+            path[1] == ':' &&
+            path[2] == '\\')
+        {
+            return true;
+        }
+
+        // \\?\C:\
+        if (path.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase) &&
+            path.Length == 7 &&
+            char.IsLetter(path[4]) &&
+            path[5] == ':' &&
+            path[6] == '\\')
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsUncShareRootPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return false;
+
+        string normalized = path;
+
+        // \\?\UNC\server\share\ => \\server\share\
+        if (normalized.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            normalized = @"\\" + normalized.Substring(8);
+
+        // \\?\UNC\ already handled above; handle generic \\?\ prefix
+        if (normalized.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized.Substring(4);
+
+        if (!normalized.StartsWith(@"\\", StringComparison.Ordinal))
+            return false;
+
+        // Strip trailing slashes but keep path with two segments: \\server\share
+        normalized = normalized.TrimEnd('\\');
+
+        int firstSep = normalized.IndexOf('\\', 2);
+        if (firstSep < 0)
+            return false;
+
+        int secondSep = normalized.IndexOf('\\', firstSep + 1);
+        return secondSep < 0;
     }
 
     /// <summary>
@@ -575,7 +689,6 @@ public partial class MainForm : Form
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
-            LVModules.VirtualListSize = _loadedModulesList.Count;
         }
 
         return tvNode;
@@ -717,7 +830,13 @@ public partial class MainForm : Form
         TVModules.Nodes.Clear();
 
         ResetFunctionLists();
-        ResetModulesList();
+
+        LVModules.BeginUpdate();
+        try
+        {
+            ResetModulesList();
+        }
+        finally { LVModules.EndUpdate(); }
 
         ClearModuleLinks();
 
@@ -773,9 +892,12 @@ public partial class MainForm : Form
     public void UpdateItemsView(ListView listView, DisplayCacheType cacheType)
     {
         listView.BeginUpdate();
-        ResetDisplayCache(cacheType);
-        listView.Invalidate();
-        listView.EndUpdate();
+        try
+        {
+            ResetDisplayCache(cacheType);
+            listView.Invalidate();
+        }
+        finally { listView.EndUpdate(); }
     }
 
     /// <summary>
@@ -790,7 +912,7 @@ public partial class MainForm : Form
                 {
                     if (_configuration.AutoExpands)
                     {
-                        TVModules.ExpandAll();
+                        ExpandAllModulesWithUpdate();
                     }
                 }
                 break;
@@ -798,8 +920,11 @@ public partial class MainForm : Form
             case FileViewUpdateAction.ModulesTreeAndListChange:
                 {
                     TVModules.BeginUpdate();
-                    TreeViewUpdateNode(_rootNode);
-                    TVModules.EndUpdate();
+                    try
+                    {
+                        TreeViewUpdateNode(_rootNode);
+                    }
+                    finally { TVModules.EndUpdate(); }
 
                     UpdateItemsView(LVModules, DisplayCacheType.Modules);
                 }
@@ -897,6 +1022,16 @@ public partial class MainForm : Form
             ? (FormWindowState)state.Value
             : FormWindowState.Normal;
 
+    }
+
+    void ExpandAllModulesWithUpdate()
+    {
+        TVModules.BeginUpdate();
+        try
+        {
+            TVModules.ExpandAll();
+        }
+        finally { TVModules.EndUpdate(); }
     }
 
     /// <summary>
@@ -1255,16 +1390,23 @@ public partial class MainForm : Form
                 {
                     CPathResolver.ActCtxHelper = sxsHelper;
 
-                    PopulateObjectToLists(_depends.RootModule, false, fileOpenSettings);
-
-                    _rootNode?.Expand();
+                    TVModules.BeginUpdate();
+                    try
+                    {
+                        PopulateObjectToLists(_depends.RootModule, false, fileOpenSettings);
+                        _rootNode?.Expand();
+                    }
+                    finally { TVModules.EndUpdate(); }
 
                     LVModules.BeginUpdate();
+                    try
+                    {
+                        LVModules.VirtualListSize = _loadedModulesList.Count;
+                        LVModulesSort(LVModules, _configuration.SortColumnModules,
+                           LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
 
-                    LVModulesSort(LVModules, _configuration.SortColumnModules,
-                       LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
-
-                    LVModules.EndUpdate();
+                    }
+                    finally { LVModules.EndUpdate(); }
 
                     bResult = true;
                 }//CActCtxHelper
@@ -1278,7 +1420,7 @@ public partial class MainForm : Form
 
             if (_configuration.AutoExpands)
             {
-                TVModules.ExpandAll();
+                ExpandAllModulesWithUpdate();
             }
         }
 
@@ -1388,7 +1530,25 @@ public partial class MainForm : Form
 
         if (_depends.RootModule != null)
         {
-            PopulateObjectToLists(_depends.RootModule, true, null);
+            // Insert tree modules from session file.
+            TVModules.BeginUpdate();
+            try
+            {
+                PopulateObjectToLists(_depends.RootModule, true, null);
+                // Expand root module.
+                _rootNode?.Expand();
+            }
+            finally { TVModules.EndUpdate(); }
+
+            // Insert list modules from session file.
+            LVModules.BeginUpdate();
+            try
+            {
+                LVModules.VirtualListSize = _loadedModulesList.Count;
+                LVModulesSort(LVModules, _configuration.SortColumnModules,
+                    LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+            }
+            finally { LVModules.EndUpdate(); }
 
             // Restore important module related warnings/errors in the log.
             foreach (var entry in _depends.ModuleAnalysisLog)
@@ -1397,8 +1557,6 @@ public partial class MainForm : Form
                     entry.EntryColor, true, false);
             }
 
-            // Expand root module.
-            _rootNode?.Expand();
         }
         else
         {
@@ -2327,10 +2485,7 @@ public partial class MainForm : Form
                 target.SelectedIndices.Add(i);
             }
         }
-        finally
-        {
-            target.EndUpdate();
-        }
+        finally { target.EndUpdate(); }
     }
 
     private void ExternalHelpMenuItem_Click(object sender, EventArgs e)
@@ -2717,13 +2872,15 @@ public partial class MainForm : Form
         if (lvResult != null)
         {
             lvDst.BeginUpdate();
-            lvDst.SelectedIndices.Clear();
-            lvResult.Selected = true;
-            lvResult.EnsureVisible();
-            lvDst.Focus();
+            try
+            {
+                lvDst.SelectedIndices.Clear();
+                lvResult.Selected = true;
+                lvResult.EnsureVisible();
+                lvDst.Focus();
+            }
+            finally { lvDst.EndUpdate(); }
         }
-
-        lvDst.EndUpdate();
     }
 
     private void HighlightModuleInTreeOrList(object sender, EventArgs e)
@@ -2731,17 +2888,18 @@ public partial class MainForm : Form
         if (TVModules.Focused && TVModules.SelectedNode?.Tag is CModule selectedModule)
         {
             LVModules.BeginUpdate();
-            ListViewItem lvResult = LVModules.FindItemWithText(selectedModule.FileName);
-
-            if (lvResult != null)
+            try
             {
-                LVModules.SelectedIndices.Clear();
-                lvResult.Selected = true;
-                lvResult.EnsureVisible();
-                LVModules.Focus();
+                ListViewItem lvResult = LVModules.FindItemWithText(selectedModule.FileName);
+                if (lvResult != null)
+                {
+                    LVModules.SelectedIndices.Clear();
+                    lvResult.Selected = true;
+                    lvResult.EnsureVisible();
+                    LVModules.Focus();
+                }
             }
-
-            LVModules.EndUpdate();
+            finally { LVModules.EndUpdate(); }
         }
         else if (LVModules.Focused && LVModules.SelectedIndices.Count > 0)
         {
@@ -2750,19 +2908,21 @@ public partial class MainForm : Form
             if (selectedItemIndex < _loadedModulesList.Count)
             {
                 CModule selectedListViewModule = _loadedModulesList[selectedItemIndex];
+
                 TVModules.BeginUpdate();
-
-                TreeNode resultNode = CUtils.TreeViewFindModuleNodeByObject(selectedListViewModule, _rootNode);
-
-                if (resultNode != null)
+                try
                 {
-                    TVModules.SelectedNode = resultNode;
-                    TVModules.SelectedNode.Expand();
-                    TVModules.SelectedNode.EnsureVisible();
-                    TVModules.Select();
-                }
+                    TreeNode resultNode = CUtils.TreeViewFindModuleNodeByObject(selectedListViewModule, _rootNode);
 
-                TVModules.EndUpdate();
+                    if (resultNode != null)
+                    {
+                        TVModules.SelectedNode = resultNode;
+                        TVModules.SelectedNode.Expand();
+                        TVModules.SelectedNode.EnsureVisible();
+                        TVModules.Select();
+                    }
+                }
+                finally { TVModules.EndUpdate(); }
             }
         }
     }
@@ -2770,16 +2930,22 @@ public partial class MainForm : Form
     private void CollapseAllMenuItem_Click(object sender, EventArgs e)
     {
         TVModules.BeginUpdate();
-        TVModules.CollapseAll();
-        TVModules.EndUpdate();
+        try
+        {
+            TVModules.CollapseAll();
+        }
+        finally { TVModules.EndUpdate(); }
     }
 
     private void ExpandAllMenuItem_Click(object sender, EventArgs e)
     {
         TVModules.BeginUpdate();
-        TVModules.ExpandAll();
-        TVModules.SelectedNode?.EnsureVisible();
-        TVModules.EndUpdate();
+        try
+        {
+            TVModules.ExpandAll();
+            TVModules.SelectedNode?.EnsureVisible();
+        }
+        finally { TVModules.EndUpdate(); }
     }
 
     private void ShowSysInfoDialog(object sender, EventArgs e)
@@ -2941,21 +3107,22 @@ public partial class MainForm : Form
     private void HighlightOriginalInstance_Click(object sender, EventArgs e)
     {
         TVModules.BeginUpdate();
-
-        CModule origInstance = CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, _loadedModulesList);
-        if (origInstance != null)
+        try
         {
-            var tvNode = CUtils.TreeViewFindModuleNodeByObject(origInstance, _rootNode);
-            if (tvNode != null)
+            CModule origInstance = CUtils.TreeViewGetOriginalInstanceFromNode(TVModules.SelectedNode, _loadedModulesList);
+            if (origInstance != null)
             {
-                TVModules.SelectedNode = tvNode;
-                TVModules.SelectedNode.Expand();
-                TVModules.SelectedNode.EnsureVisible();
-                TVModules.Select();
+                var tvNode = CUtils.TreeViewFindModuleNodeByObject(origInstance, _rootNode);
+                if (tvNode != null)
+                {
+                    TVModules.SelectedNode = tvNode;
+                    TVModules.SelectedNode.Expand();
+                    TVModules.SelectedNode.EnsureVisible();
+                    TVModules.Select();
+                }
             }
         }
-
-        TVModules.EndUpdate();
+        finally { TVModules.EndUpdate(); }
     }
 
     TreeNode TreeViewFindNodeInstancePrev(TreeNode currentNode, TreeNode selectedNode, string moduleName)
@@ -3041,27 +3208,28 @@ public partial class MainForm : Form
         }
 
         TVModules.BeginUpdate();
-
-        TreeNode tvNode;
-
-        if (bNextInstance)
+        try
         {
-            tvNode = TreeViewFindNodeInstanceNext(_rootNode, TVModules.SelectedNode, obj.FileName);
-        }
-        else
-        {
-            tvNode = TreeViewFindNodeInstancePrev(_rootNode, TVModules.SelectedNode, obj.FileName);
-        }
+            TreeNode tvNode;
 
-        if (tvNode != null)
-        {
-            TVModules.SelectedNode = tvNode;
-            TVModules.SelectedNode.Expand();
-            TVModules.SelectedNode.EnsureVisible();
-            TVModules.Select();
-        }
+            if (bNextInstance)
+            {
+                tvNode = TreeViewFindNodeInstanceNext(_rootNode, TVModules.SelectedNode, obj.FileName);
+            }
+            else
+            {
+                tvNode = TreeViewFindNodeInstancePrev(_rootNode, TVModules.SelectedNode, obj.FileName);
+            }
 
-        TVModules.EndUpdate();
+            if (tvNode != null)
+            {
+                TVModules.SelectedNode = tvNode;
+                TVModules.SelectedNode.Expand();
+                TVModules.SelectedNode.EnsureVisible();
+                TVModules.Select();
+            }
+        }
+        finally { TVModules.EndUpdate(); }
     }
 
     private void HighlightPreviousInstance_Click(object sender, EventArgs e)
@@ -3312,9 +3480,8 @@ public partial class MainForm : Form
                 ? ((Machine)moduleData.Machine).FriendlyName()
                 : $"0x{moduleData.Machine:X4}";
 
-            bool isCpuMismatch = _depends.RootModule.ModuleData.Machine != moduleData.Machine;
-            bool isRootModuleNet = _depends.RootModule.ModuleData.ImageDotNet == 1;
-            if (isCpuMismatch && !isRootModuleNet)
+            bool isCpuMismatch = IsCpuMismatchForDisplay(module, _depends.RootModule);
+            if (isCpuMismatch)
             {
                 lvItem.UseItemStyleForSubItems = false;
                 lvItem.SubItems.Add(value, Color.Red, Color.White, lvItem.Font);
@@ -3838,17 +4005,19 @@ public partial class MainForm : Form
             _searchOrdinal = matchingItem.Ordinal;
 
             lvDst.BeginUpdate();
-            lvDst.SelectedIndices.Clear();
-            ListViewItem lvResult = lvDst.FindItemWithText(null);
-
-            if (lvResult != null)
+            try
             {
-                lvResult.Selected = true;
-                lvResult.EnsureVisible();
-                lvDst.Focus();
-            }
+                lvDst.SelectedIndices.Clear();
+                ListViewItem lvResult = lvDst.FindItemWithText(null);
 
-            lvDst.EndUpdate();
+                if (lvResult != null)
+                {
+                    lvResult.Selected = true;
+                    lvResult.EnsureVisible();
+                    lvDst.Focus();
+                }
+            }
+            finally { lvDst.EndUpdate(); }
         }
 
         await Task.Delay(2000);
@@ -3892,18 +4061,18 @@ public partial class MainForm : Form
         if (matchingModule != null)
         {
             LVModules.BeginUpdate();
-            LVModules.SelectedIndices.Clear();
-            ListViewItem lvResult = LVModules.FindItemWithText(matchingModule.FileName);
-
-            if (lvResult != null)
+            try
             {
-                lvResult.Selected = true;
-                lvResult.EnsureVisible();
-                LVModules.Focus();
+                LVModules.SelectedIndices.Clear();
+                ListViewItem lvResult = LVModules.FindItemWithText(matchingModule.FileName);
+                if (lvResult != null)
+                {
+                    lvResult.Selected = true;
+                    lvResult.EnsureVisible();
+                    LVModules.Focus();
+                }
             }
-
-            LVModules.EndUpdate();
-
+            finally { LVModules.EndUpdate(); }
         }
 
         await Task.Delay(2000);
@@ -4247,9 +4416,5 @@ public partial class MainForm : Form
                     moduleToolTip.SetToolTip(reLog, tooltipText);
             }
         }
-    }
-
-    private void MainForm_Shown(object sender, EventArgs e)
-    {
     }
 }

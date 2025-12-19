@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Dec 2025
+*  DATE:        18 Dec 2025
 *  
 *  Codename:    VasilEk
 *
@@ -412,8 +412,11 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
-                // Skip this message for kernel modules and dotnet files.
-                if (module.ModuleData.ImageFixed != 0 && !module.IsKernelModule && module.ModuleData.ImageDotNet != 1)
+                // Skip this message for kernel modules, dotnet files, and when relocation processing is disabled
+                if (module.ModuleData.ImageFixed != 0 &&
+                    !module.IsKernelModule &&
+                    module.ModuleData.ImageDotNet != 1 &&
+                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",

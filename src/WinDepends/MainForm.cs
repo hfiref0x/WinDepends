@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Dec 2025
+*  DATE:        20 Dec 2025
 *  
 *  Codename:    VasilEk
 *
@@ -1742,6 +1742,7 @@ public partial class MainForm : Form
         var bResolveAPISetsPrev = _configuration.ResolveAPIsets;
         var bHighlightAPISetsPrev = _configuration.HighlightApiSet;
         var bUseApiSetSchemaFilePrev = _configuration.UseApiSetSchemaFile;
+        var ApiSetSchemaFilePrev = _configuration.ApiSetSchemaFile;
         var bUseSymbolsPrev = _configuration.UseSymbols;
 
         using (ConfigurationForm configForm = new(currentFileName,
@@ -1785,9 +1786,17 @@ public partial class MainForm : Form
                     UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 }
 
-                if (_configuration.UseApiSetSchemaFile != bUseApiSetSchemaFilePrev)
+                if (bUseApiSetSchemaFilePrev != _configuration.UseApiSetSchemaFile ||
+                    !ApiSetSchemaFilePrev.Equals(_configuration.ApiSetSchemaFile))
                 {
-                    _coreClient?.SetApiSetSchemaNamespaceUse(_configuration.ApiSetSchemaFile);
+                    if (String.IsNullOrEmpty(_configuration.ApiSetSchemaFile))
+                    {
+                        AddLogMessage($"Apiset configuration has been changed, default system schema will be used", LogMessageType.Information);
+                    }
+                    else
+                    {
+                        AddLogMessage($"Apiset configuration has been changed, new apiset schema file {_configuration.ApiSetSchemaFile}", LogMessageType.Information);
+                    }
                 }
 
                 if (_configuration.UseSymbols != bUseSymbolsPrev)

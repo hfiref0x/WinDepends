@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Aug 17, 2025
+*  Modified on: Dec 20, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -37,6 +37,7 @@ typedef struct _SUP_CONTEXT {
 
     BOOL UseApiSetMapFile;
     PVOID ApiSetMap;
+    HMODULE ApiSetMapModule;
 
     BOOL EnableCallStats;
     LARGE_INTEGER PerformanceFrequency;
@@ -108,7 +109,12 @@ int sendstring_plaintext_no_track(
 );
 
 PVOID load_apiset_namespace(
-    _In_ LPCWSTR apiset_schema_dll
+    _In_ LPCWSTR apiset_schema_dll,
+    _Out_opt_ HMODULE* phModule
+);
+
+VOID unload_apiset_namespace(
+    _In_ HMODULE hModule
 );
 
 _Success_(return != NULL) LPWSTR resolve_apiset_name(
@@ -178,4 +184,4 @@ BOOL json_escape_string(
     _In_ SIZE_T dest_cch,
     _Out_opt_ SIZE_T * out_len);
 
-#endif /* _UTIL_H_ */
+#endif _UTIL_H_

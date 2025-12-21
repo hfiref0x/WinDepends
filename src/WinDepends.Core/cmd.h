@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Jun 22, 2025
+*  Modified on: Dec 20, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -45,7 +45,8 @@ void cmd_unknown_command(
 );
 
 void cmd_apisetnamespace_info(
-    _In_ SOCKET s
+    _In_ SOCKET s,
+    _In_opt_ LPCWSTR params
 );
 
 void cmd_resolve_apiset_name(

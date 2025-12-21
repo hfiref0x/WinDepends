@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2025
 *
 *  TITLE:       CAPISETCACHEMANAGER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Sep 2024
+*  DATE:        20 Dec 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -43,5 +43,9 @@ static class CApiSetCacheManager
         {
             return null;
         }
+    }
+    public static void ClearCache()
+    {
+        apiSetCache.Clear();
     }
 }

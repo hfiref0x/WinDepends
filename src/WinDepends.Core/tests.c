@@ -120,8 +120,9 @@ void test_api_setV2(PAPI_SET_NAMESPACE ApiSetNamespace)
 void test_api_set()
 {
     PAPI_SET_NAMESPACE ApiSetNamespace;
+    HMODULE hModule = NULL;
 
-    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV6.dll");
+    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV6.dll", &hModule);
     if (ApiSetNamespace) {
         gsup.ApiSetMap = ApiSetNamespace;
     }
@@ -132,7 +133,7 @@ void test_api_set()
 
     test_api_setV6(ApiSetNamespace);
 
-    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV4.dll");
+    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV4.dll", &hModule);
     if (ApiSetNamespace) {
         gsup.ApiSetMap = ApiSetNamespace;
     }
@@ -143,7 +144,7 @@ void test_api_set()
 
     test_api_setV4(ApiSetNamespace);
 
-    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV2.dll");
+    ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV2.dll", &hModule);
     if (ApiSetNamespace) {
         gsup.ApiSetMap = ApiSetNamespace;
     }

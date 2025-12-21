@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Oct 27, 2025
+*  Modified on: Dec 20, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -508,10 +508,12 @@ BOOL build_knowndlls_list(
 * Purpose:
 *
 * Query apiset table from schema dll.
+* Returns the ApiSet data pointer and optionally the HMODULE handle.
 *
 */
 PVOID load_apiset_namespace(
-    _In_ LPCWSTR apiset_schema_dll
+    _In_ LPCWSTR apiset_schema_dll,
+    _Out_opt_ HMODULE* phModule
 )
 {
     ULONG dataSize = 0;
@@ -526,6 +528,10 @@ PVOID load_apiset_namespace(
 #ifndef _WIN64
     PVOID oldValue;
 #endif
+
+    if (phModule) {
+        *phModule = NULL;
+    }
 
 #ifndef _WIN64
     Wow64DisableWow64FsRedirection(&oldValue);
@@ -556,9 +562,16 @@ PVOID load_apiset_namespace(
             sectionTableEntry += 1;
         }
 
-        // If we didn't find the section
+        // If we didn't find the section, free the module
         if (dataPtr == NULL) {
             FreeLibrary(hApiSetDll);
+            hApiSetDll = NULL;
+        }
+        else {
+            // Return the module handle if caller wants it
+            if (phModule) {
+                *phModule = hApiSetDll;
+            }
         }
     }
 
@@ -567,6 +580,23 @@ PVOID load_apiset_namespace(
 #endif
 
     return dataPtr;
+}
+
+/*
+* unload_apiset_namespace
+*
+* Purpose:
+*
+* Unload a previously loaded ApiSet schema DLL.
+*
+*/
+VOID unload_apiset_namespace(
+    _In_ HMODULE hModule
+)
+{
+    if (hModule != NULL) {
+        FreeLibrary(hModule);
+    }
 }
 
 /*
@@ -739,7 +769,7 @@ LPVOID get_manifest_base64(
     DWORD   sz_manifest, cch_encoded = 0;
     HGLOBAL p_manifest;
     LPVOID  encoded;
-    SIZE_T  buffer_size = 0;
+    size_t  buffer_size = 0;
 
     if (module == NULL) {
         return NULL;

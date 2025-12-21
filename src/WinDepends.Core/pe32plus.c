@@ -1207,7 +1207,7 @@ static BOOL append_import_lib_header(
 )
 {
     HRESULT hr;
-    SIZE_T  nameLenA;
+    size_t  nameLenA;
     SIZE_T  allocWide, allocEsc;
     PWCHAR  wideName;
     PWCHAR  escName;

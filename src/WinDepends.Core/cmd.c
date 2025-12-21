@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Aug 14, 2025
+*  Modified on: Dec 20, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -283,16 +283,24 @@ void cmd_query_knowndlls_list(
 * Purpose:
 *
 * Retrieve apiset namespace information.
+* If params is provided, loads namespace from specified file temporarily for query.
+* If params is NULL, uses current gsup.ApiSetMap.
 *
 */
 void cmd_apisetnamespace_info(
-    _In_ SOCKET s
+    _In_ SOCKET s,
+    _In_opt_ LPCWSTR params
 )
 {
-    BOOL bUnknown = FALSE;
-    ULONG version = 0, count = 0;
-    PAPI_SET_NAMESPACE ApiSetNamespace;
+    BOOL bTempLoad = FALSE, bError = FALSE;
+    LPCWSTR ErrorCode = NULL;
+    ULONG version = 0, count = 0, param_length;
+    PAPI_SET_NAMESPACE ApiSetNamespace = NULL;
+    PVOID TempApiSetMap = NULL;
+    HMODULE hTempModule = NULL;
     WCHAR buffer[200];
+    PWCH file_name = NULL;
+    SIZE_T sz;
 
     union {
         PAPI_SET_NAMESPACE_V6 v6;
@@ -306,10 +314,52 @@ void cmd_apisetnamespace_info(
         return;
     }
 
+    ApiSet.Data = NULL;
+
     __try {
 
-        ApiSetNamespace = (PAPI_SET_NAMESPACE)gsup.ApiSetMap;
-        ApiSet.Data = gsup.ApiSetMap;
+        // If params provided, load ApiSet from file temporarily
+        if (params != NULL) {
+            sz = (wcslen(params) + 1) * sizeof(WCHAR);
+            file_name = (PWCH)heap_calloc(NULL, sz);
+            if (file_name != NULL) {
+                param_length = 0;
+                if (get_params_option(
+                    params,
+                    L"file",
+                    TRUE,
+                    file_name,
+                    (ULONG)sz,
+                    &param_length))
+                {
+                    TempApiSetMap = load_apiset_namespace(file_name, &hTempModule);
+                    if (TempApiSetMap) {
+                        bTempLoad = TRUE;
+                        ApiSetNamespace = (PAPI_SET_NAMESPACE)TempApiSetMap;
+                        ApiSet.Data = TempApiSetMap;
+                    }
+                    else {
+                        // Failed to load file
+                        ErrorCode = WDEP_STATUS_404;
+                        bError = TRUE;
+                        __leave;
+                    }
+                }
+            }
+        }
+
+        // Use current ApiSet if no temp load
+        if (!bTempLoad) {
+            ApiSetNamespace = (PAPI_SET_NAMESPACE)gsup.ApiSetMap;
+            ApiSet.Data = gsup.ApiSetMap;
+        }
+
+        if (!ApiSetNamespace || ApiSet.Data == NULL) {
+            ErrorCode = WDEP_STATUS_404;
+            bError = TRUE;
+            __leave;
+        }
+
         version = ApiSetNamespace->Version;
 
         switch (ApiSetNamespace->Version) {
@@ -327,19 +377,30 @@ void cmd_apisetnamespace_info(
             break;
 
         default:
-            bUnknown = TRUE;
+            bError = TRUE;
+            ErrorCode = WDEP_STATUS_208;
             __leave;
         }
     }
     __finally {
-        buffer[0] = 0;
-        if (bUnknown) {
-            sendstring_plaintext_no_track(s, WDEP_STATUS_208);
+
+        // Unload temporary module if we loaded one
+        if (bTempLoad && hTempModule != NULL) {
+            unload_apiset_namespace(hTempModule);
+        }
+
+        if (file_name != NULL) {
+            heap_free(NULL, file_name);
+        }
+
+        if (bError) {
+            sendstring_plaintext_no_track(s, ErrorCode);
         }
         else {
+            buffer[0] = 0;
             StringCchPrintf(buffer, ARRAYSIZE(buffer),
                 L"%ws{\"version\":%u, \"count\":%lu}\r\n",
-                WDEP_STATUS_OK, 
+                WDEP_STATUS_OK,
                 version, count);
             sendstring_plaintext_no_track(s, buffer);
         }
@@ -359,10 +420,12 @@ void cmd_set_apisetmap_src(
     _In_opt_ LPCWSTR params
 )
 {
+    BOOL bResult = FALSE;
     ULONG param_length;
     SIZE_T sz;
     PWCH file_name = NULL;
     PVOID api_set_namespace;
+    HMODULE hModule = NULL;
 
     if (!gsup.Initialized) {
         sendstring_plaintext_no_track(s, WDEP_STATUS_500);
@@ -370,6 +433,12 @@ void cmd_set_apisetmap_src(
     }
 
     if (params == NULL) {
+        // Unload any previously loaded custom ApiSet
+        if (gsup.UseApiSetMapFile && gsup.ApiSetMapModule != NULL) {
+            unload_apiset_namespace(gsup.ApiSetMapModule);
+            gsup.ApiSetMapModule = NULL;
+        }
+
         gsup.UseApiSetMapFile = FALSE;
         gsup.ApiSetMap = NtCurrentPeb()->ApiSetMap;
         sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
@@ -388,15 +457,22 @@ void cmd_set_apisetmap_src(
                 (ULONG)sz,
                 &param_length))
             {
-                api_set_namespace = load_apiset_namespace(file_name);
+                api_set_namespace = load_apiset_namespace(file_name, &hModule);
                 if (api_set_namespace) {
+                    // Unload previous custom ApiSet if any
+                    if (gsup.UseApiSetMapFile && gsup.ApiSetMapModule != NULL) {
+                        unload_apiset_namespace(gsup.ApiSetMapModule);
+                    }
+
                     gsup.UseApiSetMapFile = TRUE;
                     gsup.ApiSetMap = api_set_namespace;
+                    gsup.ApiSetMapModule = hModule;
+                    bResult = TRUE;
                 }
             }
 
             heap_free(NULL, file_name);
-            sendstring_plaintext_no_track(s, WDEP_STATUS_OK);
+            sendstring_plaintext_no_track(s, bResult ? WDEP_STATUS_OK : WDEP_STATUS_500);
         }
         else {
             sendstring_plaintext_no_track(s, WDEP_STATUS_500);

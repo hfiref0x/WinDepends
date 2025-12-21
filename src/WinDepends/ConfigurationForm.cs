@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Nov 2025
+*  DATE:        20 Dec 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -236,6 +236,27 @@ public partial class ConfigurationForm : Form
         {
             labelApiSetVersion.Text = $"Version: {nsinfo.Version}";
             labelApiSetCount.Text = $"Entry Count: {nsinfo.Count}";
+        }
+    }
+
+    private void ShowApiSetNamespaceInformationFromFile(string filePath)
+    {
+        if (_coreClient == null || _coreClient.ClientConnection == null || !_coreClient.ClientConnection.Connected)
+        {
+            return;
+        }
+
+        // Query ApiSet info from specific file (temporary load on server)
+        CCoreApiSetNamespaceInfo nsinfo = _coreClient.GetApiSetNamespaceInfo(filePath);
+        if (nsinfo != null)
+        {
+            labelApiSetVersion.Text = $"Version: {nsinfo.Version} (preview)";
+            labelApiSetCount.Text = $"Entry Count: {nsinfo.Count} (preview)";
+        }
+        else
+        {
+            labelApiSetVersion.Text = "Version: Unable to load file";
+            labelApiSetCount.Text = "Entry Count: N/A";
         }
     }
 
@@ -580,13 +601,34 @@ public partial class ConfigurationForm : Form
         _config.ExternalFunctionHelpURL = searchOnlineTextBox.Text;
         _config.CoreServerAppLocation = serverAppLocationTextBox.Text;
 
+        // Track if ApiSet configuration changed
+        bool apiSetConfigChanged = false;
+        string newApiSetFile = string.Empty;
+
         if (_config.UseApiSetSchemaFile && (!string.IsNullOrEmpty(apisetTextBox.Text)))
         {
-            _config.ApiSetSchemaFile = apisetTextBox.Text;
+            newApiSetFile = apisetTextBox.Text;
+            if (!newApiSetFile.Equals(_config.ApiSetSchemaFile, StringComparison.OrdinalIgnoreCase))
+            {
+                apiSetConfigChanged = true;
+            }
+            _config.ApiSetSchemaFile = newApiSetFile;
         }
         else
         {
+            if (!string.IsNullOrEmpty(_config.ApiSetSchemaFile))
+            {
+                apiSetConfigChanged = true;
+            }
             _config.ApiSetSchemaFile = string.Empty;
+        }
+
+        // Apply ApiSet configuration change only when user clicks OK
+        if (apiSetConfigChanged)
+        {
+            bool success = _coreClient?.SetApiSetSchemaNamespaceUse(_config.ApiSetSchemaFile) ?? false;
+            if (success)
+                CApiSetCacheManager.ClearCache();
         }
 
         SetSearchOrderList(TVSearchOrder,
@@ -635,7 +677,6 @@ public partial class ConfigurationForm : Form
             _config.SymbolsHighlightColor = panelSymColor.BackColor;
 
         }
-
     }
 
     private void ButtonBrowse_Click(object sender, EventArgs e)
@@ -948,10 +989,7 @@ public partial class ConfigurationForm : Form
         if (browseFileDialog.ShowDialog() == DialogResult.OK)
         {
             apisetTextBox.Text = browseFileDialog.FileName;
-            _config.ApiSetSchemaFile = browseFileDialog.FileName;
-
-            _coreClient?.SetApiSetSchemaNamespaceUse(_config.ApiSetSchemaFile);
-            ShowApiSetNamespaceInformation();
+            ShowApiSetNamespaceInformationFromFile(browseFileDialog.FileName);
         }
     }
 

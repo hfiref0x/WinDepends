@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Nov 07, 2025
+*  Modified on: Dec 20, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -256,7 +256,7 @@ DWORD WINAPI client_thread(
                 // Retrieve apiset namespace information.
                 //
             case ce_apisetnsinfo:
-                cmd_apisetnamespace_info(s);
+                cmd_apisetnamespace_info(s, params);
                 break;
 
                 //

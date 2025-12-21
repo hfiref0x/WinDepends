@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Nov 2025
+*  DATE:        20 Dec 2025
 *  
 *  Core Server communication class.
 *
@@ -908,11 +908,19 @@ public class CCoreClient : IDisposable
     /// <summary>
     /// Gets API Set namespace information from the server.
     /// </summary>
+    /// <param name="apiSetFilePath">Optional path to ApiSet schema file.  If null, queries current server ApiSet.</param>
     /// <returns>API Set namespace information, or null if the request fails.</returns>
-    public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo()
+    public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo(string apiSetFilePath = null)
     {
+        string cmd = CConsts.CMD_APISETNINFO;
+
+        if (!string.IsNullOrEmpty(apiSetFilePath))
+        {
+            cmd = $"apisetnsinfo file \"{apiSetFilePath}\"\r\n";
+        }
+
         return (CCoreApiSetNamespaceInfo)SendCommandAndReceiveReplyAsObjectJSON(
-            CConsts.CMD_APISETNINFO, typeof(CCoreApiSetNamespaceInfo), null);
+            cmd, typeof(CCoreApiSetNamespaceInfo), null);
     }
 
     /// <summary>

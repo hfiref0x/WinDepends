@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Dec 2025
+*  DATE:        24 Dec 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -194,6 +194,7 @@ public static class CConsts
     public const string HostSysDir = "system32";
     public const string HostSys16Dir = "system";
     public const string DriversDir = "drivers";
+    public const string WinSxSDir = "WinSxS";
 
     public const string NtoskrnlExe = "ntoskrnl.exe";
     public const string NtdllDll = "ntdll.dll";

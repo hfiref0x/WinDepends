@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Nov 2025
+*  DATE:        24 Dec 2025
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -28,6 +28,7 @@ public static class CPathResolver
     private const uint MaxSearchPathBufferSize = (uint)int.MaxValue;
 
     public static string WindowsDirectory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+    public static string WinSxSDirectory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), CConsts.WinSxSDir);
     public static string System16Directory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), CConsts.HostSys16Dir);
     public static string System32Directory { get; } = Environment.GetFolderPath(Environment.SpecialFolder.System);
     public static string SystemDriversDirectory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DriversDir);
@@ -47,6 +48,12 @@ public static class CPathResolver
     private static readonly List<string> _knownDlls32List = [];
     private static HashSet<string> _knownDllsSet = new(StringComparer.OrdinalIgnoreCase);
     private static HashSet<string> _knownDlls32Set = new(StringComparer.OrdinalIgnoreCase);
+
+    // Cache for SearchPath results obtained under activation context that are NOT coming
+    // from the WinSxS folder. These cached candidates are only used as a last resort
+    // (when all other resolution methods failed).
+    private static readonly Dictionary<string, string> _winsxsSearchPathCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object _winsxsCacheLock = new();
 
     /// <summary>
     /// Gets or sets the list of known 64-bit DLLs. Setting this property updates the internal lookup cache.
@@ -119,6 +126,14 @@ public static class CPathResolver
         _knownDlls32Set = newSet32;
     }
 
+    public static void ClearWinSxSSearchPathCache()
+    {
+        lock (_winsxsCacheLock)
+        {
+            _winsxsSearchPathCache.Clear();
+        }
+    }
+
     /// <summary>
     /// Queries information about the main module and initializes the resolver.
     /// </summary>
@@ -135,6 +150,9 @@ public static class CPathResolver
         {
             return;
         }
+
+        // Clear cached non-WinSxS search path candidates for previous scan.
+        ClearWinSxSSearchPathCache();
 
         MainModuleFileName = module.FileName;
         CurrentDirectory = Path.GetDirectoryName(MainModuleFileName) ?? string.Empty;
@@ -439,9 +457,12 @@ public static class CPathResolver
 
     /// <summary>
     /// Searches for a file in the WinSXS directory using activation context.
+    /// Behavior: if SearchPath result is from WinSxS folder, return it.
+    /// Otherwise cache the candidate and return empty; cached candidates are used only when
+    /// all other resolution methods failed.
     /// </summary>
     /// <param name="fileName">The file name to search for.</param>
-    /// <returns>The full path of the found file or an empty string if not found.</returns>
+    /// <returns>The full path of the found file from WinSxS or empty if non-WinSxS candidate (cached).</returns>
     static internal string PathFromWinSXS(string fileName)
     {
         if (string.IsNullOrEmpty(fileName))
@@ -481,7 +502,27 @@ public static class CPathResolver
                 charsCopied = NativeMethods.SearchPath(null, fileName, null, charsCopied, path, out _);
             }
 
-            return charsCopied > 0 ? path.ToString(0, (int)charsCopied) : string.Empty;
+            if (charsCopied == 0)
+                return string.Empty;
+
+            string found = path.ToString(0, (int)charsCopied);
+
+            // Check candidate to be from WinSxS.
+            if (!string.IsNullOrEmpty(found) &&
+                found.IndexOf(WinSxSDirectory, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                // Candidate from WinSxS, allow it as result.
+                return found;
+            }
+
+            // Candidate not from WinSxS: cache it for later fallback and do not return it now.
+            lock (_winsxsCacheLock)
+            {
+                _winsxsSearchPathCache[fileName] = found;
+            }
+
+            return string.Empty;
+
         }
         catch (OutOfMemoryException)
         {
@@ -625,18 +666,36 @@ public static class CPathResolver
             if (direct.Contains('/'))
                 direct = direct.Replace('/', '\\');
 
+            // If user supplied an absolute path, prefer it but only if it exists.
             if (Path.IsPathRooted(direct))
             {
-                string full;
                 try
                 {
-                    full = Path.GetFullPath(direct);
-                    resolver = SearchOrderType.ApplicationDirectory;
-                    return full;
+                    string full = Path.GetFullPath(direct);
+
+                    // Only short-circuit if the file actually exists.
+                    if (File.Exists(full))
+                    {
+                        // Prefer to mark as ApplicationDirectory only when the file is in current application directory.
+                        string dir = Path.GetDirectoryName(full) ?? string.Empty;
+                        if (!string.IsNullOrEmpty(CurrentDirectory) &&
+                            dir.Equals(CurrentDirectory, StringComparison.OrdinalIgnoreCase))
+                        {
+                            resolver = SearchOrderType.ApplicationDirectory;
+                        }
+                        else
+                        {
+                            resolver = SearchOrderType.None;
+                        }
+                        return full;
+                    }
+
+                    // If the absolute path doesn't exist, continue with configured search order
+                    // (this allows PATH and other locations to be tried).
                 }
                 catch
                 {
-                    return string.Empty;
+                    // Ignore normalization failures and continue with search order.
                 }
             }
         }
@@ -660,6 +719,19 @@ public static class CPathResolver
                 }
 
                 return result;
+            }
+        }
+
+        // If all resolution methods failed, try cached non-WinSxS SearchPath result for this file.
+        lock (_winsxsCacheLock)
+        {
+            if (_winsxsSearchPathCache.TryGetValue(fileName, out string cached) && !string.IsNullOrEmpty(cached))
+            {
+                resolver = SearchOrderType.WinSXS;
+
+                // Remove on first use to avoid cross-application reuse.
+                _winsxsSearchPathCache.Remove(fileName);
+                return cached;
             }
         }
 

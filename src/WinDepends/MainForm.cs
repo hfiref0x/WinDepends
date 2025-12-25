@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Dec 2025
+*  DATE:        22 Dec 2025
 *  
 *  Codename:    VasilEk
 *
@@ -16,6 +16,7 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
+using Microsoft.Win32;
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;

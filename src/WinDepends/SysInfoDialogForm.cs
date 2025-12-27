@@ -15,6 +15,7 @@
 *
 *******************************************************************************/
 namespace WinDepends;
+
 public partial class SysInfoDialogForm : Form
 {
     readonly List<PropertyElement> m_SysInfo;

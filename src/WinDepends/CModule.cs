@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2025
+*  DATE:        25 Dec 2025
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -719,8 +719,7 @@ public class CModuleData
     /// <param name="other">The <see cref="CModuleData"/> object to copy from.</param>
     public CModuleData(CModuleData other)
     {
-        if (other == null)
-            throw new ArgumentNullException(nameof(other));
+        ArgumentNullException.ThrowIfNull(other);
 
         FileTimeStamp = other.FileTimeStamp;
         LinkTimeStamp = other.LinkTimeStamp;

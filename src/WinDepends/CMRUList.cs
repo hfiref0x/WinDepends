@@ -99,12 +99,12 @@ public sealed class CMRUList : IDisposable
 
     private void AddFileInternal(string filePath)
     {
-        if (string.IsNullOrEmpty(filePath)) 
+        if (string.IsNullOrEmpty(filePath))
             return;
 
         lock (_syncRoot)
         {
-            if (!File.Exists(filePath)) 
+            if (!File.Exists(filePath))
                 return;
 
             FileInfo fi;
@@ -118,8 +118,8 @@ public sealed class CMRUList : IDisposable
                                         System.Security.SecurityException or
                                         UnauthorizedAccessException or
                                         NotSupportedException)
-            { 
-                return; 
+            {
+                return;
             }
 
             string fullPath = fi.FullName;
@@ -316,7 +316,7 @@ public sealed class CMRUList : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) 
+        if (_disposed)
             return;
 
         _disposed = true;

@@ -928,7 +928,7 @@ public static class CUtils
     public static bool IsPointVisible(Point pt)
     {
         return Screen.AllScreens.Any(screen => screen.WorkingArea.Contains(pt));
-    }   
+    }
 }
 
 public static class PeExceptionHelper

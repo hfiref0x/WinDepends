@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        22 Dec 2025
+*  DATE:        27 Dec 2025
 *  
 *  Codename:    VasilEk
 *
@@ -16,7 +16,6 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
-using Microsoft.Win32;
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;
@@ -663,6 +662,15 @@ public partial class MainForm : Form
         if (_configuration.UpperCaseModuleNames)
         {
             moduleDisplayName = moduleDisplayName.ToUpperInvariant();
+        }
+
+        // Mark forward user as red if there is no forward module.
+        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parent)
+        {
+            parent.OtherErrorsPresent = true;
+            parent.ModuleImageIndex = parent.GetIconIndexForModule();
+            parentNode.ImageIndex = parent.ModuleImageIndex;
+            parentNode.SelectedImageIndex = parent.ModuleImageIndex;
         }
 
         // 5. Create the tree node

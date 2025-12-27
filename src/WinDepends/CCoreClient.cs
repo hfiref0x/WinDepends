@@ -178,7 +178,7 @@ public class CCoreClient : IDisposable
     private NetworkStream _dataStream;
     private readonly AddLogMessageCallback _addLogMessage;
     private string _serverApplication;
-    
+
     /// <summary>
     /// Gets the TCP client connection to the server.
     /// </summary>
@@ -193,7 +193,7 @@ public class CCoreClient : IDisposable
     /// Gets or sets the port number used for server communication.
     /// </summary>
     public int Port { get; set; }
-    
+
     private readonly Dictionary<Type, DataContractJsonSerializer> _serializerCache;
 
     private const int CORE_CONNECTION_TIMEOUT = 3000;

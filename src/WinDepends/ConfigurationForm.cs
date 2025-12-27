@@ -603,11 +603,10 @@ public partial class ConfigurationForm : Form
 
         // Track if ApiSet configuration changed
         bool apiSetConfigChanged = false;
-        string newApiSetFile = string.Empty;
 
         if (_config.UseApiSetSchemaFile && (!string.IsNullOrEmpty(apisetTextBox.Text)))
         {
-            newApiSetFile = apisetTextBox.Text;
+            var newApiSetFile = apisetTextBox.Text;
             if (!newApiSetFile.Equals(_config.ApiSetSchemaFile, StringComparison.OrdinalIgnoreCase))
             {
                 apiSetConfigChanged = true;

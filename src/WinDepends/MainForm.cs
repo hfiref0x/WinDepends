@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       MAINFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Dec 2025
+*  DATE:        08 Jan 2026
 *  
 *  Codename:    VasilEk
 *
@@ -379,6 +379,9 @@ public partial class MainForm : Form
                     _coreClient.ExpandAllForwarderModules(module, _configuration.SearchOrderListUM,
                         _configuration.SearchOrderListKM,
                         _parentImportsHashTable);
+
+                    // Validate forwarded exports after expansion
+                    _coreClient.ValidateForwardedExports(module);
                 }
 
                 CCoreCallStats stats = null;
@@ -400,6 +403,13 @@ public partial class MainForm : Form
                 if (module.ExportContainErrors)
                 {
                     AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
+                        LogMessageType.ErrorOrWarning, null, true, true, module);
+                }
+
+                // Add warning for modules with forwarding issues
+                if (module.OtherErrorsPresent && module.ForwarderEntries.Count > 0)
+                {
+                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
@@ -648,6 +658,18 @@ public partial class MainForm : Form
             module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
             module.IsDotNetModule = origInstance.IsDotNetModule;
             module.ModuleData = new(origInstance.ModuleData);
+
+            // Propagate errors from duplicate to parent if this is not root
+            if (parentNode?.Tag is CModule parent)
+            {
+                if (origInstance.ExportContainErrors || origInstance.OtherErrorsPresent || origInstance.FileNotFound)
+                {
+                    parent.OtherErrorsPresent = true;
+                    parent.ModuleImageIndex = parent.GetIconIndexForModule();
+                    parentNode.ImageIndex = parent.ModuleImageIndex;
+                    parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+                }
+            }
         }
 
         // 3. Run custom processing if this is a new module
@@ -665,12 +687,12 @@ public partial class MainForm : Form
         }
 
         // Mark forward user as red if there is no forward module.
-        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parent)
+        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parentMod)
         {
-            parent.OtherErrorsPresent = true;
-            parent.ModuleImageIndex = parent.GetIconIndexForModule();
-            parentNode.ImageIndex = parent.ModuleImageIndex;
-            parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+            parentMod.OtherErrorsPresent = true;
+            parentMod.ModuleImageIndex = parentMod.GetIconIndexForModule();
+            parentNode.ImageIndex = parentMod.ModuleImageIndex;
+            parentNode.SelectedImageIndex = parentMod.ModuleImageIndex;
         }
 
         // 5. Create the tree node

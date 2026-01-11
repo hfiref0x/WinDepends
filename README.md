@@ -1,5 +1,5 @@
 # WinDepends
-[![Build status](https://ci.appveyor.com/api/projects/status/015k6sl9g3p6lfsm?svg=true)](https://ci.appveyor.com/project/hfiref0x/windepends)
+[![Build status](https://img.shields.io/appveyor/build/hfiref0x/windepends?logo=appveyor)](https://ci.appveyor.com/project/hfiref0x/windepends)
 ![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Fhfiref0x%2FWinDepends&label=Visitors&countColor=%23263759&style=flat)
 
 ## Windows Dependencies
@@ -200,4 +200,4 @@ MIT
 
 # Authors
 
-(c) 2024 - 2025 WinDepends Project
+(c) 2024 - 2026 WinDepends Project

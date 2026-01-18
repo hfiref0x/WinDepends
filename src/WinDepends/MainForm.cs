@@ -662,7 +662,26 @@ public partial class MainForm : Form
             // Propagate errors from duplicate to parent if this is not root
             if (parentNode?.Tag is CModule parent)
             {
-                if (origInstance.ExportContainErrors || origInstance.OtherErrorsPresent || origInstance.FileNotFound)
+                // Only propagate genuine errors, not from apiset contracts or stopped nodes
+                bool shouldPropagate = origInstance.ExportContainErrors ||
+                                       origInstance.OtherErrorsPresent ||
+                                       origInstance.FileNotFound;
+
+                // Don't propagate from apiset contracts
+                if (origInstance.IsApiSetContract)
+                    shouldPropagate = false;
+
+                // Don't propagate from stopped/duplicate nodes that have forwarders
+                // (these are expected to have "unprocessed" forwarders)
+                if (shouldPropagate)
+                {
+                    bool isStoppedNode = (origInstance.Dependents == null || origInstance.Dependents.Count == 0) &&
+                                         (origInstance.ForwarderEntries != null && origInstance.ForwarderEntries.Count > 0);
+                    if (isStoppedNode)
+                        shouldPropagate = false;
+                }
+
+                if (shouldPropagate)
                 {
                     parent.OtherErrorsPresent = true;
                     parent.ModuleImageIndex = parent.GetIconIndexForModule();

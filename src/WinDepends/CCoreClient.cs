@@ -1289,8 +1289,19 @@ public class CCoreClient : IDisposable
                     q.Enqueue(d);
 
                     // Check forward target export errors and log them
+                    // Skip error propagation for apiset contracts and duplicate/stopped nodes
                     if (d.IsForward && d.ExportContainErrors)
                     {
+                        // Don't propagate errors from apiset contracts - they are virtual redirectors
+                        if (d.IsApiSetContract)
+                            continue;
+
+                        // Don't propagate errors from duplicate/stopped nodes (no dependents but has forwarders)
+                        bool isStoppedNode = (d.Dependents == null || d.Dependents.Count == 0) &&
+                                             (d.ForwarderEntries != null && d.ForwarderEntries.Count > 0);
+                        if (isStoppedNode)
+                            continue;
+
                         _addLogMessage($"Forwarded module \"{Path.GetFileName(d.FileName)}\" contains export errors (referenced by \"{Path.GetFileName(m.FileName)}\").",
                             LogMessageType.ErrorOrWarning);
                     }
@@ -1308,6 +1319,17 @@ public class CCoreClient : IDisposable
     public void ValidateForwardedExports(CModule module)
     {
         if (module?.ForwarderEntries == null || module.ForwarderEntries.Count == 0)
+            return;
+
+        // Skip validation for apiset contracts - they are virtual redirectors
+        // whose forwards are always valid by design
+        if (module.IsApiSetContract)
+            return;
+
+        // Skip validation for duplicate/stopped nodes
+        bool isStoppedNode = (module.Dependents == null || module.Dependents.Count == 0) &&
+                             (module.ForwarderEntries != null && module.ForwarderEntries.Count > 0);
+        if (isStoppedNode)
             return;
 
         foreach (var fe in module.ForwarderEntries)
@@ -1502,8 +1524,19 @@ public class CCoreClient : IDisposable
             }
 
             // After processing, check if forward target has errors and propagate to parent
+            // Skip propagation for apiset contracts and stopped nodes
             if (forwardNode.ExportContainErrors || forwardNode.FileNotFound)
             {
+                // Don't propagate from apiset contracts
+                if (forwardNode.IsApiSetContract)
+                    continue;
+
+                // Don't propagate from stopped/duplicate nodes
+                bool isStoppedNode = (forwardNode.Dependents == null || forwardNode.Dependents.Count == 0) &&
+                                     (forwardNode.ForwarderEntries != null && forwardNode.ForwarderEntries.Count > 0);
+                if (isStoppedNode)
+                    continue;
+
                 module.OtherErrorsPresent = true;
             }
         }

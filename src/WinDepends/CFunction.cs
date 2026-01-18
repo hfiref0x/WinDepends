@@ -373,39 +373,11 @@ public class CFunction
             return false;
 
         // Check if forward target is an API set - if so, skip validation
-        // API sets are virtual modules that get resolved by the OS loader
-        // and their resolution depends on OS version and apiset schema
         if (CCoreClient.IsModuleNameApiSetContract(targetModuleName) ||
             CCoreClient.IsModuleNameApiSetContract(Path.GetFileNameWithoutExtension(targetModuleName)))
         {
-            // For API set forwards, we cannot reliably validate without
-            // resolving the apiset first.  The actual resolution happens
-            // at load time.  Skip validation for these cases.
             return true;
         }
-
-        // First, try to find the target module in the current module's dependents
-        CModule targetModule = module.Dependents?.FirstOrDefault(d =>
-            !d.IsApiSetContract &&
-            (Path.GetFileName(d.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
-             Path.GetFileName(d.RawFileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase)));
-
-        // If not found in dependents, search in all loaded modules
-        if (targetModule == null)
-        {
-            targetModule = modulesList.FirstOrDefault(m =>
-                !m.IsApiSetContract &&
-                Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        // If target module is not found or has errors, the forward is unresolved
-        if (targetModule == null || targetModule.FileNotFound || targetModule.IsInvalid)
-            return false;
-
-        // If target module has no exports loaded yet, assume it's valid
-        // (it will be validated when that module is processed)
-        if (targetModule.ModuleData?.Exports == null || targetModule.ModuleData.Exports.Count == 0)
-            return true;
 
         // Parse the function part of the forward
         int dotIndex = forwardName.IndexOf('.');
@@ -414,7 +386,112 @@ public class CFunction
 
         string targetFunctionPart = forwardName.Substring(dotIndex + 1);
 
-        // Check if it's an ordinal forward (#123)
+        // Check for self-forwarding: module forwards to itself
+        string currentModuleName = Path.GetFileName(module.FileName);
+        string currentModuleNameNoExt = Path.GetFileNameWithoutExtension(module.FileName);
+        bool isSelfForward = targetModuleName.Equals(currentModuleName, StringComparison.OrdinalIgnoreCase) ||
+                             targetModuleName.Equals(currentModuleNameNoExt, StringComparison.OrdinalIgnoreCase) ||
+                             (targetModuleName + ".dll").Equals(currentModuleName, StringComparison.OrdinalIgnoreCase);
+
+        if (isSelfForward)
+        {
+            if (module.ModuleData?.Exports == null || module.ModuleData.Exports.Count == 0)
+                return true;
+
+            if (targetFunctionPart.StartsWith('#'))
+            {
+                if (uint.TryParse(targetFunctionPart.Substring(1), out uint ordinal))
+                {
+                    return module.ModuleData.Exports.Any(f => f.Ordinal == ordinal);
+                }
+                return false;
+            }
+            else
+            {
+                return module.ModuleData.Exports.Any(f =>
+                    f.RawName.Equals(targetFunctionPart, StringComparison.Ordinal));
+            }
+        }
+
+        // If this module is an apiset contract, skip forward validation entirely. 
+        // Apiset modules are virtual redirectors - their forwards point to the real
+        // implementation DLL which may not be in our dependents list because
+        // the apiset itself resolved to that DLL (circular reference stopped).
+        if (module.IsApiSetContract)
+        {
+            return true;
+        }
+
+        // Check if this is a duplicate/stopped node: 
+        // - Has forwarder entries (so it should have forward targets as dependents)
+        // - But dependents list is empty or null
+        // This happens when tree propagation was stopped to prevent infinite loops. 
+        bool isStoppedNode = (module.Dependents == null || module.Dependents.Count == 0) &&
+                             (module.ForwarderEntries != null && module.ForwarderEntries.Count > 0);
+
+        if (isStoppedNode)
+        {
+            // For stopped nodes, try to validate against global modulesList only. 
+            // If we can't find the target there, assume valid to avoid false positives. 
+            CModule targetInGlobal = modulesList.FirstOrDefault(m =>
+                !m.IsApiSetContract &&
+                (Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(m.FileName).Equals(targetModuleName + ".dll", StringComparison.OrdinalIgnoreCase)));
+
+            if (targetInGlobal == null)
+            {
+                // Target not in global list - can't validate, assume valid
+                return true;
+            }
+
+            // Found in global list, validate the function
+            if (targetInGlobal.FileNotFound || targetInGlobal.IsInvalid)
+                return false;
+
+            if (targetInGlobal.ModuleData?.Exports == null || targetInGlobal.ModuleData.Exports.Count == 0)
+                return true;
+
+            if (targetFunctionPart.StartsWith('#'))
+            {
+                if (uint.TryParse(targetFunctionPart.Substring(1), out uint ordinal))
+                {
+                    return targetInGlobal.ModuleData.Exports.Any(f => f.Ordinal == ordinal);
+                }
+                return false;
+            }
+            else
+            {
+                return targetInGlobal.ModuleData.Exports.Any(f =>
+                    f.RawName.Equals(targetFunctionPart, StringComparison.Ordinal));
+            }
+        }
+
+        // Normal case: module has dependents, search there first
+        CModule targetModule = null;
+
+        if (module.Dependents != null && module.Dependents.Count > 0)
+        {
+            targetModule = module.Dependents.FirstOrDefault(d =>
+                !d.IsApiSetContract &&
+                (Path.GetFileName(d.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(d.RawFileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // Fall back to modulesList
+        if (targetModule == null)
+        {
+            targetModule = modulesList.FirstOrDefault(m =>
+                !m.IsApiSetContract &&
+                (Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(m.FileName).Equals(targetModuleName + ".dll", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (targetModule == null || targetModule.FileNotFound || targetModule.IsInvalid)
+            return false;
+
+        if (targetModule.ModuleData?.Exports == null || targetModule.ModuleData.Exports.Count == 0)
+            return true;
+
         if (targetFunctionPart.StartsWith('#'))
         {
             if (uint.TryParse(targetFunctionPart.Substring(1), out uint ordinal))
@@ -425,7 +502,6 @@ public class CFunction
         }
         else
         {
-            // Name-based forward
             return targetModule.ModuleData.Exports.Any(f =>
                 f.RawName.Equals(targetFunctionPart, StringComparison.Ordinal));
         }

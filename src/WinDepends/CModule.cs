@@ -1181,6 +1181,11 @@ public class CModule
 
         if (bDuplicate)
         {
+            if (ExportContainErrors || OtherErrorsPresent)
+            {
+                return is64bit ? (int)ModuleIconType.DuplicateModule64Warning : (int)ModuleIconType.DuplicateModuleWarning;
+            }
+
             return is64bit ? (int)ModuleIconType.DuplicateModule64 : (int)ModuleIconType.DuplicateModule;
         }
 

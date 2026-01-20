@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Jan 2026
+*  DATE:        20 Jan 2026
 *  
 *  Codename:    VasilEk
 *
@@ -655,7 +655,8 @@ public partial class MainForm : Form
             module.FileNotFound = origInstance.FileNotFound;
             module.ExportContainErrors = origInstance.ExportContainErrors;
             module.IsInvalid = origInstance.IsInvalid;
-            module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+            // Do not copy OtherErrorsPresent from original instance, must set it directly
+           // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
             module.IsDotNetModule = origInstance.IsDotNetModule;
             module.ModuleData = new(origInstance.ModuleData);
 
@@ -3116,8 +3117,8 @@ public partial class MainForm : Form
         //
         // Update function icons.
         //
-        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList);
-        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList);
+        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList, _configuration.ModuleNodeDepthMax);
+        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList, _configuration.ModuleNodeDepthMax);
 
         UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
         UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
@@ -3131,11 +3132,11 @@ public partial class MainForm : Form
             }
         }
 
-        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList)
+        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList, int maxDepth)
         {
             foreach (CFunction function in currentList)
             {
-                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable);
+                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable, maxDepth);
             }
         }
     }

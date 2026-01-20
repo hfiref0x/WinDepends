@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Jan 2026
+*  DATE:        20 Jan 2026
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -17,6 +17,7 @@
 *
 *******************************************************************************/
 
+using System.Numerics;
 using System.Runtime.Serialization;
 
 namespace WinDepends;
@@ -362,11 +363,15 @@ public class CFunction
     /// <param name="forwardName">The forward string (e.g., "libb.funcb" or "KERNEL32.WaitOnAddress").</param>
     /// <param name="module">The module containing the forwarded export.</param>
     /// <param name="modulesList">List of all loaded modules. </param>
+    /// <param name="maxDepth">Maximum depth of the modules tree view.</param>
     /// <returns>True if the forward target is resolved; false if target module is missing or function not found.</returns>
-    public static bool IsForwardTargetResolved(string forwardName, CModule module, List<CModule> modulesList)
+    public static bool IsForwardTargetResolved(string forwardName, CModule module, List<CModule> modulesList, int maxDepth)
     {
         if (string.IsNullOrEmpty(forwardName) || module == null || modulesList == null)
             return false;
+
+        if (module.Depth >= maxDepth)
+            return true;
 
         string targetModuleName = ExtractForwarderModule(forwardName);
         if (string.IsNullOrEmpty(targetModuleName))
@@ -513,6 +518,7 @@ public class CFunction
     /// <param name="module">The module containing the function.</param>
     /// <param name="modulesList">The list of all modules in the dependency tree.</param>
     /// <param name="parentImportsHashTable">Hash table of parent imports for lookup.</param>
+    /// <param name="maxDepth">Maximum depth of the modules tree view.</param>
     /// <returns>
     /// <c>true</c> if the function kind was successfully resolved; otherwise, <c>false</c>.
     /// </returns>
@@ -523,7 +529,8 @@ public class CFunction
     public bool ResolveFunctionKind(
         CModule module,
         List<CModule> modulesList,
-        Dictionary<int, FunctionHashObject> parentImportsHashTable)
+        Dictionary<int, FunctionHashObject> parentImportsHashTable,
+        int maxDepth)
     {
         FunctionKind newKind;
         List<CFunction> functionList;
@@ -544,7 +551,7 @@ public class CFunction
             // Check if this is a forward with unresolved target
             if (isForward)
             {
-                bool forwardTargetResolved = IsForwardTargetResolved(ForwardName, module, modulesList);
+                bool forwardTargetResolved = IsForwardTargetResolved(ForwardName, module, modulesList, maxDepth);
                 if (!forwardTargetResolved)
                 {
                     // Forward target module is missing or function not found in target

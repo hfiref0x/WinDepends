@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       MAINFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Dec 2025
+*  DATE:        20 Jan 2026
 *  
 *  Codename:    VasilEk
 *
@@ -379,6 +379,9 @@ public partial class MainForm : Form
                     _coreClient.ExpandAllForwarderModules(module, _configuration.SearchOrderListUM,
                         _configuration.SearchOrderListKM,
                         _parentImportsHashTable);
+
+                    // Validate forwarded exports after expansion
+                    _coreClient.ValidateForwardedExports(module);
                 }
 
                 CCoreCallStats stats = null;
@@ -400,6 +403,13 @@ public partial class MainForm : Form
                 if (module.ExportContainErrors)
                 {
                     AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
+                        LogMessageType.ErrorOrWarning, null, true, true, module);
+                }
+
+                // Add warning for modules with forwarding issues
+                if (module.OtherErrorsPresent && module.ForwarderEntries.Count > 0)
+                {
+                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
@@ -645,9 +655,41 @@ public partial class MainForm : Form
             module.FileNotFound = origInstance.FileNotFound;
             module.ExportContainErrors = origInstance.ExportContainErrors;
             module.IsInvalid = origInstance.IsInvalid;
-            module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+            // Do not copy OtherErrorsPresent from original instance, must set it directly
+           // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
             module.IsDotNetModule = origInstance.IsDotNetModule;
             module.ModuleData = new(origInstance.ModuleData);
+
+            // Propagate errors from duplicate to parent if this is not root
+            if (parentNode?.Tag is CModule parent)
+            {
+                // Only propagate genuine errors, not from apiset contracts or stopped nodes
+                bool shouldPropagate = origInstance.ExportContainErrors ||
+                                       origInstance.OtherErrorsPresent ||
+                                       origInstance.FileNotFound;
+
+                // Don't propagate from apiset contracts
+                if (origInstance.IsApiSetContract)
+                    shouldPropagate = false;
+
+                // Don't propagate from stopped/duplicate nodes that have forwarders
+                // (these are expected to have "unprocessed" forwarders)
+                if (shouldPropagate)
+                {
+                    bool isStoppedNode = (origInstance.Dependents == null || origInstance.Dependents.Count == 0) &&
+                                         (origInstance.ForwarderEntries != null && origInstance.ForwarderEntries.Count > 0);
+                    if (isStoppedNode)
+                        shouldPropagate = false;
+                }
+
+                if (shouldPropagate)
+                {
+                    parent.OtherErrorsPresent = true;
+                    parent.ModuleImageIndex = parent.GetIconIndexForModule();
+                    parentNode.ImageIndex = parent.ModuleImageIndex;
+                    parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+                }
+            }
         }
 
         // 3. Run custom processing if this is a new module
@@ -665,12 +707,12 @@ public partial class MainForm : Form
         }
 
         // Mark forward user as red if there is no forward module.
-        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parent)
+        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parentMod)
         {
-            parent.OtherErrorsPresent = true;
-            parent.ModuleImageIndex = parent.GetIconIndexForModule();
-            parentNode.ImageIndex = parent.ModuleImageIndex;
-            parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+            parentMod.OtherErrorsPresent = true;
+            parentMod.ModuleImageIndex = parentMod.GetIconIndexForModule();
+            parentNode.ImageIndex = parentMod.ModuleImageIndex;
+            parentNode.SelectedImageIndex = parentMod.ModuleImageIndex;
         }
 
         // 5. Create the tree node
@@ -3075,8 +3117,8 @@ public partial class MainForm : Form
         //
         // Update function icons.
         //
-        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList);
-        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList);
+        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList, _configuration.ModuleNodeDepthMax);
+        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList, _configuration.ModuleNodeDepthMax);
 
         UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
         UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
@@ -3090,11 +3132,11 @@ public partial class MainForm : Form
             }
         }
 
-        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList)
+        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList, int maxDepth)
         {
             foreach (CFunction function in currentList)
             {
-                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable);
+                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable, maxDepth);
             }
         }
     }

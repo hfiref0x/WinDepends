@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Jan 2026
+*  DATE:        01 Feb 2026
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -1357,6 +1357,9 @@ public class CModule
 
         return null;
     }
+
+    public bool IsStoppedNode => (Dependents == null || Dependents.Count == 0) &&
+                             (ForwarderEntries != null && ForwarderEntries.Count > 0);
 }
 
 /// <summary>

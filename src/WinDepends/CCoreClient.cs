@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        08 Jan 2026
+*  DATE:        01 Feb 2026
 *  
 *  Core Server communication class.
 *
@@ -1297,9 +1297,7 @@ public class CCoreClient : IDisposable
                             continue;
 
                         // Don't propagate errors from duplicate/stopped nodes (no dependents but has forwarders)
-                        bool isStoppedNode = (d.Dependents == null || d.Dependents.Count == 0) &&
-                                             (d.ForwarderEntries != null && d.ForwarderEntries.Count > 0);
-                        if (isStoppedNode)
+                        if (d.IsStoppedNode)
                             continue;
 
                         _addLogMessage($"Forwarded module \"{Path.GetFileName(d.FileName)}\" contains export errors (referenced by \"{Path.GetFileName(m.FileName)}\").",
@@ -1327,9 +1325,7 @@ public class CCoreClient : IDisposable
             return;
 
         // Skip validation for duplicate/stopped nodes
-        bool isStoppedNode = (module.Dependents == null || module.Dependents.Count == 0) &&
-                             (module.ForwarderEntries != null && module.ForwarderEntries.Count > 0);
-        if (isStoppedNode)
+        if (module.IsStoppedNode)
             return;
 
         foreach (var fe in module.ForwarderEntries)

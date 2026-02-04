@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Jan 2026
+*  DATE:        01 Feb 2026
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -17,7 +17,6 @@
 *
 *******************************************************************************/
 
-using System.Numerics;
 using System.Runtime.Serialization;
 
 namespace WinDepends;
@@ -431,10 +430,7 @@ public class CFunction
         // - Has forwarder entries (so it should have forward targets as dependents)
         // - But dependents list is empty or null
         // This happens when tree propagation was stopped to prevent infinite loops. 
-        bool isStoppedNode = (module.Dependents == null || module.Dependents.Count == 0) &&
-                             (module.ForwarderEntries != null && module.ForwarderEntries.Count > 0);
-
-        if (isStoppedNode)
+        if (module.IsStoppedNode)
         {
             // For stopped nodes, try to validate against global modulesList only. 
             // If we can't find the target there, assume valid to avoid false positives. 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Jan 2026
+*  DATE:        01 Feb 2026
 *  
 *  Codename:    VasilEk
 *
@@ -407,7 +407,7 @@ public partial class MainForm : Form
                 }
 
                 // Add warning for modules with forwarding issues
-                if (module.OtherErrorsPresent && module.ForwarderEntries.Count > 0)
+                if (module.OtherErrorsPresent && module.ForwarderEntries?.Count > 0)
                 {
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
@@ -426,7 +426,7 @@ public partial class MainForm : Form
                 if (module.ModuleData.ImageFixed != 0 &&
                     !module.IsKernelModule &&
                     module.ModuleData.ImageDotNet != 1 &&
-                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested
+                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested (as per issue #39)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
@@ -656,7 +656,7 @@ public partial class MainForm : Form
             module.ExportContainErrors = origInstance.ExportContainErrors;
             module.IsInvalid = origInstance.IsInvalid;
             // Do not copy OtherErrorsPresent from original instance, must set it directly
-           // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+            // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
             module.IsDotNetModule = origInstance.IsDotNetModule;
             module.ModuleData = new(origInstance.ModuleData);
 
@@ -676,9 +676,7 @@ public partial class MainForm : Form
                 // (these are expected to have "unprocessed" forwarders)
                 if (shouldPropagate)
                 {
-                    bool isStoppedNode = (origInstance.Dependents == null || origInstance.Dependents.Count == 0) &&
-                                         (origInstance.ForwarderEntries != null && origInstance.ForwarderEntries.Count > 0);
-                    if (isStoppedNode)
+                    if (origInstance.IsStoppedNode)
                         shouldPropagate = false;
                 }
 

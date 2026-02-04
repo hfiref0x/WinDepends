@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CCORECLIENT.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Dec 2025
+*  DATE:        01 Feb 2026
 *  
 *  Core Server communication class.
 *
@@ -1285,7 +1285,87 @@ public class CCoreClient : IDisposable
             if (m.Dependents != null)
             {
                 foreach (var d in m.Dependents)
+                {
                     q.Enqueue(d);
+
+                    // Check forward target export errors and log them
+                    // Skip error propagation for apiset contracts and duplicate/stopped nodes
+                    if (d.IsForward && d.ExportContainErrors)
+                    {
+                        // Don't propagate errors from apiset contracts - they are virtual redirectors
+                        if (d.IsApiSetContract)
+                            continue;
+
+                        // Don't propagate errors from duplicate/stopped nodes (no dependents but has forwarders)
+                        if (d.IsStoppedNode)
+                            continue;
+
+                        _addLogMessage($"Forwarded module \"{Path.GetFileName(d.FileName)}\" contains export errors (referenced by \"{Path.GetFileName(m.FileName)}\").",
+                            LogMessageType.ErrorOrWarning);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates that forwarded exports in a module can be resolved in their target modules.
+    /// Should be called after the target forward modules have been processed.
+    /// </summary>
+    /// <param name="module">The module containing forwarded exports.</param>
+    /// <param name="addLogMessage">Delegate for logging messages.</param>
+    public void ValidateForwardedExports(CModule module)
+    {
+        if (module?.ForwarderEntries == null || module.ForwarderEntries.Count == 0)
+            return;
+
+        // Skip validation for apiset contracts - they are virtual redirectors
+        // whose forwards are always valid by design
+        if (module.IsApiSetContract)
+            return;
+
+        // Skip validation for duplicate/stopped nodes
+        if (module.IsStoppedNode)
+            return;
+
+        foreach (var fe in module.ForwarderEntries)
+        {
+            var targetModule = module.Dependents.FirstOrDefault(d =>
+                Path.GetFileName(d.FileName).Equals(fe.TargetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                Path.GetFileName(d.RawFileName).Equals(fe.TargetModuleName, StringComparison.OrdinalIgnoreCase));
+
+            if (targetModule == null)
+                continue;
+
+            if (targetModule.FileNotFound)
+            {
+                module.OtherErrorsPresent = true;
+                continue;
+            }
+
+            if (targetModule.ModuleData?.Exports == null || targetModule.ModuleData.Exports.Count == 0)
+                continue;
+
+            bool resolved;
+            if (fe.TargetOrdinal != UInt32.MaxValue)
+            {
+                resolved = targetModule.ModuleData.Exports.Any(f => f.Ordinal == fe.TargetOrdinal);
+            }
+            else
+            {
+                resolved = targetModule.ModuleData.Exports.Any(f =>
+                    f.RawName.Equals(fe.TargetFunctionName, StringComparison.Ordinal));
+            }
+
+            if (!resolved)
+            {
+                module.OtherErrorsPresent = true;
+                string funcDesc = fe.TargetOrdinal != UInt32.MaxValue
+                    ? $"ordinal {fe.TargetOrdinal}"
+                    : $"function \"{fe.TargetFunctionName}\"";
+
+                _addLogMessage($"Forward from \"{Path.GetFileName(module.FileName)}\" to {funcDesc} in \"{fe.TargetModuleName}\" cannot be resolved.",
+                    LogMessageType.ErrorOrWarning);
             }
         }
     }
@@ -1437,6 +1517,23 @@ public class CCoreClient : IDisposable
                     synthetic.Ordinal);
 
                 parentImportsHashTable.TryAdd(fho.GenerateUniqueKey(), fho);
+            }
+
+            // After processing, check if forward target has errors and propagate to parent
+            // Skip propagation for apiset contracts and stopped nodes
+            if (forwardNode.ExportContainErrors || forwardNode.FileNotFound)
+            {
+                // Don't propagate from apiset contracts
+                if (forwardNode.IsApiSetContract)
+                    continue;
+
+                // Don't propagate from stopped/duplicate nodes
+                bool isStoppedNode = (forwardNode.Dependents == null || forwardNode.Dependents.Count == 0) &&
+                                     (forwardNode.ForwarderEntries != null && forwardNode.ForwarderEntries.Count > 0);
+                if (isStoppedNode)
+                    continue;
+
+                module.OtherErrorsPresent = true;
             }
         }
 

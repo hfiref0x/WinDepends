@@ -12,11 +12,11 @@
     <StartupObject>WinDepends.Program</StartupObject>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
-    <Copyright>(C) 2024, 2025 UG North</Copyright>
+    <Copyright>(C) 2024 - 2026 UG North</Copyright>
     <Title>Windows Dependencies</Title>
     <Company>UG North</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <FileVersion>1.0.0.2512</FileVersion>
+    <FileVersion>1.0.0.2602</FileVersion>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <AnalysisLevel>latest</AnalysisLevel>
   </PropertyGroup>

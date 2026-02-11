@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Dec 20, 2025
+*  Modified on: Dec 21, 2025
 *
 *      Project: WinDepends.Core
 *
@@ -184,4 +184,4 @@ BOOL json_escape_string(
     _In_ SIZE_T dest_cch,
     _Out_opt_ SIZE_T * out_len);
 
-#endif _UTIL_H_
+#endif /* _UTIL_H_ */

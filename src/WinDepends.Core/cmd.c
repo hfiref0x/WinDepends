@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Dec 20, 2025
+*  Modified on: Feb 11, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -48,11 +48,17 @@ cmd_entry_type get_command_entry(
 )
 {
     int left = 0, right = ARRAYSIZE(cmds) - 1;
+    int mid, cmp;
+    wchar_t next;
+
     while (left <= right) {
-        int mid = left + (right - left) / 2;
-        int cmp = wcsncmp(cmds[mid].cmd, cmd, cmds[mid].length);
+        mid = left + (right - left) / 2;
+        cmp = wcsncmp(cmds[mid].cmd, cmd, cmds[mid].length);
         if (cmp == 0) {
-            return cmds[mid].type;
+            next = cmd[cmds[mid].length];
+            if (next == L'\0' || next == L' ')
+                return cmds[mid].type;
+            cmp = -1;
         }
         if (cmp < 0) {
             left = mid + 1;
@@ -162,12 +168,12 @@ void cmd_query_knowndlls_list(
     if (is_wow64) {
         dlls_head = &gsup.KnownDlls32Head;
         dlls_path = gsup.KnownDlls32Path;
-        sz = MAX_PATH + gsup.KnownDlls32NameCbMax + gsup.KnownDlls32PathCbMax;
+        sz = (MAX_PATH * sizeof(WCHAR)) + gsup.KnownDlls32NameCbMax + gsup.KnownDlls32PathCbMax;
     }
     else {
         dlls_head = &gsup.KnownDllsHead;
         dlls_path = gsup.KnownDllsPath;
-        sz = MAX_PATH + gsup.KnownDllsNameCbMax + gsup.KnownDllsPathCbMax;
+        sz = (MAX_PATH * sizeof(WCHAR)) + gsup.KnownDllsNameCbMax + gsup.KnownDllsPathCbMax;
     }
 
     if (sz == 0 || dlls_path == NULL) {

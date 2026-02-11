@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CUTILS.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Aug 2025
+*  DATE:        11 Feb 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -158,7 +158,8 @@ internal static class RichTextBoxExtensions
         box.SelectionColor = box.ForeColor;
 
         box.Select(oldLength, text.Length);
-        box.SelectionFont = new Font(box.Font, bold ? FontStyle.Bold : FontStyle.Regular);
+        using var font = new Font(box.Font, bold ? FontStyle.Bold : FontStyle.Regular);
+        box.SelectionFont = font;
         box.SelectionLength = 0;
     }
 }

@@ -132,6 +132,7 @@ void test_api_set()
     }
 
     test_api_setV6(ApiSetNamespace);
+    FreeLibrary(hModule);
 
     ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV4.dll", &hModule);
     if (ApiSetNamespace) {
@@ -143,6 +144,7 @@ void test_api_set()
     }
 
     test_api_setV4(ApiSetNamespace);
+    FreeLibrary(hModule);
 
     ApiSetNamespace = load_apiset_namespace(L"C:\\ApiSetSchema\\apisetschemaV2.dll", &hModule);
     if (ApiSetNamespace) {
@@ -154,6 +156,6 @@ void test_api_set()
     }
 
     test_api_setV2(ApiSetNamespace);
-
+    FreeLibrary(hModule);
 }
 

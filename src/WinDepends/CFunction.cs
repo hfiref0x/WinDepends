@@ -515,18 +515,22 @@ public class CFunction
     /// <param name="modulesList">The list of all modules in the dependency tree.</param>
     /// <param name="parentImportsHashTable">Hash table of parent imports for lookup.</param>
     /// <param name="maxDepth">Maximum depth of the modules tree view.</param>
+    /// <param name="expandForwarders">Whether forwarder expansion is enabled.</param>
     /// <returns>
     /// <c>true</c> if the function kind was successfully resolved; otherwise, <c>false</c>.
     /// </returns>
     /// <remarks>
     /// This method updates the <see cref="Kind"/> property based on a comprehensive analysis
     /// of the function's relationship to other modules in the dependency tree.
+    /// When forwarder expansion is disabled, forwarded exports are not checked against
+    /// the dependency tree since forward target modules are not expected to be present.
     /// </remarks>
     public bool ResolveFunctionKind(
         CModule module,
         List<CModule> modulesList,
         Dictionary<int, FunctionHashObject> parentImportsHashTable,
-        int maxDepth)
+        int maxDepth,
+        bool expandForwarders = true)
     {
         FunctionKind newKind;
         List<CFunction> functionList;
@@ -544,14 +548,15 @@ public class CFunction
 
         if (IsExportFunction)
         {
-            // Check if this is a forward with unresolved target
-            if (isForward)
+            // Check if this is a forward with unresolved target.
+            // Only validate forward targets when expansion is both
+            // enabled and the tree depth allows it (depth is checked in the IsForwardTargetResolved).
+            if (isForward && expandForwarders)
             {
                 bool forwardTargetResolved = IsForwardTargetResolved(ForwardName, module, modulesList, maxDepth);
                 if (!forwardTargetResolved)
                 {
                     // Forward target module is missing or function not found in target
-                    // Use unresolved import icons to indicate the problem (red icons)
                     if (isOrdinal)
                     {
                         newKind = FunctionKind.ImportUnresolvedOrdinal;

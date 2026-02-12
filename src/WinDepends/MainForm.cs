@@ -3115,8 +3115,8 @@ public partial class MainForm : Form
         //
         // Update function icons.
         //
-        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList, _configuration.ModuleNodeDepthMax);
-        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList, _configuration.ModuleNodeDepthMax);
+        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList, _configuration);
+        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList, _configuration);
 
         UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
         UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
@@ -3130,11 +3130,11 @@ public partial class MainForm : Form
             }
         }
 
-        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList, int maxDepth)
+        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList, CConfiguration config)
         {
             foreach (CFunction function in currentList)
             {
-                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable, maxDepth);
+                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable, config.ModuleNodeDepthMax, config.ExpandForwarders);
             }
         }
     }

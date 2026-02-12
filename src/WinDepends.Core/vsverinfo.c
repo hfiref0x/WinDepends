@@ -115,6 +115,8 @@ VS_FIXEDFILEINFO* PEImageEnumVersionFields(
             (ULONG_PTR)hdr < vlimit;
             hdr = (PIMGVSVERSIONINFO)ALIGN_UP_32((ULONG_PTR)hdr + hdr->vshdr.wLength))
         {
+            if (hdr->vshdr.wLength == 0)
+                break;
 
             if ((wcscmp(hdr->wIdString, L"StringFileInfo") == 0) && scallback)
                 if (!PEImageEnumStringFileInfo((PIMGSTRINGTABLE)hdr, scallback, cbparam))

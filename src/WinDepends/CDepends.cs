@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CDEPENDS.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        04 Feb 2025
+*  DATE:        11 Feb 2026
 *  
 *  Implementation of base session class.
 *
@@ -64,6 +64,6 @@ public class CDepends
 
     public CDepends(CModule module)
     {
-        RootModule = module;
+        RootModule = module ?? throw new ArgumentNullException(nameof(module));
     }
 }

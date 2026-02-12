@@ -165,8 +165,11 @@ DWORD WINAPI client_thread(
             while ((*params != L'\0') && (*params != L' '))
                 ++params;
 
-            while (*params == L' ')
-                ++params;
+            if (*params != L'\0') {
+                *params++ = L'\0';
+                while (*params == L' ')
+                    ++params;
+            }
 
             if (*params == L'\0')
                 params = NULL;

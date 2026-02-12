@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Dec 20, 2025
+*  Modified on: Feb 11, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -40,7 +40,7 @@
 #define WINDEPENDS_SERVER_MAJOR_VERSION     1
 #define WINDEPENDS_SERVER_MINOR_VERSION     0
 #define WINDEPENDS_SERVER_REVISION          0
-#define WINDEPENDS_SERVER_BUILD             2512
+#define WINDEPENDS_SERVER_BUILD             2602
 
 #define SERVER_ERROR_SUCCESS        0
 #define SERVER_ERROR_WSASTARTUP     1

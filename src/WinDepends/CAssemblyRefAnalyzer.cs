@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2025
+*  (C) COPYRIGHT AUTHORS, 2025 - 2026
 *
 *  TITLE:       CASSEMBLYREFANALYZER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Dec 2025
+*  DATE:        11 Feb 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -64,6 +64,69 @@ public class AssemblyReference
 }
 
 /// <summary>
+/// Thread-safe cache with TTL-based expiration and bounded size.
+/// Pruning runs on every insert to keep memory usage predictable.
+/// </summary>
+internal sealed class ExpiringCache<TValue>
+{
+    private readonly ConcurrentDictionary<string, (TValue value, long expirationTicks)> _store;
+    private readonly long _ttlTicks;
+    private readonly int _maxSize;
+
+    internal ExpiringCache(TimeSpan ttl, int maxSize)
+    {
+        _store = new ConcurrentDictionary<string, (TValue, long)>(StringComparer.Ordinal);
+        _ttlTicks = ttl.Ticks;
+        _maxSize = maxSize;
+    }
+
+    internal bool TryGet(string key, out TValue value)
+    {
+        if (_store.TryGetValue(key, out var entry))
+        {
+            if (entry.expirationTicks > DateTime.UtcNow.Ticks)
+            {
+                value = entry.value;
+                return true;
+            }
+
+            // Expired — remove only if the entry hasn't been refreshed by another thread.
+            ((ICollection<KeyValuePair<string, (TValue, long)>>)_store).Remove(
+                new KeyValuePair<string, (TValue, long)>(key, entry));
+        }
+
+        value = default;
+        return false;
+    }
+
+    internal void Set(string key, TValue value)
+    {
+        long expiration = DateTime.UtcNow.Ticks + _ttlTicks;
+        _store[key] = (value, expiration);
+
+        if (_store.Count > _maxSize)
+            Prune();
+    }
+
+    internal void Clear()
+    {
+        _store.Clear();
+    }
+
+    private void Prune()
+    {
+        long nowTicks = DateTime.UtcNow.Ticks;
+        foreach (var kvp in _store)
+        {
+            if (kvp.Value.expirationTicks < nowTicks)
+            {
+                ((ICollection<KeyValuePair<string, (TValue, long)>>)_store).Remove(kvp);
+            }
+        }
+    }
+}
+
+/// <summary>
 /// Provides functionality for analyzing .NET assembly references and resolving dependencies.
 /// This class helps with identifying and locating assembly references in the Global Assembly Cache (GAC)
 /// and other common framework locations.
@@ -76,15 +139,11 @@ public static class CAssemblyRefAnalyzer
     private static CreateAssemblyEnumDelegate createAssemblyEnumDelegate;
     private static CreateAssemblyNameObjectDelegate createAssemblyNameObjectDelegate;
 
-    private static readonly ConcurrentDictionary<string, (string path, string source, DateTime expiration)> _resolutionCache =
-        new ConcurrentDictionary<string, (string, string, DateTime)>();
-    private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(30);
-    private static long _resolutionCounter = 0;
+    private static readonly ExpiringCache<(string path, string source)> _resolutionCache =
+        new ExpiringCache<(string, string)>(TimeSpan.FromMinutes(30), maxSize: 512);
 
-    private static readonly ConcurrentDictionary<string, (bool isValid, DateTime expiration)> _archValidationCache =
-        new ConcurrentDictionary<string, (bool, DateTime)>();
-    private static readonly TimeSpan _archCacheTtl = TimeSpan.FromMinutes(30);
-    private static long _archCounter = 0;
+    private static readonly ExpiringCache<bool> _archValidationCache =
+        new ExpiringCache<bool>(TimeSpan.FromMinutes(30), maxSize: 1024);
 
     private static readonly HashSet<string> _systemAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -291,6 +350,7 @@ public static class CAssemblyRefAnalyzer
             }
         }
 
+        string referringDirectory = Path.GetDirectoryName(module.FileName);
         var concurrentRefs = new ConcurrentBag<AssemblyReference>();
 
         Parallel.ForEach(assemblyRefs, reference =>
@@ -343,7 +403,7 @@ public static class CAssemblyRefAnalyzer
                     publicKeyToken,
                     kind,
                     cpuType,
-                    module.FileName);
+                    referringDirectory);
             }
 
             concurrentRefs.Add(asmRef);
@@ -594,40 +654,21 @@ public static class CAssemblyRefAnalyzer
 
     /// <summary>
     /// Resolves the full path of an assembly based on .NET assembly resolution rules.
-    /// Uses caching for performance with TTL (time-to-live).
     /// </summary>
     private static (string path, string source) ResolveAssemblyPath(
         string name,
         string publicKeyToken,
         DotNetAssemblyKind kind,
         CpuType cpuType,
-        string referringAssemblyPath)
+        string referringDirectory)
     {
-        string cacheKey = $"{name}|{publicKeyToken}|{kind}|{cpuType}|{referringAssemblyPath}";
+        string cacheKey = $"{name}|{publicKeyToken}|{kind}|{cpuType}|{referringDirectory}";
 
-        if (_resolutionCache.TryGetValue(cacheKey, out var cachedResult))
-        {
-            if (cachedResult.expiration > DateTime.UtcNow)
-                return (cachedResult.path, cachedResult.source);
+        if (_resolutionCache.TryGet(cacheKey, out var cachedResult))
+            return cachedResult;
 
-            _resolutionCache.TryRemove(cacheKey, out _);
-        }
-
-        long counter = Interlocked.Increment(ref _resolutionCounter);
-        if (counter % 100 == 0 && _resolutionCache.Count > 100)
-        {
-            var now = DateTime.UtcNow;
-            var expiredKeys = _resolutionCache
-                .Where(kvp => kvp.Value.expiration < now)
-                .Select(kvp => kvp.Key)
-                .ToList();
-
-            foreach (var key in expiredKeys)
-                _resolutionCache.TryRemove(key, out _);
-        }
-
-        (string path, string source) result = ResolveAssemblyPathCore(name, publicKeyToken, kind, cpuType, referringAssemblyPath);
-        _resolutionCache[cacheKey] = (result.path, result.source, DateTime.UtcNow.Add(_cacheTtl));
+        var result = ResolveAssemblyPathCore(name, publicKeyToken, kind, cpuType, referringDirectory);
+        _resolutionCache.Set(cacheKey, result);
 
         return result;
     }
@@ -640,20 +681,18 @@ public static class CAssemblyRefAnalyzer
         string publicKeyToken,
         DotNetAssemblyKind kind,
         CpuType cpuType,
-        string referringAssemblyPath)
+        string referringDirectory)
     {
         // 1. Look in the same directory as the referring assembly
-        string directory = Path.GetDirectoryName(referringAssemblyPath);
-
-        if (!string.IsNullOrEmpty(directory))
+        if (!string.IsNullOrEmpty(referringDirectory))
         {
             // Check for exact named assembly (name.dll)
-            string localPath = Path.Combine(directory, name + ".dll");
+            string localPath = Path.Combine(referringDirectory, name + ".dll");
             if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                 return (localPath, "Local directory");
 
             // Check .exe extension too
-            localPath = Path.Combine(directory, name + ".exe");
+            localPath = Path.Combine(referringDirectory, name + ".exe");
             if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                 return (localPath, "Local directory");
 
@@ -661,7 +700,7 @@ public static class CAssemblyRefAnalyzer
             string archSubdir = GetArchitectureSubdirectory(cpuType);
             if (!string.IsNullOrEmpty(archSubdir))
             {
-                string archDir = Path.Combine(directory, archSubdir);
+                string archDir = Path.Combine(referringDirectory, archSubdir);
                 if (Directory.Exists(archDir))
                 {
                     localPath = Path.Combine(archDir, name + ".dll");
@@ -675,7 +714,7 @@ public static class CAssemblyRefAnalyzer
             }
 
             // Check subdirectories based on assembly name
-            string privateBinPath = Path.Combine(directory, name);
+            string privateBinPath = Path.Combine(referringDirectory, name);
             if (Directory.Exists(privateBinPath))
             {
                 localPath = Path.Combine(privateBinPath, name + ".dll");
@@ -744,29 +783,11 @@ public static class CAssemblyRefAnalyzer
     {
         string cacheKey = $"{assemblyPath}|{requiredCpuType}";
 
-        if (_archValidationCache.TryGetValue(cacheKey, out var cached))
-        {
-            if (cached.expiration > DateTime.UtcNow)
-                return cached.isValid;
-
-            _archValidationCache.TryRemove(cacheKey, out _);
-        }
-
-        long counter = Interlocked.Increment(ref _archCounter);
-        if (counter % 200 == 0 && _archValidationCache.Count > 200)
-        {
-            var now = DateTime.UtcNow;
-            var expiredKeys = _archValidationCache
-                .Where(kvp => kvp.Value.expiration < now)
-                .Select(kvp => kvp.Key)
-                .ToList();
-
-            foreach (var key in expiredKeys)
-                _archValidationCache.TryRemove(key, out _);
-        }
+        if (_archValidationCache.TryGet(cacheKey, out bool cached))
+            return cached;
 
         bool isValid = IsValidArchitecture(assemblyPath, requiredCpuType);
-        _archValidationCache[cacheKey] = (isValid, DateTime.UtcNow.Add(_archCacheTtl));
+        _archValidationCache.Set(cacheKey, isValid);
         return isValid;
     }
 

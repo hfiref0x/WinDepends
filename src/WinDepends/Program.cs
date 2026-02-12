@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       PROGRAM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 Nov 2025
+*  DATE:        11 Feb 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,7 +20,7 @@ namespace WinDepends;
 
 internal static class Program
 {
-    #region "P/Inkove"
+    #region "P/Invoke"
     [DllImport("shell32.dll")]
     private static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
     #endregion
@@ -48,9 +48,9 @@ internal static class Program
         AppDomain currentDomain = AppDomain.CurrentDomain;
         currentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandler);
 
-        ApplicationConfiguration.Initialize();
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
+        ApplicationConfiguration.Initialize();
 
         SetCurrentProcessExplicitAppUserModelID("hfiref0x.WinDepends");
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Feb 2026
+*  DATE:        14 Feb 2026
 *  
 *  Core Server communication class.
 *
@@ -1200,7 +1200,7 @@ public class CCoreClient : IDisposable
     /// <param name="forwarder">The forwarder string (e.g., "MODULE.Function" or "MODULE.#123").</param>
     /// <param name="targetModule">Outputs the target module name.</param>
     /// <param name="targetFunctionName">Outputs the target function name (empty if by ordinal).</param>
-    /// <param name="targetOrdinal">Outputs the target ordinal (UInt32.MaxValue if by name).</param>
+    /// <param name="targetOrdinal">Outputs the target ordinal (CConsts.OrdinalNotPresent if by name).</param>
     /// <returns>true if parsing succeeded; otherwise, false.</returns>
     private static bool TryParseForwarderTarget(string forwarder,
                                                    out string targetModule,
@@ -1209,7 +1209,7 @@ public class CCoreClient : IDisposable
     {
         targetModule = string.Empty;
         targetFunctionName = string.Empty;
-        targetOrdinal = UInt32.MaxValue;
+        targetOrdinal = CConsts.OrdinalNotPresent;
 
         if (string.IsNullOrEmpty(forwarder))
             return false;
@@ -1232,7 +1232,7 @@ public class CCoreClient : IDisposable
             while (i < rest.Length && char.IsDigit(rest[i]))
             {
                 value = value * 10 + (uint)(rest[i] - '0');
-                if (value > UInt32.MaxValue) break;
+                if (value > CConsts.OrdinalNotPresent) break;
                 i++;
             }
             if (i == 1)
@@ -1347,7 +1347,7 @@ public class CCoreClient : IDisposable
                 continue;
 
             bool resolved;
-            if (fe.TargetOrdinal != UInt32.MaxValue)
+            if (fe.TargetOrdinal != CConsts.OrdinalNotPresent)
             {
                 resolved = targetModule.ModuleData.Exports.Any(f => f.Ordinal == fe.TargetOrdinal);
             }
@@ -1360,7 +1360,7 @@ public class CCoreClient : IDisposable
             if (!resolved)
             {
                 module.OtherErrorsPresent = true;
-                string funcDesc = fe.TargetOrdinal != UInt32.MaxValue
+                string funcDesc = fe.TargetOrdinal != CConsts.OrdinalNotPresent
                     ? $"ordinal {fe.TargetOrdinal}"
                     : $"function \"{fe.TargetFunctionName}\"";
 
@@ -1487,14 +1487,14 @@ public class CCoreClient : IDisposable
             foreach (var fe in g)
             {
                 bool exists;
-                if (fe.TargetOrdinal != UInt32.MaxValue)
+                if (fe.TargetOrdinal != CConsts.OrdinalNotPresent)
                 {
                     exists = forwardNode.ParentImports.Any(f => f.Ordinal == fe.TargetOrdinal);
                 }
                 else
                 {
                     exists = forwardNode.ParentImports.Any(f =>
-                        f.Ordinal == UInt32.MaxValue &&
+                        f.Ordinal == CConsts.OrdinalNotPresent &&
                         f.RawName.Equals(fe.TargetFunctionName, StringComparison.Ordinal));
                 }
                 if (exists)
@@ -1502,9 +1502,9 @@ public class CCoreClient : IDisposable
 
                 var synthetic = new CFunction
                 {
-                    RawName = (fe.TargetOrdinal == UInt32.MaxValue) ? fe.TargetFunctionName : string.Empty,
-                    Ordinal = (fe.TargetOrdinal == UInt32.MaxValue) ? UInt32.MaxValue : fe.TargetOrdinal,
-                    Hint = UInt32.MaxValue,
+                    RawName = (fe.TargetOrdinal == CConsts.OrdinalNotPresent) ? fe.TargetFunctionName : string.Empty,
+                    Ordinal = (fe.TargetOrdinal == CConsts.OrdinalNotPresent) ? CConsts.OrdinalNotPresent : fe.TargetOrdinal,
+                    Hint = CConsts.HintNotPresent,
                     IsExportFunction = false
                 };
                 synthetic.Kind = synthetic.MakeDefaultFunctionKind();
@@ -1513,7 +1513,7 @@ public class CCoreClient : IDisposable
 
                 var fho = new FunctionHashObject(
                     forwardNode.FileName,
-                    (fe.TargetOrdinal == UInt32.MaxValue) ? synthetic.RawName : string.Empty,
+                    (fe.TargetOrdinal == CConsts.OrdinalNotPresent) ? synthetic.RawName : string.Empty,
                     synthetic.Ordinal);
 
                 parentImportsHashTable.TryAdd(fho.GenerateUniqueKey(), fho);
@@ -1581,8 +1581,8 @@ public class CCoreClient : IDisposable
                             var fe = new CForwarderEntry
                             {
                                 TargetModuleName = rawTargetModule,
-                                TargetFunctionName = (targetOrd == UInt32.MaxValue) ? targetFn : string.Empty,
-                                TargetOrdinal = (targetOrd == UInt32.MaxValue) ? UInt32.MaxValue : targetOrd
+                                TargetFunctionName = (targetOrd == CConsts.OrdinalNotPresent) ? targetFn : string.Empty,
+                                TargetOrdinal = (targetOrd == CConsts.OrdinalNotPresent) ? CConsts.OrdinalNotPresent : targetOrd
                             };
                             if (!module.ForwarderEntries.Contains(fe))
                                 module.ForwarderEntries.Add(fe);
@@ -1596,7 +1596,7 @@ public class CCoreClient : IDisposable
         foreach (var entry in module.ParentImports)
         {
             bool resolved;
-            if (entry.Ordinal != UInt32.MaxValue)
+            if (entry.Ordinal != CConsts.OrdinalNotPresent)
             {
                 resolved = module.ModuleData.Exports.Any(f => f.Ordinal == entry.Ordinal);
             }

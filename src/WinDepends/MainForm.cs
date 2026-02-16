@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Feb 2026
+*  DATE:        14 Feb 2026
 *  
 *  Codename:    VasilEk
 *
@@ -3848,7 +3848,7 @@ public partial class MainForm : Form
         // Search by ordinal.
         if (string.IsNullOrEmpty(_searchFunctionName))
         {
-            if (_searchOrdinal != UInt32.MaxValue)
+            if (_searchOrdinal != CConsts.OrdinalNotPresent)
             {
                 foreach (var entry in itemList)
                 {
@@ -3873,7 +3873,7 @@ public partial class MainForm : Form
             }
 
             // If item is not found, search by ordinal if possible.
-            if (_searchOrdinal != UInt32.MaxValue)
+            if (_searchOrdinal != CConsts.OrdinalNotPresent)
             {
                 foreach (var entry in itemList)
                 {
@@ -4056,7 +4056,7 @@ public partial class MainForm : Form
 
         List<CFunction> currentList = lvDst == LVImports ? _currentImportsList : _currentExportsList;
 
-        _searchOrdinal = UInt32.MaxValue;
+        _searchOrdinal = CConsts.OrdinalNotPresent;
         _searchFunctionName = string.Empty;
 
         var matchingItem = currentList.FirstOrDefault(item => item.RawName.StartsWith(_functionLookupText, StringComparison.OrdinalIgnoreCase));

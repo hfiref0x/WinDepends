@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Feb 2026
+*  DATE:        14 Feb 2026
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -140,7 +140,7 @@ public struct FunctionHashObject(string functionName, string importLibrary, UInt
             hash = hash * 23 + (FunctionName?.GetHashCode() ?? 0);
             hash = hash * 23 + (ImportLibrary?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0);
 
-            if (FunctionOrdinal != UInt32.MaxValue)
+            if (FunctionOrdinal != CConsts.OrdinalNotPresent)
             {
                 hash = hash * 23 + FunctionOrdinal.GetHashCode();
             }
@@ -180,9 +180,9 @@ public class CFunction
     [DataMember]
     public string UndecoratedName { get; set; } = string.Empty;
     [DataMember]
-    public UInt32 Ordinal { get; set; } = UInt32.MaxValue;
+    public UInt32 Ordinal { get; set; } = CConsts.OrdinalNotPresent;
     [DataMember]
-    public UInt32 Hint { get; set; } = UInt32.MaxValue;
+    public UInt32 Hint { get; set; } = CConsts.HintNotPresent;
     [DataMember]
     public UInt64 Address { get; set; }
     [DataMember]
@@ -192,7 +192,7 @@ public class CFunction
     [DataMember]
     public FunctionKind Kind { get; set; } = FunctionKind.ImportUnresolvedFunction;
 
-    public bool SnapByOrdinal() => (Ordinal != UInt32.MaxValue && string.IsNullOrEmpty(RawName));
+    public bool SnapByOrdinal() => (Ordinal != CConsts.OrdinalNotPresent && string.IsNullOrEmpty(RawName));
     public bool IsForward() => (!string.IsNullOrEmpty(ForwardName));
     public bool IsNameDecorated() => !string.IsNullOrEmpty(RawName) && RawName.StartsWith('?');
 
@@ -349,7 +349,7 @@ public class CFunction
         FunctionHashObject funcHashObject = new(fileName, rawName, function.Ordinal);
         var uniqueKey = funcHashObject.GenerateUniqueKey();
 
-        funcHashObject.FunctionOrdinal = UInt32.MaxValue;
+        funcHashObject.FunctionOrdinal = CConsts.OrdinalNotPresent;
         var uniqueKeyNoOrdinal = funcHashObject.GenerateUniqueKey();
 
         return parentImportsHashTable.ContainsKey(uniqueKey) ||
@@ -754,7 +754,7 @@ public class CFunction
 /// It handles special comparison logic for entry points, ordinals, hints, function names and image types.
 /// 
 /// The comparison logic handles decorated function names, forwarded functions, and special values
-/// like <see cref="UInt32.MaxValue"/> which are used to indicate unset ordinals or hints.
+/// like <see cref="CConsts.OrdinalNotPresent"/> which are used to indicate unset ordinals and <see cref="CConsts.HintNotPresent"/> for hints.
 /// </remarks>
 public class CFunctionComparer : IComparer<CFunction>
 {
@@ -812,8 +812,8 @@ public class CFunctionComparer : IComparer<CFunction>
             case (int)FunctionsColumns.Ordinal:
                 {
                     // Special handling for Ordinal
-                    bool xHasOrdinal = x.Ordinal != UInt32.MaxValue;
-                    bool yHasOrdinal = y.Ordinal != UInt32.MaxValue;
+                    bool xHasOrdinal = x.Ordinal != CConsts.OrdinalNotPresent;
+                    bool yHasOrdinal = y.Ordinal != CConsts.OrdinalNotPresent;
 
                     if (!xHasOrdinal && !yHasOrdinal)
                         result = 0;
@@ -829,8 +829,8 @@ public class CFunctionComparer : IComparer<CFunction>
             case (int)FunctionsColumns.Hint:
                 {
                     // Similar special handling for Hint
-                    bool xHasHint = x.Hint != UInt32.MaxValue;
-                    bool yHasHint = y.Hint != UInt32.MaxValue;
+                    bool xHasHint = x.Hint != CConsts.HintNotPresent;
+                    bool yHasHint = y.Hint != CConsts.HintNotPresent;
 
                     if (!xHasHint && !yHasHint)
                         result = 0;

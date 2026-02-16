@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Feb 2026
+*  DATE:        14 Feb 2026
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -1480,7 +1480,7 @@ public class CForwarderEntry
 {
     public string TargetModuleName;      // Raw module token from forward string (before resolution)
     public string TargetFunctionName;    // Empty if by ordinal
-    public uint TargetOrdinal;           // UInt32.MaxValue if by name
+    public uint TargetOrdinal;           // CConsts.OrdinalNotPresent if by name
 
     public override int GetHashCode()
     {

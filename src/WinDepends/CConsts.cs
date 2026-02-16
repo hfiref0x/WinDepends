@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Feb 2026
+*  DATE:        16 Feb 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -233,6 +233,9 @@ public static class CConsts
     public const int SERVER_ERROR_INVALIDIP = 3;
     public const int SERVER_ERROR_BIND = 4;
     public const int SERVER_ERROR_LISTEN = 5;
+
+    public const UInt32 OrdinalNotPresent = UInt32.MaxValue;
+    public const UInt32 HintNotPresent = UInt32.MaxValue;
 
     /// <summary>
     /// Msg: OK

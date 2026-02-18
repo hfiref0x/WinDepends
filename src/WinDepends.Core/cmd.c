@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Dec 20, 2025
+*  Modified on: Feb 11, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -14,25 +14,24 @@
 
 typedef struct {
     wchar_t* cmd;
-    size_t length;
     cmd_entry_type type;
 } cmd_entry, * pcmd_entry;
 
 // Command line array sorted for binary search.
 static const cmd_entry cmds[] = {
-    {L"apisetmapsrc", 12, ce_apisetmapsrc },
-    {L"apisetnsinfo", 12, ce_apisetnsinfo },
-    {L"apisetresolve", 13, ce_apisetresolve },
-    {L"callstats", 9, ce_callstats },
-    {L"close", 5, ce_close },
-    {L"datadirs", 8, ce_datadirs },
-    {L"exit", 4, ce_exit },
-    {L"exports", 7, ce_exports },
-    {L"headers", 7, ce_headers },
-    {L"imports", 7, ce_imports },
-    {L"knowndlls", 9, ce_knowndlls },
-    {L"open", 4, ce_open },
-    {L"shutdown", 8, ce_shutdown }
+    {L"apisetmapsrc",   ce_apisetmapsrc },
+    {L"apisetnsinfo",   ce_apisetnsinfo },
+    {L"apisetresolve",  ce_apisetresolve },
+    {L"callstats",      ce_callstats },
+    {L"close",          ce_close },
+    {L"datadirs",       ce_datadirs },
+    {L"exit",           ce_exit },
+    {L"exports",        ce_exports },
+    {L"headers",        ce_headers },
+    {L"imports",        ce_imports },
+    {L"knowndlls",      ce_knowndlls },
+    {L"open",           ce_open },
+    {L"shutdown",       ce_shutdown }
 };
 
 /*
@@ -48,18 +47,17 @@ cmd_entry_type get_command_entry(
 )
 {
     int left = 0, right = ARRAYSIZE(cmds) - 1;
+    int mid, cmp;
+
     while (left <= right) {
-        int mid = left + (right - left) / 2;
-        int cmp = wcsncmp(cmds[mid].cmd, cmd, cmds[mid].length);
-        if (cmp == 0) {
+        mid = left + (right - left) / 2;
+        cmp = wcscmp(cmds[mid].cmd, cmd);
+        if (cmp == 0)
             return cmds[mid].type;
-        }
-        if (cmp < 0) {
+        if (cmp < 0)
             left = mid + 1;
-        }
-        else {
+        else
             right = mid - 1;
-        }
     }
     return ce_unknown;
 }
@@ -162,12 +160,12 @@ void cmd_query_knowndlls_list(
     if (is_wow64) {
         dlls_head = &gsup.KnownDlls32Head;
         dlls_path = gsup.KnownDlls32Path;
-        sz = MAX_PATH + gsup.KnownDlls32NameCbMax + gsup.KnownDlls32PathCbMax;
+        sz = (MAX_PATH * sizeof(WCHAR)) + gsup.KnownDlls32NameCbMax + gsup.KnownDlls32PathCbMax;
     }
     else {
         dlls_head = &gsup.KnownDllsHead;
         dlls_path = gsup.KnownDllsPath;
-        sz = MAX_PATH + gsup.KnownDllsNameCbMax + gsup.KnownDllsPathCbMax;
+        sz = (MAX_PATH * sizeof(WCHAR)) + gsup.KnownDllsNameCbMax + gsup.KnownDllsPathCbMax;
     }
 
     if (sz == 0 || dlls_path == NULL) {

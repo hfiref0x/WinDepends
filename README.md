@@ -37,9 +37,9 @@ WinDepends is a rewrite of the [Dependency Walker](https://www.dependencywalker.
 
 ### Missing features / Known issues
 
-* Current state: **BETA**. Some Dependency Walker features are unimplemented (e.g., profiling).
+* Current state: **Release Candidate 1**. Some Dependency Walker features are unimplemented (e.g., profiling).
 * MDI GUI discontinued; launch multiple instances to analyze multiple files.
-* Some functionality may not work as expected or be disabled in beta.
+* Some functionality may not work as expected or be disabled until Release.
 * ARM binaries untested in native environments (lack of bare-metal hardware).
 * Some limitations stem from Windows OS support.
 * Found a bug? Have suggestions? Submit issues or pull requests! We appreciate your input!

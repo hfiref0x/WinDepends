@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CFUNCTION.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2025
+*  DATE:        14 Feb 2026
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -140,7 +140,7 @@ public struct FunctionHashObject(string functionName, string importLibrary, UInt
             hash = hash * 23 + (FunctionName?.GetHashCode() ?? 0);
             hash = hash * 23 + (ImportLibrary?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0);
 
-            if (FunctionOrdinal != UInt32.MaxValue)
+            if (FunctionOrdinal != CConsts.OrdinalNotPresent)
             {
                 hash = hash * 23 + FunctionOrdinal.GetHashCode();
             }
@@ -180,9 +180,9 @@ public class CFunction
     [DataMember]
     public string UndecoratedName { get; set; } = string.Empty;
     [DataMember]
-    public UInt32 Ordinal { get; set; } = UInt32.MaxValue;
+    public UInt32 Ordinal { get; set; } = CConsts.OrdinalNotPresent;
     [DataMember]
-    public UInt32 Hint { get; set; } = UInt32.MaxValue;
+    public UInt32 Hint { get; set; } = CConsts.HintNotPresent;
     [DataMember]
     public UInt64 Address { get; set; }
     [DataMember]
@@ -192,7 +192,7 @@ public class CFunction
     [DataMember]
     public FunctionKind Kind { get; set; } = FunctionKind.ImportUnresolvedFunction;
 
-    public bool SnapByOrdinal() => (Ordinal != UInt32.MaxValue && string.IsNullOrEmpty(RawName));
+    public bool SnapByOrdinal() => (Ordinal != CConsts.OrdinalNotPresent && string.IsNullOrEmpty(RawName));
     public bool IsForward() => (!string.IsNullOrEmpty(ForwardName));
     public bool IsNameDecorated() => !string.IsNullOrEmpty(RawName) && RawName.StartsWith('?');
 
@@ -349,11 +349,163 @@ public class CFunction
         FunctionHashObject funcHashObject = new(fileName, rawName, function.Ordinal);
         var uniqueKey = funcHashObject.GenerateUniqueKey();
 
-        funcHashObject.FunctionOrdinal = UInt32.MaxValue;
+        funcHashObject.FunctionOrdinal = CConsts.OrdinalNotPresent;
         var uniqueKeyNoOrdinal = funcHashObject.GenerateUniqueKey();
 
         return parentImportsHashTable.ContainsKey(uniqueKey) ||
                parentImportsHashTable.ContainsKey(uniqueKeyNoOrdinal);
+    }
+
+    /// <summary>
+    /// Checks if a forwarded export can be resolved in the target module.
+    /// </summary>
+    /// <param name="forwardName">The forward string (e.g., "libb.funcb" or "KERNEL32.WaitOnAddress").</param>
+    /// <param name="module">The module containing the forwarded export.</param>
+    /// <param name="modulesList">List of all loaded modules. </param>
+    /// <param name="maxDepth">Maximum depth of the modules tree view.</param>
+    /// <returns>True if the forward target is resolved; false if target module is missing or function not found.</returns>
+    public static bool IsForwardTargetResolved(string forwardName, CModule module, List<CModule> modulesList, int maxDepth)
+    {
+        if (string.IsNullOrEmpty(forwardName) || module == null || modulesList == null)
+            return false;
+
+        if (module.Depth >= maxDepth)
+            return true;
+
+        string targetModuleName = ExtractForwarderModule(forwardName);
+        if (string.IsNullOrEmpty(targetModuleName))
+            return false;
+
+        // Check if forward target is an API set - if so, skip validation
+        if (CCoreClient.IsModuleNameApiSetContract(targetModuleName) ||
+            CCoreClient.IsModuleNameApiSetContract(Path.GetFileNameWithoutExtension(targetModuleName)))
+        {
+            return true;
+        }
+
+        // Parse the function part of the forward
+        int dotIndex = forwardName.IndexOf('.');
+        if (dotIndex < 0 || dotIndex >= forwardName.Length - 1)
+            return false;
+
+        string targetFunctionPart = forwardName.Substring(dotIndex + 1);
+
+        // Check for self-forwarding: module forwards to itself
+        string currentModuleName = Path.GetFileName(module.FileName);
+        string currentModuleNameNoExt = Path.GetFileNameWithoutExtension(module.FileName);
+        bool isSelfForward = targetModuleName.Equals(currentModuleName, StringComparison.OrdinalIgnoreCase) ||
+                             targetModuleName.Equals(currentModuleNameNoExt, StringComparison.OrdinalIgnoreCase) ||
+                             (targetModuleName + ".dll").Equals(currentModuleName, StringComparison.OrdinalIgnoreCase);
+
+        if (isSelfForward)
+        {
+            if (module.ModuleData?.Exports == null || module.ModuleData.Exports.Count == 0)
+                return true;
+
+            if (targetFunctionPart.StartsWith('#'))
+            {
+                if (uint.TryParse(targetFunctionPart.Substring(1), out uint ordinal))
+                {
+                    return module.ModuleData.Exports.Any(f => f.Ordinal == ordinal);
+                }
+                return false;
+            }
+            else
+            {
+                return module.ModuleData.Exports.Any(f =>
+                    f.RawName.Equals(targetFunctionPart, StringComparison.Ordinal));
+            }
+        }
+
+        // If this module is an apiset contract, skip forward validation entirely. 
+        // Apiset modules are virtual redirectors - their forwards point to the real
+        // implementation DLL which may not be in our dependents list because
+        // the apiset itself resolved to that DLL (circular reference stopped).
+        if (module.IsApiSetContract)
+        {
+            return true;
+        }
+
+        // Check if this is a duplicate/stopped node: 
+        // - Has forwarder entries (so it should have forward targets as dependents)
+        // - But dependents list is empty or null
+        // This happens when tree propagation was stopped to prevent infinite loops. 
+        if (module.IsStoppedNode)
+        {
+            // For stopped nodes, try to validate against global modulesList only. 
+            // If we can't find the target there, assume valid to avoid false positives. 
+            CModule targetInGlobal = modulesList.FirstOrDefault(m =>
+                !m.IsApiSetContract &&
+                (Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(m.FileName).Equals(targetModuleName + ".dll", StringComparison.OrdinalIgnoreCase)));
+
+            if (targetInGlobal == null)
+            {
+                // Target not in global list - can't validate, assume valid
+                return true;
+            }
+
+            // Found in global list, validate the function
+            if (targetInGlobal.FileNotFound || targetInGlobal.IsInvalid)
+                return false;
+
+            if (targetInGlobal.ModuleData?.Exports == null || targetInGlobal.ModuleData.Exports.Count == 0)
+                return true;
+
+            if (targetFunctionPart.StartsWith('#'))
+            {
+                if (uint.TryParse(targetFunctionPart.Substring(1), out uint ordinal))
+                {
+                    return targetInGlobal.ModuleData.Exports.Any(f => f.Ordinal == ordinal);
+                }
+                return false;
+            }
+            else
+            {
+                return targetInGlobal.ModuleData.Exports.Any(f =>
+                    f.RawName.Equals(targetFunctionPart, StringComparison.Ordinal));
+            }
+        }
+
+        // Normal case: module has dependents, search there first
+        CModule targetModule = null;
+
+        if (module.Dependents != null && module.Dependents.Count > 0)
+        {
+            targetModule = module.Dependents.FirstOrDefault(d =>
+                !d.IsApiSetContract &&
+                (Path.GetFileName(d.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(d.RawFileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // Fall back to modulesList
+        if (targetModule == null)
+        {
+            targetModule = modulesList.FirstOrDefault(m =>
+                !m.IsApiSetContract &&
+                (Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(m.FileName).Equals(targetModuleName + ".dll", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (targetModule == null || targetModule.FileNotFound || targetModule.IsInvalid)
+            return false;
+
+        if (targetModule.ModuleData?.Exports == null || targetModule.ModuleData.Exports.Count == 0)
+            return true;
+
+        if (targetFunctionPart.StartsWith('#'))
+        {
+            if (uint.TryParse(targetFunctionPart.Substring(1), out uint ordinal))
+            {
+                return targetModule.ModuleData.Exports.Any(f => f.Ordinal == ordinal);
+            }
+            return false;
+        }
+        else
+        {
+            return targetModule.ModuleData.Exports.Any(f =>
+                f.RawName.Equals(targetFunctionPart, StringComparison.Ordinal));
+        }
     }
 
     /// <summary>
@@ -362,17 +514,23 @@ public class CFunction
     /// <param name="module">The module containing the function.</param>
     /// <param name="modulesList">The list of all modules in the dependency tree.</param>
     /// <param name="parentImportsHashTable">Hash table of parent imports for lookup.</param>
+    /// <param name="maxDepth">Maximum depth of the modules tree view.</param>
+    /// <param name="expandForwarders">Whether forwarder expansion is enabled.</param>
     /// <returns>
     /// <c>true</c> if the function kind was successfully resolved; otherwise, <c>false</c>.
     /// </returns>
     /// <remarks>
     /// This method updates the <see cref="Kind"/> property based on a comprehensive analysis
     /// of the function's relationship to other modules in the dependency tree.
+    /// When forwarder expansion is disabled, forwarded exports are not checked against
+    /// the dependency tree since forward target modules are not expected to be present.
     /// </remarks>
     public bool ResolveFunctionKind(
         CModule module,
         List<CModule> modulesList,
-        Dictionary<int, FunctionHashObject> parentImportsHashTable)
+        Dictionary<int, FunctionHashObject> parentImportsHashTable,
+        int maxDepth,
+        bool expandForwarders = true)
     {
         FunctionKind newKind;
         List<CFunction> functionList;
@@ -390,8 +548,33 @@ public class CFunction
 
         if (IsExportFunction)
         {
-            // Export function processing.
+            // Check if this is a forward with unresolved target.
+            // Only validate forward targets when expansion is both
+            // enabled and the tree depth allows it (depth is checked in the IsForwardTargetResolved).
+            if (isForward && expandForwarders)
+            {
+                bool forwardTargetResolved = IsForwardTargetResolved(ForwardName, module, modulesList, maxDepth);
+                if (!forwardTargetResolved)
+                {
+                    // Forward target module is missing or function not found in target
+                    if (isOrdinal)
+                    {
+                        newKind = FunctionKind.ImportUnresolvedOrdinal;
+                    }
+                    else if (isCPlusPlusName)
+                    {
+                        newKind = FunctionKind.ImportUnresolvedCPlusPlusFunction;
+                    }
+                    else
+                    {
+                        newKind = FunctionKind.ImportUnresolvedFunction;
+                    }
+                    Kind = newKind;
+                    return true;
+                }
+            }
 
+            // Export function processing.
             bCalledAtLeastOnce = IsFunctionCalledAtLeastOnce(parentImportsHashTable, module, this);
 
             newKind = FunctionKind.ExportFunction;
@@ -571,7 +754,7 @@ public class CFunction
 /// It handles special comparison logic for entry points, ordinals, hints, function names and image types.
 /// 
 /// The comparison logic handles decorated function names, forwarded functions, and special values
-/// like <see cref="UInt32.MaxValue"/> which are used to indicate unset ordinals or hints.
+/// like <see cref="CConsts.OrdinalNotPresent"/> which are used to indicate unset ordinals and <see cref="CConsts.HintNotPresent"/> for hints.
 /// </remarks>
 public class CFunctionComparer : IComparer<CFunction>
 {
@@ -629,8 +812,8 @@ public class CFunctionComparer : IComparer<CFunction>
             case (int)FunctionsColumns.Ordinal:
                 {
                     // Special handling for Ordinal
-                    bool xHasOrdinal = x.Ordinal != UInt32.MaxValue;
-                    bool yHasOrdinal = y.Ordinal != UInt32.MaxValue;
+                    bool xHasOrdinal = x.Ordinal != CConsts.OrdinalNotPresent;
+                    bool yHasOrdinal = y.Ordinal != CConsts.OrdinalNotPresent;
 
                     if (!xHasOrdinal && !yHasOrdinal)
                         result = 0;
@@ -646,8 +829,8 @@ public class CFunctionComparer : IComparer<CFunction>
             case (int)FunctionsColumns.Hint:
                 {
                     // Similar special handling for Hint
-                    bool xHasHint = x.Hint != UInt32.MaxValue;
-                    bool yHasHint = y.Hint != UInt32.MaxValue;
+                    bool xHasHint = x.Hint != CConsts.HintNotPresent;
+                    bool yHasHint = y.Hint != CConsts.HintNotPresent;
 
                     if (!xHasHint && !yHasHint)
                         result = 0;

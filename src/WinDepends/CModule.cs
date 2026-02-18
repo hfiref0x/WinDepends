@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CMODULE.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Dec 2025
+*  DATE:        14 Feb 2026
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -1081,57 +1081,49 @@ public class CModule
     public int GetIconIndexForModule()
     {
         bool is64bit = Is64bitArchitecture();
-        bool bDuplicate = OriginalInstanceId != 0;
-        bool bDuplicateAndExportError = bDuplicate && ExportContainErrors;
+        bool isDuplicate = OriginalInstanceId != 0;
+        bool exportError = ExportContainErrors;
+        bool otherError = OtherErrorsPresent;
 
         if (IsDotNetModule)
         {
             if (IsInvalid)
-            {
                 return (int)ModuleIconType.InvalidModule;
-            }
 
             if (FileNotFound)
-            {
                 return (int)ModuleIconType.MissingModule;
-            }
 
-            if (bDuplicateAndExportError)
+            if (isDuplicate)
             {
-                return is64bit ? (int)ModuleIconType.DuplicateDotNetModuleWarning64 : (int)ModuleIconType.DuplicateDotNetModuleWarning;
-            }
-            if (bDuplicate)
-            {
+                if (exportError)
+                    return is64bit ? (int)ModuleIconType.DuplicateDotNetModuleWarning64 : (int)ModuleIconType.DuplicateDotNetModuleWarning;
+
                 return is64bit ? (int)ModuleIconType.DuplicateDotNetModule64 : (int)ModuleIconType.DuplicateDotNetModule;
             }
 
-            return is64bit ? (ExportContainErrors ? (int)ModuleIconType.WarningDotNetModule64 : (int)ModuleIconType.NormalDotNetModule64) :
-                (ExportContainErrors ? (int)ModuleIconType.WarningDotNetModule : (int)ModuleIconType.NormalDotNetModule);
+            if (exportError)
+                return is64bit ? (int)ModuleIconType.WarningDotNetModule64 : (int)ModuleIconType.WarningDotNetModule;
+
+            return is64bit ? (int)ModuleIconType.NormalDotNetModule64 : (int)ModuleIconType.NormalDotNetModule;
         }
 
         if (IsDelayLoad)
         {
             if (IsInvalid)
-            {
                 return (int)ModuleIconType.InvalidDelayLoadModule;
-            }
 
             if (FileNotFound)
-            {
                 return (int)ModuleIconType.MissingDelayLoadModule;
-            }
 
-            if (bDuplicateAndExportError)
+            if (isDuplicate)
             {
-                return is64bit ? (int)ModuleIconType.DelayLoadModule64DuplicateWarning : (int)ModuleIconType.DelayLoadModuleDuplicateWarning;
-            }
+                if (exportError)
+                    return is64bit ? (int)ModuleIconType.DelayLoadModule64DuplicateWarning : (int)ModuleIconType.DelayLoadModuleDuplicateWarning;
 
-            if (bDuplicate)
-            {
                 return is64bit ? (int)ModuleIconType.DelayLoadModule64Duplicate : (int)ModuleIconType.DelayLoadModuleDuplicate;
             }
 
-            if (ExportContainErrors || OtherErrorsPresent)
+            if (exportError || otherError)
             {
                 return is64bit ? (int)ModuleIconType.DelayLoadModule64Warning : (int)ModuleIconType.DelayLoadModuleWarning;
             }
@@ -1142,55 +1134,48 @@ public class CModule
         if (IsForward)
         {
             if (IsInvalid)
-            {
                 return (int)ModuleIconType.InvalidForwardedModule;
-            }
 
             if (FileNotFound)
-            {
                 return (int)ModuleIconType.MissingForwardedModule;
-            }
 
-            if (bDuplicateAndExportError)
+            if (isDuplicate)
             {
-                return is64bit ? (int)ModuleIconType.ForwardedModule64DuplicateWarning : (int)ModuleIconType.ForwardedModuleDuplicateWarning;
-            }
+                if (exportError)
+                    return is64bit ? (int)ModuleIconType.ForwardedModule64DuplicateWarning : (int)ModuleIconType.ForwardedModuleDuplicateWarning;
 
-            if (bDuplicate)
-            {
                 return is64bit ? (int)ModuleIconType.ForwardedModule64Duplicate : (int)ModuleIconType.ForwardedModuleDuplicate;
             }
 
-            if (ExportContainErrors || OtherErrorsPresent)
-            {
+            if (exportError || otherError)
                 return is64bit ? (int)ModuleIconType.ForwardedModule64Warning : (int)ModuleIconType.ForwardedModuleWarning;
-            }
 
             return is64bit ? (int)ModuleIconType.ForwardedModule64 : (int)ModuleIconType.ForwardedModule;
         }
 
         if (IsInvalid)
-        {
             return (int)ModuleIconType.InvalidModule;
-        }
 
         if (FileNotFound)
-        {
             return (int)ModuleIconType.MissingModule;
-        }
 
-        if (bDuplicate)
+        if (isDuplicate)
         {
+            if (exportError || otherError)
+                return is64bit ? (int)ModuleIconType.DuplicateModule64Warning : (int)ModuleIconType.DuplicateModuleWarning;
+
             return is64bit ? (int)ModuleIconType.DuplicateModule64 : (int)ModuleIconType.DuplicateModule;
         }
 
-        if (OtherErrorsPresent)
+        if (otherError)
         {
             return is64bit ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.WarningModule;
         }
 
-        return is64bit ? (ExportContainErrors ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.NormalModule64) :
-            (ExportContainErrors ? (int)ModuleIconType.WarningModule : (int)ModuleIconType.NormalModule);
+        if (exportError)
+            return is64bit ? (int)ModuleIconType.WarningModule64 : (int)ModuleIconType.WarningModule;
+
+        return is64bit ? (int)ModuleIconType.NormalModule64 : (int)ModuleIconType.NormalModule;
     }
 
     /// <summary>
@@ -1372,6 +1357,9 @@ public class CModule
 
         return null;
     }
+
+    public bool IsStoppedNode => (Dependents == null || Dependents.Count == 0) &&
+                             (ForwarderEntries != null && ForwarderEntries.Count > 0);
 }
 
 /// <summary>
@@ -1492,7 +1480,7 @@ public class CForwarderEntry
 {
     public string TargetModuleName;      // Raw module token from forward string (before resolution)
     public string TargetFunctionName;    // Empty if by ordinal
-    public uint TargetOrdinal;           // UInt32.MaxValue if by name
+    public uint TargetOrdinal;           // CConsts.OrdinalNotPresent if by name
 
     public override int GetHashCode()
     {

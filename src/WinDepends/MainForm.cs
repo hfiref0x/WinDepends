@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       MAINFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 Dec 2025
+*  DATE:        14 Feb 2026
 *  
 *  Codename:    VasilEk
 *
@@ -379,6 +379,9 @@ public partial class MainForm : Form
                     _coreClient.ExpandAllForwarderModules(module, _configuration.SearchOrderListUM,
                         _configuration.SearchOrderListKM,
                         _parentImportsHashTable);
+
+                    // Validate forwarded exports after expansion
+                    _coreClient.ValidateForwardedExports(module);
                 }
 
                 CCoreCallStats stats = null;
@@ -403,6 +406,13 @@ public partial class MainForm : Form
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
+                // Add warning for modules with forwarding issues
+                if (module.OtherErrorsPresent && module.ForwarderEntries?.Count > 0)
+                {
+                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
+                        LogMessageType.ErrorOrWarning, null, true, true, module);
+                }
+
                 bool isCpuMismatch = IsCpuMismatchForDisplay(module, _depends.RootModule);
 
                 if (isCpuMismatch)
@@ -416,7 +426,7 @@ public partial class MainForm : Form
                 if (module.ModuleData.ImageFixed != 0 &&
                     !module.IsKernelModule &&
                     module.ModuleData.ImageDotNet != 1 &&
-                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested
+                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested (as per issue #39)
                 {
                     module.OtherErrorsPresent = true;
                     AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
@@ -645,9 +655,39 @@ public partial class MainForm : Form
             module.FileNotFound = origInstance.FileNotFound;
             module.ExportContainErrors = origInstance.ExportContainErrors;
             module.IsInvalid = origInstance.IsInvalid;
-            module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+            // Do not copy OtherErrorsPresent from original instance, must set it directly
+            // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
             module.IsDotNetModule = origInstance.IsDotNetModule;
             module.ModuleData = new(origInstance.ModuleData);
+
+            // Propagate errors from duplicate to parent if this is not root
+            if (parentNode?.Tag is CModule parent)
+            {
+                // Only propagate genuine errors, not from apiset contracts or stopped nodes
+                bool shouldPropagate = origInstance.ExportContainErrors ||
+                                       origInstance.OtherErrorsPresent ||
+                                       origInstance.FileNotFound;
+
+                // Don't propagate from apiset contracts
+                if (origInstance.IsApiSetContract)
+                    shouldPropagate = false;
+
+                // Don't propagate from stopped/duplicate nodes that have forwarders
+                // (these are expected to have "unprocessed" forwarders)
+                if (shouldPropagate)
+                {
+                    if (origInstance.IsStoppedNode)
+                        shouldPropagate = false;
+                }
+
+                if (shouldPropagate)
+                {
+                    parent.OtherErrorsPresent = true;
+                    parent.ModuleImageIndex = parent.GetIconIndexForModule();
+                    parentNode.ImageIndex = parent.ModuleImageIndex;
+                    parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+                }
+            }
         }
 
         // 3. Run custom processing if this is a new module
@@ -665,12 +705,12 @@ public partial class MainForm : Form
         }
 
         // Mark forward user as red if there is no forward module.
-        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parent)
+        if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parentMod)
         {
-            parent.OtherErrorsPresent = true;
-            parent.ModuleImageIndex = parent.GetIconIndexForModule();
-            parentNode.ImageIndex = parent.ModuleImageIndex;
-            parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+            parentMod.OtherErrorsPresent = true;
+            parentMod.ModuleImageIndex = parentMod.GetIconIndexForModule();
+            parentNode.ImageIndex = parentMod.ModuleImageIndex;
+            parentNode.SelectedImageIndex = parentMod.ModuleImageIndex;
         }
 
         // 5. Create the tree node
@@ -3075,8 +3115,8 @@ public partial class MainForm : Form
         //
         // Update function icons.
         //
-        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList);
-        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList);
+        ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList, _configuration);
+        ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList, _configuration);
 
         UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
         UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
@@ -3090,11 +3130,11 @@ public partial class MainForm : Form
             }
         }
 
-        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList)
+        void ResolveFunctionKindForList(List<CFunction> currentList, CModule module, List<CModule> modulesList, CConfiguration config)
         {
             foreach (CFunction function in currentList)
             {
-                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable);
+                function.ResolveFunctionKind(module, modulesList, _parentImportsHashTable, config.ModuleNodeDepthMax, config.ExpandForwarders);
             }
         }
     }
@@ -3808,7 +3848,7 @@ public partial class MainForm : Form
         // Search by ordinal.
         if (string.IsNullOrEmpty(_searchFunctionName))
         {
-            if (_searchOrdinal != UInt32.MaxValue)
+            if (_searchOrdinal != CConsts.OrdinalNotPresent)
             {
                 foreach (var entry in itemList)
                 {
@@ -3833,7 +3873,7 @@ public partial class MainForm : Form
             }
 
             // If item is not found, search by ordinal if possible.
-            if (_searchOrdinal != UInt32.MaxValue)
+            if (_searchOrdinal != CConsts.OrdinalNotPresent)
             {
                 foreach (var entry in itemList)
                 {
@@ -4016,7 +4056,7 @@ public partial class MainForm : Form
 
         List<CFunction> currentList = lvDst == LVImports ? _currentImportsList : _currentExportsList;
 
-        _searchOrdinal = UInt32.MaxValue;
+        _searchOrdinal = CConsts.OrdinalNotPresent;
         _searchFunctionName = string.Empty;
 
         var matchingItem = currentList.FirstOrDefault(item => item.RawName.StartsWith(_functionLookupText, StringComparison.OrdinalIgnoreCase));

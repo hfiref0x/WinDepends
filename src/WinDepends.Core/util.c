@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Dec 20, 2025
+*  Modified on: Feb 11, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -233,7 +233,7 @@ int sendstring_plaintext(
         context->total_time_spent += timeTaken;
     }
 
-    return (result >= 0);
+    return result;
 }
 
 __forceinline wchar_t locase_w(_In_ wchar_t c)
@@ -613,6 +613,9 @@ void utils_init()
     QueryPerformanceFrequency(&gsup.PerformanceFrequency);
 
     gsup.ApiSetMap = NtCurrentPeb()->ApiSetMap;
+    if (gsup.ApiSetMap == NULL) {
+        return;
+    }
 
     HMODULE hNtdll = GetModuleHandle(L"ntdll.dll");
     if (hNtdll == NULL) {

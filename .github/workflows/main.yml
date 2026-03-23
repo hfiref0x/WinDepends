@@ -49,45 +49,41 @@ jobs:
           /p:Configuration=${{ env.BUILD_CONFIGURATION }}
           /p:PlatformToolset=v143
 
-      - name: Collect files
+      - name: Collect application files
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path Package\Files | Out-Null
-          New-Item -ItemType Directory -Force -Path Package\Pdbs | Out-Null
+          New-Item -ItemType Directory -Force -Path Package\Application | Out-Null
 
           $frontendPublishOut = "Package\Publish\WinDepends"
           $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
 
-          Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Files\WinDepends.exe" -Force
-          Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Files\WinDepends.Core.x64.exe" -Force
+          Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Application" -Force
+          Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Application" -Force
+
+      - name: Collect PDB files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path Package\PDBs | Out-Null
+
+          $frontendPublishOut = "Package\Publish\WinDepends"
+          $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
 
           if (Test-Path "$frontendPublishOut\WinDepends.pdb") {
-            Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\Pdbs\WinDepends.pdb" -Force
+            Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\PDBs" -Force
           }
 
           if (Test-Path "$backendOut\WinDepends.Core.x64.pdb") {
-            Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\Pdbs\WinDepends.Core.x64.pdb" -Force
+            Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\PDBs" -Force
           }
 
-      - name: Pack binaries
-        shell: pwsh
-        working-directory: Package\Files
-        run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot.zip -Force
-
-      - name: Pack PDBs
-        shell: pwsh
-        working-directory: Package\Pdbs
-        run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot_pdbs.zip -Force
-
-      - name: Upload binaries archive
+      - name: Upload WinDepends snapshot
         uses: actions/upload-artifact@v6
         with:
           name: WinDepends_snapshot
-          path: WinDepends_snapshot.zip
+          path: Package\Application\*
 
-      - name: Upload symbols archive
+      - name: Upload WinDepends PDBs
         uses: actions/upload-artifact@v6
         with:
           name: WinDepends_snapshot_pdbs
-          path: WinDepends_snapshot_pdbs.zip
-          
+          path: Package\PDBs\*

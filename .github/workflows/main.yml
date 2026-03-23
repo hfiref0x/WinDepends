@@ -79,11 +79,13 @@ jobs:
 
       - name: Create application archive
         shell: pwsh
-        run: Compress-Archive -Path Package\Application\* -DestinationPath WinDepends_snapshot.zip -Force
+        working-directory: Package\Application
+        run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot.zip -Force
 
       - name: Create symbols archive
         shell: pwsh
-        run: Compress-Archive -Path Package\Symbols\* -DestinationPath WinDepends_snapshot_pds.zip -Force
+        working-directory: Package\Symbols
+        run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot_pds.zip -Force
 
       - name: Upload application archive
         uses: actions/upload-artifact@v6

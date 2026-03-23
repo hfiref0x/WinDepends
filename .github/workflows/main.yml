@@ -1,0 +1,84 @@
+name: Build WinDepends and WinDepends.Core
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+env:
+  BUILD_CONFIGURATION: Release
+  PLATFORM: x64
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore WinDepends
+        run: dotnet restore src\WinDepends.sln
+
+      - name: Publish WinDepends
+        run: >
+          dotnet publish src\WinDepends\WinDepends.csproj
+          -c ${{ env.BUILD_CONFIGURATION }}
+          -p:Platform=${{ env.PLATFORM }}
+          --no-restore
+          -o Package\_publish\WinDepends
+
+      - name: Build WinDepends.Core
+        run: >
+          msbuild src\WinDepends.Core\WinDepends.Core.vcxproj
+          /m
+          /p:Platform=${{ env.PLATFORM }}
+          /p:Configuration=${{ env.BUILD_CONFIGURATION }}
+
+      - name: Prepare package layout
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path Package\Application | Out-Null
+          New-Item -ItemType Directory -Force -Path Package\Symbols | Out-Null
+
+          $frontendPublishOut = "Package\_publish\WinDepends"
+          $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
+
+          Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Application\WinDepends.exe" -Force
+          Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Application\WinDepends.Core.x64.exe" -Force
+
+          Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\Symbols\WinDepends.pdb" -Force -ErrorAction SilentlyContinue
+          Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\Symbols\WinDepends.Core.x64.pdb" -Force -ErrorAction SilentlyContinue
+
+      - name: Create application archive
+        shell: pwsh
+        run: Compress-Archive -Path Package\Application\* -DestinationPath WinDepends_snapshot.zip -Force
+
+      - name: Create symbols archive
+        shell: pwsh
+        run: Compress-Archive -Path Package\Symbols\* -DestinationPath WinDepends_snapshot_pds.zip -Force
+
+      - name: Upload application archive
+        uses: actions/upload-artifact@v6
+        with:
+          name: WinDepends_snapshot
+          path: WinDepends_snapshot.zip
+
+      - name: Upload symbols archive
+        uses: actions/upload-artifact@v6
+        with:
+          name: WinDepends_snapshot_pds
+          path: WinDepends_snapshot_pds.zip

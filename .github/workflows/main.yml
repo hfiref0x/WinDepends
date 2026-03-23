@@ -38,8 +38,8 @@ jobs:
           dotnet publish src\WinDepends\WinDepends.csproj
           -c ${{ env.BUILD_CONFIGURATION }}
           -p:Platform=${{ env.PLATFORM }}
+          -p:PublishProfile=FolderProfile
           --no-restore
-          -o Package\Publish\WinDepends
 
       - name: Build WinDepends.Core
         run: >
@@ -54,8 +54,16 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path Package\Application | Out-Null
 
-          $frontendPublishOut = "Package\Publish\WinDepends"
+          $frontendPublishOut = "src\WinDepends\bin\publish\win-x64"
           $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
+
+          if (!(Test-Path "$frontendPublishOut\WinDepends.exe")) {
+            throw "Published WinDepends.exe not found in $frontendPublishOut"
+          }
+
+          if (!(Test-Path "$backendOut\WinDepends.Core.x64.exe")) {
+            throw "WinDepends.Core.x64.exe not found in $backendOut"
+          }
 
           Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Application" -Force
           Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Application" -Force
@@ -65,7 +73,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path Package\PDBs | Out-Null
 
-          $frontendPublishOut = "Package\Publish\WinDepends"
+          $frontendPublishOut = "src\WinDepends\bin\publish\win-x64"
           $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
 
           if (Test-Path "$frontendPublishOut\WinDepends.pdb") {

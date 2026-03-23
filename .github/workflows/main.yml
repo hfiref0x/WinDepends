@@ -39,7 +39,7 @@ jobs:
           -c ${{ env.BUILD_CONFIGURATION }}
           -p:Platform=${{ env.PLATFORM }}
           --no-restore
-          -o Package\_publish\WinDepends
+          -o Package\Publish\WinDepends
 
       - name: Build WinDepends.Core
         run: >
@@ -49,45 +49,37 @@ jobs:
           /p:Configuration=${{ env.BUILD_CONFIGURATION }}
           /p:PlatformToolset=v143
 
-      - name: Prepare package layout
+      - name: Collect files
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path Package\Application | Out-Null
-          New-Item -ItemType Directory -Force -Path Package\Symbols | Out-Null
+          New-Item -ItemType Directory -Force -Path Package\Files | Out-Null
+          New-Item -ItemType Directory -Force -Path Package\Pdbs | Out-Null
 
-          $frontendPublishOut = "Package\_publish\WinDepends"
+          $frontendPublishOut = "Package\Publish\WinDepends"
           $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
 
-          if (!(Test-Path "$frontendPublishOut\WinDepends.exe")) {
-            throw "WinDepends.exe not found in publish output: $frontendPublishOut"
-          }
-
-          if (!(Test-Path "$backendOut\WinDepends.Core.x64.exe")) {
-            throw "WinDepends.Core.x64.exe not found in build output: $backendOut"
-          }
-
-          Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Application\WinDepends.exe" -Force
-          Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Application\WinDepends.Core.x64.exe" -Force
+          Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Files\WinDepends.exe" -Force
+          Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Files\WinDepends.Core.x64.exe" -Force
 
           if (Test-Path "$frontendPublishOut\WinDepends.pdb") {
-            Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\Symbols\WinDepends.pdb" -Force
+            Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\Pdbs\WinDepends.pdb" -Force
           }
 
           if (Test-Path "$backendOut\WinDepends.Core.x64.pdb") {
-            Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\Symbols\WinDepends.Core.x64.pdb" -Force
+            Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\Pdbs\WinDepends.Core.x64.pdb" -Force
           }
 
-      - name: Create application archive
+      - name: Pack binaries
         shell: pwsh
-        working-directory: Package\Application
+        working-directory: Package\Files
         run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot.zip -Force
 
-      - name: Create symbols archive
+      - name: Pack PDBs
         shell: pwsh
-        working-directory: Package\Symbols
-        run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot_pds.zip -Force
+        working-directory: Package\Pdbs
+        run: Compress-Archive -Path * -DestinationPath ..\..\WinDepends_snapshot_pdbs.zip -Force
 
-      - name: Upload application archive
+      - name: Upload binaries archive
         uses: actions/upload-artifact@v6
         with:
           name: WinDepends_snapshot
@@ -96,5 +88,6 @@ jobs:
       - name: Upload symbols archive
         uses: actions/upload-artifact@v6
         with:
-          name: WinDepends_snapshot_pds
-          path: WinDepends_snapshot_pds.zip
+          name: WinDepends_snapshot_pdbs
+          path: WinDepends_snapshot_pdbs.zip
+          

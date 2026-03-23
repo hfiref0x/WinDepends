@@ -26,7 +26,7 @@ jobs:
         uses: microsoft/setup-msbuild@v3
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -47,6 +47,7 @@ jobs:
           /m
           /p:Platform=${{ env.PLATFORM }}
           /p:Configuration=${{ env.BUILD_CONFIGURATION }}
+          /p:PlatformToolset=v143
 
       - name: Prepare package layout
         shell: pwsh
@@ -57,11 +58,24 @@ jobs:
           $frontendPublishOut = "Package\_publish\WinDepends"
           $backendOut = "src\WinDepends.Core\output\${{ env.PLATFORM }}\${{ env.BUILD_CONFIGURATION }}"
 
+          if (!(Test-Path "$frontendPublishOut\WinDepends.exe")) {
+            throw "WinDepends.exe not found in publish output: $frontendPublishOut"
+          }
+
+          if (!(Test-Path "$backendOut\WinDepends.Core.x64.exe")) {
+            throw "WinDepends.Core.x64.exe not found in build output: $backendOut"
+          }
+
           Copy-Item "$frontendPublishOut\WinDepends.exe" "Package\Application\WinDepends.exe" -Force
           Copy-Item "$backendOut\WinDepends.Core.x64.exe" "Package\Application\WinDepends.Core.x64.exe" -Force
 
-          Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\Symbols\WinDepends.pdb" -Force -ErrorAction SilentlyContinue
-          Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\Symbols\WinDepends.Core.x64.pdb" -Force -ErrorAction SilentlyContinue
+          if (Test-Path "$frontendPublishOut\WinDepends.pdb") {
+            Copy-Item "$frontendPublishOut\WinDepends.pdb" "Package\Symbols\WinDepends.pdb" -Force
+          }
+
+          if (Test-Path "$backendOut\WinDepends.Core.x64.pdb") {
+            Copy-Item "$backendOut\WinDepends.Core.x64.pdb" "Package\Symbols\WinDepends.Core.x64.pdb" -Force
+          }
 
       - name: Create application archive
         shell: pwsh

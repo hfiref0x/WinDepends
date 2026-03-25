@@ -1,0 +1,5 @@
+VERSION 1.0
+
+EXPORTS
+    Firefly20_Export
+    Firefly20_DelayLoad

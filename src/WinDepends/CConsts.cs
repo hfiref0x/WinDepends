@@ -37,7 +37,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2602;
+    public const uint VersionBuild = 2603;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;

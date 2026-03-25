@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Feb 2026
+*  DATE:        18 Mar 2026
 *  
 *  Codename:    VasilEk
 *
@@ -3311,7 +3311,7 @@ public partial class MainForm : Form
         MenuCloseItem.Visible = bSessionAllocated;
     }
 
-    private CDepends LoadSessionObjectFromFile(string fileName, bool bIsCompressed = true)
+    private CDepends? LoadSessionObjectFromFile(string fileName, bool bIsCompressed = true)
     {
         try
         {
@@ -4000,19 +4000,28 @@ public partial class MainForm : Form
         if (_shutdownInProgress)
             return;
 
+        if (toolBarStatusLabel.Owner == null || toolBarStatusLabel.Owner.IsDisposed)
+            return;
+
         if (toolBarStatusLabel.Owner.InvokeRequired)
         {
             toolBarStatusLabel.Owner.BeginInvoke((MethodInvoker)delegate
             {
+                if (_shutdownInProgress)
+                    return;
+
+                if (toolBarStatusLabel.Owner == null || toolBarStatusLabel.Owner.IsDisposed)
+                    return;
+
                 toolBarStatusLabel.Text = status;
+                toolBarStatusLabel.Owner.Refresh();
             });
         }
         else
         {
             toolBarStatusLabel.Text = status;
+            toolBarStatusLabel.Owner.Refresh();
         }
-
-        Application.DoEvents();
     }
 
     private void ViewRefreshItem_Click(object sender, EventArgs e)

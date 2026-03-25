@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CCLIHANDLER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Nov 2025
+*  DATE:        18 Mar 2026
 *  
 *  Implementation of command-line interface handler.
 *
@@ -96,7 +96,7 @@ public static class CCliHandler
             string arg = args[i];
             string lowerArg = arg.ToLowerInvariant();
 
-            if (lowerArg == "-h" || lowerArg == "--help" || lowerArg == "-? ")
+            if (lowerArg == "-h" || lowerArg == "--help" || lowerArg == "-?")
             {
                 options.ShowHelp = true;
                 i++;
@@ -207,9 +207,11 @@ public static class CCliHandler
     /// </summary>
     public static int Run(string[] args)
     {
+        bool consoleAllocated = true;
+
         if (!AttachConsole(ATTACH_PARENT_PROCESS))
         {
-            AllocConsole();
+            consoleAllocated = AllocConsole();
         }
 
         try
@@ -259,7 +261,7 @@ public static class CCliHandler
         }
         finally
         {
-            FreeConsole();
+            if (consoleAllocated) FreeConsole();
         }
     }
 
@@ -319,7 +321,7 @@ public static class CCliHandler
         {
             if (!options.Quiet)
             {
-                string prefix = type == LogMessageType.ErrorOrWarning ? "[! ] " : "[*] ";
+                string prefix = type == LogMessageType.ErrorOrWarning ? "[!] " : "[*] ";
                 Console.WriteLine(prefix + message);
             }
         }
@@ -566,7 +568,7 @@ public static class CCliHandler
     {
         Console.WriteLine($@"
 WinDepends - Windows Dependency Analyzer
-Version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild}.{CConsts.VersionRevision}
+Version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild}
 
 Usage: WinDepends.exe <input-file> [options]
 

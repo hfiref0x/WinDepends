@@ -65,6 +65,8 @@ public partial class MainForm : Form
     /// </summary>
     CConfiguration _configuration;
 
+    readonly CFileOpenOrchestrationService _fileOpenOrchestrationService = new();
+
     /// <summary>
     /// Workaround for WinForms glitches.
     /// </summary>
@@ -1338,6 +1340,14 @@ public partial class MainForm : Form
         }
     }
 
+    private void SetOpenInputUiEnabled(bool isEnabled)
+    {
+        mainMenu.Enabled = isEnabled;
+        MainToolBar.Enabled = isEnabled;
+        TVModules.Enabled = isEnabled;
+        LVModules.Enabled = isEnabled;
+    }
+
     /// <summary>
     /// Disposes resources allocated for currently opened file and resets output controls.
     /// </summary>
@@ -1497,71 +1507,14 @@ public partial class MainForm : Form
     /// <param name="fileName"></param>
     private bool OpenInputFile(string? fileName)
     {
-        bool bResult = false;
-
-        try
-        {
-            mainMenu.Enabled = false;
-            MainToolBar.Enabled = false;
-            TVModules.Enabled = false;
-            LVModules.Enabled = false;
-
-            //
-            // Check shortcut.
-            //
-            var resolvedFileName = fileName;
-            var fileExtension = Path.GetExtension(resolvedFileName);
-            if (!string.IsNullOrEmpty(fileExtension) && fileExtension.Equals(CConsts.ShortcutFileExt, StringComparison.OrdinalIgnoreCase))
-            {
-                resolvedFileName = NativeMethods.ResolveShortcutTarget(fileName);
-            }
-
-            var fileOpenResult = OpenInputFileInternal(resolvedFileName);
-            bResult = fileOpenResult == FileOpenResult.Success || fileOpenResult == FileOpenResult.SuccessSession;
-
-            string logEvent;
-            LogMessageType messageType;
-
-            switch (fileOpenResult)
-            {
-                case FileOpenResult.SuccessSession:
-                    logEvent = $"Session file \"{resolvedFileName}\" has been opened.";
-                    messageType = LogMessageType.System;
-                    break;
-                case FileOpenResult.Success:
-                    logEvent = $"Analysis of \"{resolvedFileName}\" has been completed.";
-                    messageType = LogMessageType.Information;
-                    break;
-                case FileOpenResult.Failure:
-                    logEvent = $"There is an error while processing \"{resolvedFileName}\" file.";
-                    messageType = LogMessageType.ErrorOrWarning;
-                    break;
-                case FileOpenResult.Cancelled:
-                default:
-                    logEvent = "Operation has been cancelled.";
-                    messageType = LogMessageType.Normal;
-                    break;
-            }
-
-            AddLogMessage(logEvent, messageType);
-            UpdateOperationStatus(logEvent);
-        }
-        catch
-        {
-            var message = $"There is an error while processing \"{fileName}\" file.";
-            AddLogMessage(message, LogMessageType.ErrorOrWarning);
-            UpdateOperationStatus(message);
-        }
-        finally
-        {
-            mainMenu.Enabled = true;
-            MainToolBar.Enabled = true;
-            TVModules.Enabled = true;
-            LVModules.Enabled = true;
-            TVModules.Focus();
-        }
-
-        return bResult;
+        CFileOpenPipelineState state = new(fileName);
+        return _fileOpenOrchestrationService.Execute(
+            state,
+            OpenInputFileInternal,
+            AddLogMessage,
+            UpdateOperationStatus,
+            SetOpenInputUiEnabled,
+            TVModules.Focus);
     }
 
     /// <summary>

@@ -1206,9 +1206,9 @@ public partial class MainForm : Form
                 CConfigManager.SaveConfiguration(_configuration);
             }
         }
-        catch (Exception ex)
+        catch
         {
-            AddLogMessage($"Application shutdown cleanup error: {ex.Message}", LogMessageType.ErrorOrWarning);
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
         }
         finally
         {
@@ -4408,9 +4408,9 @@ public partial class MainForm : Form
                 _modulesHintForm = null;
             }
         }
-        catch (Exception ex)
+        catch
         {
-            AddLogMessage($"Hint forms cleanup error: {ex.Message}", LogMessageType.ErrorOrWarning);
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
         }
         finally
         {

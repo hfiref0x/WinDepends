@@ -1,3 +1,0 @@
-/home/runner/work/WinDepends/WinDepends/src/WinDepends/bin/publish/win-x64/WinDepends.pdb
-/home/runner/work/WinDepends/WinDepends/src/WinDepends/bin/publish/win-x64/WinDepends.dll.config
-/home/runner/work/WinDepends/WinDepends/src/WinDepends/bin/publish/win-x64/WinDepends.exe

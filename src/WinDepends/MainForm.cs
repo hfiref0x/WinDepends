@@ -19,6 +19,7 @@
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;
+using System.Xml.Linq;
 
 namespace WinDepends;
 
@@ -1516,7 +1517,7 @@ public partial class MainForm : Form
             }
 
             var fileOpenResult = OpenInputFileInternal(resolvedFileName);
-            bResult = fileOpenResult == FileOpenResult.Success;
+            bResult = (fileOpenResult == FileOpenResult.Success) || (fileOpenResult == FileOpenResult.SuccessSession);
 
             string logEvent;
             LogMessageType messageType;
@@ -1644,7 +1645,9 @@ public partial class MainForm : Form
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddSessionModuleEntry(importModule, _rootNode));
+                var addedNode = AddSessionModuleEntry(importModule, _rootNode);
+                if (addedNode != null)
+                    baseNodes.Add(addedNode);
             }
         }
         else
@@ -1656,14 +1659,17 @@ public partial class MainForm : Form
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddModuleEntry(importModule, fileOpenSettings, _rootNode));
+                var addedNode = AddModuleEntry(importModule, fileOpenSettings, _rootNode);
+                if (addedNode != null)
+                    baseNodes.Add(addedNode);
             }
         }
 
         // Add sub dependencies.
         foreach (var node in baseNodes)
         {
-            CModule nodeModule = node.Tag as CModule;
+            if (node.Tag is not CModule nodeModule)
+                continue;
 
             foreach (var dependent in nodeModule.Dependents)
             {
@@ -1693,6 +1699,9 @@ public partial class MainForm : Form
         {
             tvNode = AddModuleEntry(module, fileOpenSettings, parentNode);
         }
+
+        if (tvNode == null)
+            return;
 
         foreach (CModule dependentModule in module.Dependents)
         {
@@ -1904,7 +1913,10 @@ public partial class MainForm : Form
             }
 
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AddLogMessage($"External help launch failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+        }
     }
 
     /// <summary>
@@ -1944,7 +1956,12 @@ public partial class MainForm : Form
                     });
 
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    var message = $"External viewer launch failed for \"{module.FileName}\": {ex.Message}";
+                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    UpdateOperationStatus(message);
+                }
                 break;
 
             case ProcessModuleAction.OpenFileLocation:
@@ -1959,7 +1976,12 @@ public partial class MainForm : Form
                     });
 
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    var message = $"Open file location failed for \"{module.FileName}\": {ex.Message}";
+                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    UpdateOperationStatus(message);
+                }
                 break;
         }
     }
@@ -4051,6 +4073,12 @@ public partial class MainForm : Form
 
         _functionLookupText += char.ToLower(e.KeyChar);
 
+        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_functionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
             hintLabel.Text = "Search: " + _functionLookupText;
@@ -4091,7 +4119,13 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        _functionsHintForm.Hide();
+        if (!_disposingHintForms && 
+            !_shutdownInProgress && 
+            _functionsHintForm != null 
+            && !_functionsHintForm.IsDisposed)
+        {
+            _functionsHintForm.Hide();
+        }
         _functionLookupText = "";
     }
 
@@ -4110,6 +4144,12 @@ public partial class MainForm : Form
         }
 
         _moduleLookupText += char.ToLower(e.KeyChar);
+
+        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
+        {
+            e.Handled = true;
+            return;
+        }
 
         if (_modulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
@@ -4146,19 +4186,27 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        _modulesHintForm.Hide();
+        if (!_disposingHintForms &&
+            !_shutdownInProgress &&
+            _modulesHintForm != null &&
+            !_modulesHintForm.IsDisposed)
+        {
+            _modulesHintForm.Hide();
+        }
         _moduleLookupText = "";
     }
 
     private void LVFunctions_Leave(object sender, EventArgs e)
     {
-        _functionsHintForm.Hide();
+        if (_functionsHintForm != null && !_functionsHintForm.IsDisposed)
+            _functionsHintForm.Hide();
         _functionLookupText = "";
     }
 
     private void LVModules_Leave(object sender, EventArgs e)
     {
-        _modulesHintForm.Hide();
+        if (_modulesHintForm != null && !_modulesHintForm.IsDisposed)
+            _modulesHintForm.Hide();
         _moduleLookupText = "";
     }
 
@@ -4359,9 +4407,6 @@ public partial class MainForm : Form
                 }
                 _modulesHintForm = null;
             }
-        }
-        catch (Exception)
-        {
         }
         finally
         {

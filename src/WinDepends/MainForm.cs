@@ -1668,7 +1668,7 @@ public partial class MainForm : Form
         // Add sub dependencies.
         foreach (var node in baseNodes)
         {
-            if (node?.Tag is not CModule nodeModule)
+            if (node.Tag is not CModule nodeModule)
                 continue;
 
             foreach (var dependent in nodeModule.Dependents)

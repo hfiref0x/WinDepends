@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "29qntSxKvyk=",
+  "success": true,
+  "projectFilePath": "/home/runner/work/WinDepends/WinDepends/src/WinDepends/WinDepends.csproj",
+  "expectedPackageFiles": [
+    "/home/runner/.nuget/packages/microsoft.windowsdesktop.app.ref/10.0.5/microsoft.windowsdesktop.app.ref.10.0.5.nupkg.sha512"
+  ],
+  "logs": []
+}

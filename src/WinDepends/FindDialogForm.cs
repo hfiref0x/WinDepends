@@ -86,12 +86,18 @@ public partial class FindDialogForm : Form
 
     private void MatchWholeCheckBox_Click(object sender, EventArgs e)
     {
-        if (MatchWholeCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.WholeWord;
+        if (MatchWholeCheckBox.Checked)
+            mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.WholeWord;
+        else
+            mainForm.LogSearchState.FindOptions &= ~RichTextBoxFinds.WholeWord;
     }
 
     private void MatchCaseCheckBox_Click(object sender, EventArgs e)
     {
-        if (MatchCaseCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.MatchCase;
+        if (MatchCaseCheckBox.Checked)
+            mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.MatchCase;
+        else
+            mainForm.LogSearchState.FindOptions &= ~RichTextBoxFinds.MatchCase;
     }
 
     private void FindDialogForm_KeyDown(object sender, KeyEventArgs e)

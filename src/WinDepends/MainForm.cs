@@ -1348,6 +1348,11 @@ public partial class MainForm : Form
         LVModules.Enabled = isEnabled;
     }
 
+    private void AddLogMessageSimple(string message, LogMessageType messageType)
+    {
+        AddLogMessage(message, messageType);
+    }
+
     /// <summary>
     /// Disposes resources allocated for currently opened file and resets output controls.
     /// </summary>
@@ -1511,10 +1516,10 @@ public partial class MainForm : Form
         return _fileOpenOrchestrationService.Execute(
             state,
             OpenInputFileInternal,
-            AddLogMessage,
+            AddLogMessageSimple,
             UpdateOperationStatus,
             SetOpenInputUiEnabled,
-            TVModules.Focus);
+            () => TVModules.Focus());
     }
 
     /// <summary>

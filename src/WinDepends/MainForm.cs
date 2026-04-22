@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Mar 2026
+*  DATE:        21 Apr 2026
 *  
 *  Codename:    VasilEk
 *
@@ -65,6 +65,11 @@ public partial class MainForm : Form
     /// Program settings.
     /// </summary>
     CConfiguration _configuration;
+
+    /// <summary>
+    /// FileOpen dedicated class.
+    /// </summary>
+    readonly CFileOpenOrchestrationService _fileOpenOrchestrationService = new();
 
     /// <summary>
     /// Workaround for WinForms glitches.
@@ -1209,11 +1214,25 @@ public partial class MainForm : Form
         }
         catch (Exception)
         {
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
         }
         finally
         {
             _coreClient?.Dispose();
         }
+    }
+
+    private void SetOpenInputUiEnabled(bool isEnabled)
+    {
+        mainMenu.Enabled = isEnabled;
+        MainToolBar.Enabled = isEnabled;
+        TVModules.Enabled = isEnabled;
+        LVModules.Enabled = isEnabled;
+    }
+
+    private void AddLogMessageSimple(string message, LogMessageType messageType)
+    {
+        AddLogMessage(message, messageType);
     }
 
     /// <summary>
@@ -1497,71 +1516,14 @@ public partial class MainForm : Form
     /// <param name="fileName"></param>
     private bool OpenInputFile(string? fileName)
     {
-        bool bResult = false;
-
-        try
-        {
-            mainMenu.Enabled = false;
-            MainToolBar.Enabled = false;
-            TVModules.Enabled = false;
-            LVModules.Enabled = false;
-
-            //
-            // Check shortcut.
-            //
-            var resolvedFileName = fileName;
-            var fileExtension = Path.GetExtension(resolvedFileName);
-            if (!string.IsNullOrEmpty(fileExtension) && fileExtension.Equals(CConsts.ShortcutFileExt, StringComparison.OrdinalIgnoreCase))
-            {
-                resolvedFileName = NativeMethods.ResolveShortcutTarget(fileName);
-            }
-
-            var fileOpenResult = OpenInputFileInternal(resolvedFileName);
-            bResult = (fileOpenResult == FileOpenResult.Success) || (fileOpenResult == FileOpenResult.SuccessSession);
-
-            string logEvent;
-            LogMessageType messageType;
-
-            switch (fileOpenResult)
-            {
-                case FileOpenResult.SuccessSession:
-                    logEvent = $"Session file \"{resolvedFileName}\" has been opened.";
-                    messageType = LogMessageType.System;
-                    break;
-                case FileOpenResult.Success:
-                    logEvent = $"Analysis of \"{resolvedFileName}\" has been completed.";
-                    messageType = LogMessageType.Information;
-                    break;
-                case FileOpenResult.Failure:
-                    logEvent = $"There is an error while processing \"{resolvedFileName}\" file.";
-                    messageType = LogMessageType.ErrorOrWarning;
-                    break;
-                case FileOpenResult.Cancelled:
-                default:
-                    logEvent = "Operation has been cancelled.";
-                    messageType = LogMessageType.Normal;
-                    break;
-            }
-
-            AddLogMessage(logEvent, messageType);
-            UpdateOperationStatus(logEvent);
-        }
-        catch
-        {
-            var message = $"There is an error while processing \"{fileName}\" file.";
-            AddLogMessage(message, LogMessageType.ErrorOrWarning);
-            UpdateOperationStatus(message);
-        }
-        finally
-        {
-            mainMenu.Enabled = true;
-            MainToolBar.Enabled = true;
-            TVModules.Enabled = true;
-            LVModules.Enabled = true;
-            TVModules.Focus();
-        }
-
-        return bResult;
+        CFileOpenState state = new(fileName);
+        return _fileOpenOrchestrationService.Execute(
+            state,
+            OpenInputFileInternal,
+            AddLogMessageSimple,
+            UpdateOperationStatus,
+            SetOpenInputUiEnabled,
+            () => TVModules.Focus());
     }
 
     /// <summary>
@@ -3461,7 +3423,7 @@ public partial class MainForm : Form
 
         if (bSaved)
         {
-            AddLogMessage($"Information: File \"{fileName}\" has been saved.", LogMessageType.System);
+            AddLogMessage($"File \"{fileName}\" has been saved.", LogMessageType.System);
         }
 
         UpdateOperationStatus(string.Empty);

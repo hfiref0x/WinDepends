@@ -1781,7 +1781,10 @@ public class CCoreClient : IDisposable
                 _serverProcess.Dispose();
             }
         }
-        catch { }
+        catch        
+        {
+            // Intentionally silent.
+        }
 
         _serverProcess = null;
 

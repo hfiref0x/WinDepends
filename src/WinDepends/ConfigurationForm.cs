@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CONFIGURATIONFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Dec 2025
+*  DATE:        21 Apr 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -979,7 +979,10 @@ public partial class ConfigurationForm : Form
             }
 
         }
-        catch { }
+        catch
+        {
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
+        }
     }
 
     private void ButtonApiSetBrowse_Click(object sender, EventArgs e)

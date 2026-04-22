@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Mar 2026
+*  DATE:        21 Apr 2026
 *  
 *  Codename:    VasilEk
 *
@@ -19,6 +19,7 @@
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text;
+using System.Xml.Linq;
 
 namespace WinDepends;
 
@@ -64,6 +65,11 @@ public partial class MainForm : Form
     /// Program settings.
     /// </summary>
     CConfiguration _configuration;
+
+    /// <summary>
+    /// FileOpen dedicated class.
+    /// </summary>
+    readonly CFileOpenOrchestrationService _fileOpenOrchestrationService = new();
 
     /// <summary>
     /// Workaround for WinForms glitches.
@@ -1208,11 +1214,25 @@ public partial class MainForm : Form
         }
         catch (Exception)
         {
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
         }
         finally
         {
             _coreClient?.Dispose();
         }
+    }
+
+    private void SetOpenInputUiEnabled(bool isEnabled)
+    {
+        mainMenu.Enabled = isEnabled;
+        MainToolBar.Enabled = isEnabled;
+        TVModules.Enabled = isEnabled;
+        LVModules.Enabled = isEnabled;
+    }
+
+    private void AddLogMessageSimple(string message, LogMessageType messageType)
+    {
+        AddLogMessage(message, messageType);
     }
 
     /// <summary>
@@ -1496,71 +1516,14 @@ public partial class MainForm : Form
     /// <param name="fileName"></param>
     private bool OpenInputFile(string? fileName)
     {
-        bool bResult = false;
-
-        try
-        {
-            mainMenu.Enabled = false;
-            MainToolBar.Enabled = false;
-            TVModules.Enabled = false;
-            LVModules.Enabled = false;
-
-            //
-            // Check shortcut.
-            //
-            var resolvedFileName = fileName;
-            var fileExtension = Path.GetExtension(resolvedFileName);
-            if (!string.IsNullOrEmpty(fileExtension) && fileExtension.Equals(CConsts.ShortcutFileExt, StringComparison.OrdinalIgnoreCase))
-            {
-                resolvedFileName = NativeMethods.ResolveShortcutTarget(fileName);
-            }
-
-            var fileOpenResult = OpenInputFileInternal(resolvedFileName);
-            bResult = fileOpenResult == FileOpenResult.Success;
-
-            string logEvent;
-            LogMessageType messageType;
-
-            switch (fileOpenResult)
-            {
-                case FileOpenResult.SuccessSession:
-                    logEvent = $"Session file \"{resolvedFileName}\" has been opened.";
-                    messageType = LogMessageType.System;
-                    break;
-                case FileOpenResult.Success:
-                    logEvent = $"Analysis of \"{resolvedFileName}\" has been completed.";
-                    messageType = LogMessageType.Information;
-                    break;
-                case FileOpenResult.Failure:
-                    logEvent = $"There is an error while processing \"{resolvedFileName}\" file.";
-                    messageType = LogMessageType.ErrorOrWarning;
-                    break;
-                case FileOpenResult.Cancelled:
-                default:
-                    logEvent = "Operation has been cancelled.";
-                    messageType = LogMessageType.Normal;
-                    break;
-            }
-
-            AddLogMessage(logEvent, messageType);
-            UpdateOperationStatus(logEvent);
-        }
-        catch
-        {
-            var message = $"There is an error while processing \"{fileName}\" file.";
-            AddLogMessage(message, LogMessageType.ErrorOrWarning);
-            UpdateOperationStatus(message);
-        }
-        finally
-        {
-            mainMenu.Enabled = true;
-            MainToolBar.Enabled = true;
-            TVModules.Enabled = true;
-            LVModules.Enabled = true;
-            TVModules.Focus();
-        }
-
-        return bResult;
+        CFileOpenState state = new(fileName);
+        return _fileOpenOrchestrationService.Execute(
+            state,
+            OpenInputFileInternal,
+            AddLogMessageSimple,
+            UpdateOperationStatus,
+            SetOpenInputUiEnabled,
+            () => TVModules.Focus());
     }
 
     /// <summary>
@@ -1644,7 +1607,9 @@ public partial class MainForm : Form
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddSessionModuleEntry(importModule, _rootNode));
+                var addedNode = AddSessionModuleEntry(importModule, _rootNode);
+                if (addedNode != null)
+                    baseNodes.Add(addedNode);
             }
         }
         else
@@ -1656,14 +1621,17 @@ public partial class MainForm : Form
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddModuleEntry(importModule, fileOpenSettings, _rootNode));
+                var addedNode = AddModuleEntry(importModule, fileOpenSettings, _rootNode);
+                if (addedNode != null)
+                    baseNodes.Add(addedNode);
             }
         }
 
         // Add sub dependencies.
         foreach (var node in baseNodes)
         {
-            CModule nodeModule = node.Tag as CModule;
+            if (node.Tag is not CModule nodeModule)
+                continue;
 
             foreach (var dependent in nodeModule.Dependents)
             {
@@ -1693,6 +1661,9 @@ public partial class MainForm : Form
         {
             tvNode = AddModuleEntry(module, fileOpenSettings, parentNode);
         }
+
+        if (tvNode == null)
+            return;
 
         foreach (CModule dependentModule in module.Dependents)
         {
@@ -1904,7 +1875,10 @@ public partial class MainForm : Form
             }
 
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AddLogMessage($"External help launch failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+        }
     }
 
     /// <summary>
@@ -1944,7 +1918,12 @@ public partial class MainForm : Form
                     });
 
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    var message = $"External viewer launch failed for \"{module.FileName}\": {ex.Message}";
+                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    UpdateOperationStatus(message);
+                }
                 break;
 
             case ProcessModuleAction.OpenFileLocation:
@@ -1959,7 +1938,12 @@ public partial class MainForm : Form
                     });
 
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    var message = $"Open file location failed for \"{module.FileName}\": {ex.Message}";
+                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    UpdateOperationStatus(message);
+                }
                 break;
         }
     }
@@ -3439,7 +3423,7 @@ public partial class MainForm : Form
 
         if (bSaved)
         {
-            AddLogMessage($"Information: File \"{fileName}\" has been saved.", LogMessageType.System);
+            AddLogMessage($"File \"{fileName}\" has been saved.", LogMessageType.System);
         }
 
         UpdateOperationStatus(string.Empty);
@@ -4051,6 +4035,12 @@ public partial class MainForm : Form
 
         _functionLookupText += char.ToLower(e.KeyChar);
 
+        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_functionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
             hintLabel.Text = "Search: " + _functionLookupText;
@@ -4091,7 +4081,13 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        _functionsHintForm.Hide();
+        if (!_disposingHintForms && 
+            !_shutdownInProgress && 
+            _functionsHintForm != null 
+            && !_functionsHintForm.IsDisposed)
+        {
+            _functionsHintForm.Hide();
+        }
         _functionLookupText = "";
     }
 
@@ -4110,6 +4106,12 @@ public partial class MainForm : Form
         }
 
         _moduleLookupText += char.ToLower(e.KeyChar);
+
+        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
+        {
+            e.Handled = true;
+            return;
+        }
 
         if (_modulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
@@ -4146,19 +4148,27 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        _modulesHintForm.Hide();
+        if (!_disposingHintForms &&
+            !_shutdownInProgress &&
+            _modulesHintForm != null &&
+            !_modulesHintForm.IsDisposed)
+        {
+            _modulesHintForm.Hide();
+        }
         _moduleLookupText = "";
     }
 
     private void LVFunctions_Leave(object sender, EventArgs e)
     {
-        _functionsHintForm.Hide();
+        if (_functionsHintForm != null && !_functionsHintForm.IsDisposed)
+            _functionsHintForm.Hide();
         _functionLookupText = "";
     }
 
     private void LVModules_Leave(object sender, EventArgs e)
     {
-        _modulesHintForm.Hide();
+        if (_modulesHintForm != null && !_modulesHintForm.IsDisposed)
+            _modulesHintForm.Hide();
         _moduleLookupText = "";
     }
 
@@ -4359,9 +4369,6 @@ public partial class MainForm : Form
                 }
                 _modulesHintForm = null;
             }
-        }
-        catch (Exception)
-        {
         }
         finally
         {

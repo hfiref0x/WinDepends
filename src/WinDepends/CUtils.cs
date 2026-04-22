@@ -757,7 +757,10 @@ public static class CUtils
                 UseShellExecute = useShellExecute
             });
         }
-        catch { }
+        catch
+        {
+            // Intentionally silent.
+        }
     }
 
     public static Bitmap ByteArrayToBitmap(byte[] byteArray)

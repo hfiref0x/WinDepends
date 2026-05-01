@@ -1598,6 +1598,19 @@ public partial class MainForm : Form
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
+    private bool OpenInputFile(string? fileName)
+    {
+        if (_analysisInProgress)
+            return false;
+
+        _ = OpenInputFileAsync(fileName);
+        return true;
+    }
+
+    /// <summary>
+    /// Opens input file from file system asynchronously.
+    /// </summary>
+    /// <param name="fileName"></param>
     private async Task<bool> OpenInputFileAsync(string? fileName)
     {
         if (_analysisInProgress)

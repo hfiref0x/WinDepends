@@ -27,6 +27,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using System.Text;
 using static WinDepends.NativeMethods;
 
 namespace WinDepends;

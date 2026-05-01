@@ -161,6 +161,7 @@ public partial class MainForm : Form
 
     private readonly ToolTip moduleToolTip = new ToolTip();
     private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
+    private static readonly float[] AvailableGuiFontSizes = [8f, 9f, 10f, 11f, 12f, 14f, 16f];
 
     public MainForm()
     {
@@ -176,6 +177,7 @@ public partial class MainForm : Form
             LogMessageType.ContentDefined, Color.Black, true);
 
         _configuration = CConfigManager.LoadConfiguration();
+        EnsureColumnWidthCollections();
         CPathResolver.UserDirectoriesKM = _configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = _configuration.UserSearchOrderDirectoriesUM;
 
@@ -1114,6 +1116,12 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private async void MainForm_Load(object sender, EventArgs e)
     {
+        ApplyConfiguredGuiFontSize();
+        RestoreColumnWidthsFromConfiguration();
+        LVModules.ColumnWidthChanged += LVModules_ColumnWidthChanged;
+        LVImports.ColumnWidthChanged += LVImports_ColumnWidthChanged;
+        LVExports.ColumnWidthChanged += LVExports_ColumnWidthChanged;
+
         //
         // Enable drag and drop for elevated instance.
         //
@@ -1894,6 +1902,7 @@ public partial class MainForm : Form
         var bUseApiSetSchemaFilePrev = _configuration.UseApiSetSchemaFile;
         var ApiSetSchemaFilePrev = _configuration.ApiSetSchemaFile;
         var bUseSymbolsPrev = _configuration.UseSymbols;
+        var guiFontSizePrev = _configuration.GuiFontSize;
 
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
@@ -1901,6 +1910,7 @@ public partial class MainForm : Form
                                                   _coreClient,
                                                   pageIndex))
         {
+            configForm.Font = this.Font;
             if (configForm.ShowDialog() == DialogResult.OK)
             {
                 _configuration = optConfig;
@@ -1952,6 +1962,11 @@ public partial class MainForm : Form
                 if (_configuration.UseSymbols != bUseSymbolsPrev)
                 {
                     ApplySymbolsConfiguration();
+                }
+
+                if (Math.Abs(_configuration.GuiFontSize - guiFontSizePrev) > 0.001f)
+                {
+                    ApplyConfiguredGuiFontSize();
                 }
 
             }
@@ -4472,11 +4487,94 @@ public partial class MainForm : Form
             _configuration.WindowHeight = bounds.Height;
         }
 
+        RememberAllColumnWidths();
+
         FormWindowState state = (this.WindowState == FormWindowState.Minimized)
             ? FormWindowState.Normal
             : this.WindowState;
 
         _configuration.WindowState = (int)state;
+    }
+
+    private static List<int> CaptureColumnWidths(ListView listView)
+    {
+        return [.. listView.Columns.Cast<ColumnHeader>().Select(ch => ch.Width)];
+    }
+
+    private static void ApplyColumnWidths(ListView listView, List<int>? widths)
+    {
+        if (widths == null)
+            return;
+
+        int max = Math.Min(listView.Columns.Count, widths.Count);
+        for (int i = 0; i < max; i++)
+        {
+            if (widths[i] > 0)
+            {
+                listView.Columns[i].Width = widths[i];
+            }
+        }
+    }
+
+    private void EnsureColumnWidthCollections()
+    {
+        _configuration.ModulesColumnWidths ??= [];
+        _configuration.ImportsColumnWidths ??= [];
+        _configuration.ExportsColumnWidths ??= [];
+
+        if (_configuration.ModulesColumnWidths.Count != LVModules.Columns.Count)
+            _configuration.ModulesColumnWidths = CaptureColumnWidths(LVModules);
+        if (_configuration.ImportsColumnWidths.Count != LVImports.Columns.Count)
+            _configuration.ImportsColumnWidths = CaptureColumnWidths(LVImports);
+        if (_configuration.ExportsColumnWidths.Count != LVExports.Columns.Count)
+            _configuration.ExportsColumnWidths = CaptureColumnWidths(LVExports);
+    }
+
+    private void RestoreColumnWidthsFromConfiguration()
+    {
+        EnsureColumnWidthCollections();
+        ApplyColumnWidths(LVModules, _configuration.ModulesColumnWidths);
+        ApplyColumnWidths(LVImports, _configuration.ImportsColumnWidths);
+        ApplyColumnWidths(LVExports, _configuration.ExportsColumnWidths);
+    }
+
+    private void RememberAllColumnWidths()
+    {
+        _configuration.ModulesColumnWidths = CaptureColumnWidths(LVModules);
+        _configuration.ImportsColumnWidths = CaptureColumnWidths(LVImports);
+        _configuration.ExportsColumnWidths = CaptureColumnWidths(LVExports);
+    }
+
+    private static bool IsAllowedGuiFontSize(float value)
+    {
+        return AvailableGuiFontSizes.Any(size => Math.Abs(size - value) < 0.001f);
+    }
+
+    private void ApplyConfiguredGuiFontSize()
+    {
+        if (!IsAllowedGuiFontSize(_configuration.GuiFontSize))
+        {
+            _configuration.GuiFontSize = 9f;
+        }
+
+        var current = this.Font;
+        var newFont = new Font(current.FontFamily, _configuration.GuiFontSize, current.Style, GraphicsUnit.Point);
+        this.Font = newFont;
+    }
+
+    private void LVModules_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+    {
+        _configuration.ModulesColumnWidths = CaptureColumnWidths(LVModules);
+    }
+
+    private void LVImports_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+    {
+        _configuration.ImportsColumnWidths = CaptureColumnWidths(LVImports);
+    }
+
+    private void LVExports_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+    {
+        _configuration.ExportsColumnWidths = CaptureColumnWidths(LVExports);
     }
 
     private void MainForm_DpiChanged(object sender, DpiChangedEventArgs e)

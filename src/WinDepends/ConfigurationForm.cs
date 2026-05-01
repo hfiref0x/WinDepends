@@ -21,6 +21,7 @@ namespace WinDepends;
 
 public partial class ConfigurationForm : Form
 {
+    private static readonly float[] GuiFontSizes = [8f, 9f, 10f, 11f, 12f, 14f, 16f];
     readonly CCoreClient _coreClient;
     readonly string m_CurrentFileName = string.Empty;
     readonly bool m_Is64bitFile;
@@ -297,6 +298,7 @@ public partial class ConfigurationForm : Form
     private void ConfigurationForm_Load(object sender, EventArgs e)
     {
         TVSettings.ExpandAll();
+        PopulateGuiFontSizes();
 
         //
         // Setup state of controls.
@@ -329,6 +331,7 @@ public partial class ConfigurationForm : Form
         cbHistoryFullPath.Checked = _config.HistoryShowFullPath;
         historyUpDown.Value = _config.HistoryDepth;
         nodeMaxDepthUpDown.Value = _config.ModuleNodeDepthMax;
+        SelectGuiFontSize(_config.GuiFontSize);
         chBoxAnalysisEnableExperimentalFeatures.Checked = _config.EnableExperimentalFeatures;
         chBoxExpandForwarders.Checked = _config.ExpandForwarders;
         chBoxAutoExpands.Checked = _config.AutoExpands;
@@ -447,6 +450,22 @@ public partial class ConfigurationForm : Form
         {
             TVSettings.SelectedNode = TVSettings.Nodes[0];
         }
+    }
+
+    private void PopulateGuiFontSizes()
+    {
+        cbGuiFontSize.Items.Clear();
+        foreach (var size in GuiFontSizes)
+        {
+            cbGuiFontSize.Items.Add($"{size:0.#}");
+        }
+    }
+
+    private void SelectGuiFontSize(float size)
+    {
+        var safeSize = GuiFontSizes.Contains(size) ? size : 9f;
+        _config.GuiFontSize = safeSize;
+        cbGuiFontSize.SelectedItem = $"{safeSize:0.#}";
     }
 
     private void ConfigurationForm_KeyDown(object sender, KeyEventArgs e)
@@ -896,6 +915,18 @@ public partial class ConfigurationForm : Form
     private void NodeMaxDepth_ValueChanged(object sender, EventArgs e)
     {
         _config.ModuleNodeDepthMax = Convert.ToInt32(nodeMaxDepthUpDown.Value);
+    }
+
+    private void CbGuiFontSize_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (cbGuiFontSize.SelectedItem == null)
+            return;
+
+        if (float.TryParse(cbGuiFontSize.SelectedItem.ToString(), out float selectedSize) &&
+            GuiFontSizes.Contains(selectedSize))
+        {
+            _config.GuiFontSize = selectedSize;
+        }
     }
 
     private void CbMinAppAddressKeyUp(object sender, KeyEventArgs e)

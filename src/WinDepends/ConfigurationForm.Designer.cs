@@ -51,6 +51,8 @@
             groupBox3 = new GroupBox();
             chBoxClearLogOnFileOpen = new CheckBox();
             chBoxFullPaths = new CheckBox();
+            cbGuiFontSize = new ComboBox();
+            labelGuiFontSize = new Label();
             label10 = new Label();
             label8 = new Label();
             nodeMaxDepthUpDown = new NumericUpDown();
@@ -323,7 +325,7 @@
             // 
             groupBox8.Controls.Add(label12);
             groupBox8.Controls.Add(chBoxCompressSessionFiles);
-            groupBox8.Location = new Point(6, 250);
+            groupBox8.Location = new Point(6, 277);
             groupBox8.Name = "groupBox8";
             groupBox8.Size = new Size(468, 76);
             groupBox8.TabIndex = 10;
@@ -355,6 +357,8 @@
             // 
             groupBox3.Controls.Add(chBoxClearLogOnFileOpen);
             groupBox3.Controls.Add(chBoxFullPaths);
+            groupBox3.Controls.Add(cbGuiFontSize);
+            groupBox3.Controls.Add(labelGuiFontSize);
             groupBox3.Controls.Add(label10);
             groupBox3.Controls.Add(label8);
             groupBox3.Controls.Add(nodeMaxDepthUpDown);
@@ -365,7 +369,7 @@
             groupBox3.Controls.Add(chBoxAutoExpands);
             groupBox3.Location = new Point(6, 71);
             groupBox3.Name = "groupBox3";
-            groupBox3.Size = new Size(468, 175);
+            groupBox3.Size = new Size(468, 202);
             groupBox3.TabIndex = 8;
             groupBox3.TabStop = false;
             groupBox3.Text = "Appearance";
@@ -394,12 +398,31 @@
             chBoxFullPaths.UseVisualStyleBackColor = true;
             chBoxFullPaths.Click += ChBox_Click;
             // 
+            // cbGuiFontSize
+            // 
+            cbGuiFontSize.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbGuiFontSize.FormattingEnabled = true;
+            cbGuiFontSize.Location = new Point(158, 137);
+            cbGuiFontSize.Name = "cbGuiFontSize";
+            cbGuiFontSize.Size = new Size(86, 23);
+            cbGuiFontSize.TabIndex = 20;
+            cbGuiFontSize.SelectedIndexChanged += CbGuiFontSize_SelectedIndexChanged;
+            // 
+            // labelGuiFontSize
+            // 
+            labelGuiFontSize.AutoSize = true;
+            labelGuiFontSize.Location = new Point(19, 141);
+            labelGuiFontSize.Name = "labelGuiFontSize";
+            labelGuiFontSize.Size = new Size(108, 15);
+            labelGuiFontSize.TabIndex = 19;
+            labelGuiFontSize.Text = "GUI font size (pt):";
+            // 
             // label10
             // 
             label10.AutoSize = true;
             label10.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             label10.ForeColor = Color.Black;
-            label10.Location = new Point(19, 146);
+            label10.Location = new Point(19, 173);
             label10.Name = "label10";
             label10.Size = new Size(345, 15);
             label10.TabIndex = 16;
@@ -1656,6 +1679,8 @@
         private Label label10;
         private Label label12;
         private CheckBox chBoxClearLogOnFileOpen;
+        private ComboBox cbGuiFontSize;
+        private Label labelGuiFontSize;
         private TabPage tabApiSet;
         private GroupBox groupBox9;
         private CheckBox chBoxApiSetNamespace;

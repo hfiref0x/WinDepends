@@ -94,6 +94,9 @@ public partial class MainForm : Form
     UInt32 _searchOrdinal;
 
     readonly string[] _commandLineArgs;
+    CancellationTokenSource? _analysisCancellationTokenSource;
+    bool _analysisInProgress;
+    int _analysisProcessedModules;
 
     /// <summary>
     /// Flag to let the others know when WinDepends application is shutting down.
@@ -143,6 +146,11 @@ public partial class MainForm : Form
     readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
     readonly List<CModule> _loadedModulesList = [];
+    readonly Dictionary<string, int> _moduleSearchIndex = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, int> _importsNameSearchIndex = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<uint, int> _importsOrdinalSearchIndex = [];
+    readonly Dictionary<string, int> _exportsNameSearchIndex = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<uint, int> _exportsOrdinalSearchIndex = [];
 
     SortOrder LVImportsSortOrder = SortOrder.Ascending;
     SortOrder LVExportsSortOrder = SortOrder.Ascending;
@@ -743,6 +751,10 @@ public partial class MainForm : Form
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
+            if (!string.IsNullOrEmpty(module.FileName) && !_moduleSearchIndex.ContainsKey(module.FileName))
+            {
+                _moduleSearchIndex[module.FileName] = _loadedModulesList.Count - 1;
+            }
         }
 
         return tvNode;
@@ -759,6 +771,7 @@ public partial class MainForm : Form
         // Define action processor (callback)
         Action<CModule> processModule = (mod) =>
         {
+            _analysisCancellationTokenSource?.Token.ThrowIfCancellationRequested();
             var effectiveSettings = new CFileOpenSettings(fileOpenSettings);
 
             // If this is a dependency and propagation is disabled, reset to defaults
@@ -777,6 +790,7 @@ public partial class MainForm : Form
                 effectiveSettings);
 
             HandleModuleOpenStatus(mod, openStatus, effectiveSettings, isRootModule);
+            _analysisCancellationTokenSource?.Token.ThrowIfCancellationRequested();
 
             // Set module icon index
             mod.ModuleImageIndex = mod.GetIconIndexForModule();
@@ -841,6 +855,10 @@ public partial class MainForm : Form
     {
         ResetDisplayCache(DisplayCacheType.Imports);
         ResetDisplayCache(DisplayCacheType.Exports);
+        _importsNameSearchIndex.Clear();
+        _importsOrdinalSearchIndex.Clear();
+        _exportsNameSearchIndex.Clear();
+        _exportsOrdinalSearchIndex.Clear();
         LVImports.VirtualListSize = LVExports.VirtualListSize = 0;
         LVImports.Invalidate();
         LVExports.Invalidate();
@@ -850,6 +868,7 @@ public partial class MainForm : Form
     {
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
+        _moduleSearchIndex.Clear();
         _loadedModulesList.Clear();
         LVModules.Invalidate();
     }
@@ -1017,11 +1036,11 @@ public partial class MainForm : Form
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void MainForm_ElevatedDragDrop(object? sender, ElevatedDragDropEventArgs e)
+    private async void MainForm_ElevatedDragDrop(object? sender, ElevatedDragDropEventArgs e)
     {
         if (e.Files.Count > 0 && !string.IsNullOrEmpty(e.Files[0]))
         {
-            OpenInputFile(e.Files[0]);
+            await OpenInputFileAsync(e.Files[0]);
         }
     }
 
@@ -1093,7 +1112,7 @@ public partial class MainForm : Form
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void MainForm_Load(object sender, EventArgs e)
+    private async void MainForm_Load(object sender, EventArgs e)
     {
         //
         // Enable drag and drop for elevated instance.
@@ -1178,7 +1197,7 @@ public partial class MainForm : Form
             var fName = _commandLineArgs[1];
             if (!string.IsNullOrEmpty(fName) && File.Exists(fName))
             {
-                fileOpened = OpenInputFile(fName);
+                fileOpened = await OpenInputFileAsync(fName);
             }
         }
 
@@ -1353,6 +1372,74 @@ public partial class MainForm : Form
         AddLogMessage(message, messageType);
     }
 
+    private void BeginAnalysisScope()
+    {
+        _analysisCancellationTokenSource?.Dispose();
+        _analysisCancellationTokenSource = new CancellationTokenSource();
+        _analysisInProgress = true;
+        _analysisProcessedModules = 0;
+    }
+
+    private void EndAnalysisScope()
+    {
+        _analysisInProgress = false;
+        _analysisProcessedModules = 0;
+        _analysisCancellationTokenSource?.Dispose();
+        _analysisCancellationTokenSource = null;
+    }
+
+    private void RequestAnalysisCancel()
+    {
+        if (_analysisInProgress && _analysisCancellationTokenSource != null && !_analysisCancellationTokenSource.IsCancellationRequested)
+        {
+            _analysisCancellationTokenSource.Cancel();
+            UpdateOperationStatus("Cancellation requested...");
+        }
+    }
+
+    private static void BuildFunctionSearchIndices(
+        List<CFunction> source,
+        Dictionary<string, int> nameIndex,
+        Dictionary<uint, int> ordinalIndex)
+    {
+        nameIndex.Clear();
+        ordinalIndex.Clear();
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            var fn = source[i];
+            if (!string.IsNullOrEmpty(fn.RawName) && !nameIndex.ContainsKey(fn.RawName))
+            {
+                nameIndex[fn.RawName] = i;
+            }
+
+            if (fn.Ordinal != CConsts.OrdinalNotPresent && !ordinalIndex.ContainsKey(fn.Ordinal))
+            {
+                ordinalIndex[fn.Ordinal] = i;
+            }
+        }
+    }
+
+    private void RebuildModuleSearchIndex()
+    {
+        _moduleSearchIndex.Clear();
+        for (int i = 0; i < _loadedModulesList.Count; i++)
+        {
+            string key = _loadedModulesList[i].FileName;
+            if (!string.IsNullOrEmpty(key) && !_moduleSearchIndex.ContainsKey(key))
+            {
+                _moduleSearchIndex[key] = i;
+            }
+        }
+    }
+
+    private void ReportAnalysisProgress(string moduleFileName)
+    {
+        _analysisProcessedModules++;
+        string moduleName = Path.GetFileName(moduleFileName);
+        UpdateOperationStatus($"Analyzing [{_analysisProcessedModules}] {moduleName}");
+    }
+
     /// <summary>
     /// Disposes resources allocated for currently opened file and resets output controls.
     /// </summary>
@@ -1377,7 +1464,7 @@ public partial class MainForm : Form
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private FileOpenResult OpenInputFileInternal(string? fileName)
+    private async Task<FileOpenResult> OpenInputFileInternalAsync(string? fileName, CancellationToken cancellationToken)
     {
         bool bResult = false;
 
@@ -1391,7 +1478,7 @@ public partial class MainForm : Form
             {
                 RichEditLog_ClearLog();
             }
-            bResult = OpenSessionFile(fileName);
+            bResult = await OpenSessionFileAsync(fileName, cancellationToken);
         }
         else
         {
@@ -1436,6 +1523,7 @@ public partial class MainForm : Form
             CloseInputFile();
 
             AddLogMessage($"Openning \"{fileName}\" for analysis.", LogMessageType.Information);
+            ReportAnalysisProgress(fileName);
 
             if (_configuration.ClearLogOnFileOpen)
             {
@@ -1461,7 +1549,7 @@ public partial class MainForm : Form
                     TVModules.BeginUpdate();
                     try
                     {
-                        PopulateObjectToLists(_depends.RootModule, false, fileOpenSettings);
+                        await PopulateObjectToListsAsync(_depends.RootModule, false, fileOpenSettings, cancellationToken);
                         _rootNode?.Expand();
                     }
                     finally { TVModules.EndUpdate(); }
@@ -1510,27 +1598,42 @@ public partial class MainForm : Form
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenInputFile(string? fileName)
+    private async Task<bool> OpenInputFileAsync(string? fileName)
     {
+        if (_analysisInProgress)
+        {
+            AddLogMessage("Analysis is already in progress. Cancel current analysis first.", LogMessageType.Normal);
+            return false;
+        }
+
+        BeginAnalysisScope();
         CFileOpenPipelineState state = new(fileName);
-        return _fileOpenOrchestrationService.Execute(
-            state,
-            OpenInputFileInternal,
-            AddLogMessageSimple,
-            UpdateOperationStatus,
-            SetOpenInputUiEnabled,
-            () => TVModules.Focus());
+        try
+        {
+            return await _fileOpenOrchestrationService.ExecuteAsync(
+                state,
+                OpenInputFileInternalAsync,
+                AddLogMessageSimple,
+                UpdateOperationStatus,
+                SetOpenInputUiEnabled,
+                () => TVModules.Focus(),
+                _analysisCancellationTokenSource!.Token);
+        }
+        finally
+        {
+            EndAnalysisScope();
+        }
     }
 
     /// <summary>
     /// Opens WinDepends serialized session file.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenSessionFile(string? fileName)
+    private async Task<bool> OpenSessionFileAsync(string? fileName, CancellationToken cancellationToken)
     {
         CloseInputFile();
 
-        _depends = LoadSessionObjectFromFile(fileName, _configuration.CompressSessionFiles);
+        _depends = await LoadSessionObjectFromFileAsync(fileName, _configuration.CompressSessionFiles, cancellationToken);
         if (_depends == null)
         {
             // Deserialization failed, leaving.
@@ -1545,7 +1648,8 @@ public partial class MainForm : Form
             TVModules.BeginUpdate();
             try
             {
-                PopulateObjectToLists(_depends.RootModule, true, null);
+                await PopulateObjectToListsAsync(_depends.RootModule, true, null, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 // Expand root module.
                 _rootNode?.Expand();
             }
@@ -1588,11 +1692,12 @@ public partial class MainForm : Form
     /// <param name="module">Module to populate dependencies.</param>
     /// <param name="loadFromObject">If set then source is session object (restored from session file).</param>
     /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
-    private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
+    private async Task PopulateObjectToListsAsync(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings, CancellationToken cancellationToken)
     {
         List<TreeNode> baseNodes = [];
 
         UpdateOperationStatus($"Populating {module.FileName}");
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (loadFromObject)
         {
@@ -1602,6 +1707,8 @@ public partial class MainForm : Form
             // Add root session module dependencies.
             foreach (var importModule in module.Dependents)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Yield();
                 UpdateOperationStatus($"Populating {importModule.FileName}");
                 var addedNode = AddSessionModuleEntry(importModule, _rootNode);
                 if (addedNode != null)
@@ -1616,8 +1723,11 @@ public partial class MainForm : Form
             // Add root module dependencies.
             foreach (var importModule in module.Dependents)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Yield();
                 UpdateOperationStatus($"Populating {importModule.FileName}");
                 var addedNode = AddModuleEntry(importModule, fileOpenSettings, _rootNode);
+                ReportAnalysisProgress(importModule.FileName);
                 if (addedNode != null)
                     baseNodes.Add(addedNode);
             }
@@ -1626,13 +1736,17 @@ public partial class MainForm : Form
         // Add sub dependencies.
         foreach (var node in baseNodes)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Yield();
+
             if (node.Tag is not CModule nodeModule)
                 continue;
 
             foreach (var dependent in nodeModule.Dependents)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 UpdateOperationStatus($"Populating {dependent.FileName}");
-                PopulateDependentObjectsToLists(dependent, node, loadFromObject, fileOpenSettings);
+                await PopulateDependentObjectsToListsAsync(dependent, node, loadFromObject, fileOpenSettings, cancellationToken);
             }
         }
 
@@ -1645,8 +1759,11 @@ public partial class MainForm : Form
     /// <param name="parentNode">A previous treeview node.</param>
     /// <param name="loadFromObject">If set then source is session object (restored from session file).</param>
     /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
-    private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings)
+    private async Task PopulateDependentObjectsToListsAsync(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Task.Yield();
+
         TreeNode tvNode;
 
         if (loadFromObject)
@@ -1661,21 +1778,25 @@ public partial class MainForm : Form
         if (tvNode == null)
             return;
 
+        if (!loadFromObject)
+            ReportAnalysisProgress(module.FileName);
+
         foreach (CModule dependentModule in module.Dependents)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             UpdateOperationStatus($"Populating {dependentModule.FileName}");
-            PopulateDependentObjectsToLists(dependentModule, tvNode, loadFromObject, fileOpenSettings);
+            await PopulateDependentObjectsToListsAsync(dependentModule, tvNode, loadFromObject, fileOpenSettings, cancellationToken);
         }
     }
 
-    private void OpenFileHandler(object sender, EventArgs e)
+    private async void OpenFileHandler(object sender, EventArgs e)
     {
         OpenDialog1.Filter = CConsts.HandledFileExtensionsMsg +
             string.Join(";", InternalFileHandledExtensions.ExtensionList.Select(ext => "*." + ext.Name)) + CConsts.WinDependsFilter;
 
         if (OpenDialog1.ShowDialog() == DialogResult.OK)
         {
-            OpenInputFile(OpenDialog1.FileName);
+            await OpenInputFileAsync(OpenDialog1.FileName);
         }
     }
 
@@ -1862,9 +1983,15 @@ public partial class MainForm : Form
             if (function != null)
             {
                 fName = function.RawName;
+                if (!CUtils.TryBuildExternalHelpUrl(_configuration.ExternalFunctionHelpURL, fName, out var url))
+                {
+                    AddLogMessage("External help launch failed: invalid help URL template.", LogMessageType.ErrorOrWarning);
+                    return;
+                }
+
                 Process.Start(new ProcessStartInfo()
                 {
-                    FileName = new StringBuilder(_configuration.ExternalFunctionHelpURL).Replace("%1", fName).ToString(),
+                    FileName = url,
                     Verb = "open",
                     UseShellExecute = true
                 });
@@ -1906,9 +2033,21 @@ public partial class MainForm : Form
             case ProcessModuleAction.ExternalViewer:
                 try
                 {
+                    if (string.IsNullOrWhiteSpace(_configuration.ExternalViewerCommand))
+                    {
+                        AddLogMessage("External viewer launch failed: external viewer executable is not configured.", LogMessageType.ErrorOrWarning);
+                        return;
+                    }
+
+                    if (!CUtils.TryBuildExternalViewerArguments(_configuration.ExternalViewerArguments, module.FileName, out var safeArguments))
+                    {
+                        AddLogMessage("External viewer launch failed: invalid argument template.", LogMessageType.ErrorOrWarning);
+                        return;
+                    }
+
                     Process.Start(new ProcessStartInfo()
                     {
-                        Arguments = new StringBuilder(_configuration.ExternalViewerArguments).Replace("%1", module.FileName).ToString(),
+                        Arguments = safeArguments,
                         FileName = _configuration.ExternalViewerCommand,
                         WindowStyle = ProcessWindowStyle.Normal
                     });
@@ -1953,7 +2092,14 @@ public partial class MainForm : Form
     {
         if (e.KeyCode == Keys.Escape && _configuration.EscKeyEnabled)
         {
-            this.Close();
+            if (_analysisInProgress)
+            {
+                RequestAnalysisCancel();
+            }
+            else
+            {
+                this.Close();
+            }
         }
 
         if (e.KeyCode == Keys.Enter && (ModifierKeys == Keys.None || ModifierKeys == Keys.Alt))
@@ -3291,18 +3437,48 @@ public partial class MainForm : Form
         MenuCloseItem.Visible = bSessionAllocated;
     }
 
-    private CDepends? LoadSessionObjectFromFile(string fileName, bool bIsCompressed = true)
+    private async Task<CDepends?> LoadSessionObjectFromFileAsync(string? fileName, bool bIsCompressed, CancellationToken cancellationToken)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
+            {
+                AddLogMessage($"Session file \"{fileName}\" does not exist.", LogMessageType.ErrorOrWarning);
+                return null;
+            }
+
+            var fileInfo = new FileInfo(fileName);
+            if (fileInfo.Length > CConsts.SessionImportMaxBytes)
+            {
+                AddLogMessage($"Session import aborted: \"{fileName}\" exceeds size limit of {CConsts.SessionImportMaxBytes / (1024 * 1024)} MB.",
+                    LogMessageType.ErrorOrWarning);
+                return null;
+            }
+
+            var sw = Stopwatch.StartNew();
+            CDepends? result;
+
             if (bIsCompressed)
             {
-                return (CDepends)CUtils.LoadPackedObjectFromFile(fileName, typeof(CDepends), UpdateOperationStatus);
+                result = (CDepends?)CUtils.LoadPackedObjectFromFile(fileName, typeof(CDepends), UpdateOperationStatus);
             }
             else
             {
-                return (CDepends)CUtils.LoadObjectFromFilePlainText(fileName, typeof(CDepends));
+                result = (CDepends?)CUtils.LoadObjectFromFilePlainText(fileName, typeof(CDepends));
             }
+
+            sw.Stop();
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Yield();
+
+            if (sw.ElapsedMilliseconds > CConsts.SessionImportMaxMilliseconds)
+            {
+                AddLogMessage($"Session import aborted: \"{fileName}\" exceeded time limit ({CConsts.SessionImportMaxMilliseconds / 1000}s).",
+                    LogMessageType.ErrorOrWarning);
+                return null;
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -3825,44 +4001,35 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVFunctionsSearchForVirtualItem(List<CFunction> itemList, SearchForVirtualItemEventArgs e)
     {
+        var isImportsList = ReferenceEquals(itemList, _currentImportsList);
+        var nameIndex = isImportsList ? _importsNameSearchIndex : _exportsNameSearchIndex;
+        var ordinalIndex = isImportsList ? _importsOrdinalSearchIndex : _exportsOrdinalSearchIndex;
+
         // Search by ordinal.
         if (string.IsNullOrEmpty(_searchFunctionName))
         {
-            if (_searchOrdinal != CConsts.OrdinalNotPresent)
+            if (_searchOrdinal != CConsts.OrdinalNotPresent &&
+                ordinalIndex.TryGetValue(_searchOrdinal, out int ordinalIdx))
             {
-                foreach (var entry in itemList)
-                {
-                    if (entry.Ordinal == _searchOrdinal)
-                    {
-                        e.Index = itemList.IndexOf(entry);
-                        return;
-                    }
-                }
+                e.Index = ordinalIdx;
+                return;
             }
         }
         else
         {
             // Search by name.
-            foreach (var entry in itemList)
+            if (nameIndex.TryGetValue(_searchFunctionName, out int nameIdx))
             {
-                if (entry.RawName.Equals(_searchFunctionName, StringComparison.OrdinalIgnoreCase))
-                {
-                    e.Index = itemList.IndexOf(entry);
-                    return;
-                }
+                e.Index = nameIdx;
+                return;
             }
 
             // If item is not found, search by ordinal if possible.
-            if (_searchOrdinal != CConsts.OrdinalNotPresent)
+            if (_searchOrdinal != CConsts.OrdinalNotPresent &&
+                ordinalIndex.TryGetValue(_searchOrdinal, out int fallbackOrdinalIdx))
             {
-                foreach (var entry in itemList)
-                {
-                    if (entry.Ordinal == _searchOrdinal)
-                    {
-                        e.Index = itemList.IndexOf(entry);
-                        return;
-                    }
-                }
+                e.Index = fallbackOrdinalIdx;
+                return;
             }
         }
     }
@@ -3894,13 +4061,9 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void LVModulesSearchForVirtualItem(object sender, SearchForVirtualItemEventArgs e)
     {
-        foreach (var module in _loadedModulesList)
+        if (_moduleSearchIndex.TryGetValue(e.Text, out int index))
         {
-            if (module.FileName.Equals(e.Text, StringComparison.OrdinalIgnoreCase))
-            {
-                e.Index = _loadedModulesList.IndexOf(module);
-                return;
-            }
+            e.Index = index;
         }
     }
 
@@ -3916,6 +4079,14 @@ public partial class MainForm : Form
     {
         IComparer<CFunction> funcComparer = new CFunctionComparer(sortOrder, columnIndex);
         data.Sort(funcComparer);
+        if (cacheType == DisplayCacheType.Imports)
+        {
+            BuildFunctionSearchIndices(data, _importsNameSearchIndex, _importsOrdinalSearchIndex);
+        }
+        else if (cacheType == DisplayCacheType.Exports)
+        {
+            BuildFunctionSearchIndices(data, _exportsNameSearchIndex, _exportsOrdinalSearchIndex);
+        }
         //
         // Reset listview items cache.
         //
@@ -3951,6 +4122,7 @@ public partial class MainForm : Form
     {
         IComparer<CModule> modulesComparer = new CModuleComparer(sortOrder, columnIndex, _configuration.FullPaths);
         moduleList.Sort(modulesComparer);
+        RebuildModuleSearchIndex();
         //
         // Reset listview items cache.
         //
@@ -4004,12 +4176,12 @@ public partial class MainForm : Form
         }
     }
 
-    private void ViewRefreshItem_Click(object sender, EventArgs e)
+    private async void ViewRefreshItem_Click(object sender, EventArgs e)
     {
         if (_depends != null)
         {
             var fName = _depends.RootModule.RawFileName;
-            OpenInputFile(fName);
+            await OpenInputFileAsync(fName);
         }
     }
 
@@ -4258,6 +4430,14 @@ public partial class MainForm : Form
 
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
+        if (_analysisInProgress)
+        {
+            RequestAnalysisCancel();
+            e.Cancel = true;
+            AddLogMessage("Analysis is being cancelled. Please wait...", LogMessageType.Normal);
+            return;
+        }
+
         _shutdownInProgress = true;
 
         if (_findDialog != null && !_findDialog.IsDisposed)

@@ -37,13 +37,14 @@ internal sealed class CFileOpenPipelineState
 
 internal sealed class CFileOpenOrchestrationService
 {
-    public bool Execute(
+    public async Task<bool> ExecuteAsync(
         CFileOpenPipelineState state,
-        Func<string?, FileOpenResult> openInputFileInternal,
+        Func<string?, CancellationToken, Task<FileOpenResult>> openInputFileInternal,
         Action<string, LogMessageType> addLogMessage,
         Action<string> updateOperationStatus,
         Action<bool> setUiEnabled,
-        Action focusTreeView)
+        Action focusTreeView,
+        CancellationToken cancellationToken)
     {
         if (state == null)
             throw new ArgumentNullException(nameof(state));
@@ -67,10 +68,19 @@ internal sealed class CFileOpenOrchestrationService
         {
             setUiEnabled(false);
 
+            cancellationToken.ThrowIfCancellationRequested();
             state.ResolvedFileName = ResolveShortcut(state.OriginalFileName);
-            state.Result = openInputFileInternal(state.ResolvedFileName);
+            state.Result = await openInputFileInternal(state.ResolvedFileName, cancellationToken).ConfigureAwait(true);
             state.IsSuccess = state.Result == FileOpenResult.Success || state.Result == FileOpenResult.SuccessSession;
 
+            PopulateResultMessage(state);
+            addLogMessage(state.LogMessage, state.LogMessageType);
+            updateOperationStatus(state.LogMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            state.IsSuccess = false;
+            state.Result = FileOpenResult.Cancelled;
             PopulateResultMessage(state);
             addLogMessage(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);

@@ -223,6 +223,8 @@ public static class CConsts
 
     public const string CoreServerAddress = "127.0.0.1";
     public const int CoreServerChainSizeMax = 32762;
+    public const long SessionImportMaxBytes = 128L * 1024 * 1024; // 128 MB
+    public const int SessionImportMaxMilliseconds = 30000;
 
     public const string HintFormLabelControl = "HintLabel";
     public const string CategoryUserDefinedDirectory = "The user defined directory";

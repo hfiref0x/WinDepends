@@ -760,6 +760,51 @@ public static class CUtils
         catch { }
     }
 
+    public static bool TryBuildExternalHelpUrl(string urlTemplate, string functionName, out string url)
+    {
+        url = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(urlTemplate))
+            return false;
+
+        var encodedFunctionName = Uri.EscapeDataString(functionName ?? string.Empty);
+        string candidate = new StringBuilder(urlTemplate)
+            .Replace("%1", encodedFunctionName)
+            .ToString()
+            .Trim();
+
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri))
+            return false;
+
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        url = uri.AbsoluteUri;
+        return true;
+    }
+
+    public static bool TryBuildExternalViewerArguments(string argumentTemplate, string moduleFileName, out string arguments)
+    {
+        arguments = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(argumentTemplate) || string.IsNullOrWhiteSpace(moduleFileName))
+            return false;
+
+        string quotedModulePath = $"\"{moduleFileName.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+        string candidate = new StringBuilder(argumentTemplate)
+            .Replace("%1", quotedModulePath)
+            .ToString();
+
+        if (candidate.IndexOf('\0') >= 0 || candidate.IndexOf('\r') >= 0 || candidate.IndexOf('\n') >= 0)
+            return false;
+
+        arguments = candidate;
+        return true;
+    }
+
     public static Bitmap ByteArrayToBitmap(byte[] byteArray)
     {
         using (MemoryStream ms = new MemoryStream(byteArray))

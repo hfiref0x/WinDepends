@@ -161,6 +161,7 @@ public partial class MainForm : Form
 
     private readonly ToolTip moduleToolTip = new ToolTip();
     private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
+    private const float DefaultGuiFontSize = 9f;
     private static readonly float[] AvailableGuiFontSizes = [8f, 9f, 10f, 11f, 12f, 14f, 16f];
 
     public MainForm()
@@ -168,6 +169,7 @@ public partial class MainForm : Form
         InitializeComponent();
 
         _shutdownInProgress = false;
+        reLog.Font = new Font(reLog.Font.FontFamily, DefaultGuiFontSize, reLog.Font.Style, GraphicsUnit.Point);
 
         //
         // Add welcome message to the log.
@@ -1297,73 +1299,64 @@ public partial class MainForm : Form
         if (!reLog.IsDisposed)
         {
             reLog.SuspendLayout();
-            bool wasReadOnly = reLog.ReadOnly;
-            reLog.ReadOnly = false;
 
-            try
+            int startPosition = reLog.TextLength;
+            reLog.SelectionStart = startPosition;
+            reLog.SelectionLength = 0;
+            reLog.SelectionColor = outputColor;
+
+            var baseFont = reLog.Font;
+            if (boldText)
             {
-                int startPosition = reLog.TextLength;
-                reLog.SelectionStart = startPosition;
-                reLog.SelectionLength = 0;
-                reLog.SelectionColor = outputColor;
+                reLog.SelectionFont = new Font(baseFont, FontStyle.Bold);
+            }
+            else
+            {
+                reLog.SelectionFont = baseFont;
+            }
 
-                var baseFont = reLog.Font;
-                if (boldText)
+            reLog.SelectedText = message + Environment.NewLine;
+
+            if (relatedModule != null)
+            {
+                string justFileName = Path.GetFileName(relatedModule.FileName);
+
+                string[] patternsToCheck = {
+                $"\"{justFileName}\"",     // "filename.dll"
+                $"{justFileName}"          // filename.dll
+            };
+
+                foreach (var pattern in patternsToCheck)
                 {
-                    reLog.SelectionFont = new Font(baseFont, FontStyle.Bold);
-                }
-                else
-                {
-                    reLog.SelectionFont = baseFont;
-                }
-
-                reLog.SelectedText = message + Environment.NewLine;
-
-                if (relatedModule != null)
-                {
-                    string justFileName = Path.GetFileName(relatedModule.FileName);
-
-                    string[] patternsToCheck = {
-                    $"\"{justFileName}\"",     // "filename.dll"
-                    $"{justFileName}"          // filename.dll
-                };
-
-                    foreach (var pattern in patternsToCheck)
+                    int moduleNameIndex = message.IndexOf(pattern);
+                    if (moduleNameIndex >= 0)
                     {
-                        int moduleNameIndex = message.IndexOf(pattern);
-                        if (moduleNameIndex >= 0)
-                        {
-                            // Calculate the exact position in the RichTextBox
-                            int linkStart = startPosition + moduleNameIndex;
-                            int linkLength = pattern.Length;
+                        // Calculate the exact position in the RichTextBox
+                        int linkStart = startPosition + moduleNameIndex;
+                        int linkLength = pattern.Length;
 
-                            // Apply ONLY underline to the module name, preserving the color
-                            reLog.Select(linkStart, linkLength);
-                            Font currentFont = reLog.SelectionFont ?? baseFont;
-                            reLog.SelectionFont = new Font(
-                                currentFont.FontFamily,
-                                currentFont.Size,
-                                currentFont.Style | FontStyle.Underline);
-                            reLog.SelectionColor = outputColor;
+                        // Apply ONLY underline to the module name, preserving the color
+                        reLog.Select(linkStart, linkLength);
+                        Font currentFont = reLog.SelectionFont ?? baseFont;
+                        reLog.SelectionFont = new Font(
+                            currentFont.FontFamily,
+                            currentFont.Size,
+                            currentFont.Style | FontStyle.Underline);
+                        reLog.SelectionColor = outputColor;
 
-                            // Store the link information
-                            moduleLinks[(linkStart, linkLength)] = relatedModule.InstanceId;
-                            break;
-                        }
+                        // Store the link information
+                        moduleLinks[(linkStart, linkLength)] = relatedModule.InstanceId;
+                        break;
                     }
                 }
+            }
 
-                reLog.SelectionStart = reLog.TextLength;
-                reLog.SelectionLength = 0;
-                reLog.SelectionFont = baseFont;
-                reLog.SelectionColor = reLog.ForeColor;
-                reLog.ScrollToCaret();
-            }
-            finally
-            {
-                reLog.ReadOnly = wasReadOnly;
-                reLog.ResumeLayout();
-            }
+            reLog.SelectionStart = reLog.TextLength;
+            reLog.SelectionLength = 0;
+            reLog.SelectionFont = baseFont;
+            reLog.SelectionColor = reLog.ForeColor;
+            reLog.ScrollToCaret();
+            reLog.ResumeLayout();
         }
     }
 
@@ -4572,12 +4565,13 @@ public partial class MainForm : Form
     {
         if (!IsAllowedGuiFontSize(_configuration.GuiFontSize))
         {
-            _configuration.GuiFontSize = 9f;
+            _configuration.GuiFontSize = DefaultGuiFontSize;
         }
 
         var current = this.Font;
         var newFont = new Font(current.FontFamily, _configuration.GuiFontSize, current.Style, GraphicsUnit.Point);
         this.Font = newFont;
+        reLog.ZoomFactor = _configuration.GuiFontSize / DefaultGuiFontSize;
     }
 
     private void LVModules_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)

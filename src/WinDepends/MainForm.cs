@@ -1299,18 +1299,21 @@ public partial class MainForm : Form
             reLog.SuspendLayout();
 
             int startPosition = reLog.TextLength;
-            reLog.AppendText(message + Environment.NewLine);
-
-            // First apply the overall style to the entire message
-            reLog.Select(startPosition, reLog.TextLength - startPosition);
+            reLog.SelectionStart = startPosition;
+            reLog.SelectionLength = 0;
             reLog.SelectionColor = outputColor;
 
+            var baseFont = reLog.Font;
             if (boldText)
             {
-                var selectionBaseFont = reLog.SelectionFont ?? reLog.Font;
-                reLog.SelectionFont = new Font(selectionBaseFont, FontStyle.Bold);
-                reLog.SelectionColor = outputColor;
+                reLog.SelectionFont = new Font(baseFont, FontStyle.Bold);
             }
+            else
+            {
+                reLog.SelectionFont = baseFont;
+            }
+
+            reLog.SelectedText = message + Environment.NewLine;
 
             if (relatedModule != null)
             {
@@ -1332,7 +1335,7 @@ public partial class MainForm : Form
 
                         // Apply ONLY underline to the module name, preserving the color
                         reLog.Select(linkStart, linkLength);
-                        Font currentFont = reLog.SelectionFont ?? reLog.Font;
+                        Font currentFont = reLog.SelectionFont ?? baseFont;
                         reLog.SelectionFont = new Font(
                             currentFont.FontFamily,
                             currentFont.Size,
@@ -1346,7 +1349,10 @@ public partial class MainForm : Form
                 }
             }
 
+            reLog.SelectionStart = reLog.TextLength;
             reLog.SelectionLength = 0;
+            reLog.SelectionFont = baseFont;
+            reLog.SelectionColor = reLog.ForeColor;
             reLog.ScrollToCaret();
             reLog.ResumeLayout();
         }

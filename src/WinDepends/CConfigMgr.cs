@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        21 Apr 2026
+*  DATE:        26 Apr 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -118,6 +118,14 @@ public class CConfiguration
     public int WindowHeight { get; set; }
     [DataMember]
     public int WindowState { get; set; }
+    [DataMember]
+    public float GuiFontSize { get; set; }
+    [DataMember]
+    public List<int> ModulesColumnWidths { get; set; }
+    [DataMember]
+    public List<int> ImportsColumnWidths { get; set; }
+    [DataMember]
+    public List<int> ExportsColumnWidths { get; set; }
 
     private static readonly List<SearchOrderType> DefaultSearchOrderUM =
     [
@@ -189,12 +197,16 @@ public class CConfiguration
         WindowWidth = other.WindowWidth;
         WindowHeight = other.WindowHeight;
         WindowState = other.WindowState;
+        GuiFontSize = other.GuiFontSize;
 
         SearchOrderListUM = new List<SearchOrderType>(other.SearchOrderListUM ?? DefaultSearchOrderUM);
         SearchOrderListKM = new List<SearchOrderType>(other.SearchOrderListKM ?? DefaultSearchOrderKM);
         UserSearchOrderDirectoriesUM = new List<string>(other.UserSearchOrderDirectoriesUM ?? []);
         UserSearchOrderDirectoriesKM = new List<string>(other.UserSearchOrderDirectoriesKM ?? []);
         MRUList = new List<string>(other.MRUList ?? []);
+        ModulesColumnWidths = new List<int>(other.ModulesColumnWidths ?? []);
+        ImportsColumnWidths = new List<int>(other.ImportsColumnWidths ?? []);
+        ExportsColumnWidths = new List<int>(other.ExportsColumnWidths ?? []);
     }
 
     public CConfiguration(bool bSetDefault)
@@ -219,7 +231,7 @@ public class CConfiguration
             EnableExperimentalFeatures = false;
             ExpandForwarders = false;
             ToolBarTheme = ToolBarThemeType.Classic;
-
+            GuiFontSize = CConsts.DefaultGuiFontSize;
             WindowState = (int)FormWindowState.Normal;
 
             string ntSymbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
@@ -244,6 +256,10 @@ public class CConfiguration
 
             SearchOrderListKM = new List<SearchOrderType>(DefaultSearchOrderKM);
             UserSearchOrderDirectoriesKM = [];
+
+            ModulesColumnWidths = [];
+            ImportsColumnWidths = [];
+            ExportsColumnWidths = [];
         }
     }
 }
@@ -285,6 +301,16 @@ static class CConfigManager
             {
                 confObj.ModuleNodeDepthMax = CConsts.ModuleNodeDepthDefault;
             }
+
+
+            if (confObj.GuiFontSize < 6f || confObj.GuiFontSize > 12f)
+            {
+                confObj.GuiFontSize = CConsts.DefaultGuiFontSize;
+            }
+
+            confObj.ModulesColumnWidths ??= [];
+            confObj.ImportsColumnWidths ??= [];
+            confObj.ExportsColumnWidths ??= [];
 
             return confObj;
         }

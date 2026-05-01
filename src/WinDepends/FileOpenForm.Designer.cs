@@ -54,10 +54,11 @@
             // 
             // buttonOK
             // 
+            buttonOK.AutoSize = true;
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(108, 425);
+            buttonOK.Location = new Point(124, 438);
             buttonOK.Name = "buttonOK";
-            buttonOK.Size = new Size(75, 24);
+            buttonOK.Size = new Size(75, 25);
             buttonOK.TabIndex = 0;
             buttonOK.Text = "OK";
             buttonOK.UseVisualStyleBackColor = true;
@@ -65,10 +66,11 @@
             // 
             // buttonCancel
             // 
+            buttonCancel.AutoSize = true;
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(189, 425);
+            buttonCancel.Location = new Point(205, 438);
             buttonCancel.Name = "buttonCancel";
-            buttonCancel.Size = new Size(75, 24);
+            buttonCancel.Size = new Size(75, 25);
             buttonCancel.TabIndex = 1;
             buttonCancel.Text = "Cancel";
             buttonCancel.UseVisualStyleBackColor = true;
@@ -82,10 +84,10 @@
             groupBox1.Controls.Add(chBoxProcessRelocs);
             groupBox1.Location = new Point(12, 44);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(346, 151);
+            groupBox1.Size = new Size(378, 164);
             groupBox1.TabIndex = 2;
             groupBox1.TabStop = false;
-            groupBox1.Text = "Loader";
+            groupBox1.Text = "Loader Options";
             // 
             // chBoxUseCustomImageBase
             // 
@@ -120,7 +122,7 @@
             // labelAllocGran
             // 
             labelAllocGran.AutoSize = true;
-            labelAllocGran.Location = new Point(9, 113);
+            labelAllocGran.Location = new Point(9, 116);
             labelAllocGran.Name = "labelAllocGran";
             labelAllocGran.Size = new Size(25, 15);
             labelAllocGran.TabIndex = 11;
@@ -143,12 +145,12 @@
             groupBox2.Controls.Add(label3);
             groupBox2.Controls.Add(chBoxPropagateSettings);
             groupBox2.Controls.Add(chBoxAnalysisDefaultEnabled);
-            groupBox2.Location = new Point(12, 264);
+            groupBox2.Location = new Point(12, 277);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(348, 155);
+            groupBox2.Size = new Size(378, 155);
             groupBox2.TabIndex = 3;
             groupBox2.TabStop = false;
-            groupBox2.Text = "Analysis";
+            groupBox2.Text = "Analysis Options";
             // 
             // chBoxEnableExperimentalFeatures
             // 
@@ -177,9 +179,9 @@
             label3.AutoSize = true;
             label3.Location = new Point(6, 125);
             label3.Name = "label3";
-            label3.Size = new Size(276, 15);
+            label3.Size = new Size(236, 15);
             label3.TabIndex = 18;
-            label3.Text = "*You can reset this through program Configuration";
+            label3.Text = "*Can be reset through Configuration dialog";
             // 
             // chBoxPropagateSettings
             // 
@@ -197,18 +199,18 @@
             chBoxAnalysisDefaultEnabled.AutoSize = true;
             chBoxAnalysisDefaultEnabled.Location = new Point(9, 97);
             chBoxAnalysisDefaultEnabled.Name = "chBoxAnalysisDefaultEnabled";
-            chBoxAnalysisDefaultEnabled.Size = new Size(324, 19);
+            chBoxAnalysisDefaultEnabled.Size = new Size(145, 19);
             chBoxAnalysisDefaultEnabled.TabIndex = 16;
             chBoxAnalysisDefaultEnabled.Tag = "602";
-            chBoxAnalysisDefaultEnabled.Text = "Make analysis settings default and do not ask everytime*";
+            chBoxAnalysisDefaultEnabled.Text = "Set as default settings*";
             chBoxAnalysisDefaultEnabled.UseVisualStyleBackColor = true;
             // 
             // groupBox13
             // 
             groupBox13.Controls.Add(chBoxUseStats);
-            groupBox13.Location = new Point(12, 201);
+            groupBox13.Location = new Point(12, 214);
             groupBox13.Name = "groupBox13";
-            groupBox13.Size = new Size(346, 57);
+            groupBox13.Size = new Size(378, 57);
             groupBox13.TabIndex = 9;
             groupBox13.TabStop = false;
             groupBox13.Text = "Statistics";
@@ -235,10 +237,10 @@
             // 
             // textBoxFileName
             // 
-            textBoxFileName.Location = new Point(73, 13);
+            textBoxFileName.Location = new Point(85, 12);
             textBoxFileName.Name = "textBoxFileName";
             textBoxFileName.ReadOnly = true;
-            textBoxFileName.Size = new Size(285, 23);
+            textBoxFileName.Size = new Size(305, 23);
             textBoxFileName.TabIndex = 11;
             // 
             // FileOpenForm
@@ -246,7 +248,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
-            ClientSize = new Size(370, 461);
+            ClientSize = new Size(402, 475);
             Controls.Add(textBoxFileName);
             Controls.Add(label2);
             Controls.Add(groupBox13);
@@ -261,7 +263,7 @@
             MinimizeBox = false;
             Name = "FileOpenForm";
             StartPosition = FormStartPosition.CenterParent;
-            Text = "Load a new file";
+            Text = "Load a New File";
             Load += FileOpenForm_Load;
             KeyDown += FileOpenForm_KeyDown;
             groupBox1.ResumeLayout(false);

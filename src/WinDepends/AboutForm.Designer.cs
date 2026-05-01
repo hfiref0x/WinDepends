@@ -50,8 +50,9 @@
             // 
             // button1
             // 
+            button1.AutoSize = true;
             button1.DialogResult = DialogResult.OK;
-            button1.Location = new Point(276, 321);
+            button1.Location = new Point(306, 321);
             button1.Name = "button1";
             button1.Size = new Size(99, 25);
             button1.TabIndex = 0;
@@ -65,7 +66,7 @@
             groupBox2.Controls.Add(AboutVersionLabel);
             groupBox2.Location = new Point(12, 139);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(363, 107);
+            groupBox2.Size = new Size(393, 107);
             groupBox2.TabIndex = 2;
             groupBox2.TabStop = false;
             groupBox2.Text = "Build information";
@@ -104,7 +105,7 @@
             AboutCopyrightLabel.Name = "AboutCopyrightLabel";
             AboutCopyrightLabel.Size = new Size(141, 15);
             AboutCopyrightLabel.TabIndex = 3;
-            AboutCopyrightLabel.Text = "Copyright (C) 2024 - 2025";
+            AboutCopyrightLabel.Text = "Copyright (C) 2024 - 2026";
             // 
             // pictureBox2
             // 
@@ -140,7 +141,7 @@
             groupBox1.Controls.Add(AboutOSLabel);
             groupBox1.Location = new Point(12, 252);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(363, 63);
+            groupBox1.Size = new Size(393, 63);
             groupBox1.TabIndex = 9;
             groupBox1.TabStop = false;
             groupBox1.Text = "Operation system";
@@ -158,10 +159,10 @@
             linkLabel1.AutoSize = true;
             linkLabel1.Location = new Point(56, 95);
             linkLabel1.Name = "linkLabel1";
-            linkLabel1.Size = new Size(284, 15);
+            linkLabel1.Size = new Size(247, 15);
             linkLabel1.TabIndex = 10;
             linkLabel1.TabStop = true;
-            linkLabel1.Text = "For updates please visit WinDepends on GitHub.com";
+            linkLabel1.Text = "Visit WinDepends on GitHub.com for updates";
             linkLabel1.LinkClicked += LinkLabel1_LinkClicked;
             // 
             // label3
@@ -188,7 +189,7 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(385, 358);
+            ClientSize = new Size(417, 358);
             Controls.Add(linkLabel2);
             Controls.Add(label3);
             Controls.Add(linkLabel1);

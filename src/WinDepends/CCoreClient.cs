@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Feb 2026
+*  DATE:        01 May 2026
 *  
 *  Core Server communication class.
 *
@@ -176,6 +176,7 @@ public class CCoreClient : IDisposable
     private Process _serverProcess;     // WinDepends.Core instance.
     private TcpClient _clientConnection;
     private NetworkStream _dataStream;
+    private readonly CCoreTransportAdapter _transportAdapter;
     private readonly AddLogMessageCallback _addLogMessage;
     private string _serverApplication;
 
@@ -272,6 +273,11 @@ public class CCoreClient : IDisposable
             [typeof(CCoreFileInformation)] = new DataContractJsonSerializer(typeof(CCoreFileInformation)),
             [typeof(CCoreException)] = new DataContractJsonSerializer(typeof(CCoreException))
         };
+
+        _transportAdapter = new CCoreTransportAdapter(
+            () => _clientConnection,
+            () => _dataStream,
+            _addLogMessage);
     }
 
     /// <summary>
@@ -348,11 +354,11 @@ public class CCoreClient : IDisposable
         if (IsNullOrEmptyResponse(idata))
             return false;
 
-        string response = new(idata.Data, 0, (int)Math.Min(idata.DataSize, idata.Data.Length));
-        if (string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.Ordinal))
+        var statusResponse = CCoreProtocolMapper.CreateStatusResponse(idata);
+        if (statusResponse.IsSuccess)
             return true;
 
-        if (response.StartsWith(CConsts.WDEP_STATUS_600, StringComparison.Ordinal))
+        if (statusResponse.HasServerException)
             CheckExceptionInReply(module);
 
         return false;
@@ -424,7 +430,7 @@ public class CCoreClient : IDisposable
     {
         ThrowIfDisposed();
 
-        if (!SendRequest(command))
+        if (!SendRequest(CCoreProtocolMapper.CreateRequest(command)))
         {
             return null;
         }
@@ -440,13 +446,27 @@ public class CCoreClient : IDisposable
             return null;
         }
 
-        string result = idata.BufferToStringNoCRLF();
-        if (string.IsNullOrEmpty(result))
+        var payloadResponse = CCoreProtocolMapper.CreatePayloadResponse(idata);
+        if (payloadResponse.IsEmpty)
         {
             return null;
         }
 
-        return DeserializeDataJSON(module?.FileName, objectType, result);
+        return DeserializeDataJSON(module?.FileName, objectType, payloadResponse.Value);
+    }
+
+    /// <summary>
+    /// Sends a typed request message to the server.
+    /// </summary>
+    /// <param name="request">The backend request to send.</param>
+    /// <returns>true if the message was sent successfully; otherwise, false.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the client has been disposed.</exception>
+    private bool SendRequest(CCoreBackendRequest request)
+    {
+        ThrowIfDisposed();
+        bool result = _transportAdapter.TrySend(request, out var status);
+        ErrorStatus = status;
+        return result;
     }
 
     /// <summary>
@@ -457,37 +477,7 @@ public class CCoreClient : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown if the client has been disposed.</exception>
     private bool SendRequest(string message)
     {
-        ThrowIfDisposed();
-
-        // Communication failure, server need restart.
-        if (_clientConnection == null || !_clientConnection.Connected)
-        {
-            ErrorStatus = ServerErrorStatus.ServerNeedRestart;
-            return false;
-        }
-
-        if (_dataStream == null)
-        {
-            ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
-            return false;
-        }
-
-        try
-        {
-            using (BinaryWriter bw = new(_dataStream, Encoding.Unicode, true))
-            {
-                bw.Write(Encoding.Unicode.GetBytes(message));
-            }
-        }
-        catch (Exception ex)
-        {
-            _addLogMessage($"Failed to send data to the server, error message: {ex.Message}", LogMessageType.ErrorOrWarning);
-            ErrorStatus = (ex is IOException) ? ServerErrorStatus.SocketException : ServerErrorStatus.GeneralException;
-            return false;
-        }
-
-        ErrorStatus = ServerErrorStatus.NoErrors;
-        return true;
+        return SendRequest(CCoreProtocolMapper.CreateRequest(message));
     }
 
     /// <summary>
@@ -499,61 +489,9 @@ public class CCoreClient : IDisposable
     {
         ThrowIfDisposed();
 
-        if (_dataStream == null)
-        {
-            ErrorStatus = ServerErrorStatus.NetworkStreamNotInitialized;
-            return null;
-        }
-
-        try
-        {
-            using (BinaryReader br = new(_dataStream, Encoding.Unicode, true))
-            {
-                CBufferChain bufferChain = new(), currentBuffer;
-                char previousChar = '\0';
-                currentBuffer = bufferChain;
-
-                while (true)
-                {
-                    for (int i = 0; i < CConsts.CoreServerChainSizeMax; i++)
-                    {
-                        try
-                        {
-                            bufferChain.Data[i] = br.ReadChar();
-                            bufferChain.DataSize++;
-                            if (bufferChain.Data[i] == '\n' && previousChar == '\r')
-                            {
-                                ErrorStatus = ServerErrorStatus.NoErrors;
-                                return currentBuffer;
-                            }
-                        }
-                        catch (EndOfStreamException)
-                        {
-                            bufferChain.DataSize = (uint)i;
-                            ErrorStatus = ServerErrorStatus.SocketException;
-                            return i > 0 || currentBuffer != bufferChain ? currentBuffer : null;
-                        }
-                        catch (IOException)
-                        {
-                            bufferChain.DataSize = (uint)i;
-                            ErrorStatus = ServerErrorStatus.SocketException;
-                            return i > 0 || currentBuffer != bufferChain ? currentBuffer : null;
-                        }
-
-                        previousChar = bufferChain.Data[i];
-                    }
-
-                    bufferChain.Next = new();
-                    bufferChain = bufferChain.Next;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _addLogMessage($"Receive data failed. Server message: {ex.Message}", LogMessageType.ErrorOrWarning);
-            ErrorStatus = ServerErrorStatus.GeneralException;
-        }
-        return null;
+        var reply = _transportAdapter.ReceiveReply(out var status);
+        ErrorStatus = status;
+        return reply;
     }
 
     /// <summary>
@@ -644,25 +582,6 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
-    /// Sets error flags on a module based on the open operation result.
-    /// </summary>
-    /// <param name="module">The module to update.</param>
-    /// <param name="fileNotFound">Whether the file was not found.</param>
-    /// <param name="invalid">Whether the file is invalid.</param>
-    /// <param name="status">The module open status to return.</param>
-    /// <returns>The specified <paramref name="status"/>.</returns>
-    private static ModuleOpenStatus SetModuleError(CModule module, bool fileNotFound, bool invalid, ModuleOpenStatus status)
-    {
-        if (fileNotFound)
-            module.FileNotFound = true;
-
-        if (invalid)
-            module.IsInvalid = true;
-
-        return status;
-    }
-
-    /// <summary>
     /// Generates a cryptographically secure random port number within the specified range.
     /// </summary>
     /// <param name="minPort">The minimum port number (inclusive).</param>
@@ -739,26 +658,8 @@ public class CCoreClient : IDisposable
 
         ThrowIfDisposed();
 
-        string cmd = $"open file \"{module.FileName}\"";
-
-        if (settings.UseStats)
-        {
-            cmd += " use_stats";
-        }
-
-        if (settings.ProcessRelocsForImage)
-        {
-            cmd += $" process_relocs";
-        }
-
-        if (settings.UseCustomImageBase)
-        {
-            cmd += $" custom_image_base {settings.CustomImageBase}";
-        }
-
-        cmd += "\r\n";
-
-        if (!SendRequest(cmd))
+        var openRequest = CCoreProtocolMapper.BuildOpenModuleRequest(module, settings);
+        if (!SendRequest(openRequest))
         {
             return ModuleOpenStatus.ErrorSendCommand;
         }
@@ -769,26 +670,11 @@ public class CCoreClient : IDisposable
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
         }
 
-        string response = new(idata.Data, 0, (int)Math.Min(idata.DataSize, idata.Data.Length));
-
-        if (!string.Equals(response, CConsts.WDEP_STATUS_200, StringComparison.Ordinal))
+        var openStatus = CCoreProtocolMapper.CreateStatusResponse(idata);
+        var openResult = CCoreProtocolMapper.MapOpenModuleStatus(openStatus, module);
+        if (openResult != ModuleOpenStatus.Okay)
         {
-            return response switch
-            {
-                var s when string.Equals(s, CConsts.WDEP_STATUS_404, StringComparison.Ordinal) =>
-                   SetModuleError(module, true, false, ModuleOpenStatus.ErrorFileNotFound),
-
-                var s when string.Equals(s, CConsts.WDEP_STATUS_403, StringComparison.Ordinal) =>
-                    SetModuleError(module, false, true, ModuleOpenStatus.ErrorCannotReadFileHeaders),
-
-                var s when string.Equals(s, CConsts.WDEP_STATUS_415, StringComparison.Ordinal) =>
-                    SetModuleError(module, false, true, ModuleOpenStatus.ErrorInvalidHeadersOrSignatures),
-
-                var s when string.Equals(s, CConsts.WDEP_STATUS_502, StringComparison.Ordinal) =>
-                   SetModuleError(module, false, true, ModuleOpenStatus.ErrorFileNotMapped),
-
-                _ => SetModuleError(module, false, true, ModuleOpenStatus.ErrorUnspecified)
-            };
+            return openResult;
         }
 
         idata = ReceiveReply();
@@ -797,34 +683,14 @@ public class CCoreClient : IDisposable
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
         }
 
-        response = idata.BufferToStringNoCRLF();
-        if (string.IsNullOrEmpty(response))
+        var payloadResponse = CCoreProtocolMapper.CreatePayloadResponse(idata);
+        if (payloadResponse.IsEmpty)
         {
             return ModuleOpenStatus.ErrorReceivedDataInvalid;
         }
 
-        var fileInformation = (CCoreFileInformation)DeserializeDataJSON(typeof(CCoreFileInformation), response);
-        if (fileInformation != null)
-        {
-            module.ModuleData.Attributes = (ModuleFileAttributes)fileInformation.FileAttributes;
-            module.ModuleData.RealChecksum = fileInformation.RealChecksum;
-            module.ModuleData.ImageFixed = fileInformation.ImageFixed;
-            module.ModuleData.ImageDotNet = fileInformation.ImageDotNet;
-            module.ModuleData.FileSize = fileInformation.FileSizeLow | ((ulong)fileInformation.FileSizeHigh << 32);
-
-            long fileTime = ((long)fileInformation.LastWriteTimeHigh << 32) | fileInformation.LastWriteTimeLow;
-            try
-            {
-                module.ModuleData.FileTimeStamp = DateTime.FromFileTime(fileTime < 0 ? 0 : fileTime);
-            }
-            catch
-            {
-                module.ModuleData.FileTimeStamp = DateTime.MinValue;
-            }
-            return ModuleOpenStatus.Okay;
-        }
-
-        return ModuleOpenStatus.ErrorUnspecified;
+        var fileInformation = (CCoreFileInformation)DeserializeDataJSON(typeof(CCoreFileInformation), payloadResponse.Value);
+        return CCoreDomainMapper.ApplyFileInformation(module, fileInformation);
     }
 
     /// <summary>
@@ -863,36 +729,16 @@ public class CCoreClient : IDisposable
     /// <returns>The requested module information object, or null if the request fails.</returns>
     public object GetModuleInformationByType(ModuleInformationType moduleInformationType, CModule module, string parameters = null)
     {
-        string cmd;
-        Type objectType;
-
-        switch (moduleInformationType)
+        if (!CCoreProtocolMapper.TryBuildModuleInformationRequest(
+                    moduleInformationType,
+                    parameters,
+                    out var request,
+                    out var responseType))
         {
-            case ModuleInformationType.Headers:
-                cmd = CConsts.CMD_HEADERS;
-                objectType = typeof(CCoreImageHeaders);
-                break;
-            case ModuleInformationType.Imports:
-                cmd = CConsts.CMD_IMPORTS;
-                objectType = typeof(CCoreImports);
-                break;
-            case ModuleInformationType.Exports:
-                cmd = CConsts.CMD_EXPORTS;
-                objectType = typeof(CCoreExports);
-                break;
-            case ModuleInformationType.DataDirectories:
-                cmd = CConsts.CMD_DATADIRS;
-                objectType = typeof(CCoreDirectoryEntry);
-                break;
-            case ModuleInformationType.ApiSetName:
-                cmd = $"apisetresolve {parameters}\r\n";
-                objectType = typeof(CCoreResolvedFileName);
-                break;
-            default:
-                return null;
+            return null;
         }
 
-        return SendCommandAndReceiveReplyAsObjectJSON(cmd, objectType, module);
+        return SendCommandAndReceiveReplyAsObjectJSON(request.Command, responseType, module);
     }
 
     /// <summary>
@@ -912,15 +758,9 @@ public class CCoreClient : IDisposable
     /// <returns>API Set namespace information, or null if the request fails.</returns>
     public CCoreApiSetNamespaceInfo GetApiSetNamespaceInfo(string apiSetFilePath = null)
     {
-        string cmd = CConsts.CMD_APISETNINFO;
-
-        if (!string.IsNullOrEmpty(apiSetFilePath))
-        {
-            cmd = $"apisetnsinfo file \"{apiSetFilePath}\"\r\n";
-        }
-
+        var request = CCoreProtocolMapper.BuildApiSetNamespaceInfoRequest(apiSetFilePath);
         return (CCoreApiSetNamespaceInfo)SendCommandAndReceiveReplyAsObjectJSON(
-            cmd, typeof(CCoreApiSetNamespaceInfo), null);
+                    request.Command, typeof(CCoreApiSetNamespaceInfo), null);
     }
 
     /// <summary>
@@ -1697,16 +1537,8 @@ public class CCoreClient : IDisposable
     /// <returns>true if the command was sent and acknowledged successfully; otherwise, false.</returns>
     public bool SetApiSetSchemaNamespaceUse(string fileName)
     {
-        string cmd = "apisetmapsrc";
-
-        if (!string.IsNullOrEmpty(fileName))
-        {
-            cmd += $" file \"{fileName}\"";
-        }
-
-        cmd += "\r\n";
-
-        return SendRequest(cmd) && IsRequestSuccessful();
+        var request = CCoreProtocolMapper.BuildApiSetSchemaNamespaceUseRequest(fileName);
+        return SendRequest(request) && IsRequestSuccessful();
     }
 
     /// <summary>
@@ -1781,7 +1613,7 @@ public class CCoreClient : IDisposable
                 _serverProcess.Dispose();
             }
         }
-        catch        
+        catch
         {
             // Intentionally silent.
         }

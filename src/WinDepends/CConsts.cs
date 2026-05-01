@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        21 Apr 2026
+*  DATE:        01 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -37,7 +37,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2604;
+    public const uint VersionBuild = 2605;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -126,6 +126,8 @@ public static class CConsts
 
     public const int FindDialogVerticalOffset = 100;
     public const int MaxTreeNodeStackSize = 1024;
+
+    public const float DefaultGuiFontSize = 9f;
 
     /// <summary>
     /// Setting value names.

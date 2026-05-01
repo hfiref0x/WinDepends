@@ -39,7 +39,7 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(12, 16);
+            label1.Location = new Point(11, 15);
             label1.Name = "label1";
             label1.Size = new Size(62, 15);
             label1.TabIndex = 0;
@@ -47,18 +47,19 @@
             // 
             // FindTextBox
             // 
-            FindTextBox.Location = new Point(79, 12);
+            FindTextBox.Location = new Point(93, 12);
             FindTextBox.Name = "FindTextBox";
-            FindTextBox.Size = new Size(172, 23);
+            FindTextBox.Size = new Size(208, 23);
             FindTextBox.TabIndex = 1;
             FindTextBox.TextChanged += FindTextBox_TextChanged;
             // 
             // FindButton
             // 
+            FindButton.AutoSize = true;
             FindButton.Enabled = false;
-            FindButton.Location = new Point(257, 12);
+            FindButton.Location = new Point(307, 10);
             FindButton.Name = "FindButton";
-            FindButton.Size = new Size(75, 23);
+            FindButton.Size = new Size(88, 25);
             FindButton.TabIndex = 2;
             FindButton.Text = "&Find Next";
             FindButton.UseVisualStyleBackColor = true;
@@ -66,10 +67,11 @@
             // 
             // button2
             // 
+            button2.AutoSize = true;
             button2.DialogResult = DialogResult.Cancel;
-            button2.Location = new Point(257, 41);
+            button2.Location = new Point(307, 45);
             button2.Name = "button2";
-            button2.Size = new Size(75, 23);
+            button2.Size = new Size(88, 25);
             button2.TabIndex = 3;
             button2.Text = "Cancel";
             button2.UseVisualStyleBackColor = true;
@@ -102,7 +104,7 @@
             AcceptButton = FindButton;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(339, 123);
+            ClientSize = new Size(407, 123);
             Controls.Add(MatchCaseCheckBox);
             Controls.Add(MatchWholeCheckBox);
             Controls.Add(button2);

@@ -1307,7 +1307,9 @@ public partial class MainForm : Form
 
             if (boldText)
             {
-                reLog.SelectionFont = new Font(reLog.Font, FontStyle.Bold);
+                var selectionBaseFont = reLog.SelectionFont ?? reLog.Font;
+                reLog.SelectionFont = new Font(selectionBaseFont, FontStyle.Bold);
+                reLog.SelectionColor = outputColor;
             }
 
             if (relatedModule != null)
@@ -1330,11 +1332,12 @@ public partial class MainForm : Form
 
                         // Apply ONLY underline to the module name, preserving the color
                         reLog.Select(linkStart, linkLength);
-                        Font currentFont = reLog.SelectionFont;
+                        Font currentFont = reLog.SelectionFont ?? reLog.Font;
                         reLog.SelectionFont = new Font(
                             currentFont.FontFamily,
                             currentFont.Size,
                             currentFont.Style | FontStyle.Underline);
+                        reLog.SelectionColor = outputColor;
 
                         // Store the link information
                         moduleLinks[(linkStart, linkLength)] = relatedModule.InstanceId;

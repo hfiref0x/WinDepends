@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CONFIGURATIONFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        20 Dec 2025
+*  DATE:        26 Apr 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -21,6 +21,7 @@ namespace WinDepends;
 
 public partial class ConfigurationForm : Form
 {
+    private static readonly float[] GuiFontSizes = [8f, 9f, 10f, 11f, 12f];
     readonly CCoreClient _coreClient;
     readonly string m_CurrentFileName = string.Empty;
     readonly bool m_Is64bitFile;
@@ -297,6 +298,7 @@ public partial class ConfigurationForm : Form
     private void ConfigurationForm_Load(object sender, EventArgs e)
     {
         TVSettings.ExpandAll();
+        PopulateGuiFontSizes();
 
         //
         // Setup state of controls.
@@ -322,6 +324,8 @@ public partial class ConfigurationForm : Form
             ToolTip tooltip = new();
             tooltip.SetToolTip(tooltipInfo.Control, tooltipInfo.AssociatedText);
         }
+
+        SelectGuiFontSize(_config.GuiFontSize);
 
         shellIntegrationWarningLabel.Enabled = !CUtils.IsAdministrator;
         shellIntegrationWarningLabel.Visible = !CUtils.IsAdministrator;
@@ -447,6 +451,22 @@ public partial class ConfigurationForm : Form
         {
             TVSettings.SelectedNode = TVSettings.Nodes[0];
         }
+    }
+
+    private void PopulateGuiFontSizes()
+    {
+        cbGuiFontSize.Items.Clear();
+        foreach (var size in GuiFontSizes)
+        {
+            cbGuiFontSize.Items.Add($"{size:0.#}");
+        }
+    }
+
+    private void SelectGuiFontSize(float size)
+    {
+        var safeSize = GuiFontSizes.Contains(size) ? size : 9f;
+        _config.GuiFontSize = safeSize;
+        cbGuiFontSize.SelectedItem = $"{safeSize:0.#}";
     }
 
     private void ConfigurationForm_KeyDown(object sender, KeyEventArgs e)
@@ -979,7 +999,10 @@ public partial class ConfigurationForm : Form
             }
 
         }
-        catch { }
+        catch
+        {
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
+        }
     }
 
     private void ButtonApiSetBrowse_Click(object sender, EventArgs e)
@@ -1025,5 +1048,17 @@ public partial class ConfigurationForm : Form
         dbghelpTextBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
         symbolsStoreTextBox.Text = $"srv*{Path.Combine(Path.GetTempPath(), CConsts.SymbolsDefaultStoreDirectory)}{CConsts.SymbolsDownloadLink}";
         panelSymColor.BackColor = Color.Yellow;
+    }
+
+    private void CbGuiFontSize_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (cbGuiFontSize.SelectedItem == null)
+            return;
+
+        if (float.TryParse(cbGuiFontSize.SelectedItem.ToString(), out float selectedSize) &&
+            GuiFontSizes.Contains(selectedSize))
+        {
+            _config.GuiFontSize = selectedSize;
+        }
     }
 }

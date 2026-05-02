@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CSYMBOLRESOLVER.CS
 *
 *  VERSION:     1.00
 *  
-*  DATE:        27 Sep 2025
+*  DATE:        21 Apr 2026
 *
 *  MS Symbols resolver support class.
 *
@@ -599,7 +599,10 @@ public static class CSymbolResolver
                     var p = Path.Combine(root, CConsts.DebuggersString, arch, CConsts.DbgHelpDll);
                     if (File.Exists(p)) candidates.Add(p);
                 }
-                catch { }
+                catch 
+                {
+                    // Intentionally silent.
+                }
             }
 
             try
@@ -612,14 +615,20 @@ public static class CSymbolResolver
                 AddIfExists(candidates, CombineParts(pf86, CConsts.WindowsKitsString, "8.1", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
                 AddIfExists(candidates, CombineParts(pf, CConsts.WindowsKitsString, "8.1", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
             }
-            catch { }
+            catch
+            {
+                // Intentionally silent.
+            }
 
             try
             {
                 var sys = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
                 if (File.Exists(sys)) candidates.Add(sys);
             }
-            catch { }
+            catch 
+            {
+                // Intentionally silent.
+            }
 
             if (candidates.Count == 0)
                 return null;
@@ -660,7 +669,15 @@ public static class CSymbolResolver
 
         static void AddIfExists(ISet<string> set, string p)
         {
-            try { if (!string.IsNullOrEmpty(p) && File.Exists(p)) set.Add(p); } catch { }
+            try 
+            { 
+                if (!string.IsNullOrEmpty(p) && File.Exists(p)) 
+                    set.Add(p); 
+            } 
+            catch
+            {
+                // Intentionally silent.
+            }
         }
 
         static int SafePart(int v) => v < 0 ? 0 : v;
@@ -750,8 +767,10 @@ public static class CSymbolResolver
                     if (PathsEqual(path, sysWow64)) return true;
                 }
             }
-            catch { }
-
+            catch
+            {
+                // Intentionally silent.
+            }
             return false;
         }
         catch

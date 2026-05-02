@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       FINDDIALOGFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Nov 2025
+*  DATE:        21 Apr 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -86,12 +86,18 @@ public partial class FindDialogForm : Form
 
     private void MatchWholeCheckBox_Click(object sender, EventArgs e)
     {
-        if (MatchWholeCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.WholeWord;
+        if (MatchWholeCheckBox.Checked)
+            mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.WholeWord;
+        else
+            mainForm.LogSearchState.FindOptions &= ~RichTextBoxFinds.WholeWord;
     }
 
     private void MatchCaseCheckBox_Click(object sender, EventArgs e)
     {
-        if (MatchCaseCheckBox.Checked) mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.MatchCase;
+        if (MatchCaseCheckBox.Checked)
+            mainForm.LogSearchState.FindOptions |= RichTextBoxFinds.MatchCase;
+        else
+            mainForm.LogSearchState.FindOptions &= ~RichTextBoxFinds.MatchCase;
     }
 
     private void FindDialogForm_KeyDown(object sender, KeyEventArgs e)

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Feb 2026
+*  DATE:        26 Apr 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -27,6 +27,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using System.Text;
 using static WinDepends.NativeMethods;
 
 namespace WinDepends;
@@ -757,7 +758,55 @@ public static class CUtils
                 UseShellExecute = useShellExecute
             });
         }
-        catch { }
+        catch
+        {
+            // Intentionally silent.
+        }
+    }
+
+    public static bool TryBuildExternalHelpUrl(string urlTemplate, string functionName, out string url)
+    {
+        url = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(urlTemplate))
+            return false;
+
+        var encodedFunctionName = Uri.EscapeDataString(functionName ?? string.Empty);
+        string candidate = new StringBuilder(urlTemplate)
+            .Replace("%1", encodedFunctionName)
+            .ToString()
+            .Trim();
+
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri))
+            return false;
+
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        url = uri.AbsoluteUri;
+        return true;
+    }
+
+    public static bool TryBuildExternalViewerArguments(string argumentTemplate, string moduleFileName, out string arguments)
+    {
+        arguments = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(argumentTemplate) || string.IsNullOrWhiteSpace(moduleFileName))
+            return false;
+
+        string quotedModulePath = $"\"{moduleFileName.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+        string candidate = new StringBuilder(argumentTemplate)
+            .Replace("%1", quotedModulePath)
+            .ToString();
+
+        if (candidate.IndexOf('\0') >= 0 || candidate.IndexOf('\r') >= 0 || candidate.IndexOf('\n') >= 0)
+            return false;
+
+        arguments = candidate;
+        return true;
     }
 
     public static Bitmap ByteArrayToBitmap(byte[] byteArray)

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Mar 2026
+*  DATE:        01 Apr 2026
 *  
 *  Codename:    VasilEk
 *
@@ -64,6 +64,11 @@ public partial class MainForm : Form
     /// Program settings.
     /// </summary>
     CConfiguration _configuration;
+
+    /// <summary>
+    /// FileOpen dedicated class.
+    /// </summary>
+    readonly CFileOpenOrchestrationService _fileOpenOrchestrationService = new();
 
     /// <summary>
     /// Workaround for WinForms glitches.
@@ -151,12 +156,14 @@ public partial class MainForm : Form
 
     private readonly ToolTip moduleToolTip = new ToolTip();
     private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
+    private static readonly float[] AvailableGuiFontSizes = [8f, 9f, 10f, 11f, 12f];
 
     public MainForm()
     {
         InitializeComponent();
 
         _shutdownInProgress = false;
+        reLog.Font = new Font(reLog.Font.FontFamily, CConsts.DefaultGuiFontSize, reLog.Font.Style, GraphicsUnit.Point);
 
         //
         // Add welcome message to the log.
@@ -166,6 +173,7 @@ public partial class MainForm : Form
             LogMessageType.ContentDefined, Color.Black, true);
 
         _configuration = CConfigManager.LoadConfiguration();
+        EnsureColumnWidthCollections();
         CPathResolver.UserDirectoriesKM = _configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = _configuration.UserSearchOrderDirectoriesUM;
 
@@ -1086,6 +1094,11 @@ public partial class MainForm : Form
         finally { TVModules.EndUpdate(); }
     }
 
+    private void SetDefaultStatusBarText()
+    {
+        toolBarStatusLabel.Text = "Use the menu File->Open or drag and drop a file into the window to begin analysis";
+    }
+
     /// <summary>
     /// MainForm load (Create) event.
     /// </summary>
@@ -1093,6 +1106,12 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void MainForm_Load(object sender, EventArgs e)
     {
+        ApplyConfiguredGuiFontSize();
+        RestoreColumnWidthsFromConfiguration();
+        LVModules.ColumnWidthChanged += LVModules_ColumnWidthChanged;
+        LVImports.ColumnWidthChanged += LVImports_ColumnWidthChanged;
+        LVExports.ColumnWidthChanged += LVExports_ColumnWidthChanged;
+
         //
         // Enable drag and drop for elevated instance.
         //
@@ -1182,7 +1201,7 @@ public partial class MainForm : Form
 
         if (!fileOpened)
         {
-            toolBarStatusLabel.Text = "Use the menu File->Open or drag and drop a file into the window to begin analysis";
+            SetDefaultStatusBarText();
         }
 
     }
@@ -1208,11 +1227,25 @@ public partial class MainForm : Form
         }
         catch (Exception)
         {
+            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
         }
         finally
         {
             _coreClient?.Dispose();
         }
+    }
+
+    private void SetOpenInputUiEnabled(bool isEnabled)
+    {
+        mainMenu.Enabled = isEnabled;
+        MainToolBar.Enabled = isEnabled;
+        TVModules.Enabled = isEnabled;
+        LVModules.Enabled = isEnabled;
+    }
+
+    private void AddLogMessageSimple(string message, LogMessageType messageType)
+    {
+        AddLogMessage(message, messageType);
     }
 
     /// <summary>
@@ -1269,16 +1302,21 @@ public partial class MainForm : Form
             reLog.SuspendLayout();
 
             int startPosition = reLog.TextLength;
-            reLog.AppendText(message + Environment.NewLine);
-
-            // First apply the overall style to the entire message
-            reLog.Select(startPosition, reLog.TextLength - startPosition);
+            reLog.SelectionStart = startPosition;
+            reLog.SelectionLength = 0;
             reLog.SelectionColor = outputColor;
 
+            var baseFont = reLog.Font;
             if (boldText)
             {
-                reLog.SelectionFont = new Font(reLog.Font, FontStyle.Bold);
+                reLog.SelectionFont = new Font(baseFont, FontStyle.Bold);
             }
+            else
+            {
+                reLog.SelectionFont = baseFont;
+            }
+
+            reLog.SelectedText = message + Environment.NewLine;
 
             if (relatedModule != null)
             {
@@ -1300,11 +1338,12 @@ public partial class MainForm : Form
 
                         // Apply ONLY underline to the module name, preserving the color
                         reLog.Select(linkStart, linkLength);
-                        Font currentFont = reLog.SelectionFont;
+                        Font currentFont = reLog.SelectionFont ?? baseFont;
                         reLog.SelectionFont = new Font(
                             currentFont.FontFamily,
                             currentFont.Size,
                             currentFont.Style | FontStyle.Underline);
+                        reLog.SelectionColor = outputColor;
 
                         // Store the link information
                         moduleLinks[(linkStart, linkLength)] = relatedModule.InstanceId;
@@ -1313,11 +1352,15 @@ public partial class MainForm : Form
                 }
             }
 
+            reLog.SelectionStart = reLog.TextLength;
             reLog.SelectionLength = 0;
+            reLog.SelectionFont = baseFont;
+            reLog.SelectionColor = reLog.ForeColor;
             reLog.ScrollToCaret();
             reLog.ResumeLayout();
         }
     }
+
 
     private void PostOpenFileUpdateControls(string fileName)
     {
@@ -1388,6 +1431,8 @@ public partial class MainForm : Form
             {
                 using (FileOpenForm fileOpenForm = new(_configuration.EscKeyEnabled, fileOpenSettings, fileName))
                 {
+                    fileOpenForm.Font = this.Font;
+
                     //
                     // Update global settings if use as default is checked.
                     //
@@ -1496,71 +1541,14 @@ public partial class MainForm : Form
     /// <param name="fileName"></param>
     private bool OpenInputFile(string? fileName)
     {
-        bool bResult = false;
-
-        try
-        {
-            mainMenu.Enabled = false;
-            MainToolBar.Enabled = false;
-            TVModules.Enabled = false;
-            LVModules.Enabled = false;
-
-            //
-            // Check shortcut.
-            //
-            var resolvedFileName = fileName;
-            var fileExtension = Path.GetExtension(resolvedFileName);
-            if (!string.IsNullOrEmpty(fileExtension) && fileExtension.Equals(CConsts.ShortcutFileExt, StringComparison.OrdinalIgnoreCase))
-            {
-                resolvedFileName = NativeMethods.ResolveShortcutTarget(fileName);
-            }
-
-            var fileOpenResult = OpenInputFileInternal(resolvedFileName);
-            bResult = fileOpenResult == FileOpenResult.Success;
-
-            string logEvent;
-            LogMessageType messageType;
-
-            switch (fileOpenResult)
-            {
-                case FileOpenResult.SuccessSession:
-                    logEvent = $"Session file \"{resolvedFileName}\" has been opened.";
-                    messageType = LogMessageType.System;
-                    break;
-                case FileOpenResult.Success:
-                    logEvent = $"Analysis of \"{resolvedFileName}\" has been completed.";
-                    messageType = LogMessageType.Information;
-                    break;
-                case FileOpenResult.Failure:
-                    logEvent = $"There is an error while processing \"{resolvedFileName}\" file.";
-                    messageType = LogMessageType.ErrorOrWarning;
-                    break;
-                case FileOpenResult.Cancelled:
-                default:
-                    logEvent = "Operation has been cancelled.";
-                    messageType = LogMessageType.Normal;
-                    break;
-            }
-
-            AddLogMessage(logEvent, messageType);
-            UpdateOperationStatus(logEvent);
-        }
-        catch
-        {
-            var message = $"There is an error while processing \"{fileName}\" file.";
-            AddLogMessage(message, LogMessageType.ErrorOrWarning);
-            UpdateOperationStatus(message);
-        }
-        finally
-        {
-            mainMenu.Enabled = true;
-            MainToolBar.Enabled = true;
-            TVModules.Enabled = true;
-            LVModules.Enabled = true;
-            TVModules.Focus();
-        }
-
-        return bResult;
+        CFileOpenState state = new(fileName);
+        return _fileOpenOrchestrationService.Execute(
+            state,
+            OpenInputFileInternal,
+            AddLogMessageSimple,
+            UpdateOperationStatus,
+            SetOpenInputUiEnabled,
+            () => TVModules.Focus());
     }
 
     /// <summary>
@@ -1644,7 +1632,9 @@ public partial class MainForm : Form
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddSessionModuleEntry(importModule, _rootNode));
+                var addedNode = AddSessionModuleEntry(importModule, _rootNode);
+                if (addedNode != null)
+                    baseNodes.Add(addedNode);
             }
         }
         else
@@ -1656,14 +1646,17 @@ public partial class MainForm : Form
             foreach (var importModule in module.Dependents)
             {
                 UpdateOperationStatus($"Populating {importModule.FileName}");
-                baseNodes.Add(AddModuleEntry(importModule, fileOpenSettings, _rootNode));
+                var addedNode = AddModuleEntry(importModule, fileOpenSettings, _rootNode);
+                if (addedNode != null)
+                    baseNodes.Add(addedNode);
             }
         }
 
         // Add sub dependencies.
         foreach (var node in baseNodes)
         {
-            CModule nodeModule = node.Tag as CModule;
+            if (node.Tag is not CModule nodeModule)
+                continue;
 
             foreach (var dependent in nodeModule.Dependents)
             {
@@ -1694,6 +1687,9 @@ public partial class MainForm : Form
             tvNode = AddModuleEntry(module, fileOpenSettings, parentNode);
         }
 
+        if (tvNode == null)
+            return;
+
         foreach (CModule dependentModule in module.Dependents)
         {
             UpdateOperationStatus($"Populating {dependentModule.FileName}");
@@ -1716,6 +1712,7 @@ public partial class MainForm : Form
     {
         using (AboutForm aboutForm = new(_configuration.EscKeyEnabled))
         {
+            aboutForm.Font = this.Font;
             aboutForm.ShowDialog();
         }
     }
@@ -1793,6 +1790,7 @@ public partial class MainForm : Form
         var bUseApiSetSchemaFilePrev = _configuration.UseApiSetSchemaFile;
         var ApiSetSchemaFilePrev = _configuration.ApiSetSchemaFile;
         var bUseSymbolsPrev = _configuration.UseSymbols;
+        var guiFontSizePrev = _configuration.GuiFontSize;
 
         using (ConfigurationForm configForm = new(currentFileName,
                                                   is64bitFile,
@@ -1800,6 +1798,7 @@ public partial class MainForm : Form
                                                   _coreClient,
                                                   pageIndex))
         {
+            configForm.Font = this.Font;
             if (configForm.ShowDialog() == DialogResult.OK)
             {
                 _configuration = optConfig;
@@ -1835,8 +1834,8 @@ public partial class MainForm : Form
                     UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 }
 
-                if (bUseApiSetSchemaFilePrev != _configuration.UseApiSetSchemaFile ||
-                    !ApiSetSchemaFilePrev.Equals(_configuration.ApiSetSchemaFile))
+                if ((bUseApiSetSchemaFilePrev != _configuration.UseApiSetSchemaFile) ||
+                    (ApiSetSchemaFilePrev != null && !ApiSetSchemaFilePrev.Equals(_configuration.ApiSetSchemaFile)))
                 {
                     if (String.IsNullOrEmpty(_configuration.ApiSetSchemaFile))
                     {
@@ -1851,6 +1850,11 @@ public partial class MainForm : Form
                 if (_configuration.UseSymbols != bUseSymbolsPrev)
                 {
                     ApplySymbolsConfiguration();
+                }
+
+                if (Math.Abs(_configuration.GuiFontSize - guiFontSizePrev) > 0.001f)
+                {
+                    ApplyConfiguredGuiFontSize();
                 }
 
             }
@@ -1895,16 +1899,25 @@ public partial class MainForm : Form
             if (function != null)
             {
                 fName = function.RawName;
+                if (!CUtils.TryBuildExternalHelpUrl(_configuration.ExternalFunctionHelpURL, fName, out var url))
+                {
+                    AddLogMessage("External help launch failed: invalid help URL template.", LogMessageType.ErrorOrWarning);
+                    return;
+                }
+
                 Process.Start(new ProcessStartInfo()
                 {
-                    FileName = new StringBuilder(_configuration.ExternalFunctionHelpURL).Replace("%1", fName).ToString(),
+                    FileName = url,
                     Verb = "open",
                     UseShellExecute = true
                 });
             }
 
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AddLogMessage($"External help launch failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+        }
     }
 
     /// <summary>
@@ -1936,15 +1949,33 @@ public partial class MainForm : Form
             case ProcessModuleAction.ExternalViewer:
                 try
                 {
+                    if (string.IsNullOrWhiteSpace(_configuration.ExternalViewerCommand))
+                    {
+                        AddLogMessage("External viewer launch failed: external viewer executable is not configured.", LogMessageType.ErrorOrWarning);
+                        return;
+                    }
+
+                    if (!CUtils.TryBuildExternalViewerArguments(_configuration.ExternalViewerArguments, module.FileName, out var safeArguments))
+                    {
+                        AddLogMessage("External viewer launch failed: invalid argument template.", LogMessageType.ErrorOrWarning);
+                        return;
+                    }
+
+
                     Process.Start(new ProcessStartInfo()
                     {
-                        Arguments = new StringBuilder(_configuration.ExternalViewerArguments).Replace("%1", module.FileName).ToString(),
+                        Arguments = safeArguments,
                         FileName = _configuration.ExternalViewerCommand,
                         WindowStyle = ProcessWindowStyle.Normal
                     });
 
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    var message = $"External viewer launch failed for \"{module.FileName}\": {ex.Message}";
+                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    UpdateOperationStatus(message);
+                }
                 break;
 
             case ProcessModuleAction.OpenFileLocation:
@@ -1959,7 +1990,12 @@ public partial class MainForm : Form
                     });
 
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    var message = $"Open file location failed for \"{module.FileName}\": {ex.Message}";
+                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    UpdateOperationStatus(message);
+                }
                 break;
         }
     }
@@ -2820,6 +2856,7 @@ public partial class MainForm : Form
         if (_findDialog == null || _findDialog.IsDisposed)
         {
             _findDialog = new FindDialogForm(this, _configuration);
+            _findDialog.Font = this.Font;
             _findDialog.Owner = this;
             _findDialog.Show();
         }
@@ -3035,6 +3072,7 @@ public partial class MainForm : Form
 
         using (var sysInfoDlg = new SysInfoDialogForm(si, isLocal))
         {
+            sysInfoDlg.Font = this.Font;
             sysInfoDlg.ShowDialog();
         }
     }
@@ -3439,7 +3477,7 @@ public partial class MainForm : Form
 
         if (bSaved)
         {
-            AddLogMessage($"Information: File \"{fileName}\" has been saved.", LogMessageType.System);
+            AddLogMessage($"File \"{fileName}\" has been saved.", LogMessageType.System);
         }
 
         UpdateOperationStatus(string.Empty);
@@ -4051,6 +4089,12 @@ public partial class MainForm : Form
 
         _functionLookupText += char.ToLower(e.KeyChar);
 
+        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_functionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
             hintLabel.Text = "Search: " + _functionLookupText;
@@ -4091,7 +4135,13 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        _functionsHintForm.Hide();
+        if (!_disposingHintForms &&
+            !_shutdownInProgress &&
+            _functionsHintForm != null
+            && !_functionsHintForm.IsDisposed)
+        {
+            _functionsHintForm.Hide();
+        }
         _functionLookupText = "";
     }
 
@@ -4110,6 +4160,12 @@ public partial class MainForm : Form
         }
 
         _moduleLookupText += char.ToLower(e.KeyChar);
+
+        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
+        {
+            e.Handled = true;
+            return;
+        }
 
         if (_modulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
         {
@@ -4146,19 +4202,27 @@ public partial class MainForm : Form
         }
 
         await Task.Delay(2000);
-        _modulesHintForm.Hide();
+        if (!_disposingHintForms &&
+            !_shutdownInProgress &&
+            _modulesHintForm != null &&
+            !_modulesHintForm.IsDisposed)
+        {
+            _modulesHintForm.Hide();
+        }
         _moduleLookupText = "";
     }
 
     private void LVFunctions_Leave(object sender, EventArgs e)
     {
-        _functionsHintForm.Hide();
+        if (_functionsHintForm != null && !_functionsHintForm.IsDisposed)
+            _functionsHintForm.Hide();
         _functionLookupText = "";
     }
 
     private void LVModules_Leave(object sender, EventArgs e)
     {
-        _modulesHintForm.Hide();
+        if (_modulesHintForm != null && !_modulesHintForm.IsDisposed)
+            _modulesHintForm.Hide();
         _moduleLookupText = "";
     }
 
@@ -4273,11 +4337,113 @@ public partial class MainForm : Form
             _configuration.WindowHeight = bounds.Height;
         }
 
+        RememberAllColumnWidths();
+
         FormWindowState state = (this.WindowState == FormWindowState.Minimized)
             ? FormWindowState.Normal
             : this.WindowState;
 
         _configuration.WindowState = (int)state;
+    }
+
+    private static List<int> CaptureColumnWidths(ListView listView)
+    {
+        return [.. listView.Columns.Cast<ColumnHeader>().Select(ch => ch.Width)];
+    }
+
+    private static void ApplyColumnWidths(ListView listView, List<int>? widths)
+    {
+        if (widths == null)
+            return;
+
+        int max = Math.Min(listView.Columns.Count, widths.Count);
+        for (int i = 0; i < max; i++)
+        {
+            if (widths[i] > 0)
+            {
+                listView.Columns[i].Width = widths[i];
+            }
+        }
+    }
+
+    private void EnsureColumnWidthCollections()
+    {
+        _configuration.ModulesColumnWidths ??= [];
+        _configuration.ImportsColumnWidths ??= [];
+        _configuration.ExportsColumnWidths ??= [];
+
+        if (_configuration.ModulesColumnWidths.Count != LVModules.Columns.Count)
+            _configuration.ModulesColumnWidths = CaptureColumnWidths(LVModules);
+        if (_configuration.ImportsColumnWidths.Count != LVImports.Columns.Count)
+            _configuration.ImportsColumnWidths = CaptureColumnWidths(LVImports);
+        if (_configuration.ExportsColumnWidths.Count != LVExports.Columns.Count)
+            _configuration.ExportsColumnWidths = CaptureColumnWidths(LVExports);
+    }
+
+    private void RestoreColumnWidthsFromConfiguration()
+    {
+        EnsureColumnWidthCollections();
+        ApplyColumnWidths(LVModules, _configuration.ModulesColumnWidths);
+        ApplyColumnWidths(LVImports, _configuration.ImportsColumnWidths);
+        ApplyColumnWidths(LVExports, _configuration.ExportsColumnWidths);
+    }
+
+    private void RememberAllColumnWidths()
+    {
+        _configuration.ModulesColumnWidths = CaptureColumnWidths(LVModules);
+        _configuration.ImportsColumnWidths = CaptureColumnWidths(LVImports);
+        _configuration.ExportsColumnWidths = CaptureColumnWidths(LVExports);
+    }
+
+    private static bool IsAllowedGuiFontSize(float value)
+    {
+        return AvailableGuiFontSizes.Any(size => Math.Abs(size - value) < 0.001f);
+    }
+
+    /// <summary>
+    /// Set new font to GUI components (RichEdit special handling, main menu and status bar).
+    /// </summary>
+    private void ApplyConfiguredGuiFontSize()
+    {
+        if (!IsAllowedGuiFontSize(_configuration.GuiFontSize))
+        {
+            _configuration.GuiFontSize = CConsts.DefaultGuiFontSize;
+        }
+
+        var current = this.Font;
+        var newFont = new Font(current.FontFamily, _configuration.GuiFontSize, current.Style, GraphicsUnit.Point);
+        this.Font = newFont;
+
+        // Set zoom factor for richedit.
+        reLog.ZoomFactor = _configuration.GuiFontSize / CConsts.DefaultGuiFontSize;
+
+        // Set new font size to main menu.
+        mainMenu.Font = newFont;
+
+        // Change popup menu fonts.
+        moduleTreePopupMenu.Font = newFont;
+        functionPopupMenu.Font = newFont;
+        richEditPopupMenu.Font = newFont;
+        moduleViewPopupMenu.Font = newFont;
+
+        // Update status bar and pepaint default message.
+        StatusBar.Font = newFont;
+        SetDefaultStatusBarText();
+    }
+
+    private void LVModules_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+    {
+        _configuration.ModulesColumnWidths = CaptureColumnWidths(LVModules);
+    }
+
+    private void LVImports_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+    {
+        _configuration.ImportsColumnWidths = CaptureColumnWidths(LVImports);
+    }
+
+    private void LVExports_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
+    {
+        _configuration.ExportsColumnWidths = CaptureColumnWidths(LVExports);
     }
 
     private void MainForm_DpiChanged(object sender, DpiChangedEventArgs e)
@@ -4359,9 +4525,6 @@ public partial class MainForm : Form
                 }
                 _modulesHintForm = null;
             }
-        }
-        catch (Exception)
-        {
         }
         finally
         {

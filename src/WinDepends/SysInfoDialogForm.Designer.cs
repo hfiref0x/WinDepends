@@ -58,8 +58,8 @@
             splitContainer1.Panel2.Controls.Add(button3);
             splitContainer1.Panel2.Controls.Add(button2);
             splitContainer1.Panel2.Controls.Add(button1);
-            splitContainer1.Size = new Size(701, 468);
-            splitContainer1.SplitterDistance = 601;
+            splitContainer1.Size = new Size(714, 468);
+            splitContainer1.SplitterDistance = 614;
             splitContainer1.TabIndex = 0;
             // 
             // richTextBox1
@@ -69,7 +69,7 @@
             richTextBox1.Location = new Point(0, 0);
             richTextBox1.Name = "richTextBox1";
             richTextBox1.ReadOnly = true;
-            richTextBox1.Size = new Size(601, 468);
+            richTextBox1.Size = new Size(614, 468);
             richTextBox1.TabIndex = 0;
             richTextBox1.Text = "";
             richTextBox1.WordWrap = false;
@@ -77,10 +77,11 @@
             // 
             // button4
             // 
+            button4.AutoSize = true;
             button4.Enabled = false;
-            button4.Location = new Point(9, 99);
+            button4.Location = new Point(9, 116);
             button4.Name = "button4";
-            button4.Size = new Size(75, 23);
+            button4.Size = new Size(84, 25);
             button4.TabIndex = 3;
             button4.Text = "Copy";
             button4.UseVisualStyleBackColor = true;
@@ -88,9 +89,10 @@
             // 
             // button3
             // 
-            button3.Location = new Point(8, 70);
+            button3.AutoSize = true;
+            button3.Location = new Point(8, 80);
             button3.Name = "button3";
-            button3.Size = new Size(75, 23);
+            button3.Size = new Size(84, 25);
             button3.TabIndex = 2;
             button3.Text = "Select All";
             button3.UseVisualStyleBackColor = true;
@@ -98,9 +100,10 @@
             // 
             // button2
             // 
-            button2.Location = new Point(9, 41);
+            button2.AutoSize = true;
+            button2.Location = new Point(9, 46);
             button2.Name = "button2";
-            button2.Size = new Size(75, 23);
+            button2.Size = new Size(84, 25);
             button2.TabIndex = 1;
             button2.Text = "Refresh";
             button2.UseVisualStyleBackColor = true;
@@ -108,10 +111,11 @@
             // 
             // button1
             // 
+            button1.AutoSize = true;
             button1.DialogResult = DialogResult.OK;
             button1.Location = new Point(9, 12);
             button1.Name = "button1";
-            button1.Size = new Size(75, 23);
+            button1.Size = new Size(84, 25);
             button1.TabIndex = 0;
             button1.Text = "Close";
             button1.UseVisualStyleBackColor = true;
@@ -121,7 +125,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = button1;
-            ClientSize = new Size(721, 498);
+            ClientSize = new Size(734, 498);
             Controls.Add(splitContainer1);
             MinimizeBox = false;
             MinimumSize = new Size(640, 480);
@@ -135,6 +139,7 @@
             Load += SysInfoForm_Load;
             splitContainer1.Panel1.ResumeLayout(false);
             splitContainer1.Panel2.ResumeLayout(false);
+            splitContainer1.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
             splitContainer1.ResumeLayout(false);
             ResumeLayout(false);

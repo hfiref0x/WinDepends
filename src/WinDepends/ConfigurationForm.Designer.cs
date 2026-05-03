@@ -258,7 +258,7 @@
             treeNode4.Name = "ApiSetsNode";
             treeNode4.Tag = "30";
             treeNode4.Text = "ApiSets";
-            treeNode5.Name = "xternalFunctionHelpNode";
+            treeNode5.Name = "ExternalFunctionHelpNode";
             treeNode5.Tag = "40";
             treeNode5.Text = "External Function Help";
             treeNode6.Name = "ExternalModuleViewerNode";
@@ -1000,7 +1000,7 @@
             // buttonElevate
             // 
             buttonElevate.AutoSize = true;
-            buttonElevate.Location = new Point(385, 405);
+            buttonElevate.Location = new Point(404, 405);
             buttonElevate.Name = "buttonElevate";
             buttonElevate.Size = new Size(89, 25);
             buttonElevate.TabIndex = 8;
@@ -1053,7 +1053,7 @@
             // buttonSelectAll
             // 
             buttonSelectAll.AutoSize = true;
-            buttonSelectAll.Location = new Point(385, 340);
+            buttonSelectAll.Location = new Point(404, 340);
             buttonSelectAll.Name = "buttonSelectAll";
             buttonSelectAll.Size = new Size(89, 25);
             buttonSelectAll.TabIndex = 6;
@@ -1089,7 +1089,7 @@
             // shellIntegrationWarningLabel
             // 
             shellIntegrationWarningLabel.AutoSize = true;
-            shellIntegrationWarningLabel.Location = new Point(6, 415);
+            shellIntegrationWarningLabel.Location = new Point(3, 410);
             shellIntegrationWarningLabel.Name = "shellIntegrationWarningLabel";
             shellIntegrationWarningLabel.Size = new Size(292, 15);
             shellIntegrationWarningLabel.TabIndex = 6;
@@ -1378,11 +1378,10 @@
             // labelServerStatus
             // 
             labelServerStatus.AutoSize = true;
-            labelServerStatus.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             labelServerStatus.ForeColor = Color.Green;
-            labelServerStatus.Location = new Point(73, 26);
+            labelServerStatus.Location = new Point(89, 26);
             labelServerStatus.Name = "labelServerStatus";
-            labelServerStatus.Size = new Size(67, 15);
+            labelServerStatus.Size = new Size(65, 15);
             labelServerStatus.TabIndex = 1;
             labelServerStatus.Text = "Connected";
             // 
@@ -1411,10 +1410,10 @@
             chBoxUseSymbols.AutoSize = true;
             chBoxUseSymbols.Location = new Point(6, 10);
             chBoxUseSymbols.Name = "chBoxUseSymbols";
-            chBoxUseSymbols.Size = new Size(400, 34);
+            chBoxUseSymbols.Size = new Size(333, 19);
             chBoxUseSymbols.TabIndex = 10;
             chBoxUseSymbols.Tag = "604";
-            chBoxUseSymbols.Text = "Use debug symbols (PDB) to resolve anonymous function names when\r\ndisplaying module import/export list";
+            chBoxUseSymbols.Text = "Resolve anonymous module functions using PDB symbols";
             chBoxUseSymbols.UseVisualStyleBackColor = true;
             chBoxUseSymbols.Click += ChBox_Click;
             // 

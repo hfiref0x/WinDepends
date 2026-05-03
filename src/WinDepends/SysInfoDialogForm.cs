@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       SYSINFODIALOGFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Sep 2024
+*  DATE:        02 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -20,22 +20,27 @@ public partial class SysInfoDialogForm : Form
 {
     readonly List<PropertyElement> m_SysInfo;
     readonly bool bIsLocal;
+    readonly float fSize;
 
-    public SysInfoDialogForm(List<PropertyElement> SystemInformation, bool isLocal)
+    public SysInfoDialogForm(List<PropertyElement> SystemInformation, bool isLocal, float fontSize)
     {
         InitializeComponent();
         m_SysInfo = SystemInformation;
         bIsLocal = isLocal;
-    }
-
-    private void AddTabbedText(string name, string value)
-    {
-        richTextBox1.AppendText(name + ":", Color.Black, true, false);
-        richTextBox1.AppendText("\t" + value, Color.Black, false, true);
+        fSize = fontSize;
     }
 
     private void ShowSystemInformation()
     {
+        // 1. Set Font first so metrics are available if needed later
+        richTextBox1.Font = new Font(richTextBox1.Font.FontFamily, fSize);
+
+        // 2. Calculate Tab Stop dynamically based on font size
+        int dynamicTabStop = (int)(fSize * 18);
+
+        // Ensure a minimum width so short keys don't look squashed
+        int finalTabStop = Math.Max(150, dynamicTabStop);
+
         richTextBox1.Clear();
 
         if (bIsLocal)
@@ -44,14 +49,17 @@ public partial class SysInfoDialogForm : Form
         }
         else
         {
-            PropertyElement computerName = m_SysInfo.Find(x => x.Name.Equals("Computer Name"));
-            PropertyElement userName = m_SysInfo.Find(x => x.Name.Equals("User Name"));
-            Text = $"System information ({computerName.Value}\\{userName.Value})";
+            PropertyElement? computerName = m_SysInfo.Find(x => x.Name.Equals("Computer Name"));
+            PropertyElement? userName = m_SysInfo.Find(x => x.Name.Equals("User Name"));
+            Text = $"System information ({(computerName?.Value ?? "Unknown")}\\{(userName?.Value ?? "Unknown")})";
         }
+
+        // 3. Set the tabs once for the control before starting the loop
+        richTextBox1.SelectionTabs = new int[] { finalTabStop };
 
         foreach (var element in m_SysInfo)
         {
-            AddTabbedText(element.Name, element.Value);
+            richTextBox1.AppendTabbedText(element.Name, element.Value, finalTabStop);
         }
 
         richTextBox1.DeselectAll();

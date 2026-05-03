@@ -21,7 +21,6 @@ namespace WinDepends;
 
 public partial class ConfigurationForm : Form
 {
-    private static readonly float[] GuiFontSizes = [8f, 9f, 10f, 11f, 12f];
     readonly CCoreClient _coreClient;
     readonly string m_CurrentFileName = string.Empty;
     readonly bool m_Is64bitFile;
@@ -456,7 +455,7 @@ public partial class ConfigurationForm : Form
     private void PopulateGuiFontSizes()
     {
         cbGuiFontSize.Items.Clear();
-        foreach (var size in GuiFontSizes)
+        foreach (var size in CConsts.AvailableGuiFontSizes)
         {
             cbGuiFontSize.Items.Add($"{size:0.#}");
         }
@@ -464,7 +463,7 @@ public partial class ConfigurationForm : Form
 
     private void SelectGuiFontSize(float size)
     {
-        var safeSize = GuiFontSizes.Contains(size) ? size : 9f;
+        var safeSize = CConsts.AvailableGuiFontSizes.Contains(size) ? size : CConsts.DefaultGuiFontSize;
         _config.GuiFontSize = safeSize;
         cbGuiFontSize.SelectedItem = $"{safeSize:0.#}";
     }
@@ -1056,7 +1055,7 @@ public partial class ConfigurationForm : Form
             return;
 
         if (float.TryParse(cbGuiFontSize.SelectedItem.ToString(), out float selectedSize) &&
-            GuiFontSizes.Contains(selectedSize))
+            CConsts.AvailableGuiFontSizes.Contains(selectedSize))
         {
             _config.GuiFontSize = selectedSize;
         }

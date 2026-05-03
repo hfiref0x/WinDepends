@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Apr 2026
+*  DATE:        02 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -140,27 +140,48 @@ public record TooltipInfo(Control Control, string AssociatedText);
 internal static class RichTextBoxExtensions
 {
     /// <summary>
-    /// Append text with colored selection.
+    /// Appends a Key-Value pair with consistent column alignment.
     /// </summary>
-    /// <param name="box"></param>
-    /// <param name="text"></param>
-    /// <param name="color"></param>
-    /// <param name="bold"></param>
-    /// <param name="newLine"></param>
+    public static void AppendTabbedText(this RichTextBox box, string name, string value, int tabStopPixels = 200)
+    {
+        // Move cursor to end of document
+        box.SelectionStart = box.TextLength;
+        box.SelectionLength = 0;
+
+        // Set explicit pixel-based tab stop. 
+        // This ensures \t jumps exactly to this coordinate regardless of font size.
+        box.SelectionTabs = new int[] { tabStopPixels };
+
+        // Append Key (Bold)
+        box.AppendText($"{name}:", Color.Black, true, false);
+
+        // Append Value (Regular). The \t respects the pixel stop defined above.
+        box.AppendText("\t" + value, Color.Black, false, true);
+    }
+
+    /// <summary>
+    /// Core append method: Applies styles before inserting text to fix layout metrics.
+    /// </summary>
     public static void AppendText(this RichTextBox box, string text, Color color, bool bold = true, bool newLine = true)
     {
         box.SelectionStart = box.TextLength;
         box.SelectionLength = 0;
-        int oldLength = box.Text.Length;
 
+        // Prepare content (handle newline here to ensure it's part of the styled block)
+        string contentToAppend = text + (newLine ? "\r\n" : "");
+
+        // Apply styles before inserting. 
+        // This forces RichTextBox to calculate line height and tab positions using these metrics immediately.
         box.SelectionColor = color;
-        if (newLine) text += "\r";
-        box.AppendText(text);
-        box.SelectionColor = box.ForeColor;
 
-        box.Select(oldLength, text.Length);
-        using var font = new Font(box.Font, bold ? FontStyle.Bold : FontStyle.Regular);
+        FontStyle style = bold ? FontStyle.Bold : FontStyle.Regular;
+        using var font = new Font(box.Font, style);
         box.SelectionFont = font;
+
+        // Insert text using SelectedText (applies current selection styles)
+        box.SelectedText = contentToAppend;
+
+        // Reset selection length for next operation
         box.SelectionLength = 0;
     }
 }
@@ -399,7 +420,7 @@ public static class CUtils
 
     private static void AddMemoryInformation(List<PropertyElement> list, MEMORYSTATUSEX mem)
     {
-        list.Add(new("Memory Load", $"\t{mem.dwMemoryLoad}%"));
+        list.Add(new("Memory Load", $"{mem.dwMemoryLoad}%"));
 
         AddMemoryEntry(list, "Physical Memory", mem.ullTotalPhys, mem.ullAvailPhys);
         AddMemoryEntry(list, "Page File Memory", mem.ullTotalPageFile, mem.ullAvailPageFile);
@@ -436,7 +457,7 @@ public static class CUtils
             @"Software\Microsoft\Windows NT\CurrentVersion", "ProductName");
 
         systemInformation.Add(new("OS Version",
-            $"\t{Environment.OSVersion.Version}"));
+            $"{Environment.OSVersion.Version}"));
 
         // Processor Information
         using (var cpuKey = Registry.LocalMachine.OpenSubKey(
@@ -449,7 +470,7 @@ public static class CUtils
             if (!string.IsNullOrEmpty(cpuId) && !string.IsNullOrEmpty(cpuVendor))
             {
                 systemInformation.Add(new("Processor",
-                    $"\t{cpuId}, {cpuVendor}, ~{cpuFreq}MHz"));
+                    $"{cpuId}, {cpuVendor}, ~{cpuFreq}MHz"));
             }
         }
 
@@ -461,21 +482,21 @@ public static class CUtils
             $"{systemInfo.dwNumberOfProcessors}, Mask: 0x{systemInfo.dwActiveProcessorMask.ToString(ptrFormat)}"));
 
         // User/Computer Info
-        systemInformation.Add(new("Computer Name", $"\t{Environment.MachineName}"));
-        systemInformation.Add(new("User Name", $"\t{Environment.UserName}"));
+        systemInformation.Add(new("Computer Name", "${Environment.MachineName}"));
+        systemInformation.Add(new("User Name", $"{Environment.UserName}"));
 
         // DateTime Info
         var now = DateTime.Now;
-        systemInformation.Add(new("Local Date", $"\t{now.ToLongDateString()}"));
+        systemInformation.Add(new("Local Date", $"{now.ToLongDateString()}"));
 
         var timeZone = TimeZoneInfo.Local;
         systemInformation.Add(new("Local Time",
-            $"\t{now.ToLongTimeString()} {timeZone.DaylightName} (GMT {timeZone.GetUtcOffset(now)})"));
+            $"{now.ToLongTimeString()} {timeZone.DaylightName} (GMT {timeZone.GetUtcOffset(now)})"));
 
         // Culture Info
         var culture = CultureInfo.InstalledUICulture;
         systemInformation.Add(new("OS Language",
-            $"\t0x{culture.LCID:X4}: {culture.DisplayName}"));
+            $"0x{culture.LCID:X4}: {culture.DisplayName}"));
 
         // Memory Info (corrected struct usage)
         var memoryStatus = new MEMORYSTATUSEX();
@@ -486,7 +507,7 @@ public static class CUtils
 
         // System Memory Configuration
         systemInformation.Add(new("Page Size",
-            $"\t0x{systemInfo.dwPageSize:X8} ({systemInfo.dwPageSize:N0})"));
+            $"0x{systemInfo.dwPageSize:X8} ({systemInfo.dwPageSize:N0})"));
 
         systemInformation.Add(new("Allocation Granularity",
             $"0x{systemInfo.dwAllocationGranularity:X8} ({systemInfo.dwAllocationGranularity:N0})"));

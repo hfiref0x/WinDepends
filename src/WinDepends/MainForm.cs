@@ -156,7 +156,6 @@ public partial class MainForm : Form
 
     private readonly ToolTip moduleToolTip = new ToolTip();
     private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
-    private static readonly float[] AvailableGuiFontSizes = [8f, 9f, 10f, 11f, 12f];
 
     public MainForm()
     {
@@ -3070,7 +3069,7 @@ public partial class MainForm : Form
             CUtils.CollectSystemInformation(si);
         }
 
-        using (var sysInfoDlg = new SysInfoDialogForm(si, isLocal))
+        using (var sysInfoDlg = new SysInfoDialogForm(si, isLocal, this.Font.Size))
         {
             sysInfoDlg.Font = this.Font;
             sysInfoDlg.ShowDialog();
@@ -4397,7 +4396,7 @@ public partial class MainForm : Form
 
     private static bool IsAllowedGuiFontSize(float value)
     {
-        return AvailableGuiFontSizes.Any(size => Math.Abs(size - value) < 0.001f);
+        return CConsts.AvailableGuiFontSizes.Any(size => Math.Abs(size - value) < 0.001f);
     }
 
     /// <summary>

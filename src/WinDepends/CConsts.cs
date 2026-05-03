@@ -128,6 +128,7 @@ public static class CConsts
     public const int MaxTreeNodeStackSize = 1024;
 
     public const float DefaultGuiFontSize = 9f;
+    public static readonly float[] AvailableGuiFontSizes = [8f, 9f, 10f, 11f, 12f];
 
     /// <summary>
     /// Setting value names.

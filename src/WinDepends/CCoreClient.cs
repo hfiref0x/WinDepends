@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 May 2026
+*  DATE:        23 May 2026
 *  
 *  Core Server communication class.
 *
@@ -627,7 +627,7 @@ public class CCoreClient : IDisposable
             }
 
             string extension = Path.GetExtension(canonicalPath);
-            if (!extension.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+            if (!extension.Equals(CConsts.ExeFileExt, StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = "Server application must be an executable file";
                 return false;
@@ -1035,6 +1035,75 @@ public class CCoreClient : IDisposable
     }
 
     /// <summary>
+    /// Resolves the full path of a forwarder target module by trying multiple file extensions
+    /// if the raw target has none, using the appropriate search order for the given module context.
+    /// </summary>
+    /// <param name="rawTarget">
+    /// The raw forwarder target module name, as found in the export table
+    /// (e.g., "NTDLL", "kernel32.dll"). May or may not include a file extension.
+    /// </param>
+    /// <param name="module">
+    /// The owning module providing context for path resolution (e.g., its directory,
+    /// whether it is a kernel-mode module).
+    /// </param>
+    /// <param name="searchOrderUM">
+    /// The ordered list of search locations to apply when resolving user-mode modules.
+    /// </param>
+    /// <param name="searchOrderKM">
+    /// The ordered list of search locations to apply when resolving kernel-mode modules.
+    /// </param>
+    /// <param name="resolvedBy">
+    /// Outputs the <see cref="SearchOrderType"/> entry that successfully located the module,
+    /// or <see cref="SearchOrderType.None"/> if resolution failed.
+    /// </param>
+    /// <returns>
+    /// The fully resolved file-system path of the target module if found; otherwise the
+    /// original <paramref name="rawTarget"/> string is returned as a fallback, or
+    /// <see cref="string.Empty"/> if <paramref name="rawTarget"/> is null or empty.
+    /// </returns>
+    private static string ResolveForwarderTargetModuleName(
+        string rawTarget,
+        CModule module,
+        List<SearchOrderType> searchOrderUM,
+        List<SearchOrderType> searchOrderKM,
+        out SearchOrderType resolvedBy)
+    {
+        string candidate;
+        string resolvedPath;
+
+        resolvedBy = SearchOrderType.None;
+
+        if (string.IsNullOrEmpty(rawTarget))
+            return string.Empty;
+
+        candidate = rawTarget;
+        resolvedPath = CPathResolver.ResolvePathForModule(candidate, module, searchOrderUM, searchOrderKM, out resolvedBy);
+        if (!string.IsNullOrEmpty(resolvedPath))
+            return resolvedPath;
+
+        if (!Path.HasExtension(rawTarget))
+        {
+            candidate = rawTarget + CConsts.DllFileExt;
+            resolvedPath = CPathResolver.ResolvePathForModule(candidate, module, searchOrderUM, searchOrderKM, out resolvedBy);
+            if (!string.IsNullOrEmpty(resolvedPath))
+                return resolvedPath;
+
+            candidate = rawTarget + CConsts.ExeFileExt;
+            resolvedPath = CPathResolver.ResolvePathForModule(candidate, module, searchOrderUM, searchOrderKM, out resolvedBy);
+            if (!string.IsNullOrEmpty(resolvedPath))
+                return resolvedPath;
+
+            
+            candidate = rawTarget + CConsts.SysFileExt;
+            resolvedPath = CPathResolver.ResolvePathForModule(candidate, module, searchOrderUM, searchOrderKM, out resolvedBy);
+            if (!string.IsNullOrEmpty(resolvedPath))
+                return resolvedPath;
+        }
+
+        return rawTarget;
+    }
+
+    /// <summary>
     /// Parses a forwarder string to extract the target module and function information.
     /// </summary>
     /// <param name="forwarder">The forwarder string (e.g., "MODULE.Function" or "MODULE.#123").</param>
@@ -1156,6 +1225,16 @@ public class CCoreClient : IDisposable
     /// <param name="addLogMessage">Delegate for logging messages.</param>
     public void ValidateForwardedExports(CModule module)
     {
+        static bool IsModuleMatch(string moduleName, string candidate)
+        {
+            if (string.IsNullOrEmpty(moduleName) || string.IsNullOrEmpty(candidate))
+                return false;
+
+            return moduleName.Equals(candidate, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetFileName(moduleName).Equals(candidate, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetFileNameWithoutExtension(moduleName).Equals(candidate, StringComparison.OrdinalIgnoreCase);
+        }
+
         if (module?.ForwarderEntries == null || module.ForwarderEntries.Count == 0)
             return;
 
@@ -1171,8 +1250,8 @@ public class CCoreClient : IDisposable
         foreach (var fe in module.ForwarderEntries)
         {
             var targetModule = module.Dependents.FirstOrDefault(d =>
-                Path.GetFileName(d.FileName).Equals(fe.TargetModuleName, StringComparison.OrdinalIgnoreCase) ||
-                Path.GetFileName(d.RawFileName).Equals(fe.TargetModuleName, StringComparison.OrdinalIgnoreCase));
+                IsModuleMatch(d.FileName, fe.TargetModuleName) ||
+                IsModuleMatch(d.RawFileName, fe.TargetModuleName));
 
             if (targetModule == null)
                 continue;
@@ -1227,12 +1306,22 @@ public class CCoreClient : IDisposable
                                       SearchOrderType resolvedBy,
                                       bool isApiSetContract)
     {
+        static bool IsModuleMatch(string moduleName, string candidate)
+        {
+            if (string.IsNullOrEmpty(moduleName) || string.IsNullOrEmpty(candidate))
+                return false;
+
+            return moduleName.Equals(candidate, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetFileName(moduleName).Equals(candidate, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetFileNameWithoutExtension(moduleName).Equals(candidate, StringComparison.OrdinalIgnoreCase);
+        }
+
         // First check for existing real (non-forward) module
         var existingReal = parentModule.Dependents.FirstOrDefault(d =>
             !d.IsForward &&
-            (d.FileName.Equals(finalTargetName, StringComparison.OrdinalIgnoreCase) ||
-             d.FileName.Equals(canonicalName, StringComparison.OrdinalIgnoreCase) ||
-             d.RawFileName.Equals(rawTarget, StringComparison.OrdinalIgnoreCase)));
+            (IsModuleMatch(d.FileName, finalTargetName) ||
+             IsModuleMatch(d.FileName, canonicalName) ||
+             IsModuleMatch(d.RawFileName, rawTarget)));
 
         if (existingReal != null)
             return existingReal;
@@ -1240,9 +1329,9 @@ public class CCoreClient : IDisposable
         // Check for existing synthetic forward node
         var forwardNode = parentModule.Dependents.FirstOrDefault(d =>
             d.IsForward &&
-            (d.FileName.Equals(finalTargetName, StringComparison.OrdinalIgnoreCase) ||
-             d.FileName.Equals(canonicalName, StringComparison.OrdinalIgnoreCase) ||
-             d.RawFileName.Equals(rawTarget, StringComparison.OrdinalIgnoreCase)));
+            (IsModuleMatch(d.FileName, finalTargetName) ||
+             IsModuleMatch(d.FileName, canonicalName) ||
+             IsModuleMatch(d.RawFileName, rawTarget)));
 
         if (forwardNode == null)
         {
@@ -1311,10 +1400,8 @@ public class CCoreClient : IDisposable
 
             bool isApiSetContract = IsModuleNameApiSetContract(rawTarget);
             string canonicalName = isApiSetContract ? ResolveApiSetName(rawTarget, module) : rawTarget;
-            string resolvedTargetPath = CPathResolver.ResolvePathForModule(
+            string finalTargetName = ResolveForwarderTargetModuleName(
                 canonicalName, module, searchOrderUM, searchOrderKM, out SearchOrderType resolvedBy);
-
-            string finalTargetName = string.IsNullOrEmpty(resolvedTargetPath) ? canonicalName : resolvedTargetPath;
 
             // Create the synthetic forward node
             var forwardNode = CreateOrGetForwardNode(
@@ -1412,11 +1499,15 @@ public class CCoreClient : IDisposable
                     if (!string.IsNullOrEmpty(rawTargetModule))
                     {
                         string moduleFileName = Path.GetFileName(module.FileName);
+                        string moduleFileNameNoExt = Path.GetFileNameWithoutExtension(module.FileName);
                         string rawFileName = Path.GetFileName(module.RawFileName);
+                        string rawFileNameNoExt = Path.GetFileNameWithoutExtension(module.RawFileName);
 
                         // Skip self-forward
                         if (!rawTargetModule.Equals(moduleFileName, StringComparison.OrdinalIgnoreCase) &&
-                            !rawTargetModule.Equals(rawFileName, StringComparison.OrdinalIgnoreCase))
+                                               !rawTargetModule.Equals(moduleFileNameNoExt, StringComparison.OrdinalIgnoreCase) &&
+                                               !rawTargetModule.Equals(rawFileName, StringComparison.OrdinalIgnoreCase) &&
+                                               !rawTargetModule.Equals(rawFileNameNoExt, StringComparison.OrdinalIgnoreCase))
                         {
                             var fe = new CForwarderEntry
                             {

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 May 2026
+*  DATE:        23 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -177,8 +177,10 @@ public static class CConsts
     //
     public const string ShortcutFileExt = ".lnk";
 
-    // Dll file extension
+    // File extensions
     public const string DllFileExt = ".dll";
+    public const string ExeFileExt = ".exe";
+    public const string SysFileExt = ".sys";
 
     //
     // Common open dialog filter extensions.

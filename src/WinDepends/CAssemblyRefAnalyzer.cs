@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Feb 2026
+*  DATE:        23 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -687,12 +687,12 @@ public static class CAssemblyRefAnalyzer
         if (!string.IsNullOrEmpty(referringDirectory))
         {
             // Check for exact named assembly (name.dll)
-            string localPath = Path.Combine(referringDirectory, name + ".dll");
+            string localPath = Path.Combine(referringDirectory, name + CConsts.DllFileExt);
             if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                 return (localPath, "Local directory");
 
             // Check .exe extension too
-            localPath = Path.Combine(referringDirectory, name + ".exe");
+            localPath = Path.Combine(referringDirectory, name + CConsts.ExeFileExt);
             if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                 return (localPath, "Local directory");
 
@@ -703,11 +703,11 @@ public static class CAssemblyRefAnalyzer
                 string archDir = Path.Combine(referringDirectory, archSubdir);
                 if (Directory.Exists(archDir))
                 {
-                    localPath = Path.Combine(archDir, name + ".dll");
+                    localPath = Path.Combine(archDir, name + CConsts.DllFileExt);
                     if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                         return (localPath, $"Architecture-specific directory ({archSubdir})");
 
-                    localPath = Path.Combine(archDir, name + ".exe");
+                    localPath = Path.Combine(archDir, name + CConsts.ExeFileExt);
                     if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                         return (localPath, $"Architecture-specific directory ({archSubdir})");
                 }
@@ -717,11 +717,11 @@ public static class CAssemblyRefAnalyzer
             string privateBinPath = Path.Combine(referringDirectory, name);
             if (Directory.Exists(privateBinPath))
             {
-                localPath = Path.Combine(privateBinPath, name + ".dll");
+                localPath = Path.Combine(privateBinPath, name + CConsts.DllFileExt);
                 if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                     return (localPath, "Private bin path");
 
-                localPath = Path.Combine(privateBinPath, name + ".exe");
+                localPath = Path.Combine(privateBinPath, name + CConsts.ExeFileExt);
                 if (File.Exists(localPath) && IsValidArchitectureCached(localPath, cpuType))
                     return (localPath, "Private bin path");
             }
@@ -748,7 +748,7 @@ public static class CAssemblyRefAnalyzer
         }
 
         // 5. Check for native DLLs in system directories
-        if (name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        if (name.EndsWith(CConsts.DllFileExt, StringComparison.OrdinalIgnoreCase))
         {
             string baseName = Path.GetFileNameWithoutExtension(name);
             string nativePath = FindNativeLibrary(baseName, cpuType);
@@ -799,11 +799,11 @@ public static class CAssemblyRefAnalyzer
         string windowsDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         string system32Dir = Path.Combine(windowsDir, "System32");
 
-        string candidate = Path.Combine(windowsDir, libraryName + ".dll");
+        string candidate = Path.Combine(windowsDir, libraryName + CConsts.DllFileExt);
         if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
             return candidate;
 
-        candidate = Path.Combine(system32Dir, libraryName + ".dll");
+        candidate = Path.Combine(system32Dir, libraryName + CConsts.DllFileExt);
         if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
             return candidate;
 
@@ -815,7 +815,7 @@ public static class CAssemblyRefAnalyzer
                     string sysWow64 = Path.Combine(windowsDir, "SysWOW64");
                     if (Directory.Exists(sysWow64))
                     {
-                        candidate = Path.Combine(sysWow64, libraryName + ".dll");
+                        candidate = Path.Combine(sysWow64, libraryName + CConsts.DllFileExt);
                         if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
                             return candidate;
                     }
@@ -828,7 +828,7 @@ public static class CAssemblyRefAnalyzer
                     string sysArm32 = Path.Combine(windowsDir, "SysArm32");
                     if (Directory.Exists(sysArm32))
                     {
-                        candidate = Path.Combine(sysArm32, libraryName + ".dll");
+                        candidate = Path.Combine(sysArm32, libraryName + CConsts.DllFileExt);
                         if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
                             return candidate;
                     }
@@ -839,7 +839,7 @@ public static class CAssemblyRefAnalyzer
         string systemRootDir = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
         if (!string.IsNullOrEmpty(systemRootDir) && Directory.Exists(systemRootDir))
         {
-            candidate = Path.Combine(systemRootDir, libraryName + ".dll");
+            candidate = Path.Combine(systemRootDir, libraryName + CConsts.DllFileExt);
             if (File.Exists(candidate) && IsArchitectureCompatible(candidate, cpuType))
                 return candidate;
         }
@@ -1080,12 +1080,12 @@ public static class CAssemblyRefAnalyzer
         }
 
         string subdir = $"{version}_{culture}_{pkt}";
-        string newerGacPath = Path.Combine(windir, "Microsoft.NET", "assembly", archSuffix, name, subdir, name + ".dll");
+        string newerGacPath = Path.Combine(windir, "Microsoft.NET", "assembly", archSuffix, name, subdir, name + CConsts.DllFileExt);
         if (File.Exists(newerGacPath))
             return newerGacPath;
 
         string gacFolder = Path.Combine(windir, "assembly", "GAC");
-        string olderGacPath = Path.Combine(gacFolder, name, version + "_" + culture + "_" + pkt, name + ".dll");
+        string olderGacPath = Path.Combine(gacFolder, name, version + "_" + culture + "_" + pkt, name + CConsts.DllFileExt);
         if (File.Exists(olderGacPath))
             return olderGacPath;
 
@@ -1093,20 +1093,20 @@ public static class CAssemblyRefAnalyzer
         {
             case CpuType.X86:
             case CpuType.Arm:
-                string gac32 = Path.Combine(windir, "assembly", "GAC_32", name, version + "_" + culture + "_" + pkt, name + ".dll");
+                string gac32 = Path.Combine(windir, "assembly", "GAC_32", name, version + "_" + culture + "_" + pkt, name + CConsts.DllFileExt);
                 if (File.Exists(gac32))
                     return gac32;
                 break;
 
             case CpuType.X64:
             case CpuType.Arm64:
-                string gac64 = Path.Combine(windir, "assembly", "GAC_64", name, version + "_" + culture + "_" + pkt, name + ".dll");
+                string gac64 = Path.Combine(windir, "assembly", "GAC_64", name, version + "_" + culture + "_" + pkt, name + CConsts.DllFileExt);
                 if (File.Exists(gac64))
                     return gac64;
                 break;
         }
 
-        string gacMsil = Path.Combine(windir, "assembly", "GAC_MSIL", name, version + "_" + culture + "_" + pkt, name + ".dll");
+        string gacMsil = Path.Combine(windir, "assembly", "GAC_MSIL", name, version + "_" + culture + "_" + pkt, name + CConsts.DllFileExt);
         return gacMsil;
     }
 
@@ -1165,14 +1165,14 @@ public static class CAssemblyRefAnalyzer
             var directories = EnumerateDirectoriesByVersionDesc(frameworkDir);
             foreach (var versionDir in directories)
             {
-                string candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                string candidate = Path.Combine(versionDir, assemblyName + CConsts.DllFileExt);
                 if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                     return candidate;
 
                 string wpfDir = Path.Combine(versionDir, "WPF");
                 if (Directory.Exists(wpfDir))
                 {
-                    candidate = Path.Combine(wpfDir, assemblyName + ".dll");
+                    candidate = Path.Combine(wpfDir, assemblyName + CConsts.DllFileExt);
                     if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                         return candidate;
                 }
@@ -1187,7 +1187,7 @@ public static class CAssemblyRefAnalyzer
                 var armDirectories = EnumerateDirectoriesByVersionDesc(armFrameworkDir);
                 foreach (var versionDir in armDirectories)
                 {
-                    string candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    string candidate = Path.Combine(versionDir, assemblyName + CConsts.DllFileExt);
                     if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                         return candidate;
                 }
@@ -1233,7 +1233,7 @@ public static class CAssemblyRefAnalyzer
     private static string FindInRuntimeDirectory(string assemblyName, CpuType cpuType)
     {
         string runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
-        string candidate = Path.Combine(runtimeDir, assemblyName + ".dll");
+        string candidate = Path.Combine(runtimeDir, assemblyName + CConsts.DllFileExt);
         if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
             return candidate;
 
@@ -1276,13 +1276,13 @@ public static class CAssemblyRefAnalyzer
                         string archDir = Path.Combine(versionDir, rid);
                         if (Directory.Exists(archDir))
                         {
-                            candidate = Path.Combine(archDir, assemblyName + ".dll");
+                            candidate = Path.Combine(archDir, assemblyName + CConsts.DllFileExt);
                             if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                                 return candidate;
                         }
                     }
 
-                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    candidate = Path.Combine(versionDir, assemblyName + CConsts.DllFileExt);
                     if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                         return candidate;
                 }
@@ -1299,13 +1299,13 @@ public static class CAssemblyRefAnalyzer
                         string archDir = Path.Combine(versionDir, rid);
                         if (Directory.Exists(archDir))
                         {
-                            candidate = Path.Combine(archDir, assemblyName + ".dll");
+                            candidate = Path.Combine(archDir, assemblyName + CConsts.DllFileExt);
                             if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                                 return candidate;
                         }
                     }
 
-                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    candidate = Path.Combine(versionDir, assemblyName + CConsts.DllFileExt);
                     if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                         return candidate;
                 }
@@ -1322,13 +1322,13 @@ public static class CAssemblyRefAnalyzer
                         string archDir = Path.Combine(versionDir, rid);
                         if (Directory.Exists(archDir))
                         {
-                            candidate = Path.Combine(archDir, assemblyName + ".dll");
+                            candidate = Path.Combine(archDir, assemblyName + CConsts.DllFileExt);
                             if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                                 return candidate;
                         }
                     }
 
-                    candidate = Path.Combine(versionDir, assemblyName + ".dll");
+                    candidate = Path.Combine(versionDir, assemblyName + CConsts.DllFileExt);
                     if (File.Exists(candidate) && IsValidArchitectureCached(candidate, cpuType))
                         return candidate;
                 }

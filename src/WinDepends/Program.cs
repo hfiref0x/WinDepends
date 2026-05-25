@@ -50,6 +50,7 @@ internal static class Program
 
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
+        //Application.SetColorMode(SystemColorMode.Classic);
         ApplicationConfiguration.Initialize();
 
         SetCurrentProcessExplicitAppUserModelID("hfiref0x.WinDepends");

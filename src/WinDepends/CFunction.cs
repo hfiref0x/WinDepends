@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Feb 2026
+*  DATE:        23 May 2026
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *
@@ -198,7 +198,7 @@ public class CFunction
 
     /// <summary>
     /// Extracts forwarder target module file name from a forwarder string (e.g. "NTDLL.Rtl..." -> "NTDLL.dll").
-    /// Always returns a name with .dll extension or empty string if invalid.
+    /// Return raw token, normalization will take place later.
     /// </summary>
     public static string ExtractForwarderModule(string? forwarder)
     {
@@ -209,14 +209,7 @@ public class CFunction
         if (dotIndex <= 0)
             return string.Empty;
 
-        string moduleName = forwarder.Substring(0, dotIndex);
-
-        if (moduleName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-        {
-            return moduleName;
-        }
-
-        return moduleName + ".dll";
+        return forwarder.Substring(0, dotIndex);
     }
 
     /// <summary>
@@ -366,6 +359,16 @@ public class CFunction
     /// <returns>True if the forward target is resolved; false if target module is missing or function not found.</returns>
     public static bool IsForwardTargetResolved(string forwardName, CModule module, List<CModule> modulesList, int maxDepth)
     {
+        static bool IsModuleMatch(string moduleName, string candidate)
+        {
+            if (string.IsNullOrEmpty(moduleName) || string.IsNullOrEmpty(candidate))
+                return false;
+
+            return moduleName.Equals(candidate, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetFileName(moduleName).Equals(candidate, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetFileNameWithoutExtension(moduleName).Equals(candidate, StringComparison.OrdinalIgnoreCase);
+        }
+
         if (string.IsNullOrEmpty(forwardName) || module == null || modulesList == null)
             return false;
 
@@ -390,12 +393,11 @@ public class CFunction
 
         string targetFunctionPart = forwardName.Substring(dotIndex + 1);
 
-        // Check for self-forwarding: module forwards to itself
+        // Check for self-forward: module forwards to itself
         string currentModuleName = Path.GetFileName(module.FileName);
         string currentModuleNameNoExt = Path.GetFileNameWithoutExtension(module.FileName);
         bool isSelfForward = targetModuleName.Equals(currentModuleName, StringComparison.OrdinalIgnoreCase) ||
-                             targetModuleName.Equals(currentModuleNameNoExt, StringComparison.OrdinalIgnoreCase) ||
-                             (targetModuleName + ".dll").Equals(currentModuleName, StringComparison.OrdinalIgnoreCase);
+                             targetModuleName.Equals(currentModuleNameNoExt, StringComparison.OrdinalIgnoreCase);
 
         if (isSelfForward)
         {
@@ -436,8 +438,7 @@ public class CFunction
             // If we can't find the target there, assume valid to avoid false positives. 
             CModule targetInGlobal = modulesList.FirstOrDefault(m =>
                 !m.IsApiSetContract &&
-                (Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
-                 Path.GetFileName(m.FileName).Equals(targetModuleName + ".dll", StringComparison.OrdinalIgnoreCase)));
+                IsModuleMatch(m.FileName, targetModuleName));
 
             if (targetInGlobal == null)
             {
@@ -474,8 +475,8 @@ public class CFunction
         {
             targetModule = module.Dependents.FirstOrDefault(d =>
                 !d.IsApiSetContract &&
-                (Path.GetFileName(d.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
-                 Path.GetFileName(d.RawFileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase)));
+                (IsModuleMatch(d.FileName, targetModuleName) ||
+                 IsModuleMatch(d.RawFileName, targetModuleName)));
         }
 
         // Fall back to modulesList
@@ -483,8 +484,7 @@ public class CFunction
         {
             targetModule = modulesList.FirstOrDefault(m =>
                 !m.IsApiSetContract &&
-                (Path.GetFileName(m.FileName).Equals(targetModuleName, StringComparison.OrdinalIgnoreCase) ||
-                 Path.GetFileName(m.FileName).Equals(targetModuleName + ".dll", StringComparison.OrdinalIgnoreCase)));
+                IsModuleMatch(m.FileName, targetModuleName));
         }
 
         if (targetModule == null || targetModule.FileNotFound || targetModule.IsInvalid)

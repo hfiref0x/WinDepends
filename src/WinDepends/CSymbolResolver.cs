@@ -599,7 +599,7 @@ public static class CSymbolResolver
                     var p = Path.Combine(root, CConsts.DebuggersString, arch, CConsts.DbgHelpDll);
                     if (File.Exists(p)) candidates.Add(p);
                 }
-                catch 
+                catch
                 {
                     // Intentionally silent.
                 }
@@ -625,7 +625,7 @@ public static class CSymbolResolver
                 var sys = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
                 if (File.Exists(sys)) candidates.Add(sys);
             }
-            catch 
+            catch
             {
                 // Intentionally silent.
             }
@@ -669,11 +669,11 @@ public static class CSymbolResolver
 
         static void AddIfExists(ISet<string> set, string p)
         {
-            try 
-            { 
-                if (!string.IsNullOrEmpty(p) && File.Exists(p)) 
-                    set.Add(p); 
-            } 
+            try
+            {
+                if (!string.IsNullOrEmpty(p) && File.Exists(p))
+                    set.Add(p);
+            }
             catch
             {
                 // Intentionally silent.

@@ -902,7 +902,7 @@ public partial class ConfigurationForm : Form
         if (browseFileDialog.ShowDialog() == DialogResult.OK)
         {
             serverAppLocationTextBox.Text = browseFileDialog.FileName;
-            _coreClient?.SetServerApplication(browseFileDialog.FileName);
+            _coreClient?.ServerApplication = browseFileDialog.FileName;
             CheckServerFileState(browseFileDialog.FileName);
         }
     }

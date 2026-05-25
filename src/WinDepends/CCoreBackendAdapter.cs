@@ -323,7 +323,7 @@ internal static class CCoreDomainMapper
     /// Populates the <c>ModuleData</c> fields of a module descriptor from a
     /// <see cref="CCoreFileInformation"/> object returned by the backend server.
     /// </summary>
-     /// <param name="module">
+    /// <param name="module">
     /// Destination module descriptor whose <c>ModuleData</c> fields are updated in-place;
     /// must not be null.
     /// </param>

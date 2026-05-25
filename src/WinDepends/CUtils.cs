@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        02 May 2026
+*  DATE:        23 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -239,6 +239,19 @@ public static class CUtils
         }
 
         return null;
+    }
+
+
+    /// <summary>
+    /// Determines whether a module name represents an API Set contract.
+    /// </summary>
+    /// <param name="moduleName">The module name to check.</param>
+    /// <returns>true if the name represents an API Set contract; otherwise, false.</returns>
+    public static bool IsModuleNameApiSetContract(string moduleName)
+    {
+        return moduleName?.Length >= 4 &&
+              (moduleName.StartsWith("API-", StringComparison.OrdinalIgnoreCase) ||
+               moduleName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

@@ -332,7 +332,7 @@ static class CConfigManager
         {
             CUtils.SavePackedObjectToFile(fileName, configuration, typeof(CConfiguration), null);
         }
-        catch 
+        catch
         {
             // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
         }

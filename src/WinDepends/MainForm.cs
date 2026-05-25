@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        01 Apr 2026
+*  DATE:        23 May 2026
 *  
 *  Codename:    VasilEk
 *
@@ -4554,32 +4554,39 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Recursively finds a tree node by module instance ID
+    /// Finds a tree node by module instance ID using breadth-first search.
     /// </summary>
-    /// <param name="nodes">Collection of tree nodes to search</param>
-    /// <param name="instanceId">Module instance ID to find</param>
-    /// <returns>The found tree node or null</returns>
+    /// <param name="nodes">Collection of tree nodes to search.</param>
+    /// <param name="instanceId">Module instance ID to find.</param>
+    /// <returns>The found tree node, or null if no matching node exists.</returns>
     private static TreeNode FindModuleNodeByInstanceId(TreeNodeCollection nodes, int instanceId)
     {
-        Queue<TreeNode> nodesToSearch = new Queue<TreeNode>();
+        Queue<TreeNode> nodesToSearch;
+        TreeNode currentNode;
+
+        if (nodes == null)
+            return null;
+
+        nodesToSearch = new Queue<TreeNode>();
 
         foreach (TreeNode rootNode in nodes)
         {
-            nodesToSearch.Enqueue(rootNode);
+            if (rootNode != null)
+                nodesToSearch.Enqueue(rootNode);
         }
 
         while (nodesToSearch.Count > 0)
         {
-            TreeNode currentNode = nodesToSearch.Dequeue();
-
-            if (currentNode?.Tag is CModule module && module.InstanceId == instanceId)
+            currentNode = nodesToSearch.Dequeue();
+            if (currentNode.Tag is CModule module && module.InstanceId == instanceId)
             {
                 return currentNode;
             }
 
             foreach (TreeNode childNode in currentNode.Nodes)
             {
-                nodesToSearch.Enqueue(childNode);
+                if (childNode != null)
+                    nodesToSearch.Enqueue(childNode);
             }
         }
 

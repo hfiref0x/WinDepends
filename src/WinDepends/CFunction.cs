@@ -380,8 +380,8 @@ public class CFunction
             return false;
 
         // Check if forward target is an API set - if so, skip validation
-        if (CCoreClient.IsModuleNameApiSetContract(targetModuleName) ||
-            CCoreClient.IsModuleNameApiSetContract(Path.GetFileNameWithoutExtension(targetModuleName)))
+        if (CUtils.IsModuleNameApiSetContract(targetModuleName) ||
+            CUtils.IsModuleNameApiSetContract(Path.GetFileNameWithoutExtension(targetModuleName)))
         {
             return true;
         }

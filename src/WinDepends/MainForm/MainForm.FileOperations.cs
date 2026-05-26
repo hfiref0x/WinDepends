@@ -159,7 +159,7 @@ public partial class MainForm
                     {
                         LVModules.VirtualListSize = _loadedModulesList.Count;
                         LVModulesSort(LVModules, _configuration.SortColumnModules,
-                           LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+                           _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
 
                     }
                     finally { LVModules.EndUpdate(); }
@@ -245,7 +245,7 @@ public partial class MainForm
             {
                 LVModules.VirtualListSize = _loadedModulesList.Count;
                 LVModulesSort(LVModules, _configuration.SortColumnModules,
-                    LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+                    _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
             }
             finally { LVModules.EndUpdate(); }
 

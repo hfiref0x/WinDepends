@@ -28,19 +28,19 @@ public partial class MainForm
         switch (cacheType)
         {
             case DisplayCacheType.Imports:
-                Array.Clear(LVImportsCache, 0, LVImportsCache.Length);
-                Array.Resize(ref LVImportsCache, 0);
-                LVImportsFirstItem = 0;
+                Array.Clear(_lvImportsCache, 0, _lvImportsCache.Length);
+                Array.Resize(ref _lvImportsCache, 0);
+                _lvImportsFirstItem = 0;
                 break;
             case DisplayCacheType.Exports:
-                Array.Clear(LVExportsCache, 0, LVExportsCache.Length);
-                Array.Resize(ref LVExportsCache, 0);
-                LVExportsFirstItem = 0;
+                Array.Clear(_lvExportsCache, 0, _lvExportsCache.Length);
+                Array.Resize(ref _lvExportsCache, 0);
+                _lvExportsFirstItem = 0;
                 break;
             case DisplayCacheType.Modules:
-                Array.Clear(LVModulesCache, 0, LVModulesCache.Length);
-                Array.Resize(ref LVModulesCache, 0);
-                LVModulesFirstItem = 0;
+                Array.Clear(_lvModulesCache, 0, _lvModulesCache.Length);
+                Array.Resize(ref _lvModulesCache, 0);
+                _lvModulesFirstItem = 0;
                 break;
         }
     }
@@ -99,11 +99,11 @@ public partial class MainForm
     /// <param name="e"></param>
     private void LVExportsRetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
     {
-        if (LVExportsCache != null &&
-            e.ItemIndex >= LVExportsFirstItem &&
-            e.ItemIndex < LVExportsFirstItem + LVExportsCache.Length)
+        if (_lvExportsCache != null &&
+            e.ItemIndex >= _lvExportsFirstItem &&
+            e.ItemIndex < _lvExportsFirstItem + _lvExportsCache.Length)
         {
-            e.Item = LVExportsCache[e.ItemIndex - LVExportsFirstItem];
+            e.Item = _lvExportsCache[e.ItemIndex - _lvExportsFirstItem];
         }
         else
         {
@@ -120,11 +120,11 @@ public partial class MainForm
     /// <param name="e"></param>
     private void LVImportsRetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
     {
-        if (LVImportsCache != null &&
-            e.ItemIndex >= LVImportsFirstItem &&
-            e.ItemIndex < LVImportsFirstItem + LVImportsCache.Length)
+        if (_lvImportsCache != null &&
+            e.ItemIndex >= _lvImportsFirstItem &&
+            e.ItemIndex < _lvImportsFirstItem + _lvImportsCache.Length)
         {
-            e.Item = LVImportsCache[e.ItemIndex - LVImportsFirstItem];
+            e.Item = _lvImportsCache[e.ItemIndex - _lvImportsFirstItem];
         }
         else
         {
@@ -140,19 +140,19 @@ public partial class MainForm
     /// <param name="e"></param>
     private void LVExportsCacheVirtualItems(object sender, CacheVirtualItemsEventArgs e)
     {
-        if (LVExportsCache != null && e.StartIndex >= LVExportsFirstItem && e.EndIndex <= LVExportsFirstItem + LVExportsCache.Length)
+        if (_lvExportsCache != null && e.StartIndex >= _lvExportsFirstItem && e.EndIndex <= _lvExportsFirstItem + _lvExportsCache.Length)
         {
             return;
         }
 
-        LVExportsFirstItem = e.StartIndex;
+        _lvExportsFirstItem = e.StartIndex;
         int length = e.EndIndex - e.StartIndex + 1;
-        LVExportsCache = new ListViewItem[length];
+        _lvExportsCache = new ListViewItem[length];
         var selectedModule = TVModules.SelectedNode?.Tag as CModule;
 
-        for (int i = 0, j = LVExportsFirstItem; i < length && j < _currentExportsList.Count; i++, j++)
+        for (int i = 0, j = _lvExportsFirstItem; i < length && j < _currentExportsList.Count; i++, j++)
         {
-            LVExportsCache[i] = LVCreateFunctionEntry(_currentExportsList[j], selectedModule);
+            _lvExportsCache[i] = LVCreateFunctionEntry(_currentExportsList[j], selectedModule);
         }
     }
 
@@ -163,19 +163,19 @@ public partial class MainForm
     /// <param name="e"></param>
     private void LVImportsCacheVirtualItems(object sender, CacheVirtualItemsEventArgs e)
     {
-        if (LVImportsCache != null && e.StartIndex >= LVImportsFirstItem && e.EndIndex <= LVImportsFirstItem + LVImportsCache.Length)
+        if (_lvImportsCache != null && e.StartIndex >= _lvImportsFirstItem && e.EndIndex <= _lvImportsFirstItem + _lvImportsCache.Length)
         {
             return;
         }
 
-        LVImportsFirstItem = e.StartIndex;
+        _lvImportsFirstItem = e.StartIndex;
         int length = e.EndIndex - e.StartIndex + 1;
-        LVImportsCache = new ListViewItem[length];
+        _lvImportsCache = new ListViewItem[length];
         var selectedModule = TVModules.SelectedNode?.Tag as CModule;
 
-        for (int i = 0, j = LVImportsFirstItem; i < length && j < _currentImportsList.Count; i++, j++)
+        for (int i = 0, j = _lvImportsFirstItem; i < length && j < _currentImportsList.Count; i++, j++)
         {
-            LVImportsCache[i] = LVCreateFunctionEntry(_currentImportsList[j], selectedModule);
+            _lvImportsCache[i] = LVCreateFunctionEntry(_currentImportsList[j], selectedModule);
         }
     }
 }

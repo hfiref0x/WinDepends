@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        23 May 2026
+*  DATE:        25 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -229,7 +229,6 @@ public static class CConsts
     public const string CoreServerAddress = "127.0.0.1";
     public const int CoreServerChainSizeMax = 32762;
 
-    public const string HintFormLabelControl = "HintLabel";
     public const string CategoryUserDefinedDirectory = "The user defined directory";
 
     public const int SERVER_ERROR_SUCCESS = 0;

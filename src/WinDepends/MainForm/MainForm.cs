@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 May 2026
+*  DATE:        26 May 2026
 *  
 *  Codename:    VasilEk
 *
@@ -86,10 +86,6 @@ public partial class MainForm : Form
     bool _instanceStopSearch;
     bool _instanceSelfFound;
 
-    Form _functionsHintForm;
-    Form _modulesHintForm;
-    bool _disposingHintForms;
-
     string _functionLookupText = string.Empty;
     string _moduleLookupText = string.Empty;
 
@@ -130,15 +126,15 @@ public partial class MainForm : Form
         // [(uint)DebugEntryType.ExtendedCharacteristics] = "CHAREX"
     };
 
-    ListViewItem[] LVImportsCache = [];
-    ListViewItem[] LVExportsCache = [];
+    ListViewItem[] _lvImportsCache = [];
+    ListViewItem[] _lvExportsCache = [];
 
-    ListViewItem[] LVModulesCache = [];
+    ListViewItem[] _lvModulesCache = [];
 
-    int LVImportsFirstItem;
-    int LVExportsFirstItem;
+    int _lvImportsFirstItem;
+    int _lvExportsFirstItem;
 
-    int LVModulesFirstItem;
+    int _lvModulesFirstItem;
 
     List<CFunction> _currentExportsList = [];
     List<CFunction> _currentImportsList = [];
@@ -147,9 +143,9 @@ public partial class MainForm : Form
 
     readonly List<CModule> _loadedModulesList = [];
 
-    SortOrder LVImportsSortOrder = SortOrder.Ascending;
-    SortOrder LVExportsSortOrder = SortOrder.Ascending;
-    SortOrder LVModulesSortOrder = SortOrder.Ascending;
+    SortOrder _lvImportsSortOrder = SortOrder.Ascending;
+    SortOrder _lvExportsSortOrder = SortOrder.Ascending;
+    SortOrder _lvModulesSortOrder = SortOrder.Ascending;
 
     private bool _isCurrentlyOverLink = false;
     private int _currentLinkInstanceId = 0;
@@ -162,8 +158,11 @@ public partial class MainForm : Form
         public int InstanceId { get; init; }
     }
 
-    private readonly ToolTip moduleToolTip = new ToolTip();
+    private readonly ToolTip _moduleToolTip = new ToolTip();
     private readonly List<ModuleLinkInfo> _moduleLinks = [];
+    private readonly Label _typeSearchHintLabel = new();
+    private readonly System.Windows.Forms.Timer _moduleLookupTimer = new();
+    private readonly System.Windows.Forms.Timer _functionLookupTimer = new();
 
     public MainForm()
     {
@@ -229,13 +228,63 @@ public partial class MainForm : Form
         LVModules.VirtualMode = true;
         LVModules.VirtualListSize = 0;
 
-        _functionsHintForm = CreateHintForm(CConsts.HintFormLabelControl);
-        _modulesHintForm = CreateHintForm(CConsts.HintFormLabelControl);
+        _moduleToolTip.AutoPopDelay = 2000;
+        _moduleToolTip.InitialDelay = 500;
+        _moduleToolTip.ReshowDelay = 200;
+        _moduleToolTip.ShowAlways = true;
 
-        moduleToolTip.AutoPopDelay = 2000;
-        moduleToolTip.InitialDelay = 500;
-        moduleToolTip.ReshowDelay = 200;
-        moduleToolTip.ShowAlways = true;
+        _typeSearchHintLabel.AutoSize = true;
+        _typeSearchHintLabel.Visible = false;
+        _typeSearchHintLabel.BackColor = Color.LightYellow;
+        _typeSearchHintLabel.BorderStyle = BorderStyle.FixedSingle;
+        _typeSearchHintLabel.Padding = new Padding(4, 2, 4, 2);
+        _typeSearchHintLabel.TabStop = false;
+
+        Controls.Add(_typeSearchHintLabel);
+        _typeSearchHintLabel.BringToFront();
+
+        _moduleLookupTimer.Interval = 3000;
+        _moduleLookupTimer.Tick += ModuleLookupTimer_Tick;
+
+        _functionLookupTimer.Interval = 3000;
+        _functionLookupTimer.Tick += FunctionLookupTimer_Tick;
+    }
+
+    private void ShowTypeSearchHint(Control owner, string text)
+    {
+        Point screenPoint;
+        Point clientPoint;
+
+        if (_shutdownInProgress || owner == null || owner.IsDisposed)
+            return;
+
+        _typeSearchHintLabel.Text = text;
+        _typeSearchHintLabel.Visible = true;
+        _typeSearchHintLabel.BringToFront();
+
+        screenPoint = owner.PointToScreen(new Point(0, owner.Height));
+        clientPoint = PointToClient(screenPoint);
+
+        _typeSearchHintLabel.Location = clientPoint;
+    }
+
+    private void HideTypeSearchHint()
+    {
+        _typeSearchHintLabel.Visible = false;
+    }
+
+    private void ModuleLookupTimer_Tick(object? sender, EventArgs e)
+    {
+        _moduleLookupTimer.Stop();
+        HideTypeSearchHint();
+        _moduleLookupText = string.Empty;
+    }
+
+    private void FunctionLookupTimer_Tick(object? sender, EventArgs e)
+    {
+        _functionLookupTimer.Stop();
+        HideTypeSearchHint();
+        _functionLookupText = string.Empty;
     }
 
     private void LogSymbolsInitializationResult(SymbolResolverInitResult result)
@@ -263,33 +312,6 @@ public partial class MainForm : Form
                     $"store \"{CSymbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
         }
-    }
-
-    /// <summary>
-    /// Creates a small borderless form used as a hint tooltip.
-    /// </summary>
-    /// <param name="LabelName">The name assigned to the label control hosted by the form.</param>
-    /// <returns>A configured hint form instance.</returns>
-    static Form CreateHintForm(string LabelName)
-    {
-        var resultForm = new Form
-        {
-            FormBorderStyle = FormBorderStyle.None,
-            StartPosition = FormStartPosition.Manual,
-            ShowInTaskbar = false,
-            TopMost = true,
-            BackColor = Color.LightYellow
-        };
-
-        var resultFormLabel = new Label
-        {
-            AutoSize = true,
-            Location = new Point(5, 5),
-            Name = LabelName
-        };
-
-        resultForm.Controls.Add(resultFormLabel);
-        return resultForm;
     }
 
     private static bool IsManagedAnyCpuLike(CModule module)
@@ -624,9 +646,8 @@ public partial class MainForm : Form
     {
         try
         {
-            CleanupHintForms();
             ClearModuleLinks();
-            moduleToolTip?.Dispose();
+            _moduleToolTip?.Dispose();
 
             if (_mruList != null && _configuration != null)
             {
@@ -1643,30 +1664,28 @@ public partial class MainForm : Form
     /// <param name="status">Status text to display.</param>
     private void UpdateOperationStatus(string status)
     {
-        if (_shutdownInProgress)
+        ToolStrip? owner = toolBarStatusLabel.Owner;
+
+        if (_shutdownInProgress || owner == null || owner.IsDisposed)
             return;
 
-        if (toolBarStatusLabel.Owner == null || toolBarStatusLabel.Owner.IsDisposed)
-            return;
-
-        if (toolBarStatusLabel.Owner.InvokeRequired)
+        if (owner.InvokeRequired)
         {
-            toolBarStatusLabel.Owner.BeginInvoke((MethodInvoker)delegate
+            owner.BeginInvoke((MethodInvoker)delegate
             {
-                if (_shutdownInProgress)
-                    return;
+                ToolStrip? invokedOwner = toolBarStatusLabel.Owner;
 
-                if (toolBarStatusLabel.Owner == null || toolBarStatusLabel.Owner.IsDisposed)
+                if (_shutdownInProgress || invokedOwner == null || invokedOwner.IsDisposed)
                     return;
 
                 toolBarStatusLabel.Text = status;
-                toolBarStatusLabel.Owner.Refresh();
+                invokedOwner.Refresh();
             });
         }
         else
         {
             toolBarStatusLabel.Text = status;
-            toolBarStatusLabel.Owner.Refresh();
+            owner.Refresh();
         }
     }
 
@@ -1828,6 +1847,8 @@ public partial class MainForm : Form
         // Update status bar and pepaint default message.
         StatusBar.Font = newFont;
         SetDefaultStatusBarText();
+
+        _typeSearchHintLabel.Font = newFont;
     }
 
     private void LVModules_ColumnWidthChanged(object? sender, ColumnWidthChangedEventArgs e)
@@ -1874,42 +1895,6 @@ public partial class MainForm : Form
     {
         mainMenuClassicToolbar.Checked = _configuration.ToolBarTheme == ToolBarThemeType.Classic;
         mainMenuModernToolbar.Checked = _configuration.ToolBarTheme == ToolBarThemeType.Modern;
-    }
-
-    private void CleanupHintForms()
-    {
-        if (_disposingHintForms)
-            return;
-
-        _disposingHintForms = true;
-
-        try
-        {
-            // Close and dispose hint forms
-            if (_functionsHintForm != null)
-            {
-                if (!_functionsHintForm.IsDisposed)
-                {
-                    _functionsHintForm.Close();
-                    _functionsHintForm.Dispose();
-                }
-                _functionsHintForm = null;
-            }
-
-            if (_modulesHintForm != null)
-            {
-                if (!_modulesHintForm.IsDisposed)
-                {
-                    _modulesHintForm.Close();
-                    _modulesHintForm.Dispose();
-                }
-                _modulesHintForm = null;
-            }
-        }
-        finally
-        {
-            _disposingHintForms = false;
-        }
     }
 
     /// <summary>

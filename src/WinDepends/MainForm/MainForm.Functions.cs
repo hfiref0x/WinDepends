@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 May 2026
+*  DATE:        26 May 2026
 *  
 *  Import and export function view routines for main form.
 *
@@ -110,8 +110,8 @@ public partial class MainForm
         ResolveFunctionKindForList(_currentImportsList, module, _loadedModulesList, _configuration);
         ResolveFunctionKindForList(_currentExportsList, module, _loadedModulesList, _configuration);
 
-        UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, LVExportsSortOrder, DisplayCacheType.Exports);
-        UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, LVImportsSortOrder, DisplayCacheType.Imports);
+        UpdateListViewInternal(LVExports, _currentExportsList, _configuration.SortColumnExports, _lvExportsSortOrder, DisplayCacheType.Exports);
+        UpdateListViewInternal(LVImports, _currentImportsList, _configuration.SortColumnImports, _lvImportsSortOrder, DisplayCacheType.Imports);
 
         void UpdateListViewInternal(ListView listView, List<CFunction> functionList, int sortColumn, SortOrder sortOrder, DisplayCacheType displayCacheType)
         {
@@ -297,9 +297,14 @@ public partial class MainForm
         }
     }
 
-    private async void LVFunctions_KeyPress(object sender, KeyPressEventArgs e)
+    private void LVFunctions_KeyPress(object sender, KeyPressEventArgs e)
     {
-        ListView lvDst = LVImports.Focused ? LVImports : LVExports;
+        ListView lvDst;
+        List<CFunction> currentList;
+        CFunction matchingItem;
+        ListViewItem lvResult;
+
+        lvDst = LVImports.Focused ? LVImports : LVExports;
 
         if (!lvDst.Focused || lvDst.VirtualListSize <= 0)
         {
@@ -307,38 +312,44 @@ public partial class MainForm
             return;
         }
 
-        if (!char.IsLetterOrDigit(e.KeyChar))
+        if (e.KeyChar == (char)Keys.Back)
         {
-            e.Handled = true;
-            return;
+            if (_functionLookupText.Length > 0)
+            {
+                _functionLookupText = _functionLookupText[..^1]; //use fancy new range syntax
+            }
+
+            if (_functionLookupText.Length == 0)
+            {
+                _functionLookupTimer.Stop();
+                HideTypeSearchHint();
+                _searchOrdinal = CConsts.OrdinalNotPresent;
+                _searchFunctionName = string.Empty;
+                return;
+            }
+
+            ShowTypeSearchHint(lvDst, "Search: " + _functionLookupText);
+        }
+        else
+        {
+            if (!char.IsLetterOrDigit(e.KeyChar))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            _functionLookupText += char.ToLower(e.KeyChar);
+            ShowTypeSearchHint(lvDst, "Search: " + _functionLookupText);
         }
 
-        _functionLookupText += char.ToLower(e.KeyChar);
-
-        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        if (_functionsHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
-        {
-            hintLabel.Text = "Search: " + _functionLookupText;
-            hintLabel.Size = hintLabel.PreferredSize;
-
-            Point location = lvDst.PointToScreen(new Point(lvDst.Bounds.Left, lvDst.Bounds.Bottom));
-
-            _functionsHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
-            _functionsHintForm.Location = location;
-            _functionsHintForm.Show();
-        }
-
-        List<CFunction> currentList = lvDst == LVImports ? _currentImportsList : _currentExportsList;
+        currentList = lvDst == LVImports ? _currentImportsList : _currentExportsList;
 
         _searchOrdinal = CConsts.OrdinalNotPresent;
         _searchFunctionName = string.Empty;
 
-        var matchingItem = currentList.FirstOrDefault(item => item.RawName.StartsWith(_functionLookupText, StringComparison.OrdinalIgnoreCase));
+        matchingItem = currentList.FirstOrDefault(item =>
+            item.RawName.StartsWith(_functionLookupText, StringComparison.OrdinalIgnoreCase));
+
         if (matchingItem != null)
         {
             _searchFunctionName = matchingItem.RawName;
@@ -348,7 +359,7 @@ public partial class MainForm
             try
             {
                 lvDst.SelectedIndices.Clear();
-                ListViewItem lvResult = lvDst.FindItemWithText(null);
+                lvResult = lvDst.FindItemWithText(null);
 
                 if (lvResult != null)
                 {
@@ -360,15 +371,17 @@ public partial class MainForm
             finally { lvDst.EndUpdate(); }
         }
 
-        await Task.Delay(2000);
-        if (!_disposingHintForms &&
-            !_shutdownInProgress &&
-            _functionsHintForm != null
-            && !_functionsHintForm.IsDisposed)
-        {
-            _functionsHintForm.Hide();
-        }
-        _functionLookupText = "";
+        _functionLookupTimer.Stop();
+        _functionLookupTimer.Start();
+
+        e.Handled = true;
+    }
+
+    private void LVFunctions_Leave(object sender, EventArgs e)
+    {
+        _functionLookupTimer.Stop();
+        HideTypeSearchHint();
+        _functionLookupText = string.Empty;
     }
 
     private void LVFunctions_Click(object sender, EventArgs e)
@@ -381,13 +394,6 @@ public partial class MainForm
         {
             CopyToolButton.Enabled = LVImports.SelectedIndices.Count > 0;
         }
-    }
-
-    private void LVFunctions_Leave(object sender, EventArgs e)
-    {
-        if (_functionsHintForm != null && !_functionsHintForm.IsDisposed)
-            _functionsHintForm.Hide();
-        _functionLookupText = "";
     }
 
     /// <summary>
@@ -535,15 +541,15 @@ public partial class MainForm
     {
         int columnIndex = e.Column;
         _configuration.SortColumnExports = columnIndex;
-        LVExportsSortOrder = (LVExportsSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
-        LVFunctionsSort(LVExports, columnIndex, LVExportsSortOrder, _currentExportsList, DisplayCacheType.Exports);
+        _lvExportsSortOrder = (_lvExportsSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
+        LVFunctionsSort(LVExports, columnIndex, _lvExportsSortOrder, _currentExportsList, DisplayCacheType.Exports);
     }
 
     private void LVImportsColumnClick(object sender, ColumnClickEventArgs e)
     {
         int columnIndex = e.Column;
         _configuration.SortColumnImports = columnIndex;
-        LVImportsSortOrder = (LVImportsSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
-        LVFunctionsSort(LVImports, columnIndex, LVImportsSortOrder, _currentImportsList, DisplayCacheType.Imports);
+        _lvImportsSortOrder = (_lvImportsSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
+        LVFunctionsSort(LVImports, columnIndex, _lvImportsSortOrder, _currentImportsList, DisplayCacheType.Imports);
     }
 }

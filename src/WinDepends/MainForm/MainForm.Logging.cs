@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 May 2026
+*  DATE:        26 May 2026
 *  
 *  Log view rendering, interaction, and search routines for main form.
 *
@@ -209,14 +209,14 @@ public partial class MainForm
                 if (module != null)
                 {
                     string tooltipText = $"Click to navigate to module: {Path.GetFileName(module.FileName)}";
-                    if (moduleToolTip.GetToolTip(reLog) != tooltipText)
-                        moduleToolTip.SetToolTip(reLog, tooltipText);
+                    if (_moduleToolTip.GetToolTip(reLog) != tooltipText)
+                        _moduleToolTip.SetToolTip(reLog, tooltipText);
                 }
             }
             else
             {
-                if (!string.IsNullOrEmpty(moduleToolTip.GetToolTip(reLog)))
-                    moduleToolTip.SetToolTip(reLog, string.Empty);
+                if (!string.IsNullOrEmpty(_moduleToolTip.GetToolTip(reLog)))
+                    _moduleToolTip.SetToolTip(reLog, string.Empty);
             }
         }
     }

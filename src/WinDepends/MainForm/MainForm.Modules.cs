@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 May 2026
+*  DATE:        26 May 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -811,11 +811,11 @@ public partial class MainForm
     /// <param name="e"></param>
     private void LVModulesRetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
     {
-        if (LVModulesCache != null &&
-            e.ItemIndex >= LVModulesFirstItem &&
-            e.ItemIndex < LVModulesFirstItem + LVModulesCache.Length)
+        if (_lvModulesCache != null &&
+            e.ItemIndex >= _lvModulesFirstItem &&
+            e.ItemIndex < _lvModulesFirstItem + _lvModulesCache.Length)
         {
-            e.Item = LVModulesCache[e.ItemIndex - LVModulesFirstItem];
+            e.Item = _lvModulesCache[e.ItemIndex - _lvModulesFirstItem];
         }
         else
         {
@@ -830,18 +830,18 @@ public partial class MainForm
     /// <param name="e"></param>
     private void LVModulesCacheVirtualItems(object sender, CacheVirtualItemsEventArgs e)
     {
-        if (LVModulesCache != null && e.StartIndex >= LVModulesFirstItem && e.EndIndex <= LVModulesFirstItem + LVModulesCache.Length)
+        if (_lvModulesCache != null && e.StartIndex >= _lvModulesFirstItem && e.EndIndex <= _lvModulesFirstItem + _lvModulesCache.Length)
         {
             return;
         }
 
-        LVModulesFirstItem = e.StartIndex;
+        _lvModulesFirstItem = e.StartIndex;
         int length = e.EndIndex - e.StartIndex + 1;
-        LVModulesCache = new ListViewItem[length];
+        _lvModulesCache = new ListViewItem[length];
 
-        for (int i = 0, j = LVModulesFirstItem; i < length && j < _loadedModulesList.Count; i++, j++)
+        for (int i = 0, j = _lvModulesFirstItem; i < length && j < _loadedModulesList.Count; i++, j++)
         {
-            LVModulesCache[i] = LVCreateModuleEntry(_loadedModulesList[j]);
+            _lvModulesCache[i] = LVCreateModuleEntry(_loadedModulesList[j]);
         }
     }
 
@@ -885,8 +885,8 @@ public partial class MainForm
     {
         int columnIndex = e.Column;
         _configuration.SortColumnModules = columnIndex;
-        LVModulesSortOrder = (LVModulesSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
-        LVModulesSort(LVModules, columnIndex, LVModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+        _lvModulesSortOrder = (_lvModulesSortOrder == SortOrder.Descending) ? SortOrder.Ascending : SortOrder.Descending;
+        LVModulesSort(LVModules, columnIndex, _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
     }
 
     private void HighlightModuleInTreeOrList(object sender, EventArgs e)
@@ -1128,40 +1128,46 @@ public partial class MainForm
         return null;
     }
 
-    private async void LVModules_KeyPress(object sender, KeyPressEventArgs e)
+    private void LVModules_KeyPress(object sender, KeyPressEventArgs e)
     {
+        CModule matchingModule;
+        ListViewItem lvResult;
+
         if (!LVModules.Focused || LVModules.VirtualListSize <= 0)
         {
             e.Handled = true;
             return;
         }
 
-        if (!char.IsLetterOrDigit(e.KeyChar))
+        if (e.KeyChar == (char)Keys.Back)
         {
-            e.Handled = true;
-            return;
+            if (_moduleLookupText.Length > 0)
+            {
+                _moduleLookupText = _moduleLookupText[..^1]; //use fancy new range syntax
+            }
+
+            if (_moduleLookupText.Length == 0)
+            {
+                _moduleLookupTimer.Stop();
+                HideTypeSearchHint();
+                return;
+            }
+
+            ShowTypeSearchHint(LVModules, "Search: " + _moduleLookupText);
+        }
+        else
+        {
+            if (!char.IsLetterOrDigit(e.KeyChar))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            _moduleLookupText += char.ToLower(e.KeyChar);
+            ShowTypeSearchHint(LVModules, "Search: " + _moduleLookupText);
         }
 
-        _moduleLookupText += char.ToLower(e.KeyChar);
-
-        if (_disposingHintForms || _shutdownInProgress || _functionsHintForm == null || _functionsHintForm.IsDisposed)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        if (_modulesHintForm.Controls[CConsts.HintFormLabelControl] is Label hintLabel)
-        {
-            hintLabel.Text = "Search: " + _moduleLookupText;
-            hintLabel.Size = hintLabel.PreferredSize;
-
-            Point location = new(LVModules.Bounds.Left, LVModules.Bounds.Bottom);
-            _modulesHintForm.Size = new Size(hintLabel.Width + 10, hintLabel.Height + 10);
-            _modulesHintForm.Location = LVModules.PointToScreen(location);
-            _modulesHintForm.Show();
-        }
-
-        CModule matchingModule = _loadedModulesList.FirstOrDefault(module =>
+        matchingModule = _loadedModulesList.FirstOrDefault(module =>
         {
             string moduleName = Path.GetFileName(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets));
             return moduleName.StartsWith(_moduleLookupText, StringComparison.OrdinalIgnoreCase);
@@ -1173,7 +1179,7 @@ public partial class MainForm
             try
             {
                 LVModules.SelectedIndices.Clear();
-                ListViewItem lvResult = LVModules.FindItemWithText(matchingModule.FileName);
+                lvResult = LVModules.FindItemWithText(matchingModule.FileName);
                 if (lvResult != null)
                 {
                     lvResult.Selected = true;
@@ -1184,22 +1190,18 @@ public partial class MainForm
             finally { LVModules.EndUpdate(); }
         }
 
-        await Task.Delay(2000);
-        if (!_disposingHintForms &&
-            !_shutdownInProgress &&
-            _modulesHintForm != null &&
-            !_modulesHintForm.IsDisposed)
-        {
-            _modulesHintForm.Hide();
-        }
-        _moduleLookupText = "";
+        _moduleLookupTimer.Stop();
+        _moduleLookupTimer.Start();
+
+        e.Handled = true;
     }
 
     private void LVModules_Leave(object sender, EventArgs e)
     {
-        if (_modulesHintForm != null && !_modulesHintForm.IsDisposed)
-            _modulesHintForm.Hide();
-        _moduleLookupText = "";
+        _moduleLookupTimer.Stop();
+        HideTypeSearchHint();
+        _moduleLookupText = string.Empty;
+
     }
 
     private void LVModules_Click(object sender, EventArgs e)

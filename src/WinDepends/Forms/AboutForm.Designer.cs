@@ -32,7 +32,7 @@
             button1 = new Button();
             groupBox2 = new GroupBox();
             AboutAssemblyLabel = new Label();
-            AboutBuildLabel = new Label();
+            AboutArchLabel = new Label();
             AboutVersionLabel = new Label();
             AboutCopyrightLabel = new Label();
             pictureBox2 = new PictureBox();
@@ -62,7 +62,7 @@
             // groupBox2
             // 
             groupBox2.Controls.Add(AboutAssemblyLabel);
-            groupBox2.Controls.Add(AboutBuildLabel);
+            groupBox2.Controls.Add(AboutArchLabel);
             groupBox2.Controls.Add(AboutVersionLabel);
             groupBox2.Location = new Point(12, 139);
             groupBox2.Name = "groupBox2";
@@ -80,14 +80,14 @@
             AboutAssemblyLabel.TabIndex = 5;
             AboutAssemblyLabel.Text = "Assembly";
             // 
-            // AboutBuildLabel
+            // AboutArchLabel
             // 
-            AboutBuildLabel.AutoSize = true;
-            AboutBuildLabel.Location = new Point(14, 53);
-            AboutBuildLabel.Name = "AboutBuildLabel";
-            AboutBuildLabel.Size = new Size(48, 15);
-            AboutBuildLabel.TabIndex = 4;
-            AboutBuildLabel.Text = "Built on";
+            AboutArchLabel.AutoSize = true;
+            AboutArchLabel.Location = new Point(14, 53);
+            AboutArchLabel.Name = "AboutArchLabel";
+            AboutArchLabel.Size = new Size(113, 15);
+            AboutArchLabel.TabIndex = 4;
+            AboutArchLabel.Text = "Process architecture";
             // 
             // AboutVersionLabel
             // 
@@ -224,7 +224,7 @@
 
         private Button button1;
         private GroupBox groupBox2;
-        private Label AboutBuildLabel;
+        private Label AboutArchLabel;
         private Label AboutCopyrightLabel;
         private Label AboutVersionLabel;
         private PictureBox pictureBox2;

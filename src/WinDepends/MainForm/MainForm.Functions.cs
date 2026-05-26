@@ -338,7 +338,7 @@ public partial class MainForm
                 return;
             }
 
-            _functionLookupText += char.ToLower(e.KeyChar);
+            _functionLookupText += char.ToLowerInvariant(e.KeyChar);
             ShowTypeSearchHint(lvDst, "Search: " + _functionLookupText);
         }
 

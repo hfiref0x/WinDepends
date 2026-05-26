@@ -40,7 +40,7 @@ internal partial class AboutForm : Form
         AboutVersionLabel.Text = $"Version: {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild}";
         AboutNameLabel.Text = $"{CConsts.ProgramName} for Windows 10/11";
         AboutCopyrightLabel.Text = CConsts.CopyrightString;
-        AboutBuildLabel.Text = $"Build date: {Properties.Resources.BuildDate}";
+        AboutArchLabel.Text = $"Process architecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}";
         AboutAssemblyLabel.Text = $"NET Framework version: {CUtils.GetRunningFrameworkVersion()}";
         AboutOSLabel.Text = System.Environment.OSVersion.ToString();
     }

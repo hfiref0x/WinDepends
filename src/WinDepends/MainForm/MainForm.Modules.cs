@@ -1163,7 +1163,7 @@ public partial class MainForm
                 return;
             }
 
-            _moduleLookupText += char.ToLower(e.KeyChar);
+            _moduleLookupText += char.ToLowerInvariant(e.KeyChar);
             ShowTypeSearchHint(LVModules, "Search: " + _moduleLookupText);
         }
 

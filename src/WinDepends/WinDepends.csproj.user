@@ -4,30 +4,45 @@
     <_LastSelectedProfileId>C:\MAKEEXE\WinDepends\WinDepends\Properties\PublishProfiles\FolderProfile.pubxml</_LastSelectedProfileId>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Update="AboutForm.cs">
+    <Compile Update="Forms\AboutForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="ConfigurationForm.cs">
+    <Compile Update="Forms\ConfigurationForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="FileOpenForm.cs">
+    <Compile Update="Forms\FileOpenForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="FindDialogForm.cs">
+    <Compile Update="Forms\FindDialogForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="MainForm.cs">
+    <Compile Update="Forms\SysInfoDialogForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="SysInfoDialogForm.cs">
+    <Compile Update="MainForm\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm\MainForm.FileOperations.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm\MainForm.Functions.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm\MainForm.Logging.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm\MainForm.Modules.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm\MainForm.VirtualLists.cs">
       <SubType>Form</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Update="AboutForm.resx">
+    <EmbeddedResource Update="Forms\AboutForm.resx">
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Update="MainForm.resx">
+    <EmbeddedResource Update="MainForm\MainForm.resx">
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Update="Properties\Resources.resx">

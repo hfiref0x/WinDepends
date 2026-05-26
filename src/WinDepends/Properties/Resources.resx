@@ -125,7 +125,7 @@
   </data>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="BuildDate" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\BuildDate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;iso-8859-1</value>
+    <value>..\Resources\BuildDate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;iso-8859-1</value>
   </data>
   <data name="Clear Log Window" xml:space="preserve">
     <value>Clears the log window</value>
@@ -173,7 +173,7 @@
     <value>Show module's full path in the module tree view and module list view</value>
   </data>
   <data name="FunctionIcons" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\FunctionIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\FunctionIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Highlight Matching Export Function" xml:space="preserve">
     <value>Highlight the matching item in the related view</value>
@@ -200,10 +200,10 @@
     <value>Lookup the selected function in the external help collection</value>
   </data>
   <data name="ModuleIcons" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\ModuleIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\ModuleIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="ModuleIconsAll" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\ModuleIconsAll.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\ModuleIconsAll.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="mruListItem" xml:space="preserve">
     <value>Open this module</value>
@@ -233,7 +233,7 @@
     <value>Save the active module session with a new name or type</value>
   </data>
   <data name="SearchOrderIcons" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\SearchOrderIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\SearchOrderIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Select All" xml:space="preserve">
     <value>Select all items in the current view</value>
@@ -248,7 +248,7 @@
     <value>Show or hide the toolbar</value>
   </data>
   <data name="ToolBarIcons" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\ToolBarIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\ToolBarIcons.bmp;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="Undecorate C++ Functions" xml:space="preserve">
     <value>Display undecorated C++ function names in the parent imports and exports view</value>
@@ -296,7 +296,7 @@
     <value>Open a new instance of WinDepends application</value>
   </data>
   <data name="ToolBarIconsNew" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\res\ToolBarIconsNew.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\ToolBarIconsNew.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="Classic (Dependency Walker)" xml:space="preserve">
     <value>Use tool bar images from original Dependency Walker</value>

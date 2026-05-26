@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        23 May 2026
+*  DATE:        24 May 2026
 *  
 *  Codename:    VasilEk
 *
@@ -154,8 +154,16 @@ public partial class MainForm : Form
     private bool _isCurrentlyOverLink = false;
     private int _currentLinkInstanceId = 0;
 
+    private sealed class ModuleLinkInfo
+    {
+        public int Start { get; init; }
+        public int Length { get; init; }
+        public int End => Start + Length;
+        public int InstanceId { get; init; }
+    }
+
     private readonly ToolTip moduleToolTip = new ToolTip();
-    private readonly Dictionary<(int Start, int Length), int> moduleLinks = new Dictionary<(int Start, int Length), int>();
+    private readonly List<ModuleLinkInfo> _moduleLinks = [];
 
     public MainForm()
     {
@@ -258,10 +266,10 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Creates a small borderless form used as tooltip.
+    /// Creates a small borderless form used as a hint tooltip.
     /// </summary>
-    /// <param name="LabelName"></param>
-    /// <returns></returns>
+    /// <param name="LabelName">The name assigned to the label control hosted by the form.</param>
+    /// <returns>A configured hint form instance.</returns>
     static Form CreateHintForm(string LabelName)
     {
         var resultForm = new Form
@@ -409,7 +417,7 @@ public partial class MainForm : Form
 
                 if (module.ExportContainErrors)
                 {
-                    AddLogMessage($"Module \"{module.FileName}\" contain export errors.",
+                    AddLogMessage($"Module \"{module.FileName}\" contains export errors.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
@@ -505,7 +513,7 @@ public partial class MainForm : Form
                 {
                     if (bExtApiSet)
                     {
-                        messageText = $"Extension apiset  module \"{module.FileName}\" was not found.";
+                        messageText = $"Extension apiset module \"{module.FileName}\" was not found.";
                     }
                     else
                     {
@@ -519,11 +527,11 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Validates if the module can be added based on tree depth settings
+    /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
-    /// <param name="parentNode">The parent node to check depth against</param>
-    /// <param name="maxDepth">The maximum allowed depth</param>
-    /// <returns>True if within depth limit, false otherwise</returns>
+    /// <param name="parentNode">The parent node to check depth against.</param>
+    /// <param name="maxDepth">The maximum allowed depth.</param>
+    /// <returns>true if the node is within the depth limit; otherwise, false.</returns>
     private bool ValidateTreeDepth(TreeNode parentNode, int maxDepth)
     {
         if (parentNode == null)
@@ -538,43 +546,65 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Builds a display name for a module from the given raw name
+    /// Builds a display name for a module from the given raw name.
     /// </summary>
-    /// <param name="rawName">The original path or module name</param>
-    /// <param name="fullPaths">If true, returns rawName directly. If false processes the path to extract the last segment.</param>
-    /// <returns></returns>
-    private static string BuildModuleDisplayName(string rawName, bool fullPaths)
+    /// <param name="rawName">The original path or module name.</param>
+    /// <param name="fullPaths">If true, returns the original value; otherwise extracts the last path segment when appropriate.</param>
+    /// <param name="upperCase">If true, converts the resulting display name to uppercase.</param>
+    /// <returns>The formatted module display name.</returns>
+    private static string BuildModuleDisplayName(string rawName, bool fullPaths, bool upperCase)
     {
-        if (string.IsNullOrEmpty(rawName) || fullPaths)
+        string result;
+        string normalized;
+
+        if (string.IsNullOrEmpty(rawName))
             return rawName;
 
-        string normalized = rawName.Replace('/', '\\');
-        if (string.IsNullOrEmpty(normalized))
-            return rawName;
-
-        // Preserve roots before any trimming/normalization that could drop the last separator.
-        // Drive root: C:\
-        // UNC share root: \\server\share\
-        if (IsDriveRootPath(normalized) || IsUncShareRootPath(normalized))
-            return normalized;
-
-        normalized = normalized.TrimEnd('\\');
-        if (string.IsNullOrEmpty(normalized))
-            return rawName;
-
-        // Handle extended UNC: \\?\UNC\server\share\... 
-        if (normalized.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+        if (fullPaths)
         {
-            normalized = normalized.Substring(8);
+            result = rawName;
         }
-        // Handle \\?\ prefix
-        else if (normalized.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+        else
         {
-            normalized = normalized.Substring(4);
+            normalized = rawName.Replace('/', '\\');
+            if (string.IsNullOrEmpty(normalized))
+                return rawName;
+
+            // Preserve roots before any trimming/normalization that could drop the last separator.
+            // Drive root: C:\
+            // UNC share root: \\server\share\
+            if (IsDriveRootPath(normalized) || IsUncShareRootPath(normalized))
+            {
+                result = normalized;
+            }
+            else
+            {
+                normalized = normalized.TrimEnd('\\');
+                if (string.IsNullOrEmpty(normalized))
+                    return rawName;
+
+                // Handle extended UNC: \\?\UNC\server\share\...
+                if (normalized.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized = normalized.Substring(8);
+                }
+                // Handle \\?\ prefix
+                else if (normalized.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized = normalized.Substring(4);
+                }
+
+                int lastSep = normalized.LastIndexOf('\\');
+                result = lastSep >= 0 ? normalized.Substring(lastSep + 1) : normalized;
+            }
         }
 
-        int lastSep = normalized.LastIndexOf('\\');
-        return lastSep >= 0 ? normalized.Substring(lastSep + 1) : normalized;
+        if (upperCase && !string.IsNullOrEmpty(result))
+        {
+            result = result.ToUpperInvariant();
+        }
+
+        return result;
     }
 
     private static bool IsDriveRootPath(string path)
@@ -704,12 +734,10 @@ public partial class MainForm : Form
         }
 
         // 4. Format display name
-        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets), _configuration.FullPaths);
-
-        if (_configuration.UpperCaseModuleNames)
-        {
-            moduleDisplayName = moduleDisplayName.ToUpperInvariant();
-        }
+        string moduleDisplayName = BuildModuleDisplayName(
+                   module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets),
+                   _configuration.FullPaths,
+                   _configuration.UpperCaseModuleNames);
 
         // Mark forward user as red if there is no forward module.
         if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parentMod)
@@ -860,7 +888,7 @@ public partial class MainForm : Form
     }
     private void ClearModuleLinks()
     {
-        moduleLinks.Clear();
+        _moduleLinks.Clear();
     }
 
     private void RichEditLog_ClearLog()
@@ -930,11 +958,7 @@ public partial class MainForm : Form
             if (node.Tag is CModule module)
             {
                 string displayName = module.GetModuleNameRespectApiSet(resolveApiSets);
-
-                displayName = BuildModuleDisplayName(displayName, fullPaths);
-
-                if (upperCase && !string.IsNullOrEmpty(displayName))
-                    displayName = displayName.ToUpperInvariant();
+                displayName = BuildModuleDisplayName(displayName, fullPaths, upperCase);
 
                 node.Text = displayName;
                 node.ForeColor = (module.IsApiSetContract && highlightApiSet) ? Color.Blue : Color.Black;
@@ -1345,7 +1369,12 @@ public partial class MainForm : Form
                         reLog.SelectionColor = outputColor;
 
                         // Store the link information
-                        moduleLinks[(linkStart, linkLength)] = relatedModule.InstanceId;
+                        _moduleLinks.Add(new ModuleLinkInfo
+                        {
+                            Start = linkStart,
+                            Length = linkLength,
+                            InstanceId = relatedModule.InstanceId
+                        });
                         break;
                     }
                 }
@@ -1463,7 +1492,7 @@ public partial class MainForm : Form
 
             CloseInputFile();
 
-            AddLogMessage($"Openning \"{fileName}\" for analysis.", LogMessageType.Information);
+            AddLogMessage($"Opening \"{fileName}\" for analysis.", LogMessageType.Information);
 
             if (_configuration.ClearLogOnFileOpen)
             {
@@ -1609,12 +1638,10 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Builds hierarchical tree diagram of module dependencies.
-    /// First, it adds the given module as the root and populates its dependencies.
-    /// Next, it takes each dependent module and populates its dependencies recursively respecting the maximum depth level from settings.
+    /// Populates the tree and related lists for the root module and its dependencies.
     /// </summary>
-    /// <param name="module">Module to populate dependencies.</param>
-    /// <param name="loadFromObject">If set then source is session object (restored from session file).</param>
+    /// <param name="module">The root module to populate.</param>
+    /// <param name="loadFromObject">If true, populates from a restored session object.</param>
     /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
     private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
@@ -1667,11 +1694,11 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Populates main module dependencies recursively respecting the maximum depth level from settings.
+    /// Populates dependent modules under the specified parent node, respecting the configured depth limit.
     /// </summary>
-    /// <param name="module">Module to populate dependencies.</param>
-    /// <param name="parentNode">A previous treeview node.</param>
-    /// <param name="loadFromObject">If set then source is session object (restored from session file).</param>
+    /// <param name="module">The dependent module to populate.</param>
+    /// <param name="parentNode">The parent tree node.</param>
+    /// <param name="loadFromObject">If true, populates from a restored session object.</param>
     /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
     private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
@@ -2389,9 +2416,9 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Called when user spawns popup menu on LVImports/LVExports/LVModules virtual listviews.
+    /// Updates popup menu text and enabled state based on the currently focused view.
     /// </summary>
-    /// <param name="functionView">If true then selection is LVImports/LVExports virtual listview, LVModules otherwise.</param>
+    /// <param name="functionView">If true, applies function-view menu text; otherwise applies module-view menu text.</param>
     void SetPopupMenuItemText(bool functionView = true)
     {
         ToolStripMenuItem menuItem;
@@ -2685,12 +2712,12 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Text search in the rich edit log
+    /// Searches the log text in chunks to reduce UI stalls when processing large content.
     /// </summary>
-    /// <param name="searchText">Text to find</param>
-    /// <param name="startIndex">Position to start search from</param>
-    /// <param name="options">Search options</param>
-    /// <returns>Index of found text or -1 if not found</returns>
+    /// <param name="searchText">Text to find.</param>
+    /// <param name="startIndex">Position to start searching from.</param>
+    /// <param name="options">Search options.</param>
+    /// <returns>Index of the found text, or -1 if not found.</returns>
     private int FindMyText(string searchText, int startIndex, RichTextBoxFinds options)
     {
         if (string.IsNullOrEmpty(searchText) || reLog.TextLength == 0)
@@ -3503,10 +3530,10 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Creates module entry for LVModules virtual listview (lower bottom view).
+    /// Creates a module entry for the LVModules virtual list view.
     /// </summary>
     /// <param name="module">The module to be displayed.</param>
-    /// <returns>Listview item.</returns>
+    /// <returns>The created list view item.</returns>
     private ListViewItem LVCreateModuleEntry(CModule module)
     {
         //
@@ -3523,12 +3550,10 @@ public partial class MainForm : Form
             ImageIndex = module.GetIconIndexForModuleCompact()
         };
 
-        string moduleDisplayName = BuildModuleDisplayName(module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets), _configuration.FullPaths);
-
-        if (_configuration.UpperCaseModuleNames)
-        {
-            moduleDisplayName = moduleDisplayName.ToUpperInvariant();
-        }
+        string moduleDisplayName = BuildModuleDisplayName(
+                    module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets),
+                    _configuration.FullPaths,
+                    _configuration.UpperCaseModuleNames);
 
         // Module
         lvItem.SubItems.Add(moduleDisplayName);
@@ -3644,11 +3669,11 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Create function entry for LVImports/LVExports virtual listviews.
+    /// Creates a function entry for the LVImports or LVExports virtual list views.
     /// </summary>
-    /// <param name="function">Function information to be displayed.</param>
-    /// <param name="module">Module linked with the function.</param>
-    /// <returns>Listview item.</returns>
+    /// <param name="function">Function information to display.</param>
+    /// <param name="module">Module associated with the function.</param>
+    /// <returns>The created list view item.</returns>
     private ListViewItem LVCreateFunctionEntry(CFunction function, CModule module)
     {
         ListViewItem lvItem = new();
@@ -4029,9 +4054,9 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Callback used to update information in the status bar.
+    /// Updates the status bar text for the current operation.
     /// </summary>
-    /// <param name="status"></param>
+    /// <param name="status">Status text to display.</param>
     private void UpdateOperationStatus(string status)
     {
         if (_shutdownInProgress)
@@ -4532,8 +4557,46 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// Finds a module node in the tree view by instance ID and selects it
+    /// Finds module link information for the specified character index.
     /// </summary>
+    /// <param name="charIndex">Character index in the log.</param>
+    /// <returns>The matching module link information, or null if no link contains the index.</returns>
+    private ModuleLinkInfo FindModuleLinkAtPosition(int charIndex)
+    {
+        int left;
+        int right;
+        int middle;
+        ModuleLinkInfo link;
+
+        left = 0;
+        right = _moduleLinks.Count - 1;
+
+        while (left <= right)
+        {
+            middle = left + ((right - left) / 2);
+            link = _moduleLinks[middle];
+
+            if (charIndex < link.Start)
+            {
+                right = middle - 1;
+            }
+            else if (charIndex >= link.End)
+            {
+                left = middle + 1;
+            }
+            else
+            {
+                return link;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds a module node by instance ID, expands its parent chain, and selects it in the tree view.
+    /// </summary>
+    /// <param name="instanceId">Module instance ID to locate.</param>
     private void FindAndSelectModuleNode(int instanceId)
     {
         TreeNode foundNode = FindModuleNodeByInstanceId(TVModules.Nodes, instanceId);
@@ -4561,13 +4624,7 @@ public partial class MainForm : Form
     /// <returns>The found tree node, or null if no matching node exists.</returns>
     private static TreeNode FindModuleNodeByInstanceId(TreeNodeCollection nodes, int instanceId)
     {
-        Queue<TreeNode> nodesToSearch;
-        TreeNode currentNode;
-
-        if (nodes == null)
-            return null;
-
-        nodesToSearch = new Queue<TreeNode>();
+        Queue<TreeNode> nodesToSearch = new Queue<TreeNode>();
 
         foreach (TreeNode rootNode in nodes)
         {
@@ -4577,7 +4634,7 @@ public partial class MainForm : Form
 
         while (nodesToSearch.Count > 0)
         {
-            currentNode = nodesToSearch.Dequeue();
+            TreeNode currentNode = nodesToSearch.Dequeue();
             if (currentNode.Tag is CModule module && module.InstanceId == instanceId)
             {
                 return currentNode;
@@ -4598,21 +4655,15 @@ public partial class MainForm : Form
     /// </summary>
     private void RichEditLog_MouseClick(object sender, MouseEventArgs e)
     {
-        if (e.Button == MouseButtons.Left)
+        if (e.Button != MouseButtons.Left)
+            return;
+
+        int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
+        ModuleLinkInfo linkInfo = FindModuleLinkAtPosition(charIndex);
+
+        if (linkInfo != null)
         {
-            int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
-
-            foreach (var link in moduleLinks)
-            {
-                var (start, length) = link.Key;
-                int instanceId = link.Value;
-
-                if (charIndex >= start && charIndex < start + length)
-                {
-                    FindAndSelectModuleNode(instanceId);
-                    return;
-                }
-            }
+            FindAndSelectModuleNode(linkInfo.InstanceId);
         }
     }
 
@@ -4623,23 +4674,11 @@ public partial class MainForm : Form
     {
         // Get character index at current mouse position
         int charIndex = reLog.GetCharIndexFromPosition(new Point(e.X, e.Y));
+        ModuleLinkInfo linkInfo = FindModuleLinkAtPosition(charIndex);
 
-        // Check if we're over a link
-        bool overLink = false;
-        int instanceId = 0;
+        bool overLink = (linkInfo != null);
+        int instanceId = overLink ? linkInfo.InstanceId : 0;
 
-        foreach (var link in moduleLinks)
-        {
-            var (start, length) = link.Key;
-            if (charIndex >= start && charIndex < start + length)
-            {
-                overLink = true;
-                instanceId = link.Value;
-                break;
-            }
-        }
-
-        // Only change cursor if state changed
         if (overLink != _isCurrentlyOverLink ||
             (overLink && instanceId != _currentLinkInstanceId))
         {
@@ -4647,12 +4686,20 @@ public partial class MainForm : Form
             _isCurrentlyOverLink = overLink;
             _currentLinkInstanceId = instanceId;
 
-            CModule module = _loadedModulesList.FirstOrDefault(m => m.InstanceId == instanceId);
-            if (module != null)
+            if (overLink)
             {
-                string tooltipText = $"Click to navigate to module: {Path.GetFileName(module.FileName)}";
-                if (moduleToolTip.GetToolTip(reLog) != tooltipText)
-                    moduleToolTip.SetToolTip(reLog, tooltipText);
+                CModule module = _loadedModulesList.FirstOrDefault(m => m.InstanceId == instanceId);
+                if (module != null)
+                {
+                    string tooltipText = $"Click to navigate to module: {Path.GetFileName(module.FileName)}";
+                    if (moduleToolTip.GetToolTip(reLog) != tooltipText)
+                        moduleToolTip.SetToolTip(reLog, tooltipText);
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(moduleToolTip.GetToolTip(reLog)))
+                    moduleToolTip.SetToolTip(reLog, string.Empty);
             }
         }
     }

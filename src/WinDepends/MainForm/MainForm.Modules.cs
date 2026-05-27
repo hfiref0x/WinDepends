@@ -1149,6 +1149,7 @@ public partial class MainForm
             if (_moduleLookupText.Length == 0)
             {
                 _moduleLookupTimer.Stop();
+                _moduleLookupText = string.Empty;
                 HideTypeSearchHint();
                 return;
             }
@@ -1157,7 +1158,7 @@ public partial class MainForm
         }
         else
         {
-            if (!char.IsLetterOrDigit(e.KeyChar))
+            if (char.IsControl(e.KeyChar))
             {
                 e.Handled = true;
                 return;
@@ -1201,7 +1202,6 @@ public partial class MainForm
         _moduleLookupTimer.Stop();
         HideTypeSearchHint();
         _moduleLookupText = string.Empty;
-
     }
 
     private void LVModules_Click(object sender, EventArgs e)

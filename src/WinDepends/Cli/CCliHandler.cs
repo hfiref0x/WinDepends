@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        18 Mar 2026
+*  DATE:        26 May 2026
 *  
 *  Implementation of command-line interface handler.
 *
@@ -276,7 +276,7 @@ public static class CCliHandler
             return config.CoreServerAppLocation;
         }
 
-        string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
+        string cpuArch = CUtils.GetProcessArchitectureName();
         string exeDir = Path.GetDirectoryName(Application.ExecutablePath) ?? "";
         string defaultPath = Path.Combine(exeDir, $"{CConsts.WinDependsCoreApp}.{cpuArch}.exe");
 

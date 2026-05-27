@@ -322,6 +322,7 @@ public partial class MainForm
             if (_functionLookupText.Length == 0)
             {
                 _functionLookupTimer.Stop();
+                _functionLookupText = string.Empty;
                 HideTypeSearchHint();
                 _searchOrdinal = CConsts.OrdinalNotPresent;
                 _searchFunctionName = string.Empty;
@@ -332,7 +333,7 @@ public partial class MainForm
         }
         else
         {
-            if (!char.IsLetterOrDigit(e.KeyChar))
+            if (char.IsControl(e.KeyChar))
             {
                 e.Handled = true;
                 return;

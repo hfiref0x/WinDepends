@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Apr 2026
+*  DATE:        26 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -14,7 +14,6 @@
 * PARTICULAR PURPOSE.
 *
 *******************************************************************************/
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
 namespace WinDepends;
@@ -247,7 +246,7 @@ public class CConfiguration
             SymbolsDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), CConsts.DbgHelpDll);
             SymbolsHighlightColor = Color.Yellow;
 
-            string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
+            string cpuArch = CUtils.GetProcessArchitectureName();
             string exeDir = Path.GetDirectoryName(Application.ExecutablePath);
             CoreServerAppLocation = Path.Combine(exeDir, $"{CConsts.WinDependsCoreApp}.{cpuArch}.exe");
 
@@ -268,7 +267,7 @@ static class CConfigManager
 {
     private static string GetConfigurationFilePath()
     {
-        string cpuArch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
+        string cpuArch = CUtils.GetProcessArchitectureName();
         string exeDir = Path.GetDirectoryName(Application.ExecutablePath);
         return Path.Combine(exeDir, $"{CConsts.ShortProgramName}.{cpuArch}.settings.bin");
     }

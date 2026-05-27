@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        21 Apr 2026
+*  DATE:        26 May 2026
 *
 *  MS Symbols resolver support class.
 *
@@ -499,7 +499,7 @@ public static class CSymbolResolver
     /// Undecorates a C++ decorated function name.
     /// </summary>
     /// <param name="functionName">The decorated function name.</param>
-    /// <returns>The undecorated function name, or empty string if undecoration failed.</returns>
+    /// <returns>The undecorated function name, or the original name if it wasn't decorated.</returns>
     internal static string UndecorateFunctionName(string functionName)
     {
         if (!UndecorationReady)
@@ -515,7 +515,7 @@ public static class CSymbolResolver
             return sb.ToString();
         }
 
-        return string.Empty;
+        return functionName;
     }
 
     /// <summary>
@@ -589,7 +589,7 @@ public static class CSymbolResolver
     {
         try
         {
-            var arch = GetProcessArchFolderName();
+            var arch = CUtils.GetProcessArchitectureName();
             var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var root in EnumerateWindowsKitsRoots())
@@ -717,28 +717,6 @@ public static class CSymbolResolver
         }
 
         return results;
-    }
-
-    /// <summary>
-    /// Returns the folder name used by Windows Kits Debuggers for the current process architecture.
-    /// </summary>
-    /// <returns>"x64", "x86", "arm64", or "arm". Defaults to "x86" if detection fails.</returns>
-    private static string GetProcessArchFolderName()
-    {
-        try
-        {
-            var a = RuntimeInformation.ProcessArchitecture;
-            if (a == Architecture.X64) return "x64";
-            if (a == Architecture.X86) return "x86";
-            if (a == Architecture.Arm64) return "arm64";
-            if (a == Architecture.Arm) return "arm";
-        }
-        catch
-        {
-            if (Environment.Is64BitProcess) return "x64";
-            return "x86";
-        }
-        return "x86";
     }
 
     private static string CombineParts(params string[] parts)

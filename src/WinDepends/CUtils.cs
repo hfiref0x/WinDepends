@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        23 May 2026
+*  DATE:        26 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -1012,6 +1012,37 @@ public static class CUtils
     public static bool IsPointVisible(Point pt)
     {
         return Screen.AllScreens.Any(screen => screen.WorkingArea.Contains(pt));
+    }
+
+    internal static string GetProcessArchitectureName()
+    {
+        Architecture architecture;
+
+        try
+        {
+            architecture = RuntimeInformation.ProcessArchitecture;
+        }
+        catch
+        {
+            if (Environment.Is64BitProcess)
+                return "x64";
+
+            return "x86";
+        }
+
+        if (architecture == Architecture.X64)
+            return "x64";
+
+        if (architecture == Architecture.X86)
+            return "x86";
+
+        if (architecture == Architecture.Arm64)
+            return "arm64";
+
+        if (architecture == Architecture.Arm)
+            return "arm";
+
+        return "x86";
     }
 }
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        26 May 2026
+*  DATE:        27 May 2026
 *
 *  MS Symbols resolver support class.
 *
@@ -55,10 +55,28 @@ public enum SymbolResolverInitResult
     SuccessWithSymbolsAlternateDll = 3
 }
 
+public enum SymbolLoadState
+{
+    Idle,
+    Queued,
+    Loading,
+    Loaded,
+    Failed,
+    Cancelled
+}
+
+public sealed class SymbolLoadStatusChangedEventArgs : EventArgs
+{
+    public string FileName { get; init; }
+    public SymbolLoadState State { get; init; }
+    public string Message { get; init; }
+    public Exception Error { get; init; }
+}
+
 /// <summary>
 /// Provides functionality for resolving symbols from Windows binary files using the DbgHelp API.
 /// </summary>
-public static class CSymbolResolver
+public sealed class CSymbolResolver : IDisposable
 {
     #region "P/Invoke stuff"
     public const uint SYMOPT_CASE_INSENSITIVE = 0x00000001;
@@ -94,67 +112,28 @@ public static class CSymbolResolver
     public const uint SYMOPT_DISABLE_SRVSTAR_ON_STARTUP = 0x40000000;
     public const uint SYMOPT_DEBUG = 0x80000000;
 
-    /// <summary>
-    /// Controls the behavior of symbol name undecoration.
-    /// </summary>
     [Flags]
     public enum UNDNAME : uint
     {
-        /// <summary>Undecorate 32-bit decorated names.</summary>
         Decode32Bit = 0x0800,
-
-        /// <summary>Enable full undecoration.</summary>
         Complete = 0x0000,
-
-        /// <summary>Undecorate only the name for primary declaration. Returns [scope::]name. Does expand template parameters.</summary>
         NameOnly = 0x1000,
-
-        /// <summary>Disable expansion of access specifiers for members.</summary>
         NoAccessSpecifiers = 0x0080,
-
-        /// <summary>Disable expansion of the declaration language specifier.</summary>
         NoAllocateLanguage = 0x0010,
-
-        /// <summary>Disable expansion of the declaration model.</summary>
         NoAllocationModel = 0x0008,
-
-        /// <summary>Do not undecorate function arguments.</summary>
         NoArguments = 0x2000,
-
-        /// <summary>Disable expansion of CodeView modifiers on the this type for primary declaration.</summary>
         NoCVThisType = 0x0040,
-
-        /// <summary>Disable expansion of return types for primary declarations.</summary>
         NoFunctionReturns = 0x0004,
-
-        /// <summary>Remove leading underscores from Microsoft keywords.</summary>
         NoLeadingUndersCores = 0x0001,
-
-        /// <summary>Disable expansion of the static or virtual attribute of members.</summary>
         NoMemberType = 0x0200,
-
-        /// <summary>Disable expansion of Microsoft keywords.</summary>
         NoMsKeyWords = 0x0002,
-
-        /// <summary>Disable expansion of Microsoft keywords on the this type for primary declaration.</summary>
         NoMsThisType = 0x0020,
-
-        /// <summary>Disable expansion of the Microsoft model for user-defined type returns.</summary>
         NoReturnUDTModel = 0x0400,
-
-        /// <summary>Do not undecorate special names, such as vtable, vcall, vector, metatype, and so on.</summary>
         NoSpecialSyms = 0x4000,
-
-        /// <summary>Disable all modifiers on the this type.</summary>
         NoThisType = 0x0060,
-
-        /// <summary>Disable expansion of throw-signatures for functions and pointers to functions.</summary>
         NoThrowSignatures = 0x0100,
     }
 
-    /// <summary>
-    /// Contains information about a symbol.
-    /// </summary>
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct SYMBOL_INFO
     {
@@ -177,9 +156,7 @@ public static class CSymbolResolver
         public string Name;
     }
 
-    /// <summary>Maximum length of a symbol name.</summary>
     const UInt32 MAX_SYM_NAME = 2000;
-    /// <summary>Size of the SYMBOL_INFO structure excluding the name field.</summary>
     static readonly UInt32 SIZE_OF_SYMBOL_INFO = (uint)Marshal.SizeOf<SYMBOL_INFO>() - (MAX_SYM_NAME * 2);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
@@ -206,10 +183,10 @@ public static class CSymbolResolver
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
     delegate bool SymFromAddrDelegate(
-            SafeProcessHandle hProcess,
-            UInt64 Address,
-            out UInt64 Displacement,
-            ref SYMBOL_INFO Symbol);
+        SafeProcessHandle hProcess,
+        UInt64 Address,
+        out UInt64 Displacement,
+        ref SYMBOL_INFO Symbol);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi, SetLastError = true)]
     delegate uint SymGetOptionsDelegate();
@@ -225,29 +202,70 @@ public static class CSymbolResolver
         UNDNAME flags);
     #endregion
 
-    // P/Invoke delegates
-    static SymLoadModuleExDelegate SymLoadModuleEx;
-    static SymUnloadModule64Delegate SymUnloadModule64;
-    static SymInitializeDelegate SymInitialize;
-    static SymGetOptionsDelegate SymGetOptions;
-    static SymSetOptionsDelegate SymSetOptions;
-    static SymCleanupDelegate SymCleanup;
-    static SymFromAddrDelegate SymFromAddr;
-    static UnDecorateSymbolNameDelegate UnDecorateSymbolName;
-    static IntPtr DbgHelpModule { get; set; } = IntPtr.Zero;
-    static IntPtr CachedSymModuleBase { get; set; } = IntPtr.Zero;
-    static string CachedSymModuleName { get; set; } = string.Empty;
-    static bool SymbolsInitialized { get; set; }
-    public static bool UndecorationReady { get; set; }
-    public static string DllPath { get; set; }
-    public static string StorePath { get; set; }
+    SymLoadModuleExDelegate SymLoadModuleEx;
+    SymUnloadModule64Delegate SymUnloadModule64;
+    SymInitializeDelegate SymInitialize;
+    SymGetOptionsDelegate SymGetOptions;
+    SymSetOptionsDelegate SymSetOptions;
+    SymCleanupDelegate SymCleanup;
+    SymFromAddrDelegate SymFromAddr;
+    UnDecorateSymbolNameDelegate UnDecorateSymbolName;
+
+    readonly object _stateLock = new();
+    readonly object _dbgHelpLock = new();
+    readonly AutoResetEvent _preloadSignal = new(false);
+
+    Thread _preloadWorkerThread;
+    bool _workerStarted;
+    volatile bool _disposeRequested;
+
+    string _pendingModuleFileName = string.Empty;
+    UInt64 _pendingModuleBaseAddress;
+    int _pendingRequestId;
+
+    string _activeModuleFileName = string.Empty;
+
+    string _nativeLoadedModuleFileName = string.Empty;
+    IntPtr _nativeLoadedModuleBase = IntPtr.Zero;
+
+    IntPtr DbgHelpModule { get; set; } = IntPtr.Zero;
+
+    public bool SymbolsInitialized { get; private set; }
+    public bool UndecorationReady { get; private set; }
+    public string DllPath { get; private set; }
+    public string StorePath { get; private set; }
+
+    public event EventHandler<SymbolLoadStatusChangedEventArgs> SymbolLoadStatusChanged;
 
     static readonly SafeProcessHandle CurrentProcess = new(new IntPtr(-1), false);
 
-    /// <summary>
-    /// Clears all symbol-related function delegates.
-    /// </summary>
-    private static void ClearSymbolsDelegates()
+    private void RaiseSymbolLoadStatusChanged(string fileName, SymbolLoadState state, string message, Exception error = null)
+    {
+        SymbolLoadStatusChanged?.Invoke(this, new SymbolLoadStatusChangedEventArgs
+        {
+            FileName = fileName,
+            State = state,
+            Message = message,
+            Error = error
+        });
+    }
+
+    private void EnsurePreloadWorkerStarted()
+    {
+        if (_workerStarted)
+            return;
+
+        _preloadWorkerThread = new Thread(PreloadWorkerProc)
+        {
+            IsBackground = true,
+            Name = "CSymbolResolver.PreloadWorker"
+        };
+
+        _workerStarted = true;
+        _preloadWorkerThread.Start();
+    }
+
+    private void ClearSymbolsDelegates()
     {
         SymLoadModuleEx = null;
         SymUnloadModule64 = null;
@@ -258,48 +276,46 @@ public static class CSymbolResolver
         SymGetOptions = null;
     }
 
-    /// <summary>
-    /// Clears the undecorate symbol name function delegate.
-    /// </summary>
-    private static void ClearUndecorateDelegate()
+    private void ClearUndecorateDelegate()
     {
         UnDecorateSymbolName = null;
     }
 
-    /// <summary>
-    /// Initializes the undecorate symbol name delegate.
-    /// </summary>
-    /// <returns>True if successful, false otherwise.</returns>
-    private static bool InitializeUndecorateDelegate()
+    private bool InitializeUndecorateDelegate()
     {
         try
         {
-            UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
+            UnDecorateSymbolName = Marshal.GetDelegateForFunctionPointer<UnDecorateSymbolNameDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "UnDecorateSymbolNameW"));
         }
         catch
         {
             UnDecorateSymbolName = null;
         }
 
-        return (UnDecorateSymbolName != null);
+        return UnDecorateSymbolName != null;
     }
 
-    /// <summary>
-    /// Initializes all symbol-related function delegates.
-    /// </summary>
-    /// <returns>True if all delegates were initialized successfully, false otherwise.</returns>
-    private static bool InitializeSymbolsDelegates()
+    private bool InitializeSymbolsDelegates()
     {
         bool bResult;
+
         try
         {
-            SymLoadModuleEx = Marshal.GetDelegateForFunctionPointer<SymLoadModuleExDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymLoadModuleExW"));
-            SymUnloadModule64 = Marshal.GetDelegateForFunctionPointer<SymUnloadModule64Delegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymUnloadModule64"));
-            SymGetOptions = Marshal.GetDelegateForFunctionPointer<SymGetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymGetOptions"));
-            SymSetOptions = Marshal.GetDelegateForFunctionPointer<SymSetOptionsDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymSetOptions"));
-            SymInitialize = Marshal.GetDelegateForFunctionPointer<SymInitializeDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymInitializeW"));
-            SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddrW"));
-            SymCleanup = Marshal.GetDelegateForFunctionPointer<SymCleanupDelegate>(NativeMethods.GetProcAddress(DbgHelpModule, "SymCleanup"));
+            SymLoadModuleEx = Marshal.GetDelegateForFunctionPointer<SymLoadModuleExDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymLoadModuleExW"));
+            SymUnloadModule64 = Marshal.GetDelegateForFunctionPointer<SymUnloadModule64Delegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymUnloadModule64"));
+            SymGetOptions = Marshal.GetDelegateForFunctionPointer<SymGetOptionsDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymGetOptions"));
+            SymSetOptions = Marshal.GetDelegateForFunctionPointer<SymSetOptionsDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymSetOptions"));
+            SymInitialize = Marshal.GetDelegateForFunctionPointer<SymInitializeDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymInitializeW"));
+            SymFromAddr = Marshal.GetDelegateForFunctionPointer<SymFromAddrDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymFromAddrW"));
+            SymCleanup = Marshal.GetDelegateForFunctionPointer<SymCleanupDelegate>(
+                NativeMethods.GetProcAddress(DbgHelpModule, "SymCleanup"));
 
             if (SymLoadModuleEx == null
                 || SymUnloadModule64 == null
@@ -316,7 +332,6 @@ public static class CSymbolResolver
             {
                 bResult = true;
             }
-
         }
         catch
         {
@@ -327,26 +342,11 @@ public static class CSymbolResolver
         return bResult;
     }
 
-    /// <summary>
-    /// Initializes the symbol resolver with the specified parameters.
-    /// </summary>
-    /// <param name="dllPath">The path to DbgHelp.dll.</param>
-    /// <param name="storePath">The path to store symbol files.</param>
-    /// <param name="useSymbols">Indicates whether to use symbols or only name undecoration.</param>
-    /// <returns>
-    /// A <see cref="SymbolResolverInitResult"/> value indicating the result of the initialization:
-    /// <list type="bullet">
-    ///   <item><description><see cref="SymbolResolverInitResult.DllLoadFailure"/> if DbgHelp.dll could not be loaded</description></item>
-    ///   <item><description><see cref="SymbolResolverInitResult.InitializationFailure"/> if initialization failed</description></item>
-    ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbolsAlternateDll"/> if successfully initialized with a better dbghelp.dll</description></item>
-    ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbols"/> if successfully initialized with symbols</description></item>
-    ///   <item><description><see cref="SymbolResolverInitResult.SuccessForUndecorationOnly"/> if successfully initialized for name undecoration only</description></item>
-    /// </list>
-    /// </returns>
-    public static SymbolResolverInitResult AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
+    public SymbolResolverInitResult AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
     {
         DllPath = dllPath;
         StorePath = storePath;
+
         string candidatePath = dllPath;
         bool usedAlternateDll = false;
 
@@ -364,16 +364,13 @@ public static class CSymbolResolver
                     usedAlternateDll = !IsSystemDbgHelp(candidatePath);
                 }
             }
-            else
+            else if (IsSystemDbgHelp(candidatePath))
             {
-                if (IsSystemDbgHelp(candidatePath))
+                string best = FindDbgHelpDll();
+                if (!string.IsNullOrEmpty(best) && !PathsEqual(best, candidatePath))
                 {
-                    var best = FindDbgHelpDll();
-                    if (!string.IsNullOrEmpty(best) && !PathsEqual(best, candidatePath))
-                    {
-                        usedAlternateDll = !IsSystemDbgHelp(best);
-                        candidatePath = best;
-                    }
+                    usedAlternateDll = !IsSystemDbgHelp(best);
+                    candidatePath = best;
                 }
             }
         }
@@ -383,39 +380,43 @@ public static class CSymbolResolver
             usedAlternateDll = false;
         }
 
-        DbgHelpModule = NativeMethods.LoadLibraryEx(candidatePath, IntPtr.Zero, 0);
-        if (DbgHelpModule == IntPtr.Zero && !string.Equals(candidatePath, CConsts.DbgHelpDll, StringComparison.OrdinalIgnoreCase))
+        lock (_dbgHelpLock)
         {
-            DbgHelpModule = NativeMethods.LoadLibraryEx(CConsts.DbgHelpDll, IntPtr.Zero, 0);
-            if (DbgHelpModule != IntPtr.Zero)
+            DbgHelpModule = NativeMethods.LoadLibraryEx(candidatePath, IntPtr.Zero, 0);
+            if (DbgHelpModule == IntPtr.Zero &&
+                !string.Equals(candidatePath, CConsts.DbgHelpDll, StringComparison.OrdinalIgnoreCase))
             {
-                DllPath = CConsts.DbgHelpDll;
-                usedAlternateDll = false;
+                DbgHelpModule = NativeMethods.LoadLibraryEx(CConsts.DbgHelpDll, IntPtr.Zero, 0);
+                if (DbgHelpModule != IntPtr.Zero)
+                {
+                    DllPath = CConsts.DbgHelpDll;
+                    usedAlternateDll = false;
+                }
             }
-        }
-        else
-        {
-            DllPath = candidatePath;
-        }
+            else
+            {
+                DllPath = candidatePath;
+            }
 
-        if (DbgHelpModule == IntPtr.Zero)
-        {
-            return SymbolResolverInitResult.DllLoadFailure;
-        }
+            if (DbgHelpModule == IntPtr.Zero)
+            {
+                return SymbolResolverInitResult.DllLoadFailure;
+            }
 
-        UndecorationReady = DbgHelpModule != IntPtr.Zero && InitializeUndecorateDelegate();
+            UndecorationReady = InitializeUndecorateDelegate();
 
-        if (useSymbols && DbgHelpModule != IntPtr.Zero && InitializeSymbolsDelegates())
-        {
-            // No SYMOPT_UNDNAME as we have a special GUI option for it.
-            SymSetOptions(
-                (SymGetOptions() |
-                 SYMOPT_DEFERRED_LOADS |
-                 SYMOPT_FAIL_CRITICAL_ERRORS |
-                 SYMOPT_PUBLICS_ONLY
-                ) & ~SYMOPT_UNDNAME);
+            if (useSymbols && InitializeSymbolsDelegates())
+            {
+                SymSetOptions(
+                    (SymGetOptions() |
+                     SYMOPT_DEFERRED_LOADS |
+                     SYMOPT_FAIL_CRITICAL_ERRORS |
+                     SYMOPT_PUBLICS_ONLY
+                    // | SYMOPT_NO_PROMPTS
+                    ) & ~SYMOPT_UNDNAME);
 
-            SymbolsInitialized = SymInitialize(CurrentProcess, StorePath, false);
+                SymbolsInitialized = SymInitialize(CurrentProcess, StorePath, false);
+            }
         }
 
         if (useSymbols)
@@ -423,181 +424,370 @@ public static class CSymbolResolver
             if (!SymbolsInitialized)
                 return SymbolResolverInitResult.InitializationFailure;
 
+            EnsurePreloadWorkerStarted();
+
             return usedAlternateDll
                 ? SymbolResolverInitResult.SuccessWithSymbolsAlternateDll
                 : SymbolResolverInitResult.SuccessWithSymbols;
         }
-        else
+
+        return UndecorationReady
+            ? SymbolResolverInitResult.SuccessForUndecorationOnly
+            : SymbolResolverInitResult.InitializationFailure;
+    }
+
+    public void RequestModulePreload(string fileName, UInt64 baseAddress)
+    {
+        string loadedFileName;
+        IntPtr loadedBase;
+
+        if (!SymbolsInitialized || string.IsNullOrEmpty(fileName))
+            return;
+
+        lock (_dbgHelpLock)
         {
-            return UndecorationReady ? SymbolResolverInitResult.SuccessForUndecorationOnly : SymbolResolverInitResult.InitializationFailure;
+            loadedFileName = _nativeLoadedModuleFileName;
+            loadedBase = _nativeLoadedModuleBase;
+        }
+
+        lock (_stateLock)
+        {
+            if (loadedBase != IntPtr.Zero &&
+                string.Equals(loadedFileName, fileName, StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrEmpty(_pendingModuleFileName))
+            {
+                _activeModuleFileName = fileName;
+                return;
+            }
+
+            if (string.Equals(_pendingModuleFileName, fileName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _pendingModuleFileName = fileName;
+            _pendingModuleBaseAddress = baseAddress;
+            _pendingRequestId++;
+        }
+
+        RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Queued,
+            $"Loading symbols for \"{fileName}\"...");
+
+        _preloadSignal.Set();
+    }
+
+    private void PreloadWorkerProc()
+    {
+        while (true)
+        {
+            string fileName;
+            UInt64 baseAddress;
+            int requestId;
+            bool alreadyLoaded;
+            bool loadSucceeded;
+            IntPtr loadedBase;
+            string nativeLoadedName;
+            int lastError;
+
+            _preloadSignal.WaitOne();
+
+            if (_disposeRequested)
+                break;
+
+            lock (_stateLock)
+            {
+                fileName = _pendingModuleFileName;
+                baseAddress = _pendingModuleBaseAddress;
+                requestId = _pendingRequestId;
+
+                _pendingModuleFileName = string.Empty;
+                _pendingModuleBaseAddress = 0;
+            }
+
+            if (string.IsNullOrEmpty(fileName))
+                continue;
+
+            try
+            {
+                RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Loading,
+                    $"Loading symbols for \"{fileName}\"...");
+
+                lock (_dbgHelpLock)
+                {
+                    alreadyLoaded = string.Equals(_nativeLoadedModuleFileName, fileName, StringComparison.OrdinalIgnoreCase)
+                        && _nativeLoadedModuleBase != IntPtr.Zero;
+                }
+
+                loadSucceeded = alreadyLoaded;
+                loadedBase = IntPtr.Zero;
+                nativeLoadedName = string.Empty;
+                lastError = 0;
+
+                if (!alreadyLoaded)
+                {
+                    lock (_dbgHelpLock)
+                    {
+                        if (_disposeRequested)
+                            break;
+
+                        loadedBase = LoadModuleNative(fileName, baseAddress, out lastError);
+                        if (loadedBase != IntPtr.Zero)
+                        {
+                            _nativeLoadedModuleFileName = fileName;
+                            _nativeLoadedModuleBase = loadedBase;
+                            nativeLoadedName = fileName;
+                            loadSucceeded = true;
+                        }
+                        else
+                        {
+                            _nativeLoadedModuleFileName = string.Empty;
+                            _nativeLoadedModuleBase = IntPtr.Zero;
+                        }
+                    }
+                }
+                else
+                {
+                    lock (_dbgHelpLock)
+                    {
+                        nativeLoadedName = _nativeLoadedModuleFileName;
+                        loadedBase = _nativeLoadedModuleBase;
+                    }
+                }
+
+                if (!loadSucceeded)
+                {
+                    RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Failed,
+                        lastError != 0
+                            ? $"Symbol load failed for \"{fileName}\", error 0x{lastError:X8}."
+                            : $"Symbol load failed for \"{fileName}\".");
+                    continue;
+                }
+
+                lock (_stateLock)
+                {
+                    if (string.Equals(nativeLoadedName, fileName, StringComparison.OrdinalIgnoreCase) &&
+                        loadedBase != IntPtr.Zero)
+                    {
+                        _activeModuleFileName = fileName;
+                    }
+                }
+
+                lock (_stateLock)
+                {
+                    if (requestId != _pendingRequestId)
+                    {
+                        RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Cancelled, string.Empty);
+                        continue;
+                    }
+                }
+
+                RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Loaded, string.Empty);
+            }
+            catch (Exception ex)
+            {
+                RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Failed,
+                    $"Symbol load failed for \"{fileName}\": {ex.Message}", ex);
+            }
+        }
+
+        if (!_disposeRequested)
+        {
+            RaiseSymbolLoadStatusChanged(string.Empty, SymbolLoadState.Idle, string.Empty);
         }
     }
 
-    public static IntPtr RetrieveCachedSymModule(string ModuleName)
+    private IntPtr LoadModuleNative(string fileName, UInt64 baseAddress, out int lastError)
     {
-        if (string.IsNullOrEmpty(CachedSymModuleName))
+        IntPtr symModule;
+
+        lastError = 0;
+
+        if (!SymbolsInitialized || SymLoadModuleEx == null)
             return IntPtr.Zero;
 
-        if (CachedSymModuleName.Equals(ModuleName, StringComparison.OrdinalIgnoreCase))
-            return CachedSymModuleBase;
+        ClearLoadedModuleNative();
 
-        return IntPtr.Zero;
-    }
+        symModule = SymLoadModuleEx(CurrentProcess,
+            IntPtr.Zero,
+            fileName,
+            null,
+            baseAddress,
+            0,
+            IntPtr.Zero,
+            0);
 
-    public static void CacheSymModule(IntPtr ModuleBase, string ModuleName)
-    {
-        if (ModuleBase == IntPtr.Zero) return;
-        if (string.IsNullOrEmpty(ModuleName)) return;
-
-        CachedSymModuleName = ModuleName;
-        CachedSymModuleBase = ModuleBase;
-    }
-
-    public static bool ClearCachedSymModule()
-    {
-        var result = false;
-        if (CachedSymModuleBase != IntPtr.Zero)
+        if (symModule == IntPtr.Zero)
         {
-            result = SymUnloadModule64(CurrentProcess, CachedSymModuleBase);
-            CachedSymModuleBase = IntPtr.Zero;
-            CachedSymModuleName = string.Empty;
+            lastError = Marshal.GetLastWin32Error();
+        }
+
+        return symModule;
+    }
+
+    private bool ClearLoadedModuleNative()
+    {
+        bool result = false;
+
+        if (_nativeLoadedModuleBase != IntPtr.Zero)
+        {
+            if (SymUnloadModule64 != null)
+            {
+                result = SymUnloadModule64(CurrentProcess, _nativeLoadedModuleBase);
+            }
+        }
+
+        _nativeLoadedModuleBase = IntPtr.Zero;
+        _nativeLoadedModuleFileName = string.Empty;
+
+        return result;
+    }
+
+    public IntPtr RetrieveCachedSymModule(string moduleName)
+    {
+        lock (_dbgHelpLock)
+        {
+            if (string.IsNullOrEmpty(moduleName))
+                return IntPtr.Zero;
+
+            if (string.Equals(_nativeLoadedModuleFileName, moduleName, StringComparison.OrdinalIgnoreCase))
+                return _nativeLoadedModuleBase;
+
+            return IntPtr.Zero;
+        }
+    }
+
+    public bool ClearCachedSymModule()
+    {
+        bool result;
+
+        lock (_dbgHelpLock)
+        {
+            result = ClearLoadedModuleNative();
+        }
+
+        lock (_stateLock)
+        {
+            _activeModuleFileName = string.Empty;
         }
 
         return result;
     }
 
-    /// <summary>
-    /// Releases all resources used by the symbol resolver.
-    /// </summary>
-    /// <returns>True if cleanup was successful, false otherwise.</returns>
-    public static bool ReleaseSymbolResolver()
+    public bool ReleaseSymbolResolver()
     {
         bool bResult = false;
 
-        if (DbgHelpModule != IntPtr.Zero)
+        lock (_dbgHelpLock)
         {
-            if (SymbolsInitialized)
+            if (DbgHelpModule != IntPtr.Zero)
             {
-                ClearCachedSymModule();
-                bResult = SymCleanup(CurrentProcess);
+                ClearLoadedModuleNative();
+
+                if (SymbolsInitialized && SymCleanup != null)
+                {
+                    bResult = SymCleanup(CurrentProcess);
+                }
+
+                NativeMethods.FreeLibrary(DbgHelpModule);
+                DbgHelpModule = IntPtr.Zero;
+
+                ClearUndecorateDelegate();
+                UndecorationReady = false;
+
+                ClearSymbolsDelegates();
+                SymbolsInitialized = false;
             }
+        }
 
-            NativeMethods.FreeLibrary(DbgHelpModule);
-            DbgHelpModule = IntPtr.Zero;
-
-            ClearUndecorateDelegate();
-            UndecorationReady = false;
-
-            ClearSymbolsDelegates();
-            SymbolsInitialized = false;
+        lock (_stateLock)
+        {
+            _pendingModuleFileName = string.Empty;
+            _pendingModuleBaseAddress = 0;
+            _pendingRequestId = 0;
+            _activeModuleFileName = string.Empty;
         }
 
         return bResult;
     }
 
-    /// <summary>
-    /// Undecorates a C++ decorated function name.
-    /// </summary>
-    /// <param name="functionName">The decorated function name.</param>
-    /// <returns>The undecorated function name, or the original name if it wasn't decorated.</returns>
-    internal static string UndecorateFunctionName(string functionName)
+    public void Dispose()
     {
-        if (!UndecorationReady)
+        _disposeRequested = true;
+        _preloadSignal.Set();
+
+        if (_preloadWorkerThread != null && _preloadWorkerThread.IsAlive)
         {
-            return functionName;
+            _preloadWorkerThread.Join();
         }
 
-        var sb = new StringBuilder(1024);
+        _preloadSignal.Dispose();
+        ReleaseSymbolResolver();
+    }
 
-        // Note: DependencyWalker uses UNDNAME.NoAllocateLanguage | UNDNAME.NoMsKeyWords | UNDNAME.NoFunctionReturns | UNDNAME.NoAccessSpecifiers
-        if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.NoMsKeyWords) > 0)
+    internal string UndecorateFunctionName(string functionName)
+    {
+        lock (_dbgHelpLock)
         {
-            return sb.ToString();
+            if (!UndecorationReady || UnDecorateSymbolName == null)
+            {
+                return functionName;
+            }
+
+            StringBuilder sb = new(1024);
+
+            if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.NoMsKeyWords) > 0)
+            {
+                return sb.ToString();
+            }
         }
 
         return functionName;
     }
 
-    /// <summary>
-    /// Loads a module for symbol resolution.
-    /// </summary>
-    /// <param name="fileName">The file name of the module.</param>
-    /// <param name="baseAddress">The base address of the module.</param>
-    /// <returns>The handle of the loaded module, or IntPtr.Zero if loading failed.</returns>
-    internal static IntPtr LoadModule(string fileName, UInt64 baseAddress)
-    {
-        var symModule = IntPtr.Zero;
-        if (!SymbolsInitialized)
-            return IntPtr.Zero;
-
-        ClearCachedSymModule();
-        symModule = SymLoadModuleEx(CurrentProcess,
-                                IntPtr.Zero,
-                                fileName,
-                                null,
-                                baseAddress,
-                                0,
-                                IntPtr.Zero,
-                                0);
-
-        CacheSymModule(symModule, fileName);
-        return symModule;
-    }
-
-    /// <summary>
-    /// Queries for a symbol at the specified address.
-    /// </summary>
-    /// <param name="address">The address to query.</param>
-    /// <param name="symbolName">When this method returns, contains the symbol name if found, or null if not found.</param>
-    /// <returns>True if a symbol was found at the specified address, false otherwise.</returns>
-    public static bool QuerySymbolForAddress(UInt64 address, out string symbolName)
+    public bool QuerySymbolForAddress(UInt64 address, out string symbolName)
     {
         symbolName = null;
 
-        if (!SymbolsInitialized)
+        lock (_dbgHelpLock)
         {
-            return false;
-        }
-
-        var symbolInfo = new SYMBOL_INFO
-        {
-            SizeOfStruct = SIZE_OF_SYMBOL_INFO,
-            MaxNameLen = MAX_SYM_NAME
-        };
-
-        if (SymFromAddr(CurrentProcess, address, out ulong displacement, ref symbolInfo))
-        {
-            if (displacement != 0)
+            if (!SymbolsInitialized || SymFromAddr == null)
+            {
                 return false;
+            }
 
-            symbolName = symbolInfo.Name;
-            return true;
+            SYMBOL_INFO symbolInfo = new()
+            {
+                SizeOfStruct = SIZE_OF_SYMBOL_INFO,
+                MaxNameLen = MAX_SYM_NAME
+            };
+
+            if (SymFromAddr(CurrentProcess, address, out ulong displacement, ref symbolInfo))
+            {
+                if (displacement != 0)
+                    return false;
+
+                symbolName = symbolInfo.Name;
+                return true;
+            }
         }
 
         return false;
     }
 
-    /// <summary>
-    /// Finds the best available dbghelp.dll for current process architecture.
-    /// </summary>
-    /// <returns>
-    /// Full path to the preferred dbghelp.dll if found; otherwise null.
-    /// Preference order: Windows Kits Debuggers (by highest file version) for current arch,
-    /// then common Program Files Windows Kits locations, then the system copy.
-    /// </returns>
     internal static string FindDbgHelpDll()
     {
         try
         {
-            var arch = CUtils.GetProcessArchitectureName();
-            var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string arch = CUtils.GetProcessArchitectureName();
+            HashSet<string> candidates = new(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var root in EnumerateWindowsKitsRoots())
+            foreach (string root in EnumerateWindowsKitsRoots())
             {
                 try
                 {
-                    var p = Path.Combine(root, CConsts.DebuggersString, arch, CConsts.DbgHelpDll);
-                    if (File.Exists(p)) candidates.Add(p);
+                    string p = Path.Combine(root, CConsts.DebuggersString, arch, CConsts.DbgHelpDll);
+                    if (File.Exists(p))
+                        candidates.Add(p);
                 }
                 catch
                 {
@@ -607,8 +797,8 @@ public static class CSymbolResolver
 
             try
             {
-                var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-                var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+                string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                string pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
                 AddIfExists(candidates, CombineParts(pf86, CConsts.WindowsKitsString, "10", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
                 AddIfExists(candidates, CombineParts(pf, CConsts.WindowsKitsString, "10", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
@@ -622,8 +812,9 @@ public static class CSymbolResolver
 
             try
             {
-                var sys = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
-                if (File.Exists(sys)) candidates.Add(sys);
+                string sys = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
+                if (File.Exists(sys))
+                    candidates.Add(sys);
             }
             catch
             {
@@ -636,12 +827,12 @@ public static class CSymbolResolver
             string best = null;
             Version bestVer = null;
 
-            foreach (var c in candidates)
+            foreach (string c in candidates)
             {
                 try
                 {
-                    var fi = FileVersionInfo.GetVersionInfo(c);
-                    var ver = new Version(
+                    FileVersionInfo fi = FileVersionInfo.GetVersionInfo(c);
+                    Version ver = new(
                         SafePart(fi.FileMajorPart),
                         SafePart(fi.FileMinorPart),
                         SafePart(fi.FileBuildPart),
@@ -683,36 +874,31 @@ public static class CSymbolResolver
         static int SafePart(int v) => v < 0 ? 0 : v;
     }
 
-    /// <summary>
-    /// Enumerates installed Windows Kits root directories from HKLM for both 64-bit and 32-bit registry views.
-    /// </summary>
-    /// <returns>
-    /// A sequence of root paths (e.g., "C:\Program Files (x86)\Windows Kits\10\") suitable for composing Debuggers\<arch>\dbghelp.dll.
-    /// </returns>
     private static IEnumerable<string> EnumerateWindowsKitsRoots()
     {
-        var results = new List<string>();
+        List<string> results = [];
         string subKey = @"SOFTWARE\Microsoft\Windows Kits\Installed Roots";
-        string[] valueNames = new[] { "KitsRoot10", "KitsRoot81", "KitsRoot" };
+        string[] valueNames = ["KitsRoot10", "KitsRoot81", "KitsRoot"];
 
-        foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+        foreach (RegistryView view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
         {
             try
             {
                 using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
                 using var key = baseKey.OpenSubKey(subKey);
-                if (key == null) continue;
+                if (key == null)
+                    continue;
 
-                foreach (var name in valueNames)
+                foreach (string name in valueNames)
                 {
-                    var v = key.GetValue(name) as string;
+                    string v = key.GetValue(name) as string;
                     if (!string.IsNullOrWhiteSpace(v))
                         results.Add(v);
                 }
             }
             catch
             {
-                // ignore and continue
+                // Intentionally silent.
             }
         }
 
@@ -721,34 +907,39 @@ public static class CSymbolResolver
 
     private static string CombineParts(params string[] parts)
     {
-        try { return Path.Combine(parts); } catch { return null; }
+        try
+        {
+            return Path.Combine(parts);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
-    /// <summary>
-    /// Determines whether the specified path points to the system-provided dbghelp.dll (System32 or SysWOW64).
-    /// </summary>
-    /// <param name="path">Path to test.</param>
-    /// <returns>True if the path resolves to the OS-shipped dbghelp.dll; otherwise false.</returns>
     private static bool IsSystemDbgHelp(string path)
     {
         try
         {
-            var sys32 = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
-            if (PathsEqual(path, sys32)) return true;
+            string sys32 = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
+            if (PathsEqual(path, sys32))
+                return true;
 
             try
             {
-                var sysX86 = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
+                string sysX86 = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
                 if (!string.IsNullOrEmpty(sysX86))
                 {
-                    var sysWow64 = Path.Combine(sysX86, CConsts.DbgHelpDll);
-                    if (PathsEqual(path, sysWow64)) return true;
+                    string sysWow64 = Path.Combine(sysX86, CConsts.DbgHelpDll);
+                    if (PathsEqual(path, sysWow64))
+                        return true;
                 }
             }
             catch
             {
                 // Intentionally silent.
             }
+
             return false;
         }
         catch
@@ -757,19 +948,16 @@ public static class CSymbolResolver
         }
     }
 
-    /// <summary>
-    /// Compares two file system paths for equality using full path normalization and case-insensitive comparison.
-    /// </summary>
-    /// <param name="a">First path.</param>
-    /// <param name="b">Second path.</param>
-    /// <returns>True if both paths refer to the same location; otherwise false.</returns>
     private static bool PathsEqual(string a, string b)
     {
         try
         {
-            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
-            var pa = Path.GetFullPath(a).TrimEnd('\\');
-            var pb = Path.GetFullPath(b).TrimEnd('\\');
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+                return false;
+
+            string pa = Path.GetFullPath(a).TrimEnd('\\');
+            string pb = Path.GetFullPath(b).TrimEnd('\\');
+
             return string.Equals(pa, pb, StringComparison.OrdinalIgnoreCase);
         }
         catch

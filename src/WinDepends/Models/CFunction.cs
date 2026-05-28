@@ -277,11 +277,11 @@ public class CFunction
     /// Otherwise, it uses <see cref="CSymbolResolver.UndecorateFunctionName"/> to demangle the name
     /// and caches the result in <see cref="UndecoratedName"/>.
     /// </remarks>
-    public string UndecorateFunctionName()
+    public string UndecorateFunctionName(CSymbolResolver symbolResolver)
     {
         if (string.IsNullOrEmpty(UndecoratedName))
         {
-            UndecoratedName = CSymbolResolver.UndecorateFunctionName(RawName);
+            UndecoratedName = symbolResolver.UndecorateFunctionName(RawName);
         }
 
         return UndecoratedName;
@@ -761,21 +761,24 @@ public class CFunctionComparer : IComparer<CFunction>
     private readonly int _fieldIndex;
     private readonly SortOrder _sortOrder;
     private readonly StringComparer _stringComparer;
+    readonly CSymbolResolver _symbolResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CFunctionComparer"/> class.
     /// </summary>
     /// <param name="sortOrder">The sort direction to apply to comparisons.</param>
     /// <param name="fieldIndex">The index of the field to compare.</param>
+    /// <param name="symbolResolver">The symbol resolver class object.</param>
     /// <remarks>
     /// This constructor configures the comparer to sort functions based on the specified field
     /// and in the specified direction.
     /// </remarks>
-    public CFunctionComparer(SortOrder sortOrder, int fieldIndex)
+    public CFunctionComparer(SortOrder sortOrder, int fieldIndex, CSymbolResolver symbolResolver)
     {
         _fieldIndex = fieldIndex;
         _sortOrder = sortOrder;
         _stringComparer = StringComparer.OrdinalIgnoreCase;
+        _symbolResolver = symbolResolver;
     }
 
     public int Compare(CFunction x, CFunction y)
@@ -847,10 +850,10 @@ public class CFunctionComparer : IComparer<CFunction>
                 {
                     // Cache UndecoratedName if needed
                     if (string.IsNullOrEmpty(x.UndecoratedName) && !string.IsNullOrEmpty(x.RawName) && x.IsNameDecorated())
-                        x.UndecorateFunctionName();
+                        x.UndecorateFunctionName(_symbolResolver);
 
                     if (string.IsNullOrEmpty(y.UndecoratedName) && !string.IsNullOrEmpty(y.RawName) && y.IsNameDecorated())
-                        y.UndecorateFunctionName();
+                        y.UndecorateFunctionName(_symbolResolver);
 
                     string nameX = !string.IsNullOrEmpty(x.UndecoratedName) ? x.UndecoratedName : x.RawName;
                     string nameY = !string.IsNullOrEmpty(y.UndecoratedName) ? y.UndecoratedName : y.RawName;

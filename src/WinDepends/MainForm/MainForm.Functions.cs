@@ -131,14 +131,16 @@ public partial class MainForm
         }
     }
 
-    static string TryUndecorateFunction(bool viewUndecorated, CFunction function)
+    static string TryUndecorateFunction(CSymbolResolver symbolResolver, bool viewUndecorated, CFunction function)
     {
-        if (!CSymbolResolver.UndecorationReady)
+        if (!symbolResolver.UndecorationReady)
         {
             return function.RawName;
         }
 
-        return viewUndecorated && function.IsNameDecorated() ? function.UndecorateFunctionName() : function.RawName;
+        return viewUndecorated && function.IsNameDecorated() ? 
+            function.UndecorateFunctionName(symbolResolver) : 
+            function.RawName;
     }
 
     private ListViewItem FindMatchingFunctionInList(ListView SourceList, ListView DestinationList, List<CFunction> FunctionsList)
@@ -189,12 +191,12 @@ public partial class MainForm
             var resolvedFunction = module.ResolveFunctionForOrdinal(function.Ordinal);
             if (resolvedFunction != null)
             {
-                functionName = TryUndecorateFunction(_configuration.ViewUndecorated, resolvedFunction);
+                functionName = TryUndecorateFunction(_symbolResolver, _configuration.ViewUndecorated, resolvedFunction);
             }
         }
         else
         {
-            functionName = TryUndecorateFunction(_configuration.ViewUndecorated, function);
+            functionName = TryUndecorateFunction(_symbolResolver, _configuration.ViewUndecorated, function);
         }
 
         //
@@ -202,7 +204,7 @@ public partial class MainForm
         //
         if (string.IsNullOrEmpty(functionName) && _configuration.UseSymbols)
         {
-            var moduleBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
+            var moduleBase = _symbolResolver.RetrieveCachedSymModule(module.FileName);
             if (moduleBase != IntPtr.Zero)
             {
                 UInt64 functionAddress = 0;
@@ -226,11 +228,11 @@ public partial class MainForm
                 if (functionAddress != 0)
                 {
                     var symAddress = Convert.ToUInt64(moduleBase) + functionAddress;
-                    if (CSymbolResolver.QuerySymbolForAddress(symAddress, out string symName))
+                    if (_symbolResolver.QuerySymbolForAddress(symAddress, out string symName))
                     {
                         function.IsNameFromSymbols = true;
                         function.RawName = symName;
-                        functionName = TryUndecorateFunction(_configuration.ViewUndecorated, function);
+                        functionName = TryUndecorateFunction(_symbolResolver,_configuration.ViewUndecorated, function);
                     }
                 }
             }
@@ -529,7 +531,7 @@ public partial class MainForm
     /// <param name="cacheType"></param>
     private void LVFunctionsSort(ListView listView, int columnIndex, SortOrder sortOrder, List<CFunction> data, DisplayCacheType cacheType)
     {
-        IComparer<CFunction> funcComparer = new CFunctionComparer(sortOrder, columnIndex);
+        IComparer<CFunction> funcComparer = new CFunctionComparer(sortOrder, columnIndex, _symbolResolver);
         data.Sort(funcComparer);
         //
         // Reset listview items cache.

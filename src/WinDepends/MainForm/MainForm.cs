@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        27 May 2026
 *  
 *  Codename:    VasilEk
 *
@@ -49,6 +49,11 @@ public partial class MainForm : Form
     /// Depends-core interface class.
     /// </summary>
     readonly CCoreClient _coreClient;
+
+    /// <summary>
+    /// Symbol resolver class.
+    /// </summary>
+    readonly CSymbolResolver _symbolResolver = new();
 
     /// <summary>
     /// Depends current context, must be initialized.
@@ -183,15 +188,17 @@ public partial class MainForm : Form
         CPathResolver.UserDirectoriesKM = _configuration.UserSearchOrderDirectoriesKM;
         CPathResolver.UserDirectoriesUM = _configuration.UserSearchOrderDirectoriesUM;
 
-        var dbghelpInit = CSymbolResolver.AllocateSymbolResolver(_configuration.SymbolsDllPath,
+        var dbghelpInit = _symbolResolver.AllocateSymbolResolver(_configuration.SymbolsDllPath,
                 _configuration.SymbolsStorePath, _configuration.UseSymbols);
 
         if (dbghelpInit != SymbolResolverInitResult.InitializationFailure &&
             dbghelpInit != SymbolResolverInitResult.DllLoadFailure)
         {
-            _configuration.SymbolsDllPath = CSymbolResolver.DllPath;
-            _configuration.SymbolsStorePath = CSymbolResolver.StorePath;
+            _configuration.SymbolsDllPath = _symbolResolver.DllPath;
+            _configuration.SymbolsStorePath = _symbolResolver.StorePath;
         }
+
+        _symbolResolver.SymbolLoadStatusChanged += SymbolResolver_SymbolLoadStatusChanged;
 
         //
         // Check for command line parameters.
@@ -250,6 +257,46 @@ public partial class MainForm : Form
         _functionLookupTimer.Tick += FunctionLookupTimer_Tick;
     }
 
+    private void SymbolResolver_SymbolLoadStatusChanged(object? sender, SymbolLoadStatusChangedEventArgs e)
+    {
+        if (_shutdownInProgress || IsDisposed || !IsHandleCreated)
+            return;
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(new Action(() =>
+            {
+                if (_shutdownInProgress || IsDisposed || !IsHandleCreated)
+                    return;
+
+                SymbolResolver_SymbolLoadStatusChanged(sender, e);
+            }));
+            return;
+        }
+
+        switch (e.State)
+        {
+            case SymbolLoadState.Queued:
+            case SymbolLoadState.Loading:
+                UpdateOperationStatus(e.Message);
+                break;
+
+            case SymbolLoadState.Loaded:
+            case SymbolLoadState.Cancelled:
+            case SymbolLoadState.Idle:
+                UpdateOperationStatus(string.Empty);
+                break;
+
+            case SymbolLoadState.Failed:
+                UpdateOperationStatus(string.Empty);
+                if (!string.IsNullOrEmpty(e.Message))
+                {
+                    AddLogMessage(e.Message, LogMessageType.ErrorOrWarning);
+                }
+                break;
+        }
+    }
+
     private void ShowTypeSearchHint(Control owner, string text)
     {
         Point screenPoint;
@@ -292,24 +339,24 @@ public partial class MainForm : Form
         switch (result)
         {
             case SymbolResolverInitResult.DllLoadFailure:
-                AddLogMessage($"DBGHELP is not initialized, \"{CSymbolResolver.DllPath}\" is not loaded",
+                AddLogMessage($"DBGHELP is not initialized, \"{_symbolResolver.DllPath}\" is not loaded",
                     LogMessageType.ErrorOrWarning);
                 break;
             case SymbolResolverInitResult.InitializationFailure:
-                AddLogMessage($"DBGHELP initialization failed for \"{CSymbolResolver.DllPath}\", " +
-                    $"store \"{CSymbolResolver.StorePath}\"", LogMessageType.ErrorOrWarning);
+                AddLogMessage($"DBGHELP initialization failed for \"{_symbolResolver.DllPath}\", " +
+                    $"store \"{_symbolResolver.StorePath}\"", LogMessageType.ErrorOrWarning);
                 break;
             case SymbolResolverInitResult.SuccessWithSymbols:
-                AddLogMessage($"DBGHELP initialized using \"{CSymbolResolver.DllPath}\", " +
-                    $"store \"{CSymbolResolver.StorePath}\"", LogMessageType.Information);
+                AddLogMessage($"DBGHELP initialized using \"{_symbolResolver.DllPath}\", " +
+                    $"store \"{_symbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
             case SymbolResolverInitResult.SuccessForUndecorationOnly:
-                AddLogMessage($"DBGHELP initialized (undecoration only) using \"{CSymbolResolver.DllPath}\", " +
-                    $"store \"{CSymbolResolver.StorePath}\"", LogMessageType.Information);
+                AddLogMessage($"DBGHELP initialized (undecoration only) using \"{_symbolResolver.DllPath}\", " +
+                    $"store \"{_symbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
             case SymbolResolverInitResult.SuccessWithSymbolsAlternateDll:
-                AddLogMessage($"DBGHELP initialized with best available \"{CSymbolResolver.DllPath}\", " +
-                    $"store \"{CSymbolResolver.StorePath}\"", LogMessageType.Information);
+                AddLogMessage($"DBGHELP initialized with best available \"{_symbolResolver.DllPath}\", " +
+                    $"store \"{_symbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
         }
     }
@@ -662,6 +709,8 @@ public partial class MainForm : Form
         }
         finally
         {
+            _symbolResolver.SymbolLoadStatusChanged -= SymbolResolver_SymbolLoadStatusChanged;
+            _symbolResolver.Dispose();
             _coreClient?.Dispose();
         }
     }
@@ -696,19 +745,19 @@ public partial class MainForm : Form
                 _configuration.SymbolsStorePath = symStorePath;
             }
 
-            CSymbolResolver.ReleaseSymbolResolver();
-            var result = CSymbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, _configuration.UseSymbols);
+            _symbolResolver.ReleaseSymbolResolver();
+            var result = _symbolResolver.AllocateSymbolResolver(symDllPath, symStorePath, _configuration.UseSymbols);
             if (result != SymbolResolverInitResult.InitializationFailure &&
                 result != SymbolResolverInitResult.DllLoadFailure)
             {
-                _configuration.SymbolsDllPath = CSymbolResolver.DllPath;
-                _configuration.SymbolsStorePath = CSymbolResolver.StorePath;
+                _configuration.SymbolsDllPath = _symbolResolver.DllPath;
+                _configuration.SymbolsStorePath = _symbolResolver.StorePath;
             }
             LogSymbolsInitializationResult(result);
         }
         else
         {
-            if (CSymbolResolver.ReleaseSymbolResolver())
+            if (_symbolResolver.ReleaseSymbolResolver())
             {
                 AddLogMessage($"Debug symbols deallocated", LogMessageType.Information);
             }
@@ -1641,12 +1690,10 @@ public partial class MainForm : Form
 
     private void PreloadSymbolForSelectedModule(CModule module)
     {
-        var symBase = CSymbolResolver.RetrieveCachedSymModule(module.FileName);
+        var symBase = _symbolResolver.RetrieveCachedSymModule(module.FileName);
         if (symBase == IntPtr.Zero)
         {
-            UpdateOperationStatus($"Please wait, loading symbols for \"{module.FileName}\"...");
-            CSymbolResolver.LoadModule(module.FileName, 0);
-            UpdateOperationStatus(string.Empty);
+            _symbolResolver.RequestModulePreload(module.FileName, 0);
         }
     }
 

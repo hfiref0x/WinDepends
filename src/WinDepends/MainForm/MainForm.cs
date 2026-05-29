@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        27 May 2026
+*  DATE:        28 May 2026
 *  
 *  Codename:    VasilEk
 *
@@ -264,13 +264,20 @@ public partial class MainForm : Form
 
         if (InvokeRequired)
         {
-            BeginInvoke(new Action(() =>
+            try
             {
-                if (_shutdownInProgress || IsDisposed || !IsHandleCreated)
-                    return;
+                BeginInvoke(new Action(() =>
+                {
+                    if (_shutdownInProgress || IsDisposed || !IsHandleCreated)
+                        return;
 
-                SymbolResolver_SymbolLoadStatusChanged(sender, e);
-            }));
+                    SymbolResolver_SymbolLoadStatusChanged(sender, e);
+                }));
+            }
+            catch
+            {
+                // Ignore shutdown race.
+            }
             return;
         }
 
@@ -278,21 +285,15 @@ public partial class MainForm : Form
         {
             case SymbolLoadState.Queued:
             case SymbolLoadState.Loading:
+            case SymbolLoadState.Loaded:
                 UpdateOperationStatus(e.Message);
                 break;
-
-            case SymbolLoadState.Loaded:
             case SymbolLoadState.Cancelled:
             case SymbolLoadState.Idle:
                 UpdateOperationStatus(string.Empty);
                 break;
-
             case SymbolLoadState.Failed:
-                UpdateOperationStatus(string.Empty);
-                if (!string.IsNullOrEmpty(e.Message))
-                {
-                    AddLogMessage(e.Message, LogMessageType.ErrorOrWarning);
-                }
+                UpdateOperationStatus(e.Message);
                 break;
         }
     }
@@ -943,7 +944,6 @@ public partial class MainForm : Form
                         Verb = "open",
                         UseShellExecute = true
                     });
-
                 }
                 catch (Exception ex)
                 {

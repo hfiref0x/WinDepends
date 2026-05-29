@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        23 May 2026
+*  DATE:        28 May 2026
 *  
 *  Implementation of CFunction and CFunctionComparer classes.
 *

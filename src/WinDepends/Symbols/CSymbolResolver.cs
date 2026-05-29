@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        27 May 2026
+*  DATE:        28 May 2026
 *
 *  MS Symbols resolver support class.
 *
@@ -342,6 +342,22 @@ public sealed class CSymbolResolver : IDisposable
         return bResult;
     }
 
+    /// <summary>
+    /// Initializes the symbol resolver with the specified parameters.
+    /// </summary>
+    /// <param name="dllPath">The path to DbgHelp.dll.</param>
+    /// <param name="storePath">The path to store symbol files.</param>
+    /// <param name="useSymbols">Indicates whether to use symbols or only name undecoration.</param>
+    /// <returns>
+    /// A <see cref="SymbolResolverInitResult"/> value indicating the result of the initialization:
+    /// <list type="bullet">
+    ///   <item><description><see cref="SymbolResolverInitResult.DllLoadFailure"/> if DbgHelp.dll could not be loaded</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.InitializationFailure"/> if initialization failed</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbolsAlternateDll"/> if successfully initialized with a better dbghelp.dll</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.SuccessWithSymbols"/> if successfully initialized with symbols</description></item>
+    ///   <item><description><see cref="SymbolResolverInitResult.SuccessForUndecorationOnly"/> if successfully initialized for name undecoration only</description></item>
+    /// </list>
+    /// </returns>
     public SymbolResolverInitResult AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
     {
         DllPath = dllPath;
@@ -444,6 +460,13 @@ public sealed class CSymbolResolver : IDisposable
         if (!SymbolsInitialized || string.IsNullOrEmpty(fileName))
             return;
 
+        if (!File.Exists(fileName))
+        {
+            RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Failed,
+                $"Symbol load failed for \"{fileName}\": file not found.");
+            return;
+        }
+
         lock (_dbgHelpLock)
         {
             loadedFileName = _nativeLoadedModuleFileName;
@@ -471,7 +494,7 @@ public sealed class CSymbolResolver : IDisposable
         }
 
         RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Queued,
-            $"Loading symbols for \"{fileName}\"...");
+            $"Loading symbols for \"{fileName}\", please wait...");
 
         _preloadSignal.Set();
     }
@@ -510,7 +533,7 @@ public sealed class CSymbolResolver : IDisposable
             try
             {
                 RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Loading,
-                    $"Loading symbols for \"{fileName}\"...");
+                    $"Loading symbols for \"{fileName}\", please wait...");
 
                 lock (_dbgHelpLock)
                 {
@@ -574,14 +597,21 @@ public sealed class CSymbolResolver : IDisposable
 
                 lock (_stateLock)
                 {
-                    if (requestId != _pendingRequestId)
+                    bool isCancelled;
+
+                    lock (_stateLock)
+                    {
+                        isCancelled = requestId != _pendingRequestId;
+                    }
+
+                    if (isCancelled)
                     {
                         RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Cancelled, string.Empty);
                         continue;
                     }
                 }
 
-                RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Loaded, string.Empty);
+                RaiseSymbolLoadStatusChanged(fileName, SymbolLoadState.Loaded, $"Symbols loading for \"{fileName}\" has been finished");
             }
             catch (Exception ex)
             {
@@ -673,6 +703,10 @@ public sealed class CSymbolResolver : IDisposable
         return result;
     }
 
+    /// <summary>
+    /// Releases all resources used by the symbol resolver.
+    /// </summary>
+    /// <returns>True if cleanup was successful, false otherwise.</returns>
     public bool ReleaseSymbolResolver()
     {
         bool bResult = false;
@@ -724,6 +758,11 @@ public sealed class CSymbolResolver : IDisposable
         ReleaseSymbolResolver();
     }
 
+    /// <summary>
+    /// Undecorates a C++ decorated function name.
+    /// </summary>
+    /// <param name="functionName">The decorated function name.</param>
+    /// <returns>The undecorated function name, or the original name if it wasn't decorated.</returns>
     internal string UndecorateFunctionName(string functionName)
     {
         lock (_dbgHelpLock)
@@ -735,6 +774,7 @@ public sealed class CSymbolResolver : IDisposable
 
             StringBuilder sb = new(1024);
 
+            // Note: DependencyWalker uses UNDNAME.NoAllocateLanguage | UNDNAME.NoMsKeyWords | UNDNAME.NoFunctionReturns | UNDNAME.NoAccessSpecifiers
             if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.NoMsKeyWords) > 0)
             {
                 return sb.ToString();
@@ -744,6 +784,12 @@ public sealed class CSymbolResolver : IDisposable
         return functionName;
     }
 
+    /// <summary>
+    /// Queries for a symbol at the specified address.
+    /// </summary>
+    /// <param name="address">The address to query.</param>
+    /// <param name="symbolName">When this method returns, contains the symbol name if found, or null if not found.</param>
+    /// <returns>True if a symbol was found at the specified address, false otherwise.</returns>
     public bool QuerySymbolForAddress(UInt64 address, out string symbolName)
     {
         symbolName = null;
@@ -774,6 +820,14 @@ public sealed class CSymbolResolver : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Finds the best available dbghelp.dll for current process architecture.
+    /// </summary>
+    /// <returns>
+    /// Full path to the preferred dbghelp.dll if found; otherwise null.
+    /// Preference order: Windows Kits Debuggers (by highest file version) for current arch,
+    /// then common Program Files Windows Kits locations, then the system copy.
+    /// </returns>
     internal static string FindDbgHelpDll()
     {
         try
@@ -874,6 +928,12 @@ public sealed class CSymbolResolver : IDisposable
         static int SafePart(int v) => v < 0 ? 0 : v;
     }
 
+    /// <summary>
+    /// Enumerates installed Windows Kits root directories from HKLM for both 64-bit and 32-bit registry views.
+    /// </summary>
+    /// <returns>
+    /// A sequence of root paths (e.g., "C:\Program Files (x86)\Windows Kits\10\") suitable for composing Debuggers\<arch>\dbghelp.dll.
+    /// </returns>
     private static IEnumerable<string> EnumerateWindowsKitsRoots()
     {
         List<string> results = [];
@@ -917,6 +977,11 @@ public sealed class CSymbolResolver : IDisposable
         }
     }
 
+    /// <summary>
+    /// Determines whether the specified path points to the system-provided dbghelp.dll (System32 or SysWOW64).
+    /// </summary>
+    /// <param name="path">Path to test.</param>
+    /// <returns>True if the path resolves to the OS-shipped dbghelp.dll; otherwise false.</returns>
     private static bool IsSystemDbgHelp(string path)
     {
         try

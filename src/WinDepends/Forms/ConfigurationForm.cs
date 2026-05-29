@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Apr 2026
+*  DATE:        28 May 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -1058,6 +1058,59 @@ public partial class ConfigurationForm : Form
             CConsts.AvailableGuiFontSizes.Contains(selectedSize))
         {
             _config.GuiFontSize = selectedSize;
+        }
+    }
+
+    public static bool TryExtractSymbolsCachePath(string symbolsPath, out string cachePath)
+    {
+        string[] parts;
+
+        cachePath = null;
+
+        if (string.IsNullOrWhiteSpace(symbolsPath))
+            return false;
+
+        parts = symbolsPath.Split('*', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length < 2)
+            return false;
+
+        if (!string.Equals(parts[0], "srv", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(parts[0], "cache", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (parts[1].StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            parts[1].StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        cachePath = parts[1];
+        return !string.IsNullOrWhiteSpace(cachePath);
+    }
+
+    private void buttonBrowseCache_Click(object sender, EventArgs e)
+    {
+        if (TryExtractSymbolsCachePath(symbolsStoreTextBox.Text, out string cachePath))
+        {
+            if (Directory.Exists(cachePath))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo()
+                    {
+                        FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), CConsts.ExplorerApp),
+                        Arguments = cachePath,
+                        Verb = "open",
+                        UseShellExecute = true
+                    });
+                }
+                catch
+                {
+                    //Intentionally silent.
+                }
+            }
         }
     }
 }

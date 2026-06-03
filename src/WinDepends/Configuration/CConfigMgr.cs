@@ -42,6 +42,8 @@ public class CConfiguration
     [DataMember]
     public bool ViewUndecorated { get; set; }
     [DataMember]
+    public bool SimplifyStlNames { get; set; }
+    [DataMember]
     public bool ResolveAPIsets { get; set; }
     [DataMember]
     public bool FullPaths { get; set; }
@@ -163,6 +165,7 @@ public class CConfiguration
         SortColumnModules = other.SortColumnModules;
         ModuleNodeDepthMax = other.ModuleNodeDepthMax;
         ViewUndecorated = other.ViewUndecorated;
+        SimplifyStlNames = other.SimplifyStlNames;
         ResolveAPIsets = other.ResolveAPIsets;
         FullPaths = other.FullPaths;
         AutoExpands = other.AutoExpands;

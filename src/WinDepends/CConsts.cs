@@ -58,6 +58,7 @@ public static class CConsts
     public const int TagResolveAPIsets = 123;
     public const int TagUpperCaseModuleNames = 124;
     public const int TagClearLogOnFileOpen = 125;
+    public const int TagSimplifyStlNames = 126;
     public const int TagViewExternalViewer = 200;
     public const int TagViewProperties = 201;
     public const int TagSystemInformation = 300;

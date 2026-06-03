@@ -59,6 +59,7 @@
             chBoxUpperCase = new CheckBox();
             chBoxResolveApiSets = new CheckBox();
             chBoxUndecorateSymbols = new CheckBox();
+            chBoxSimplifyStlNames = new CheckBox();
             chBoxAutoExpands = new CheckBox();
             groupBox2 = new GroupBox();
             chBoxUseESCKey = new CheckBox();
@@ -366,6 +367,7 @@
             groupBox3.Controls.Add(chBoxUpperCase);
             groupBox3.Controls.Add(chBoxResolveApiSets);
             groupBox3.Controls.Add(chBoxUndecorateSymbols);
+            groupBox3.Controls.Add(chBoxSimplifyStlNames);
             groupBox3.Controls.Add(chBoxAutoExpands);
             groupBox3.Location = new Point(6, 71);
             groupBox3.Name = "groupBox3";
@@ -489,7 +491,19 @@
             chBoxUndecorateSymbols.Text = "Undecorate C++ Functions";
             chBoxUndecorateSymbols.UseVisualStyleBackColor = true;
             chBoxUndecorateSymbols.Click += ChBox_Click;
-            // 
+            //
+            // chBoxSimplifyStlNames
+            //
+            chBoxSimplifyStlNames.AutoSize = true;
+            chBoxSimplifyStlNames.Location = new Point(250, 83);
+            chBoxSimplifyStlNames.Name = "chBoxSimplifyStlNames";
+            chBoxSimplifyStlNames.Size = new Size(200, 19);
+            chBoxSimplifyStlNames.TabIndex = 19;
+            chBoxSimplifyStlNames.Tag = "126";
+            chBoxSimplifyStlNames.Text = "Simplify STL Template Names";
+            chBoxSimplifyStlNames.UseVisualStyleBackColor = true;
+            chBoxSimplifyStlNames.Click += ChBox_Click;
+            //
             // chBoxAutoExpands
             // 
             chBoxAutoExpands.AutoSize = true;
@@ -1681,6 +1695,7 @@
         private GroupBox groupBox3;
         private CheckBox chBoxResolveApiSets;
         private CheckBox chBoxUndecorateSymbols;
+        private CheckBox chBoxSimplifyStlNames;
         private CheckBox chBoxAutoExpands;
         private CheckBox chBoxFullPaths;
         private TabPage tabExternalViewer;

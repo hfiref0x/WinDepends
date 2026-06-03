@@ -232,6 +232,12 @@ public sealed class CSymbolResolver : IDisposable
 
     public bool SymbolsInitialized { get; private set; }
     public bool UndecorationReady { get; private set; }
+
+    /// <summary>
+    /// When set, recognized STL default-argument template forms in undecorated
+    /// names are collapsed to their conventional spellings (e.g. std::string).
+    /// </summary>
+    public bool SimplifyTemplateDefaults { get; set; }
     public string DllPath { get; private set; }
     public string StorePath { get; private set; }
 
@@ -777,7 +783,10 @@ public sealed class CSymbolResolver : IDisposable
             // Note: DependencyWalker uses UNDNAME.NoAllocateLanguage | UNDNAME.NoMsKeyWords | UNDNAME.NoFunctionReturns | UNDNAME.NoAccessSpecifiers
             if (UnDecorateSymbolName(functionName, sb, sb.Capacity, UNDNAME.NoMsKeyWords) > 0)
             {
-                return sb.ToString();
+                string undecorated = sb.ToString();
+                return SimplifyTemplateDefaults
+                    ? CStlNameSimplifier.Simplify(undecorated)
+                    : undecorated;
             }
         }
 

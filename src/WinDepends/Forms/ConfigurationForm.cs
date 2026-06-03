@@ -337,6 +337,7 @@ public partial class ConfigurationForm : Form
         chBoxAutoExpands.Checked = _config.AutoExpands;
         chBoxFullPaths.Checked = _config.FullPaths;
         chBoxUndecorateSymbols.Checked = _config.ViewUndecorated;
+        chBoxSimplifyStlNames.Checked = _config.SimplifyStlNames;
         chBoxResolveApiSets.Checked = _config.ResolveAPIsets;
         chBoxHighlightApiSet.Checked = _config.HighlightApiSet;
         chBoxApiSetNamespace.Checked = _config.UseApiSetSchemaFile;
@@ -504,6 +505,10 @@ public partial class ConfigurationForm : Form
 
             case CConsts.TagViewUndecorated:
                 _config.ViewUndecorated = isChecked;
+                break;
+
+            case CConsts.TagSimplifyStlNames:
+                _config.SimplifyStlNames = isChecked;
                 break;
 
             case CConsts.TagResolveAPIsets:

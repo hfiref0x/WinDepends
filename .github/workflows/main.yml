@@ -52,7 +52,7 @@ jobs:
           /m
           /p:Platform=${{ env.PLATFORM }}
           /p:Configuration=${{ env.BUILD_CONFIGURATION }}
-          /p:PlatformToolset=v143
+          /p:PlatformToolset=v145
 
       - name: Collect application files
         shell: pwsh

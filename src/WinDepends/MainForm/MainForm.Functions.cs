@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        12 Jul 2026
 *  
 *  Import and export function view routines for main form.
 *
@@ -208,6 +208,9 @@ public partial class MainForm
             if (moduleBase != IntPtr.Zero)
             {
                 UInt64 functionAddress = 0;
+                UInt64 moduleBaseAddress;
+                UInt64 symAddress;
+
                 //
                 // If function is parent import then lookup it by ordinal in module exports
                 // to query function actual address for symbols resolving.
@@ -225,9 +228,11 @@ public partial class MainForm
                     functionAddress = function.Address;
                 }
 
-                if (functionAddress != 0)
+                if (functionAddress != 0 && !function.IsForward())
                 {
-                    var symAddress = Convert.ToUInt64(moduleBase) + functionAddress;
+                    moduleBaseAddress = unchecked((UInt64)moduleBase.ToInt64());
+                    symAddress = moduleBaseAddress + functionAddress;
+
                     if (_symbolResolver.QuerySymbolForAddress(symAddress, out string symName))
                     {
                         function.IsNameFromSymbols = true;

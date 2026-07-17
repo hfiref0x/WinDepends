@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        23 May 2026
+*  DATE:        14 Jul 2026
 *  
 *  Core Server communication class.
 *

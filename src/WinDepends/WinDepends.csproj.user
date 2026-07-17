@@ -28,9 +28,6 @@
     <Compile Update="MainForm\MainForm.Functions.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="MainForm\MainForm.Logging.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Update="MainForm\MainForm.Modules.cs">
       <SubType>Form</SubType>
     </Compile>

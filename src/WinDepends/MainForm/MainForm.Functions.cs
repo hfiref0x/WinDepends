@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        12 Jul 2026
+*  DATE:        14 Jul 2026
 *  
 *  Import and export function view routines for main form.
 *
@@ -56,7 +56,7 @@ public partial class MainForm
                 fName = function.RawName;
                 if (!CUtils.TryBuildExternalHelpUrl(_configuration.ExternalFunctionHelpURL, fName, out var url))
                 {
-                    AddLogMessage("External help launch failed: invalid help URL template.", LogMessageType.ErrorOrWarning);
+                    AppLogger.LogExt("External help launch failed: invalid help URL template.", LogMessageType.ErrorOrWarning);
                     return;
                 }
 
@@ -71,7 +71,7 @@ public partial class MainForm
         }
         catch (Exception ex)
         {
-            AddLogMessage($"External help launch failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+            AppLogger.LogExt($"External help launch failed: {ex.Message}", LogMessageType.ErrorOrWarning);
         }
     }
 

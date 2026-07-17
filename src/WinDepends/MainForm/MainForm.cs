@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 May 2026
+*  DATE:        14 Jul 2026
 *  
 *  Codename:    VasilEk
 *
@@ -102,7 +102,7 @@ public partial class MainForm : Form
     /// <summary>
     /// Flag to let the others know when WinDepends application is shutting down.
     /// </summary>
-    bool _shutdownInProgress;
+    bool _shutdownInProgress = false;
 
     /// <summary>
     /// Log search state.
@@ -172,15 +172,23 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        AppLogger.Initialize(this.reLog);
 
-        _shutdownInProgress = false;
         reLog.Font = new Font(reLog.Font.FontFamily, CConsts.DefaultGuiFontSize, reLog.Font.Style, GraphicsUnit.Point);
+
+        /*toolBarStatusLabel.TextChanged += (_, _) =>
+        {
+            Debug.WriteLine(
+                $"Status changed: '{toolBarStatusLabel.Text}'\n{Environment.StackTrace}");
+        };*/
+
+        AppLogger.OnLogMessage += AppLogger_OnLogMessage;
 
         //
         // Add welcome message to the log.
         //
-        AddLogMessage($"{CConsts.ProgramName} started, " +
-            $"version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild} BETA",
+        AppLogger.LogExt($"{CConsts.ProgramName} started, " +
+            $"version {CConsts.VersionMajor}.{CConsts.VersionMinor}.{CConsts.VersionRevision}.{CConsts.VersionBuild} RC2",
             LogMessageType.ContentDefined, Color.Black, true);
 
         _configuration = CConfigManager.LoadConfiguration();
@@ -191,8 +199,10 @@ public partial class MainForm : Form
         var dbghelpInit = _symbolResolver.AllocateSymbolResolver(_configuration.SymbolsDllPath,
                 _configuration.SymbolsStorePath, _configuration.UseSymbols);
 
-        if (dbghelpInit != SymbolResolverInitResult.InitializationFailure &&
-            dbghelpInit != SymbolResolverInitResult.DllLoadFailure)
+        //so delphish
+        if (dbghelpInit is not (
+                SymbolResolverInitResult.InitializationFailure or
+                SymbolResolverInitResult.DllLoadFailure))
         {
             _configuration.SymbolsDllPath = _symbolResolver.DllPath;
             _configuration.SymbolsStorePath = _symbolResolver.StorePath;
@@ -208,7 +218,7 @@ public partial class MainForm : Form
         //
         // Start server app.
         //       
-        _coreClient = new(_configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AddLogMessage);
+        _coreClient = new(_configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AppLogger.LogExt);
         if (_coreClient.ConnectClient())
         {
             if (_coreClient.GetKnownDllsAll(CPathResolver.KnownDlls,
@@ -255,6 +265,142 @@ public partial class MainForm : Form
 
         _functionLookupTimer.Interval = 3000;
         _functionLookupTimer.Tick += FunctionLookupTimer_Tick;
+    }
+
+    /// <summary>
+    /// MainForm load (Create) event.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    private void MainForm_Load(object sender, EventArgs e)
+    {
+        ApplyConfiguredGuiFontSize();
+        RestoreColumnWidthsFromConfiguration();
+        LVModules.ColumnWidthChanged += LVModules_ColumnWidthChanged;
+        LVImports.ColumnWidthChanged += LVImports_ColumnWidthChanged;
+        LVExports.ColumnWidthChanged += LVExports_ColumnWidthChanged;
+
+        //
+        // Enable drag and drop for elevated instance.
+        //
+        ElevatedDragDropManager.EnableForWindow(this.Handle);
+        ElevatedDragDropManager.EnableForWindow(LVImports.Handle);
+        ElevatedDragDropManager.EnableForWindow(LVExports.Handle);
+        ElevatedDragDropManager.EnableForWindow(reLog.Handle);
+        ElevatedDragDropManager.EnableForWindow(LVModules.Handle);
+        ElevatedDragDropManager.EnableForWindow(TVModules.Handle);
+        ElevatedDragDropManager.Instance.ElevatedDragDrop += MainForm_ElevatedDragDrop;
+
+        //
+        // Create and load Most Recently Used files.
+        //
+        _mruList = new CMRUList(FileMenuItem,
+            FileMenuItem.DropDownItems.IndexOf(MenuOpenNewInstance),
+            _configuration.MRUList,
+            _configuration.HistoryDepth,
+            _configuration.HistoryShowFullPath,
+            OpenInputFile,
+            UpdateOperationStatus,
+            toolBarStatusLabel);
+
+        //
+        // Setup image lists for tree/list views.
+        //
+        CreateImageListsForViews();
+
+        //
+        // Restore window position, size and state.
+        //
+        RestoreWindowSettings();
+
+        //
+        // Toolbar images setup.
+        //
+        if (CreateOrUpdateToolbarImageStrip())
+        {
+            OpenToolButton.ImageIndex = (int)ToolBarIconType.OpenFile;
+            SaveToolButton.ImageIndex = (int)ToolBarIconType.SaveFile;
+            CopyToolButton.ImageIndex = (int)ToolBarIconType.Copy;
+            AutoExpandToolButton.ImageIndex = (int)ToolBarIconType.AutoExpand;
+            ViewFullPathsToolButton.ImageIndex = (int)ToolBarIconType.FullPaths;
+            ViewUndecoratedToolButton.ImageIndex = (int)ToolBarIconType.ViewUndecorated;
+            ViewModulesToolButton.ImageIndex = (int)ToolBarIconType.ViewModulesInExternalViewer;
+            ConfigureToolButton.ImageIndex = (int)ToolBarIconType.Configuration;
+            ResolveAPISetsToolButton.ImageIndex = (int)ToolBarIconType.ResolveAPISets;
+            PropertiesToolButton.ImageIndex = (int)ToolBarIconType.Properties;
+            SystemInfoToolButton.ImageIndex = (int)ToolBarIconType.SystemInformation;
+        }
+
+        //
+        // Check toolbar buttons depending on settings.
+        //
+        AutoExpandToolButton.Checked = _configuration.AutoExpands;
+        ViewFullPathsToolButton.Checked = _configuration.FullPaths;
+        ViewUndecoratedToolButton.Checked = _configuration.ViewUndecorated;
+        ResolveAPISetsToolButton.Checked = _configuration.ResolveAPIsets;
+
+        //
+        // Disable Save/Copy buttons by default.
+        //
+        SaveToolButton.Enabled = false;
+        CopyToolButton.Enabled = false;
+
+        //
+        // Set program title.
+        //
+        var suffix = CUtils.IsAdministrator
+            ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
+            : Environment.Is64BitProcess ? CConsts.SixtyFourBitsMsg : "";
+
+        this.Text = $"{CConsts.ProgramName}{suffix}";
+
+        var fileOpened = false;
+
+        //
+        // Open file (if it was submitted through command line).
+        //
+        if (_commandLineArgs.Length > 1)
+        {
+            var fName = _commandLineArgs[1];
+            if (!string.IsNullOrEmpty(fName) && File.Exists(fName))
+            {
+                fileOpened = OpenInputFile(fName);
+            }
+        }
+
+        if (!fileOpened)
+        {
+            SetDefaultStatusBarText();
+        }
+
+    }
+
+    /// <summary>
+    /// MainForm close handler.
+    /// Writes configuration back to disk.
+    /// </summary>
+    private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
+    {
+        try
+        {
+            ClearModuleLinks();
+            _moduleToolTip?.Dispose();
+
+            if (_mruList != null && _configuration != null)
+            {
+                _configuration.MRUList.Clear();
+                _configuration.MRUList.AddRange(_mruList.GetCurrentItems());
+                CConfigManager.SaveConfiguration(_configuration);
+            }
+
+        }
+        finally
+        {
+            _symbolResolver.SymbolLoadStatusChanged -= SymbolResolver_SymbolLoadStatusChanged;
+            _symbolResolver.Dispose();
+            _coreClient?.Dispose();
+            AppLogger.OnLogMessage -= AppLogger_OnLogMessage;
+        }
     }
 
     private void SymbolResolver_SymbolLoadStatusChanged(object? sender, SymbolLoadStatusChangedEventArgs e)
@@ -340,23 +486,23 @@ public partial class MainForm : Form
         switch (result)
         {
             case SymbolResolverInitResult.DllLoadFailure:
-                AddLogMessage($"DBGHELP is not initialized, \"{_symbolResolver.DllPath}\" is not loaded",
+                AppLogger.LogExt($"DBGHELP is not initialized, \"{_symbolResolver.DllPath}\" is not loaded",
                     LogMessageType.ErrorOrWarning);
                 break;
             case SymbolResolverInitResult.InitializationFailure:
-                AddLogMessage($"DBGHELP initialization failed for \"{_symbolResolver.DllPath}\", " +
+                AppLogger.LogExt($"DBGHELP initialization failed for \"{_symbolResolver.DllPath}\", " +
                     $"store \"{_symbolResolver.StorePath}\"", LogMessageType.ErrorOrWarning);
                 break;
             case SymbolResolverInitResult.SuccessWithSymbols:
-                AddLogMessage($"DBGHELP initialized using \"{_symbolResolver.DllPath}\", " +
+                AppLogger.LogExt($"DBGHELP initialized using \"{_symbolResolver.DllPath}\", " +
                     $"store \"{_symbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
             case SymbolResolverInitResult.SuccessForUndecorationOnly:
-                AddLogMessage($"DBGHELP initialized (undecoration only) using \"{_symbolResolver.DllPath}\", " +
+                AppLogger.LogExt($"DBGHELP initialized (undecoration only) using \"{_symbolResolver.DllPath}\", " +
                     $"store \"{_symbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
             case SymbolResolverInitResult.SuccessWithSymbolsAlternateDll:
-                AddLogMessage($"DBGHELP initialized with best available \"{_symbolResolver.DllPath}\", " +
+                AppLogger.LogExt($"DBGHELP initialized with best available \"{_symbolResolver.DllPath}\", " +
                     $"store \"{_symbolResolver.StorePath}\"", LogMessageType.Information);
                 break;
         }
@@ -579,143 +725,6 @@ public partial class MainForm : Form
         toolBarStatusLabel.Text = "Use the menu File->Open or drag and drop a file into the window to begin analysis";
     }
 
-    /// <summary>
-    /// MainForm load (Create) event.
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void MainForm_Load(object sender, EventArgs e)
-    {
-        ApplyConfiguredGuiFontSize();
-        RestoreColumnWidthsFromConfiguration();
-        LVModules.ColumnWidthChanged += LVModules_ColumnWidthChanged;
-        LVImports.ColumnWidthChanged += LVImports_ColumnWidthChanged;
-        LVExports.ColumnWidthChanged += LVExports_ColumnWidthChanged;
-
-        //
-        // Enable drag and drop for elevated instance.
-        //
-        ElevatedDragDropManager.EnableForWindow(this.Handle);
-        ElevatedDragDropManager.EnableForWindow(LVImports.Handle);
-        ElevatedDragDropManager.EnableForWindow(LVExports.Handle);
-        ElevatedDragDropManager.EnableForWindow(reLog.Handle);
-        ElevatedDragDropManager.EnableForWindow(LVModules.Handle);
-        ElevatedDragDropManager.EnableForWindow(TVModules.Handle);
-        ElevatedDragDropManager.Instance.ElevatedDragDrop += MainForm_ElevatedDragDrop;
-
-        //
-        // Create and load Most Recently Used files.
-        //
-        _mruList = new CMRUList(FileMenuItem,
-            FileMenuItem.DropDownItems.IndexOf(MenuOpenNewInstance),
-            _configuration.MRUList,
-            _configuration.HistoryDepth,
-            _configuration.HistoryShowFullPath,
-            OpenInputFile,
-            toolBarStatusLabel);
-
-        //
-        // Setup image lists for tree/list views.
-        //
-        CreateImageListsForViews();
-
-        //
-        // Restore window position, size and state.
-        //
-        RestoreWindowSettings();
-
-        //
-        // Toolbar images setup.
-        //
-        if (CreateOrUpdateToolbarImageStrip())
-        {
-            OpenToolButton.ImageIndex = (int)ToolBarIconType.OpenFile;
-            SaveToolButton.ImageIndex = (int)ToolBarIconType.SaveFile;
-            CopyToolButton.ImageIndex = (int)ToolBarIconType.Copy;
-            AutoExpandToolButton.ImageIndex = (int)ToolBarIconType.AutoExpand;
-            ViewFullPathsToolButton.ImageIndex = (int)ToolBarIconType.FullPaths;
-            ViewUndecoratedToolButton.ImageIndex = (int)ToolBarIconType.ViewUndecorated;
-            ViewModulesToolButton.ImageIndex = (int)ToolBarIconType.ViewModulesInExternalViewer;
-            ConfigureToolButton.ImageIndex = (int)ToolBarIconType.Configuration;
-            ResolveAPISetsToolButton.ImageIndex = (int)ToolBarIconType.ResolveAPISets;
-            PropertiesToolButton.ImageIndex = (int)ToolBarIconType.Properties;
-            SystemInfoToolButton.ImageIndex = (int)ToolBarIconType.SystemInformation;
-        }
-
-        //
-        // Check toolbar buttons depending on settings.
-        //
-        AutoExpandToolButton.Checked = _configuration.AutoExpands;
-        ViewFullPathsToolButton.Checked = _configuration.FullPaths;
-        ViewUndecoratedToolButton.Checked = _configuration.ViewUndecorated;
-        ResolveAPISetsToolButton.Checked = _configuration.ResolveAPIsets;
-
-        //
-        // Disable Save/Copy buttons by default.
-        //
-        SaveToolButton.Enabled = false;
-        CopyToolButton.Enabled = false;
-
-        //
-        // Set program title.
-        //
-        var suffix = CUtils.IsAdministrator
-            ? Environment.Is64BitProcess ? CConsts.Admin64Msg : CConsts.AdminMsg
-            : Environment.Is64BitProcess ? CConsts.SixtyFourBitsMsg : "";
-
-        this.Text = $"{CConsts.ProgramName}{suffix}";
-
-        var fileOpened = false;
-
-        //
-        // Open file (if it was submitted through command line).
-        //
-        if (_commandLineArgs.Length > 1)
-        {
-            var fName = _commandLineArgs[1];
-            if (!string.IsNullOrEmpty(fName) && File.Exists(fName))
-            {
-                fileOpened = OpenInputFile(fName);
-            }
-        }
-
-        if (!fileOpened)
-        {
-            SetDefaultStatusBarText();
-        }
-
-    }
-
-    /// <summary>
-    /// MainForm close handler.
-    /// Writes configuration back to disk.
-    /// </summary>
-    private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
-    {
-        try
-        {
-            ClearModuleLinks();
-            _moduleToolTip?.Dispose();
-
-            if (_mruList != null && _configuration != null)
-            {
-                _configuration.MRUList.Clear();
-                _configuration.MRUList.AddRange(_mruList.GetCurrentItems());
-                CConfigManager.SaveConfiguration(_configuration);
-            }
-        }
-        catch (Exception)
-        {
-            // Intentionally silent: shutdown/teardown path where UI logging targets may be disposed.
-        }
-        finally
-        {
-            _symbolResolver.SymbolLoadStatusChanged -= SymbolResolver_SymbolLoadStatusChanged;
-            _symbolResolver.Dispose();
-            _coreClient?.Dispose();
-        }
-    }
-
     private void MenuAbout_Click(object sender, EventArgs e)
     {
         using (AboutForm aboutForm = new(_configuration.EscKeyEnabled))
@@ -760,7 +769,7 @@ public partial class MainForm : Form
         {
             if (_symbolResolver.ReleaseSymbolResolver())
             {
-                AddLogMessage($"Debug symbols deallocated", LogMessageType.Information);
+                AppLogger.LogExt($"Debug symbols deallocated", LogMessageType.Information);
             }
         }
     }
@@ -847,11 +856,11 @@ public partial class MainForm : Form
                 {
                     if (String.IsNullOrEmpty(_configuration.ApiSetSchemaFile))
                     {
-                        AddLogMessage($"Apiset configuration has been changed, default system schema will be used", LogMessageType.Information);
+                        AppLogger.LogExt($"Apiset configuration has been changed, default system schema will be used", LogMessageType.Information);
                     }
                     else
                     {
-                        AddLogMessage($"Apiset configuration has been changed, new apiset schema file {_configuration.ApiSetSchemaFile}", LogMessageType.Information);
+                        AppLogger.LogExt($"Apiset configuration has been changed, new apiset schema file {_configuration.ApiSetSchemaFile}", LogMessageType.Information);
                     }
                 }
 
@@ -907,13 +916,13 @@ public partial class MainForm : Form
                 {
                     if (string.IsNullOrWhiteSpace(_configuration.ExternalViewerCommand))
                     {
-                        AddLogMessage("External viewer launch failed: external viewer executable is not configured.", LogMessageType.ErrorOrWarning);
+                        AppLogger.LogExt("External viewer launch failed: external viewer executable is not configured.", LogMessageType.ErrorOrWarning);
                         return;
                     }
 
                     if (!CUtils.TryBuildExternalViewerArguments(_configuration.ExternalViewerArguments, module.FileName, out var safeArguments))
                     {
-                        AddLogMessage("External viewer launch failed: invalid argument template.", LogMessageType.ErrorOrWarning);
+                        AppLogger.LogExt("External viewer launch failed: invalid argument template.", LogMessageType.ErrorOrWarning);
                         return;
                     }
 
@@ -929,7 +938,7 @@ public partial class MainForm : Form
                 catch (Exception ex)
                 {
                     var message = $"External viewer launch failed for \"{module.FileName}\": {ex.Message}";
-                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    AppLogger.LogExt(message, LogMessageType.ErrorOrWarning);
                     UpdateOperationStatus(message);
                 }
                 break;
@@ -948,7 +957,7 @@ public partial class MainForm : Form
                 catch (Exception ex)
                 {
                     var message = $"Open file location failed for \"{module.FileName}\": {ex.Message}";
-                    AddLogMessage(message, LogMessageType.ErrorOrWarning);
+                    AppLogger.LogExt(message, LogMessageType.ErrorOrWarning);
                     UpdateOperationStatus(message);
                 }
                 break;
@@ -1427,7 +1436,7 @@ public partial class MainForm : Form
             text = Properties.Resources.ResourceManager.GetString(text);
             if (!string.IsNullOrEmpty(text))
             {
-                toolBarStatusLabel.Text = text;
+                UpdateOperationStatus(text);
             }
         }
         else if (sender is ToolStripButton toolStripButton)
@@ -1435,7 +1444,7 @@ public partial class MainForm : Form
             string text = Properties.Resources.ResourceManager.GetString(toolStripButton.Text);
             if (!string.IsNullOrEmpty(text))
             {
-                toolBarStatusLabel.Text = text;
+                UpdateOperationStatus(text);
             }
         }
     }
@@ -1447,7 +1456,14 @@ public partial class MainForm : Form
     /// <param name="e"></param>
     private void MainMenu_MouseLeave(object sender, EventArgs e)
     {
-        toolBarStatusLabel.Text = string.Empty;
+        if (sender is ToolStripMenuItem menuItem)
+        {
+            if (!menuItem.Selected)
+            {
+                return;
+            }
+        }
+        UpdateOperationStatus(string.Empty);
     }
 
     private void SelectAll_Click(object sender, EventArgs e)
@@ -1563,12 +1579,7 @@ public partial class MainForm : Form
                 if (selectedNode != null && selectedNode.Tag is CModule module)
                 {
                     var moduleName = module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets);
-
-                    if (!string.IsNullOrEmpty(moduleName))
-                    {
-                        Clipboard.Clear();
-                        Clipboard.SetText(moduleName);
-                    }
+                    CUtils.SetClipboardData(moduleName);
                 }
                 break;
         }

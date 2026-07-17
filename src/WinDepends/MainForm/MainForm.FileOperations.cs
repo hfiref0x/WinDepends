@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 May 2026
+*  DATE:        14 Jul 2026
 *  
 *  File and session open/save routines for main form.
 *
@@ -123,7 +123,7 @@ public partial class MainForm
 
             CloseInputFile();
 
-            AddLogMessage($"Opening \"{fileName}\" for analysis.", LogMessageType.Information);
+            AppLogger.LogExt($"Opening \"{fileName}\" for analysis.", LogMessageType.Information);
 
             if (_configuration.ClearLogOnFileOpen)
             {
@@ -202,12 +202,11 @@ public partial class MainForm
     {
         CFileOpenState state = new(fileName);
         return _fileOpenOrchestrationService.Execute(
-            state,
-            OpenInputFileInternal,
-            AddLogMessageSimple,
-            UpdateOperationStatus,
-            SetOpenInputUiEnabled,
-            () => TVModules.Focus());
+             state,
+             OpenInputFileInternal,
+             UpdateOperationStatus,
+             SetOpenInputUiEnabled,
+             () => TVModules.Focus());
     }
 
     /// <summary>
@@ -225,7 +224,7 @@ public partial class MainForm
             return false;
         }
 
-        AddLogMessage($"Openning session file \"{fileName}\"", LogMessageType.System);
+        AppLogger.LogExt($"Openning session file \"{fileName}\"", LogMessageType.System);
 
         if (_depends.RootModule != null)
         {
@@ -252,7 +251,7 @@ public partial class MainForm
             // Restore important module related warnings/errors in the log.
             foreach (var entry in _depends.ModuleAnalysisLog)
             {
-                AddLogMessage(entry.LoggedMessage, LogMessageType.ContentDefined,
+                AppLogger.LogExt(entry.LoggedMessage, LogMessageType.ContentDefined,
                     entry.EntryColor, true, false);
             }
 
@@ -294,7 +293,7 @@ public partial class MainForm
                 exceptionMessage = ex.Message;
             }
 
-            AddLogMessage($"Session file \"{fileName}\" could not be opened because \"" +
+            AppLogger.LogExt($"Session file \"{fileName}\" could not be opened because \"" +
                 $"{exceptionMessage}\"",
                 LogMessageType.ErrorOrWarning);
         }
@@ -390,13 +389,13 @@ public partial class MainForm
                 exceptionMessage = ex.Message;
             }
 
-            AddLogMessage($"Error: Session file \"{fileName}\" could not be saved because \"" +
+            AppLogger.LogExt($"Error: Session file \"{fileName}\" could not be saved because \"" +
                 $"{exceptionMessage}\"", LogMessageType.ErrorOrWarning);
         }
 
         if (bSaved)
         {
-            AddLogMessage($"File \"{fileName}\" has been saved.", LogMessageType.System);
+            AppLogger.Log($"File \"{fileName}\" has been saved.", LogMessageType.System);
         }
 
         UpdateOperationStatus(string.Empty);

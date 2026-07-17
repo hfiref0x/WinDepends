@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        14 Jul 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -79,14 +79,14 @@ public partial class MainForm
 
                 if (module.ExportContainErrors)
                 {
-                    AddLogMessage($"Module \"{module.FileName}\" contains export errors.",
+                    AppLogger.LogExt($"Module \"{module.FileName}\" contains export errors.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
                 // Add warning for modules with forwarding issues
                 if (module.OtherErrorsPresent && module.ForwarderEntries?.Count > 0)
                 {
-                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
+                    AppLogger.LogExt($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
@@ -95,7 +95,7 @@ public partial class MainForm
                 if (isCpuMismatch)
                 {
                     module.OtherErrorsPresent = true;
-                    AddLogMessage($"Module \"{module.FileName}\" with different CPU type was found.",
+                    AppLogger.LogExt($"Module \"{module.FileName}\" with different CPU type was found.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
@@ -106,47 +106,47 @@ public partial class MainForm
                     settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested (as per issue #39)
                 {
                     module.OtherErrorsPresent = true;
-                    AddLogMessage($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
+                    AppLogger.LogExt($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
                         LogMessageType.ErrorOrWarning, null, true, true, module);
                 }
 
                 if (!module.IsProcessed)
                 {
-                    AddLogMessage($"Module \"{module.FileName}\" was not fully processed.",
+                    AppLogger.LogExt($"Module \"{module.FileName}\" was not fully processed.",
                         LogMessageType.ErrorOrWarning,
                         null, true, true, module);
                 }
                 break;
 
             case ModuleOpenStatus.ErrorUnspecified:
-                AddLogMessage($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
+                AppLogger.LogExt($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
                     null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorSendCommand:
-                AddLogMessage($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                AppLogger.LogExt($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
                     null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorReceivedDataInvalid:
-                AddLogMessage($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                AppLogger.LogExt($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
                     null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorFileNotMapped:
-                AddLogMessage($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                AppLogger.LogExt($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
                     null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorCannotReadFileHeaders:
-                AddLogMessage($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
+                AppLogger.LogExt($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
                     null, true, true, module);
                 break;
             case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
                 if (module.IsDelayLoad)
                 {
-                    AddLogMessage($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
+                    AppLogger.LogExt($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
                         null, true, true, module);
                 }
                 else
                 {
-                    AddLogMessage($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
+                    AppLogger.LogExt($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
                         null, true, true, module);
                 }
                 break;
@@ -183,7 +183,7 @@ public partial class MainForm
                     }
                 }
 
-                AddLogMessage(messageText, messageType, null, true, true, module);
+                AppLogger.LogExt(messageText, messageType, null, true, true, module);
                 break;
         }
     }

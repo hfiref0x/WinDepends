@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        14 Jul 2026
 *  
 *  Implementation of command-line interface handler.
 *
@@ -317,7 +317,7 @@ public static class CCliHandler
         }
 
         void LogMessage(string message, LogMessageType type, Color? color = null,
-            bool useBold = false, bool moduleMessage = false, CModule relatedModule = null)
+            bool useBold = false, bool moduleMessage = false, CModule relatedModule = null, RichTextBox richTextBox = null)
         {
             if (!options.Quiet)
             {

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        14 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -27,7 +27,6 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Runtime.Versioning;
 using System.Security.Principal;
-using System.Text;
 using static WinDepends.NativeMethods;
 
 namespace WinDepends;
@@ -35,7 +34,8 @@ namespace WinDepends;
 public delegate void UpdateLoadStatusCallback(string status);
 public delegate void UpdateSymbolsStatus(bool enabled);
 public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
-    Color? color = null, bool useBold = false, bool moduleMessage = false, CModule relatedModule = null);
+    Color? color = null, bool useBold = false, bool moduleMessage = false, 
+    CModule relatedModule = null, RichTextBox richTextBox = null);
 
 /// <summary>
 /// Machine extension to return friendly name of constants.
@@ -121,8 +121,7 @@ public class CFileOpenSettings
     // Copy constructor
     public CFileOpenSettings(CFileOpenSettings other)
     {
-        if (other == null)
-            throw new System.ArgumentNullException(nameof(other));
+        ArgumentNullException.ThrowIfNull(other);
 
         ProcessRelocsForImage = other.ProcessRelocsForImage;
         UseStats = other.UseStats;
@@ -495,12 +494,12 @@ public static class CUtils
             $"{systemInfo.dwNumberOfProcessors}, Mask: 0x{systemInfo.dwActiveProcessorMask.ToString(ptrFormat)}"));
 
         // User/Computer Info
-        systemInformation.Add(new("Computer Name", "${Environment.MachineName}"));
-        systemInformation.Add(new("User Name", $"{Environment.UserName}"));
+        systemInformation.Add(new("Computer Name", Environment.MachineName));
+        systemInformation.Add(new("User Name", Environment.UserName));
 
         // DateTime Info
         var now = DateTime.Now;
-        systemInformation.Add(new("Local Date", $"{now.ToLongDateString()}"));
+        systemInformation.Add(new("Local Date", now.ToLongDateString()));
 
         var timeZone = TimeZoneInfo.Local;
         systemInformation.Add(new("Local Time",
@@ -611,7 +610,7 @@ public static class CUtils
         }
     }
 
-    static internal object LoadObjectFromFilePlainText(string fileName, Type objectType)
+    static internal object? LoadObjectFromFilePlainText(string fileName, Type objectType)
     {
         try
         {
@@ -693,7 +692,7 @@ public static class CUtils
     /// <param name="lookupModule">The module to search for</param>
     /// <param name="startNode">The TreeView node to start searching from</param>
     /// <returns>The matching TreeView node if found; otherwise, null</returns>
-    static internal TreeNode TreeViewFindModuleNodeByObject(CModule lookupModule, TreeNode startNode)
+    static internal TreeNode? TreeViewFindModuleNodeByObject(CModule lookupModule, TreeNode startNode)
     {
         var stack = new Stack<TreeNode>();
 
@@ -735,6 +734,7 @@ public static class CUtils
 
         try
         {
+            Clipboard.Clear();
             Clipboard.SetText(data, TextDataFormat.UnicodeText);
             return true;
         }
@@ -761,7 +761,7 @@ public static class CUtils
         return CConsts.DefaultAppStartAddress;
     }
 
-    public static TreeNode FindNodeByTag(TreeNodeCollection nodes, object tagValue)
+    public static TreeNode? FindNodeByTag(TreeNodeCollection nodes, object tagValue)
     {
         var queue = new Queue<TreeNode>(nodes.Cast<TreeNode>());
 
@@ -792,9 +792,9 @@ public static class CUtils
                 UseShellExecute = useShellExecute
             });
         }
-        catch
+        catch (Exception ex)
         {
-            // Intentionally silent.
+            AppLogger.Log(ex.Message, LogMessageType.ErrorOrWarning);
         }
     }
 
@@ -805,10 +805,10 @@ public static class CUtils
         if (string.IsNullOrWhiteSpace(urlTemplate))
             return false;
 
-        var encodedFunctionName = Uri.EscapeDataString(functionName ?? string.Empty);
-        string candidate = new StringBuilder(urlTemplate)
-            .Replace("%1", encodedFunctionName)
-            .ToString()
+        string candidate = urlTemplate
+            .Replace("%1",
+                Uri.EscapeDataString(functionName ?? string.Empty),
+                StringComparison.Ordinal)
             .Trim();
 
         if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri))
@@ -832,11 +832,12 @@ public static class CUtils
             return false;
 
         string quotedModulePath = $"\"{moduleFileName.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
-        string candidate = new StringBuilder(argumentTemplate)
-            .Replace("%1", quotedModulePath)
-            .ToString();
+        string candidate = argumentTemplate.Replace(
+            "%1",
+            quotedModulePath,
+            StringComparison.Ordinal);
 
-        if (candidate.IndexOf('\0') >= 0 || candidate.IndexOf('\r') >= 0 || candidate.IndexOf('\n') >= 0)
+        if (candidate.IndexOfAny(['\0', '\r', '\n']) >= 0)
             return false;
 
         arguments = candidate;
@@ -845,11 +846,10 @@ public static class CUtils
 
     public static Bitmap ByteArrayToBitmap(byte[] byteArray)
     {
-        using (MemoryStream ms = new MemoryStream(byteArray))
-        {
-            // Create a Bitmap from the MemoryStream and return it
-            return new Bitmap(ms);
-        }
+        using var ms = new MemoryStream(byteArray);
+        // Create a Bitmap from the MemoryStream and return it
+        using var image = Image.FromStream(ms, useEmbeddedColorManagement: true, validateImageData: true);
+        return new Bitmap(image);
     }
 
     public static float GetDpiScalingFactor()
@@ -971,11 +971,8 @@ public static class CUtils
         float scalingFactor = GetDpiScalingFactor();
 
         // Dispose previous ImageList if exists
-        if (toolStrip.ImageList != null)
-        {
-            toolStrip.ImageList.Dispose();
-            toolStrip.ImageList = null;
-        }
+        toolStrip.ImageList?.Dispose();
+        toolStrip.ImageList = null;
 
         // Create and configure new ImageList
         var imageList = new ImageList
@@ -985,10 +982,9 @@ public static class CUtils
         };
 
         // Get appropriate image strip
-        var images = ProcessImageStrip(useClassic, scalingFactor, transparencyColor, desiredImageSize);
-        imageList.Images.AddRange(images
-             .OrderBy(img => (ToolBarIconType)images.IndexOf(img))
-             .ToArray());
+        imageList.Images.AddRange(
+            ProcessImageStrip(useClassic, scalingFactor, transparencyColor, desiredImageSize)
+                .ToArray());
 
         toolStrip.ImageList = imageList;
     }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        21 Apr 2026
+*  DATE:        14 Jul 2026
 *
 *  File/Session open state class.
 *
@@ -130,11 +130,6 @@ internal sealed class CFileOpenOrchestrationService
     /// file, or whether it failed.
     /// Must not be <c>null</c>.
     /// </param>
-    /// <param name="addLogMessage">
-    /// Callback that appends a message to the application log.
-    /// Receives the message text and its <see cref="LogMessageType"/>.
-    /// Must not be <c>null</c>.
-    /// </param>
     /// <param name="updateOperationStatus">
     /// Callback that pushes a short status string to the UI status bar
     /// (or equivalent).
@@ -163,7 +158,6 @@ internal sealed class CFileOpenOrchestrationService
     public bool Execute(
         CFileOpenState state,
         Func<string?, FileOpenResult> openInputFileInternal,
-        Action<string, LogMessageType> addLogMessage,
         Action<string> updateOperationStatus,
         Action<bool> setUiEnabled,
         Action focusTreeView)
@@ -176,9 +170,6 @@ internal sealed class CFileOpenOrchestrationService
 
         if (openInputFileInternal == null)
             throw new ArgumentNullException(nameof(openInputFileInternal));
-
-        if (addLogMessage == null)
-            throw new ArgumentNullException(nameof(addLogMessage));
 
         if (updateOperationStatus == null)
             throw new ArgumentNullException(nameof(updateOperationStatus));
@@ -209,10 +200,10 @@ internal sealed class CFileOpenOrchestrationService
 
             // Build the log message that matches the result code.
             PopulateResultMessage(state);
-            addLogMessage(state.LogMessage, state.LogMessageType);
+            AppLogger.Log(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);
         }
-        catch
+        catch (Exception e)
         {
             // An unexpected exception occurred (e.g. I/O error, access
             // denied).  Mark the operation as failed and surface a generic
@@ -223,9 +214,11 @@ internal sealed class CFileOpenOrchestrationService
             state.Result = FileOpenResult.Failure;
             state.LogMessage = $"There is an error while processing \"{state.OriginalFileName}\" file.";
             state.LogMessageType = LogMessageType.ErrorOrWarning;
-
-            addLogMessage(state.LogMessage, state.LogMessageType);
+            AppLogger.Log(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);
+
+            // Print exception log.
+            AppLogger.Log(e.ToString(), state.LogMessageType);
         }
         finally
         {
@@ -234,7 +227,6 @@ internal sealed class CFileOpenOrchestrationService
             setUiEnabled(true);
             focusTreeView();
         }
-
         return state.IsSuccess;
     }
 

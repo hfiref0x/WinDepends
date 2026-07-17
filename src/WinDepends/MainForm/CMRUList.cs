@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CMRULIST.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Nov 2025
+*  DATE:        14 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -40,14 +40,17 @@ public sealed class CMRUList : IDisposable
     public bool ShowFullPath { get; set; }
 
     public delegate bool SelectedFileEventCallback(string fileName);
-    public event SelectedFileEventCallback SelectedFileCallback;
+    public delegate void UpdateOperationStatusCallback(string status);
+    public event SelectedFileEventCallback selectedFileCallback;
+    public event UpdateOperationStatusCallback updateOperationStatusCallback;
 
     public CMRUList(ToolStripMenuItem mruMenu,
                     int insertAfter,
                     IEnumerable<string> initialFiles,
                     int maxEntries,
                     bool showFullPath,
-                     SelectedFileEventCallback fileSelected,
+                    SelectedFileEventCallback fileSelected,
+                    UpdateOperationStatusCallback updateOperationStatus,
                     ToolStripStatusLabel statusLabel)
     {
         _menuBase = mruMenu ?? throw new ArgumentNullException(nameof(mruMenu));
@@ -58,7 +61,8 @@ public sealed class CMRUList : IDisposable
         _filePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         MaxEntries = Math.Clamp(maxEntries, 1, CConsts.HistoryDepthMax);
         ShowFullPath = showFullPath;
-        SelectedFileCallback = fileSelected;
+        selectedFileCallback = fileSelected;
+        updateOperationStatusCallback = updateOperationStatus;
 
         // Create UI elements
         _separator = new ToolStripSeparator { Visible = false };
@@ -273,7 +277,7 @@ public sealed class CMRUList : IDisposable
         {
             if (File.Exists(fi.FullName))
             {
-                var callback = SelectedFileCallback;
+                var callback = selectedFileCallback;
                 if (callback != null)
                 {
                     try
@@ -302,15 +306,23 @@ public sealed class CMRUList : IDisposable
     {
         if (_statusLabel != null)
         {
-            _statusLabel.Text = _statusText;
+            updateOperationStatusCallback(_statusText);
         }
     }
 
     private void HandleMouseLeave(object sender, EventArgs e)
     {
+        if (sender is ToolStripMenuItem menuItem)
+        {
+            if (!menuItem.Selected)
+            {
+                return;
+            }
+        }
+
         if (_statusLabel != null)
         {
-            _statusLabel.Text = string.Empty;
+            updateOperationStatusCallback(string.Empty);
         }
     }
 

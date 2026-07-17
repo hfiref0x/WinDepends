@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        14 Jul 2026
 *  
 *  Log view rendering, interaction, and search routines for main form.
 *
@@ -19,32 +19,60 @@
 
 namespace WinDepends;
 
-public partial class MainForm
+public class LogMessageEventArgs(string message, LogMessageType messageType, Color? color, bool useBold, bool moduleMessage, CModule? relatedModule, RichTextBox? richTextBox) : EventArgs
 {
-    private void AddLogMessageSimple(string message, LogMessageType messageType)
+    public string Message { get; } = message;
+    public LogMessageType MessageType { get; } = messageType;
+    public Color? Color { get; } = color;
+    public bool UseBold { get; } = useBold;
+    public bool ModuleMessage { get; } = moduleMessage;
+    public CModule? RelatedModule { get; } = relatedModule;
+    public RichTextBox RichTextBox { get; } = richTextBox;
+}
+
+public static class AppLogger
+{
+    public static event Action<LogMessageEventArgs>? OnLogMessage;
+    private static RichTextBox? _defaultRichTextBox;
+
+    public static void Initialize(RichTextBox richTextBox)
     {
-        AddLogMessage(message, messageType);
+        _defaultRichTextBox = richTextBox;
     }
 
-    /// <summary>
-    /// Adds message to the log.
-    /// </summary>
-    /// <param name="message">Text message to add to the log</param>
-    /// <param name="messageType">Type of the message</param>
-    /// <param name="color">Optional custom color</param>
-    /// <param name="useBold">Whether to use bold font</param>
-    /// <param name="moduleMessage">Whether this is a module-related message</param>
-    /// <param name="relatedModule">The module related to this message to create a clickable link</param>
-    public void AddLogMessage(string message, LogMessageType messageType,
-        Color? color = null, bool useBold = false, bool moduleMessage = false, CModule relatedModule = null)
+    public static void Log(string message, LogMessageType messageType)
     {
+        LogExt(message, messageType);
+    }
+
+    public static void LogExt(string message,
+        LogMessageType messageType,
+        Color? color = null,
+        bool useBold = false,
+        bool moduleMessage = false,
+        CModule relatedModule = null,
+        RichTextBox richTextBox = null)
+    {
+        RichTextBox targetControl = richTextBox ?? _defaultRichTextBox;
+
+        OnLogMessage?.Invoke(new LogMessageEventArgs(
+            message, messageType, color, useBold, moduleMessage, relatedModule, targetControl));
+    }
+}
+
+public partial class MainForm
+{
+    private void AppLogger_OnLogMessage(LogMessageEventArgs e)
+    {
+        RichTextBox richTextBox = e.RichTextBox;
+
         Color outputColor = Color.Black;
         bool boldText = false;
 
         if (_shutdownInProgress)
             return;
 
-        switch (messageType)
+        switch (e.MessageType)
         {
             case LogMessageType.ErrorOrWarning:
                 boldText = true;
@@ -61,8 +89,8 @@ public partial class MainForm
                 break;
 
             case LogMessageType.ContentDefined:
-                boldText = useBold;
-                outputColor = color ?? Color.Black;
+                boldText = e.UseBold;
+                outputColor = e.Color ?? Color.Black;
                 break;
 
             case LogMessageType.Normal:
@@ -70,44 +98,44 @@ public partial class MainForm
                 break;
         }
 
-        if (moduleMessage)
+        if (e.ModuleMessage)
         {
-            _depends.ModuleAnalysisLog.Add(new LogEntry(message, outputColor));
+            _depends.ModuleAnalysisLog.Add(new LogEntry(e.Message, outputColor));
         }
 
-        if (!reLog.IsDisposed)
+        if (richTextBox != null && !richTextBox.IsDisposed)
         {
-            reLog.SuspendLayout();
+            richTextBox.SuspendLayout();
 
-            int startPosition = reLog.TextLength;
-            reLog.SelectionStart = startPosition;
-            reLog.SelectionLength = 0;
-            reLog.SelectionColor = outputColor;
+            int startPosition = richTextBox.TextLength;
+            richTextBox.SelectionStart = startPosition;
+            richTextBox.SelectionLength = 0;
+            richTextBox.SelectionColor = outputColor;
 
-            var baseFont = reLog.Font;
+            var baseFont = richTextBox.Font;
             if (boldText)
             {
-                reLog.SelectionFont = new Font(baseFont, FontStyle.Bold);
+                richTextBox.SelectionFont = new Font(baseFont, FontStyle.Bold);
             }
             else
             {
-                reLog.SelectionFont = baseFont;
+                richTextBox.SelectionFont = baseFont;
             }
 
-            reLog.SelectedText = message + Environment.NewLine;
+            richTextBox.SelectedText = e.Message + Environment.NewLine;
 
-            if (relatedModule != null)
+            if (e.RelatedModule != null)
             {
-                string justFileName = Path.GetFileName(relatedModule.FileName);
+                string justFileName = Path.GetFileName(e.RelatedModule.FileName);
 
                 string[] patternsToCheck = {
-                $"\"{justFileName}\"",     // "filename.dll"
-                $"{justFileName}"          // filename.dll
-            };
+                    $"\"{justFileName}\"",    // "filename.dll"
+                    $"{justFileName}"         // filename.dll
+                };
 
                 foreach (var pattern in patternsToCheck)
                 {
-                    int moduleNameIndex = message.IndexOf(pattern);
+                    int moduleNameIndex = e.Message.IndexOf(pattern);
                     if (moduleNameIndex >= 0)
                     {
                         // Calculate the exact position in the RichTextBox
@@ -115,32 +143,32 @@ public partial class MainForm
                         int linkLength = pattern.Length;
 
                         // Apply ONLY underline to the module name, preserving the color
-                        reLog.Select(linkStart, linkLength);
-                        Font currentFont = reLog.SelectionFont ?? baseFont;
-                        reLog.SelectionFont = new Font(
+                        richTextBox.Select(linkStart, linkLength);
+                        Font currentFont = richTextBox.SelectionFont ?? baseFont;
+                        richTextBox.SelectionFont = new Font(
                             currentFont.FontFamily,
                             currentFont.Size,
                             currentFont.Style | FontStyle.Underline);
-                        reLog.SelectionColor = outputColor;
+                        richTextBox.SelectionColor = outputColor;
 
                         // Store the link information
                         _moduleLinks.Add(new ModuleLinkInfo
                         {
                             Start = linkStart,
                             Length = linkLength,
-                            InstanceId = relatedModule.InstanceId
+                            InstanceId = e.RelatedModule.InstanceId
                         });
                         break;
                     }
                 }
             }
 
-            reLog.SelectionStart = reLog.TextLength;
-            reLog.SelectionLength = 0;
-            reLog.SelectionFont = baseFont;
-            reLog.SelectionColor = reLog.ForeColor;
-            reLog.ScrollToCaret();
-            reLog.ResumeLayout();
+            richTextBox.SelectionStart = richTextBox.TextLength;
+            richTextBox.SelectionLength = 0;
+            richTextBox.SelectionFont = baseFont;
+            richTextBox.SelectionColor = richTextBox.ForeColor;
+            richTextBox.ScrollToCaret();
+            richTextBox.ResumeLayout();
         }
     }
 
@@ -261,7 +289,7 @@ public partial class MainForm
 
         var statsData = $"[STATS {Path.GetFileName(moduleFileName)}] Received: {FormatByteSize(stats.TotalBytesSent)}, " +
                         $"\"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (\u00B5s): {stats.TotalTimeSpent}";
-        AddLogMessage(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
+        AppLogger.LogExt(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
     }
 
     private void ClearModuleLinks()

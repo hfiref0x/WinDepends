@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 Apr 2026
+*  DATE:        14 Jul 2026
 *
 *  Core backend transport/protocol/domain adapter objects.
 *

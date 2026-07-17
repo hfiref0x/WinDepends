@@ -151,6 +151,7 @@ public partial class CCoreClient
     private bool SendRequest(CCoreBackendRequest request)
     {
         ThrowIfDisposed();
+        
         bool result = _transportAdapter.TrySend(request, out var status);
         ErrorStatus = status;
         return result;

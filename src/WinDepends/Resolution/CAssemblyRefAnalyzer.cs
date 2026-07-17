@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        23 May 2026
+*  DATE:        16 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -311,8 +311,7 @@ public static class CAssemblyRefAnalyzer
     /// <returns>List of assembly references with full resolved paths</returns>
     public static List<AssemblyReference> AnalyzeAssemblyReferences(CModule module)
     {
-        if (module == null)
-            throw new ArgumentNullException(nameof(module));
+        ArgumentNullException.ThrowIfNull(module);
 
         if (!File.Exists(module.FileName))
             throw new FileNotFoundException($"Assembly file not found: {module.FileName}");

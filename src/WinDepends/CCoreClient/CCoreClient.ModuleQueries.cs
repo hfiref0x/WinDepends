@@ -59,9 +59,7 @@ public partial class CCoreClient
     /// <exception cref="ObjectDisposedException">Thrown when the client has been disposed.</exception>
     public ModuleOpenStatus OpenModule(ref CModule module, CFileOpenSettings settings)
     {
-        if (module == null)
-            throw new ArgumentNullException(nameof(module));
-
+        ArgumentNullException.ThrowIfNull(module);
         ThrowIfDisposed();
 
         var openRequest = CCoreProtocolMapper.BuildOpenModuleRequest(module, settings);

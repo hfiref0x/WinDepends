@@ -377,9 +377,13 @@ internal sealed class CCoreTransportAdapter
         Func<NetworkStream?> streamAccessor,
         AddLogMessageCallback addLogMessage)
     {
-        _clientAccessor = clientAccessor ?? throw new ArgumentNullException(nameof(clientAccessor));
-        _streamAccessor = streamAccessor ?? throw new ArgumentNullException(nameof(streamAccessor));
-        _addLogMessage = addLogMessage ?? throw new ArgumentNullException(nameof(addLogMessage));
+        ArgumentNullException.ThrowIfNull(clientAccessor);
+        ArgumentNullException.ThrowIfNull(streamAccessor);
+        ArgumentNullException.ThrowIfNull(addLogMessage);
+
+        _clientAccessor = clientAccessor;
+        _streamAccessor = streamAccessor;
+        _addLogMessage = addLogMessage;
     }
 
 

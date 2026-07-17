@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        11 Feb 2026
+*  DATE:        16 Jul 2026
 *  
 *  Implementation of base session class.
 *
@@ -64,6 +64,8 @@ public class CDepends
 
     public CDepends(CModule module)
     {
-        RootModule = module ?? throw new ArgumentNullException(nameof(module));
+        ArgumentNullException.ThrowIfNull(module);
+        
+        RootModule = module;
     }
 }

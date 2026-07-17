@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        26 May 2026
+*  DATE:        16 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -152,8 +152,7 @@ public class CConfiguration
 
     public CConfiguration(CConfiguration other)
     {
-        if (other == null)
-            throw new ArgumentNullException(nameof(other));
+        ArgumentNullException.ThrowIfNull(other);
 
         UpperCaseModuleNames = other.UpperCaseModuleNames;
         ShowToolBar = other.ShowToolBar;

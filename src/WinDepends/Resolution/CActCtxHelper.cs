@@ -17,6 +17,7 @@
 *
 *******************************************************************************/
 
+using System.Configuration;
 using System.Runtime.InteropServices;
 
 namespace WinDepends;
@@ -69,11 +70,10 @@ public class CActCtxHelper : IDisposable
     /// Creates a new activation context helper for the specified file.
     /// </summary>
     /// <param name="fileName">Path to the file containing the manifest.</param>
-    /// <exception cref="ArgumentNullException">Thrown if fileName is null or empty.</exception>
+    /// <exception cref="ArgumentException">Thrown if fileName is null or empty.</exception>
     public CActCtxHelper(string fileName)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
-            throw new ArgumentNullException(nameof(fileName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
 
         nint resourceId = CREATEPROCESS_MANIFEST_RESOURCE_ID;
         string extension = Path.GetExtension(fileName);

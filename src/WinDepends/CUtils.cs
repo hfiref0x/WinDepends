@@ -105,8 +105,7 @@ public class CFileOpenSettings
 
     public CFileOpenSettings(CConfiguration configuration)
     {
-        if (configuration == null)
-            throw new System.ArgumentNullException(nameof(configuration));
+        ArgumentNullException.ThrowIfNull(configuration);
 
         ProcessRelocsForImage = configuration.ProcessRelocsForImage;
         UseStats = configuration.UseStats;

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        16 Jul 2026
 *  
 *  Core Server communication class.
 *
@@ -150,7 +150,9 @@ public partial class CCoreClient : IDisposable
     /// <exception cref="ArgumentNullException">Thrown when logMessageCallback is null.</exception>
     public CCoreClient(string serverApplication, string ipAddress, AddLogMessageCallback logMessageCallback)
     {
-        _addLogMessage = logMessageCallback ?? throw new ArgumentNullException(nameof(logMessageCallback));
+        ArgumentNullException.ThrowIfNull(logMessageCallback);
+
+        _addLogMessage = logMessageCallback;
         ServerApplication = serverApplication;
         IPAddress = ipAddress;
         ErrorStatus = ServerErrorStatus.NoErrors;
@@ -207,7 +209,7 @@ public partial class CCoreClient : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown when the client has been disposed.</exception>
     private void ThrowIfDisposed()
     {
-        if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+        if (Volatile.Read(ref _disposed) != 0)
             throw new ObjectDisposedException(nameof(CCoreClient));
     }
 

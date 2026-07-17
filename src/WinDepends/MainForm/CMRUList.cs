@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        16 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -53,7 +53,10 @@ public sealed class CMRUList : IDisposable
                     UpdateOperationStatusCallback updateOperationStatus,
                     ToolStripStatusLabel statusLabel)
     {
-        _menuBase = mruMenu ?? throw new ArgumentNullException(nameof(mruMenu));
+        ArgumentNullException.ThrowIfNull(mruMenu);
+        ArgumentNullException.ThrowIfNull(statusLabel);
+
+        _menuBase = mruMenu;
         _statusLabel = statusLabel;
         _statusText = Resources.mruListItem;
 

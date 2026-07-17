@@ -165,20 +165,11 @@ internal sealed class CFileOpenOrchestrationService
         // Validate all required delegates up-front so that callers receive
         // a clear exception rather than a NullReferenceException deep inside
         // the workflow.
-        if (state == null)
-            throw new ArgumentNullException(nameof(state));
-
-        if (openInputFileInternal == null)
-            throw new ArgumentNullException(nameof(openInputFileInternal));
-
-        if (updateOperationStatus == null)
-            throw new ArgumentNullException(nameof(updateOperationStatus));
-
-        if (setUiEnabled == null)
-            throw new ArgumentNullException(nameof(setUiEnabled));
-
-        if (focusTreeView == null)
-            throw new ArgumentNullException(nameof(focusTreeView));
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(openInputFileInternal);
+        ArgumentNullException.ThrowIfNull(updateOperationStatus);
+        ArgumentNullException.ThrowIfNull(setUiEnabled);
+        ArgumentNullException.ThrowIfNull(focusTreeView);
 
         try
         {

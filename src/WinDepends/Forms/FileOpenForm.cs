@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       FILEOPENFORM.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        09 Aug 2025
+*  DATE:        16 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -25,7 +25,9 @@ public partial class FileOpenForm : Form
 
     public FileOpenForm(bool bEscKeyEnabled, CFileOpenSettings fileOpenSettings, string fileName)
     {
-        settings = fileOpenSettings ?? throw new ArgumentNullException(nameof(fileOpenSettings));
+        ArgumentNullException.ThrowIfNull(fileOpenSettings);
+
+        settings = fileOpenSettings;
         escKeyEnabled = bEscKeyEnabled;
         displayedFileName = fileName ?? string.Empty;
         InitializeComponent();

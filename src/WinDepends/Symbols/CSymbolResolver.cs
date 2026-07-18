@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        28 May 2026
+*  DATE:        17 Jul 2026
 *
 *  MS Symbols resolver support class.
 *
@@ -360,64 +360,37 @@ public sealed class CSymbolResolver : IDisposable
     /// </returns>
     public SymbolResolverInitResult AllocateSymbolResolver(string dllPath, string storePath, bool useSymbols)
     {
-        DllPath = dllPath;
+        DllPath = string.Empty;
         StorePath = storePath;
 
-        string candidatePath = dllPath;
-        bool usedAlternateDll = false;
+        string? dllToLoad = dllPath;
+        string? preferredDbgHelp = FindDbgHelpDll();
 
-        try
+        if (string.IsNullOrWhiteSpace(dllToLoad) || !File.Exists(dllToLoad))
         {
-            if (string.IsNullOrWhiteSpace(candidatePath) || !File.Exists(candidatePath))
-            {
-                candidatePath = FindDbgHelpDll();
-                if (string.IsNullOrEmpty(candidatePath))
-                {
-                    candidatePath = CConsts.DbgHelpDll;
-                }
-                else
-                {
-                    usedAlternateDll = !IsSystemDbgHelp(candidatePath);
-                }
-            }
-            else if (IsSystemDbgHelp(candidatePath))
-            {
-                string best = FindDbgHelpDll();
-                if (!string.IsNullOrEmpty(best) && !PathsEqual(best, candidatePath))
-                {
-                    usedAlternateDll = !IsSystemDbgHelp(best);
-                    candidatePath = best;
-                }
-            }
+            dllToLoad = preferredDbgHelp ?? CConsts.DbgHelpDll;
         }
-        catch
+        else if (IsSystemDbgHelp(dllToLoad) &&
+                !string.IsNullOrEmpty(preferredDbgHelp) &&
+                !PathsEqual(preferredDbgHelp, dllToLoad))
         {
-            candidatePath = CConsts.DbgHelpDll;
-            usedAlternateDll = false;
+            dllToLoad = preferredDbgHelp;
         }
 
         lock (_dbgHelpLock)
         {
-            DbgHelpModule = NativeMethods.LoadLibraryEx(candidatePath, IntPtr.Zero, 0);
+            DbgHelpModule = NativeMethods.LoadLibraryEx(dllToLoad, IntPtr.Zero, 0);
             if (DbgHelpModule == IntPtr.Zero &&
-                !string.Equals(candidatePath, CConsts.DbgHelpDll, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(dllToLoad, CConsts.DbgHelpDll, StringComparison.OrdinalIgnoreCase))
             {
-                DbgHelpModule = NativeMethods.LoadLibraryEx(CConsts.DbgHelpDll, IntPtr.Zero, 0);
-                if (DbgHelpModule != IntPtr.Zero)
-                {
-                    DllPath = CConsts.DbgHelpDll;
-                    usedAlternateDll = false;
-                }
-            }
-            else
-            {
-                DllPath = candidatePath;
+                dllToLoad = CConsts.DbgHelpDll;
+                DbgHelpModule = NativeMethods.LoadLibraryEx(dllToLoad, IntPtr.Zero, 0);
             }
 
             if (DbgHelpModule == IntPtr.Zero)
-            {
                 return SymbolResolverInitResult.DllLoadFailure;
-            }
+
+            DllPath = dllToLoad;
 
             UndecorationReady = InitializeUndecorateDelegate();
 
@@ -442,9 +415,9 @@ public sealed class CSymbolResolver : IDisposable
 
             EnsurePreloadWorkerStarted();
 
-            return usedAlternateDll
-                ? SymbolResolverInitResult.SuccessWithSymbolsAlternateDll
-                : SymbolResolverInitResult.SuccessWithSymbols;
+            return IsSystemDbgHelp(DllPath)
+                ? SymbolResolverInitResult.SuccessWithSymbols
+                : SymbolResolverInitResult.SuccessWithSymbolsAlternateDll;
         }
 
         return UndecorationReady
@@ -828,104 +801,84 @@ public sealed class CSymbolResolver : IDisposable
     /// Preference order: Windows Kits Debuggers (by highest file version) for current arch,
     /// then common Program Files Windows Kits locations, then the system copy.
     /// </returns>
-    internal static string FindDbgHelpDll()
+    internal static string? FindDbgHelpDll()
     {
-        try
+        string architecture = CUtils.GetProcessArchitectureName();
+        HashSet<string> candidates = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string root in EnumerateWindowsKitsRoots())
         {
-            string arch = CUtils.GetProcessArchitectureName();
-            HashSet<string> candidates = new(StringComparer.OrdinalIgnoreCase);
-
-            foreach (string root in EnumerateWindowsKitsRoots())
-            {
-                try
-                {
-                    string p = Path.Combine(root, CConsts.DebuggersString, arch, CConsts.DbgHelpDll);
-                    if (File.Exists(p))
-                        candidates.Add(p);
-                }
-                catch
-                {
-                    // Intentionally silent.
-                }
-            }
-
-            try
-            {
-                string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-                string pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-
-                AddIfExists(candidates, CombineParts(pf86, CConsts.WindowsKitsString, "10", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
-                AddIfExists(candidates, CombineParts(pf, CConsts.WindowsKitsString, "10", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
-                AddIfExists(candidates, CombineParts(pf86, CConsts.WindowsKitsString, "8.1", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
-                AddIfExists(candidates, CombineParts(pf, CConsts.WindowsKitsString, "8.1", CConsts.DebuggersString, arch, CConsts.DbgHelpDll));
-            }
-            catch
-            {
-                // Intentionally silent.
-            }
-
-            try
-            {
-                string sys = Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll);
-                if (File.Exists(sys))
-                    candidates.Add(sys);
-            }
-            catch
-            {
-                // Intentionally silent.
-            }
-
-            if (candidates.Count == 0)
-                return null;
-
-            string best = null;
-            Version bestVer = null;
-
-            foreach (string c in candidates)
-            {
-                try
-                {
-                    FileVersionInfo fi = FileVersionInfo.GetVersionInfo(c);
-                    Version ver = new(
-                        SafePart(fi.FileMajorPart),
-                        SafePart(fi.FileMinorPart),
-                        SafePart(fi.FileBuildPart),
-                        SafePart(fi.FilePrivatePart));
-
-                    if (best == null || ver > bestVer)
-                    {
-                        best = c;
-                        bestVer = ver;
-                    }
-                }
-                catch
-                {
-                    if (best == null)
-                        best = c;
-                }
-            }
-
-            return best;
+            AddIfExists(candidates,
+                Path.Combine(root, CConsts.DebuggersString, architecture, CConsts.DbgHelpDll));
         }
-        catch
-        {
+
+        string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+        AddIfExists(candidates,
+            Path.Combine(programFilesX86, CConsts.WindowsKitsString, "10",
+                CConsts.DebuggersString, architecture, CConsts.DbgHelpDll));
+
+        AddIfExists(candidates,
+            Path.Combine(programFiles, CConsts.WindowsKitsString, "10",
+                CConsts.DebuggersString, architecture, CConsts.DbgHelpDll));
+
+        AddIfExists(candidates,
+            Path.Combine(programFilesX86, CConsts.WindowsKitsString, "8.1",
+                CConsts.DebuggersString, architecture, CConsts.DbgHelpDll));
+
+        AddIfExists(candidates,
+            Path.Combine(programFiles, CConsts.WindowsKitsString, "8.1",
+                CConsts.DebuggersString, architecture, CConsts.DbgHelpDll));
+
+        AddIfExists(candidates,
+            Path.Combine(Environment.SystemDirectory, CConsts.DbgHelpDll));
+
+        if (candidates.Count == 0)
             return null;
-        }
 
-        static void AddIfExists(ISet<string> set, string p)
+        string? bestPath = null;
+        Version? bestVersion = null;
+
+        foreach (string candidate in candidates)
         {
             try
             {
-                if (!string.IsNullOrEmpty(p) && File.Exists(p))
-                    set.Add(p);
+                FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(candidate);
+
+                Version version = new(
+                    Math.Max(versionInfo.FileMajorPart, 0),
+                    Math.Max(versionInfo.FileMinorPart, 0),
+                    Math.Max(versionInfo.FileBuildPart, 0),
+                    Math.Max(versionInfo.FilePrivatePart, 0));
+
+                if (bestVersion == null || version > bestVersion)
+                {
+                    bestVersion = version;
+                    bestPath = candidate;
+                }
+            }
+            catch
+            {
+                // If version information cannot be obtained, keep the first valid candidate.
+                bestPath ??= candidate;
+            }
+        }
+
+        return bestPath;
+
+        static void AddIfExists(ISet<string> set, string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    set.Add(path);
             }
             catch
             {
                 // Intentionally silent.
             }
         }
-
-        static int SafePart(int v) => v < 0 ? 0 : v;
     }
 
     /// <summary>
@@ -949,11 +902,13 @@ public sealed class CSymbolResolver : IDisposable
                 if (key == null)
                     continue;
 
-                foreach (string name in valueNames)
+                foreach (string valueName in valueNames)
                 {
-                    string v = key.GetValue(name) as string;
-                    if (!string.IsNullOrWhiteSpace(v))
-                        results.Add(v);
+                    if (key.GetValue(valueName) is string path &&
+                         !string.IsNullOrWhiteSpace(path))
+                    {
+                        results.Add(path);
+                    }
                 }
             }
             catch
@@ -965,24 +920,12 @@ public sealed class CSymbolResolver : IDisposable
         return results;
     }
 
-    private static string CombineParts(params string[] parts)
-    {
-        try
-        {
-            return Path.Combine(parts);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     /// <summary>
     /// Determines whether the specified path points to the system-provided dbghelp.dll (System32 or SysWOW64).
     /// </summary>
     /// <param name="path">Path to test.</param>
     /// <returns>True if the path resolves to the OS-shipped dbghelp.dll; otherwise false.</returns>
-    private static bool IsSystemDbgHelp(string path)
+    private static bool IsSystemDbgHelp(string? path)
     {
         try
         {
@@ -1013,21 +956,27 @@ public sealed class CSymbolResolver : IDisposable
         }
     }
 
-    private static bool PathsEqual(string a, string b)
+    private static bool PathsEqual(string? firstPath, string? secondPath)
     {
+        if (string.IsNullOrWhiteSpace(firstPath) ||
+            string.IsNullOrWhiteSpace(secondPath))
+        {
+            return false;
+        }
+
         try
         {
-            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
-                return false;
-
-            string pa = Path.GetFullPath(a).TrimEnd('\\');
-            string pb = Path.GetFullPath(b).TrimEnd('\\');
-
-            return string.Equals(pa, pb, StringComparison.OrdinalIgnoreCase);
+            firstPath = Path.GetFullPath(firstPath).TrimEnd(Path.DirectorySeparatorChar);
+            secondPath = Path.GetFullPath(secondPath).TrimEnd(Path.DirectorySeparatorChar);
         }
         catch
         {
-            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+            // Fall back to comparing the original paths.
         }
+
+        return string.Equals(
+            firstPath,
+            secondPath,
+            StringComparison.OrdinalIgnoreCase);
     }
 }

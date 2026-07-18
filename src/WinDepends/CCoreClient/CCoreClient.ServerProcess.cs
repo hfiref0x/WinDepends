@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        17 Jul 2026
 *  
 *  Server process lifecycle routines for Core Server communication class.
 *
@@ -122,6 +122,39 @@ public partial class CCoreClient
     }
 
     /// <summary>
+    /// Handles the <see cref="Process.Exited"/> event of the server process.
+    /// </summary>
+    /// <param name="sender">The source of the event, expected to be an instance of <see cref="Process"/>.</param>
+    /// <param name="e">An object that contains no event data.</param>
+    /// <remarks>
+    /// This method safely extracts the exit code of the terminated process, logs the failure 
+    /// using native Windows NTSTATUS translation if applicable, flags the server as requiring a restart, 
+    /// and triggers cleanup routines for any active connections.
+    /// </remarks>
+    private void ServerProcess_Exited(object? sender, EventArgs e)
+    {
+        if (sender is not Process process)
+            return;
+
+        int exitCode = -1;
+
+        try
+        {
+            exitCode = process.ExitCode;
+        }
+        catch
+        {
+            // Process object may already be disposed.
+        }
+        _addLogMessage(
+            $"Server process terminated unexpectedly: 0x{exitCode.ToString("X8")} ({NativeExceptionHelper.TranslateExceptionCode(exitCode)}).",
+            LogMessageType.ErrorOrWarning);
+
+        ErrorStatus = ServerErrorStatus.ServerNeedRestart;
+        CleanupFailedConnection();
+    }
+
+    /// <summary>
     /// Starts the server process and establishes a network connection.
     /// </summary>
     /// <returns>true if the server started and connection was established successfully; otherwise, false.</returns>
@@ -184,6 +217,9 @@ public partial class CCoreClient
                 {
                     throw new Exception("Core process start failure");
                 }
+
+                tempProcess.EnableRaisingEvents = true;
+                tempProcess.Exited += ServerProcess_Exited;
 
                 Thread.Sleep(SERVER_START_DELAY_MS);
 
@@ -291,6 +327,7 @@ public partial class CCoreClient
             {
                 ShutdownRequest();
                 Thread.Sleep(SHUTDOWN_WAIT_MS);
+                _serverProcess.Exited -= ServerProcess_Exited;
 
                 if (!_serverProcess.HasExited)
                 {

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        17 Jul 2026
 *  
 *  Transport and reply handling routines for Core Server communication class.
 *
@@ -80,7 +80,7 @@ public partial class CCoreClient
             module.OtherErrorsPresent = true;
 
         var moduleName = module?.FileName != null ? Path.GetFileName(module.FileName) : string.Empty;
-        var exceptionText = PeExceptionHelper.TranslateExceptionCode(ex.Code);
+        var exceptionText = NativeExceptionHelper.TranslateExceptionCode(ex.Code);
 
         _addLogMessage(
             $"An exception {exceptionText} 0x{ex.Code:X8} occurred while processing {location}" +

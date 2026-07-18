@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       NATIVEMETHODS.CS
 *
 *  VERSION:     1.00
 *  
-*  DATE:        04 Jun 2025
+*  DATE:        17 Jul 2026
 *
 *  Win32 API P/Invoke.
 *
@@ -482,4 +482,33 @@ public sealed class ElevatedDragDropEventArgs : EventArgs
     public IReadOnlyList<string> Files { get; init; } = Array.Empty<string>();
     public int X { get; init; }
     public int Y { get; init; }
+}
+
+public enum NativeStatus : uint
+{
+    STATUS_ACCESS_VIOLATION = 0xC0000005,
+    STATUS_IN_PAGE_ERROR = 0xC0000006,
+    STATUS_INVALID_IMAGE_FORMAT = 0xC000007B,
+    STATUS_INTEGER_OVERFLOW = 0xC0000095,
+    STATUS_STACK_OVERFLOW = 0xC00000FD,
+    STATUS_DLL_INIT_FAILED = 0xC0000142,
+    STATUS_CONTROL_C_EXIT = 0xC000013A,
+    STATUS_FATAL_APP_EXIT = 0xC0000374,
+    STATUS_ASSERTION_FAILURE = 0xC0000420,
+    STATUS_PROCESS_IS_TERMINATING = 0xC000010A,
+    STATUS_TERMINAL_SERVER_EXIT = 0xC000021A
+}
+
+public static class NativeExceptionHelper
+{
+    public static bool IsInvalidImageFormatException(uint exceptionCode) =>
+        exceptionCode == (uint)NativeStatus.STATUS_INVALID_IMAGE_FORMAT;
+
+    public static string TranslateExceptionCode(uint exceptionCode) =>
+        Enum.IsDefined((NativeStatus)exceptionCode)
+            ? ((NativeStatus)exceptionCode).ToString()
+            : $"Unknown (0x{exceptionCode:X8})";
+
+    public static string TranslateExceptionCode(int exceptionCode) =>
+        TranslateExceptionCode(unchecked((uint)exceptionCode));
 }

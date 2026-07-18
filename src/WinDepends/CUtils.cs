@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        17 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -34,8 +34,8 @@ namespace WinDepends;
 public delegate void UpdateLoadStatusCallback(string status);
 public delegate void UpdateSymbolsStatus(bool enabled);
 public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
-    Color? color = null, bool useBold = false, bool moduleMessage = false, 
-    CModule relatedModule = null, RichTextBox richTextBox = null);
+    Color? color = null, bool useBold = false, bool moduleMessage = false,
+    CModule? relatedModule = null, RichTextBox? richTextBox = null);
 
 /// <summary>
 /// Machine extension to return friendly name of constants.
@@ -1038,43 +1038,5 @@ public static class CUtils
             return "arm";
 
         return "x86";
-    }
-}
-
-public static class PeExceptionHelper
-{
-    private const uint STATUS_ACCESS_VIOLATION = 0xC0000005;
-    private const uint STATUS_INTEGER_OVERFLOW = 0xC0000095;
-    private const uint STATUS_STACK_OVERFLOW = 0xC00000FD;
-    private const uint STATUS_IN_PAGE_ERROR = 0xC0000006;
-    private const uint STATUS_INVALID_IMAGE_FORMAT = 0xC000007B;
-
-    public static bool IsInvalidImageFormatException(uint exceptionCode)
-    {
-        return exceptionCode == STATUS_INVALID_IMAGE_FORMAT;
-    }
-
-    /// <summary>
-    /// Translates a Windows exception code to a human-readable string description
-    /// </summary>
-    /// <param name="exceptionCode">The exception code</param>
-    /// <returns>A human-readable description of the exception</returns>
-    public static string TranslateExceptionCode(uint exceptionCode)
-    {
-        switch (exceptionCode)
-        {
-            case STATUS_ACCESS_VIOLATION:
-                return "STATUS_ACCESS_VIOLATION";
-            case STATUS_INTEGER_OVERFLOW:
-                return "STATUS_INTEGER_OVERFLOW";
-            case STATUS_STACK_OVERFLOW:
-                return "STATUS_STACK_OVERFLOW";
-            case STATUS_IN_PAGE_ERROR:
-                return "STATUS_IN_PAGE_ERROR";
-            case STATUS_INVALID_IMAGE_FORMAT:
-                return "STATUS_INVALID_IMAGE_FORMAT";
-            default:
-                return "Unknown";
-        }
     }
 }

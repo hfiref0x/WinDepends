@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        17 Jul 2026
 *  
 *  Module dependency/import/export analysis for 
 *  Core Server communication class.
@@ -45,7 +45,7 @@ public partial class CCoreClient
         bool exceptStd = (imports.Exception & 1) != 0;
         bool exceptDelay = (imports.Exception & 2) != 0;
 
-        if (PeExceptionHelper.IsInvalidImageFormatException(imports.ExceptionCodeStd))
+        if (NativeExceptionHelper.IsInvalidImageFormatException(imports.ExceptionCodeStd))
         {
             _addLogMessage($"Exception occured while processing file, imports seems destroyed",
                 LogMessageType.ErrorOrWarning);
@@ -56,20 +56,20 @@ public partial class CCoreClient
         {
             _addLogMessage(
                 $"Exceptions occurred while processing imports:\n" +
-                $"  Standard: {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeStd)} (0x{imports.ExceptionCodeStd:X8})\n" +
-                $"  Delay-load: {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeDelay)} (0x{imports.ExceptionCodeDelay:X8})",
+                $"  Standard: {NativeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeStd)} (0x{imports.ExceptionCodeStd:X8})\n" +
+                $"  Delay-load: {NativeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeDelay)} (0x{imports.ExceptionCodeDelay:X8})",
                 LogMessageType.ErrorOrWarning);
         }
         else if (exceptStd)
         {
             _addLogMessage(
-                $"Exception {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeStd)} (0x{imports.ExceptionCodeStd:X8}) occurred while processing standard imports",
+                $"Exception {NativeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeStd)} (0x{imports.ExceptionCodeStd:X8}) occurred while processing standard imports",
                 LogMessageType.ErrorOrWarning);
         }
         else if (exceptDelay)
         {
             _addLogMessage(
-                $"Exception {PeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeDelay)} (0x{imports.ExceptionCodeDelay:X8}) occurred while processing delay-load imports",
+                $"Exception {NativeExceptionHelper.TranslateExceptionCode(imports.ExceptionCodeDelay)} (0x{imports.ExceptionCodeDelay:X8}) occurred while processing delay-load imports",
                 LogMessageType.ErrorOrWarning);
         }
     }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        17 Jul 2026
 *  
 *  Log view rendering, interaction, and search routines for main form.
 *
@@ -27,7 +27,7 @@ public class LogMessageEventArgs(string message, LogMessageType messageType, Col
     public bool UseBold { get; } = useBold;
     public bool ModuleMessage { get; } = moduleMessage;
     public CModule? RelatedModule { get; } = relatedModule;
-    public RichTextBox RichTextBox { get; } = richTextBox;
+    public RichTextBox? RichTextBox { get; } = richTextBox;
 }
 
 public static class AppLogger
@@ -50,8 +50,8 @@ public static class AppLogger
         Color? color = null,
         bool useBold = false,
         bool moduleMessage = false,
-        CModule relatedModule = null,
-        RichTextBox richTextBox = null)
+        CModule? relatedModule = null,
+        RichTextBox? richTextBox = null)
     {
         RichTextBox targetControl = richTextBox ?? _defaultRichTextBox;
 
@@ -64,7 +64,16 @@ public partial class MainForm
 {
     private void AppLogger_OnLogMessage(LogMessageEventArgs e)
     {
-        RichTextBox richTextBox = e.RichTextBox;
+        RichTextBox? richTextBox = e.RichTextBox;
+
+        if (richTextBox == null || richTextBox.IsDisposed)
+            return;
+
+        if (richTextBox.InvokeRequired)
+        {
+            richTextBox.BeginInvoke(() => AppLogger_OnLogMessage(e));
+            return;
+        }
 
         Color outputColor = Color.Black;
         bool boldText = false;

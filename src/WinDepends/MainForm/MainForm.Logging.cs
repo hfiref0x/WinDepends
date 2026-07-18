@@ -66,15 +66,6 @@ public partial class MainForm
     {
         RichTextBox? richTextBox = e.RichTextBox;
 
-        if (richTextBox == null || richTextBox.IsDisposed)
-            return;
-
-        if (richTextBox.InvokeRequired)
-        {
-            richTextBox.BeginInvoke(() => AppLogger_OnLogMessage(e));
-            return;
-        }
-
         Color outputColor = Color.Black;
         bool boldText = false;
 
@@ -114,6 +105,12 @@ public partial class MainForm
 
         if (richTextBox != null && !richTextBox.IsDisposed)
         {
+            if (richTextBox.InvokeRequired)
+            {
+                richTextBox.BeginInvoke(() => AppLogger_OnLogMessage(e));
+                return;
+            }
+
             richTextBox.SuspendLayout();
 
             int startPosition = richTextBox.TextLength;

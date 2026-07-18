@@ -218,8 +218,11 @@ public partial class CCoreClient
                     throw new Exception("Core process start failure");
                 }
 
-                tempProcess.EnableRaisingEvents = true;
-                tempProcess.Exited += ServerProcess_Exited;
+                if (!_consoleRun)
+                {
+                    tempProcess.EnableRaisingEvents = true;
+                    tempProcess.Exited += ServerProcess_Exited;
+                }
 
                 Thread.Sleep(SERVER_START_DELAY_MS);
 
@@ -327,7 +330,8 @@ public partial class CCoreClient
             {
                 ShutdownRequest();
                 Thread.Sleep(SHUTDOWN_WAIT_MS);
-                _serverProcess.Exited -= ServerProcess_Exited;
+                if (!_consoleRun && _serverProcess != null)
+                    _serverProcess.Exited -= ServerProcess_Exited;
 
                 if (!_serverProcess.HasExited)
                 {

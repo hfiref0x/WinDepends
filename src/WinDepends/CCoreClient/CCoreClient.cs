@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        16 Jul 2026
+*  DATE:        17 Jul 2026
 *  
 *  Core Server communication class.
 *
@@ -96,6 +96,7 @@ public partial class CCoreClient : IDisposable
     private readonly CCoreTransportAdapter _transportAdapter;
     private readonly AddLogMessageCallback _addLogMessage;
     private string _serverApplication;
+    private bool _consoleRun;
 
     /// <summary>
     /// Gets the TCP client connection to the server.
@@ -148,10 +149,11 @@ public partial class CCoreClient : IDisposable
     /// <param name="ipAddress">IP address for server communication.</param>
     /// <param name="logMessageCallback">Callback for logging messages.</param>
     /// <exception cref="ArgumentNullException">Thrown when logMessageCallback is null.</exception>
-    public CCoreClient(string serverApplication, string ipAddress, AddLogMessageCallback logMessageCallback)
+    public CCoreClient(string serverApplication, string ipAddress, AddLogMessageCallback logMessageCallback, bool consoleRun = false)
     {
         ArgumentNullException.ThrowIfNull(logMessageCallback);
 
+        _consoleRun = consoleRun;
         _addLogMessage = logMessageCallback;
         ServerApplication = serverApplication;
         IPAddress = ipAddress;
@@ -175,6 +177,7 @@ public partial class CCoreClient : IDisposable
             () => _clientConnection,
             () => _dataStream,
             _addLogMessage);
+        _consoleRun = consoleRun;
     }
 
     /// <summary>

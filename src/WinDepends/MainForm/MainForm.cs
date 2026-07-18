@@ -218,7 +218,7 @@ public partial class MainForm : Form
         //
         // Start server app.
         //       
-        _coreClient = new(_configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AppLogger.LogExt);
+        _coreClient = new(_configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AppLogger.LogExt, false);
         if (_coreClient.ConnectClient())
         {
             if (_coreClient.GetKnownDllsAll(CPathResolver.KnownDlls,

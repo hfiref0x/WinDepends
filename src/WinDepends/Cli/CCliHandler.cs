@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        17 Jul 2026
 *  
 *  Implementation of command-line interface handler.
 *
@@ -207,7 +207,7 @@ public static class CCliHandler
     /// </summary>
     public static int Run(string[] args)
     {
-        bool consoleAllocated = true;
+        bool consoleAllocated = false;
 
         if (!AttachConsole(ATTACH_PARENT_PROCESS))
         {
@@ -326,7 +326,7 @@ public static class CCliHandler
             }
         }
 
-        using var coreClient = new CCoreClient(serverApp, CConsts.CoreServerAddress, LogMessage);
+        using var coreClient = new CCoreClient(serverApp, CConsts.CoreServerAddress, LogMessage, true);
 
         if (!coreClient.ConnectClient())
         {

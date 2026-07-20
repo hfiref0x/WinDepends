@@ -55,6 +55,32 @@ public static class CCliHandler
 
     private const int ATTACH_PARENT_PROCESS = -1;
 
+    private static readonly string[] CliArguments = {
+        "-o",
+        "--output",
+        "-f",
+        "--format",
+        "-d",
+        "--depth",
+        "-q",
+        "--quiet",
+        "-e",
+        "--exports",
+        "-i",
+        "--imports",
+        "-k",
+        "--kernel",
+        "-h",
+        "--help",
+        "-v",
+        "--version",
+        "-?",
+        "--no-exports",
+        "--no-imports",
+        "--no-resolve",
+        "--short-paths"
+    };
+
     /// <summary>
     /// Determines if the application should run in CLI mode based on command-line arguments.
     /// </summary>
@@ -67,14 +93,12 @@ public static class CCliHandler
         {
             string lowerArg = arg.ToLowerInvariant();
 
-            if (lowerArg == "-o" || lowerArg == "--output" ||
-                lowerArg == "-f" || lowerArg == "--format" ||
-                lowerArg == "-q" || lowerArg == "--quiet" ||
-                lowerArg == "-h" || lowerArg == "--help" ||
-                lowerArg == "-v" || lowerArg == "--version" ||
-                lowerArg == "-?" ||
-                lowerArg.StartsWith("--output=") ||
-                lowerArg.StartsWith("--format="))
+            if (CliArguments.Contains(lowerArg))
+                return true;
+
+            if (lowerArg.StartsWith("--output=") ||
+                lowerArg.StartsWith("--format=") ||
+                lowerArg.StartsWith("--depth="))
             {
                 return true;
             }

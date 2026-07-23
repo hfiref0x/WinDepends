@@ -208,6 +208,7 @@ public partial class MainForm : Form
             _configuration.SymbolsStorePath = _symbolResolver.StorePath;
         }
 
+        _symbolResolver.SimplifyTemplateDefaults = _configuration.SimplifyStlNames;
         _symbolResolver.SymbolLoadStatusChanged += SymbolResolver_SymbolLoadStatusChanged;
 
         //
@@ -802,6 +803,7 @@ public partial class MainForm : Form
         var bFullPathPrev = _configuration.FullPaths;
         var bUpperCaseModulesNamesPrev = _configuration.UpperCaseModuleNames;
         var bUndecoratedPrev = _configuration.ViewUndecorated;
+        var bSimplifyStlPrev = _configuration.SimplifyStlNames;
         var bResolveAPISetsPrev = _configuration.ResolveAPIsets;
         var bHighlightAPISetsPrev = _configuration.HighlightApiSet;
         var bUseApiSetSchemaFilePrev = _configuration.UseApiSetSchemaFile;
@@ -846,7 +848,18 @@ public partial class MainForm : Form
                     UpdateFileView(FileViewUpdateAction.ModulesTreeAndListChange);
                 }
 
-                if (_configuration.ViewUndecorated != bUndecoratedPrev)
+                if (_configuration.SimplifyStlNames != bSimplifyStlPrev)
+                {
+                    //
+                    // The simplified spelling is baked into the cached undecorated
+                    // name, so drop the cache to force re-decoration on next view.
+                    //
+                    _symbolResolver.SimplifyTemplateDefaults = _configuration.SimplifyStlNames;
+                    ClearUndecoratedNameCache();
+                }
+
+                if (_configuration.ViewUndecorated != bUndecoratedPrev ||
+                    _configuration.SimplifyStlNames != bSimplifyStlPrev)
                 {
                     UpdateFileView(FileViewUpdateAction.FunctionsUndecorateChange);
                 }
@@ -1504,6 +1517,32 @@ public partial class MainForm : Form
     private void MenuExitItem_Click(object sender, EventArgs e)
     {
         Close();
+    }
+
+    /// <summary>
+    /// Clears cached undecorated names across all loaded modules so they are
+    /// recomputed with the current decoration / STL-simplification settings.
+    /// </summary>
+    private void ClearUndecoratedNameCache()
+    {
+        foreach (CModule module in _loadedModulesList)
+        {
+            if (module.ModuleData?.Exports is { } exports)
+            {
+                foreach (CFunction function in exports)
+                {
+                    function.UndecoratedName = string.Empty;
+                }
+            }
+
+            if (module.ParentImports is { } imports)
+            {
+                foreach (CFunction function in imports)
+                {
+                    function.UndecoratedName = string.Empty;
+                }
+            }
+        }
     }
 
     private void CopyFunctionNamesToClipboard(ListView listView, List<CFunction> functions)

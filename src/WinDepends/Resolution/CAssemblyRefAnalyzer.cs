@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        16 Jul 2026
+*  DATE:        30 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -15,9 +15,11 @@
 *
 *******************************************************************************/
 using System.Collections.Concurrent;
+using System.Data.Common;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Xml.Linq;
 
 namespace WinDepends;
@@ -303,6 +305,32 @@ public static class CAssemblyRefAnalyzer
 
     #endregion
 
+    private static string MakeAssemblyIdentityKey(string name, string publicKeyToken, string version)
+    {
+        return $"{name}|{publicKeyToken}|{version}";
+    }
+
+    private static string GetVersionFromDisplayName(string displayName)
+    {
+        string[] parts;
+
+        if (string.IsNullOrEmpty(displayName))
+            return null;
+
+        parts = displayName.Split(',');
+        foreach (string part in parts)
+        {
+            string[] kv = part.Split('=');
+            if (kv.Length == 2 &&
+                kv[0].Trim().Equals("Version", StringComparison.OrdinalIgnoreCase))
+            {
+                return kv[1].Trim();
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Analyzes a .NET assembly file and returns a list of all its assembly references with resolved paths.
     /// Uses parallel processing for improved performance with many references.
@@ -316,13 +344,15 @@ public static class CAssemblyRefAnalyzer
         if (!File.Exists(module.FileName))
             throw new FileNotFoundException($"Assembly file not found: {module.FileName}");
 
-        var references = new List<AssemblyReference>();
-
         if (!TryGetAssemblyMetadata(module, out var assemblyRefs, out var kind, out var runtimeVersion, out var cpuType))
-            return references;
+            return [];
 
         Dictionary<string, (Version minVersion, Version maxVersion, Version newVersion, string newPublicKeyToken)> bindingRedirects = null;
+        Dictionary<string, string> gacResults = null;
         string configFile = module.FileName + ".config";
+        string referringDirectory = Path.GetDirectoryName(module.FileName);
+        AssemblyReference[] resolvedRefs;
+
         if (!File.Exists(configFile))
         {
             string exeConfig = Path.ChangeExtension(module.FileName, ".config");
@@ -335,12 +365,11 @@ public static class CAssemblyRefAnalyzer
             bindingRedirects = ParseBindingRedirects(configFile);
         }
 
-        Dictionary<string, string> gacResults = null;
         if (kind == DotNetAssemblyKind.NetFramework)
         {
             var gacQueries = assemblyRefs
                 .Where(r => !string.IsNullOrEmpty(r.publicKeyToken) && r.publicKeyToken != "null")
-                .Select(r => (r.name, r.publicKeyToken))
+                .Select(r => (r.name, r.publicKeyToken, version: GetVersionFromDisplayName(r.displayName)))
                 .ToList();
 
             if (gacQueries.Count > 0)
@@ -349,12 +378,18 @@ public static class CAssemblyRefAnalyzer
             }
         }
 
-        string referringDirectory = Path.GetDirectoryName(module.FileName);
-        var concurrentRefs = new ConcurrentBag<AssemblyReference>();
+        resolvedRefs = new AssemblyReference[assemblyRefs.Count];
 
-        Parallel.ForEach(assemblyRefs, reference =>
+        Parallel.For(0, assemblyRefs.Count, i =>
         {
-            var asmRef = new AssemblyReference
+            (string name, string publicKeyToken, string displayName) reference;
+            AssemblyReference asmRef;
+            string publicKeyToken;
+            string gacKey;
+
+            reference = assemblyRefs[i];
+
+            asmRef = new AssemblyReference
             {
                 Name = reference.name,
                 PublicKeyToken = reference.publicKeyToken,
@@ -376,7 +411,7 @@ public static class CAssemblyRefAnalyzer
                 }
             }
 
-            string publicKeyToken = reference.publicKeyToken;
+            publicKeyToken = reference.publicKeyToken;
             if (bindingRedirects != null &&
                 bindingRedirects.TryGetValue(reference.name, out var redirect) &&
                 !string.IsNullOrEmpty(asmRef.Version) &&
@@ -390,7 +425,9 @@ public static class CAssemblyRefAnalyzer
                 }
             }
 
-            if (gacResults != null && gacResults.TryGetValue(reference.name.ToLowerInvariant(), out string gacPath))
+            gacKey = MakeAssemblyIdentityKey(reference.name, publicKeyToken, asmRef.Version);
+
+            if (gacResults != null && gacResults.TryGetValue(gacKey, out string gacPath))
             {
                 asmRef.ResolvedPath = gacPath;
                 asmRef.ResolutionSource = "Global Assembly Cache (Batch)";
@@ -400,32 +437,33 @@ public static class CAssemblyRefAnalyzer
                 (asmRef.ResolvedPath, asmRef.ResolutionSource) = ResolveAssemblyPath(
                     reference.name,
                     publicKeyToken,
+                    asmRef.Version,
                     kind,
                     cpuType,
                     referringDirectory);
             }
 
-            concurrentRefs.Add(asmRef);
+            resolvedRefs[i] = asmRef;
         });
 
-        return concurrentRefs.ToList();
+        return resolvedRefs.ToList();
     }
 
     /// <summary>
     /// Performs a batch query to find multiple assemblies in the GAC
     /// </summary>
-    private static Dictionary<string, string> BatchFindInGac(List<(string name, string publicKeyToken)> assemblies, CpuType cpuType)
+    private static Dictionary<string, string> BatchFindInGac(List<(string name, string publicKeyToken, string version)> assemblies, CpuType cpuType)
     {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, List<(string name, string publicKeyToken, string version)>> assemblyLookup;
+        Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         IAssemblyEnum enumObj = null;
 
         if (!TryLoadFusion())
             return result;
 
-        var assemblyLookup = assemblies.ToDictionary(
-            a => a.name.ToLowerInvariant(),
-            a => a.publicKeyToken,
-            StringComparer.OrdinalIgnoreCase);
+        assemblyLookup = assemblies
+            .GroupBy(a => a.name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         int hr = CreateAssemblyEnum(out enumObj, IntPtr.Zero, null, 2 /* GAC */, IntPtr.Zero);
         if (hr != 0 || enumObj == null)
@@ -434,28 +472,43 @@ public static class CAssemblyRefAnalyzer
         try
         {
             IAssemblyName foundName;
+
             while (enumObj.GetNextAssembly(IntPtr.Zero, out foundName, 0) == 0 && foundName != null)
             {
                 try
                 {
                     int disp = 1024;
-                    var sb = new System.Text.StringBuilder(1024);
+                    StringBuilder sb = new System.Text.StringBuilder(1024);
                     foundName.GetDisplayName(sb, ref disp, 0x0);
                     string display = sb.ToString();
 
                     string[] parts = display.Split(',');
-                    if (parts.Length > 0)
-                    {
-                        string name = parts[0].Trim().ToLowerInvariant();
+                    if (parts.Length == 0)
+                        continue;
 
-                        if (assemblyLookup.TryGetValue(name, out string publicKeyToken))
+                    string name = parts[0].Trim();
+                    if (!assemblyLookup.TryGetValue(name, out var candidates))
+                        continue;
+
+                    string displayVersion = GetVersionFromDisplayName(display);
+
+                    foreach (var candidateEntry in candidates)
+                    {
+                        bool versionMatches = string.IsNullOrEmpty(candidateEntry.version) ||
+                                         string.Equals(displayVersion, candidateEntry.version, StringComparison.OrdinalIgnoreCase);
+
+                        if (!display.Contains("PublicKeyToken=" + candidateEntry.publicKeyToken, StringComparison.OrdinalIgnoreCase) ||
+                            !versionMatches)
                         {
-                            if (display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
-                            {
-                                string path = GetAssemblyPathFromGacDisplay(display, cpuType);
-                                if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitectureCached(path, cpuType))
-                                    result[name] = path;
-                            }
+                            continue;
+                        }
+
+                        string path = GetAssemblyPathFromGacDisplay(display, cpuType);
+                        if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitectureCached(path, cpuType))
+                        {
+                            string identityKey = MakeAssemblyIdentityKey(name, candidateEntry.publicKeyToken, candidateEntry.version);
+                            result[identityKey] = path;
+                            break;
                         }
                     }
                 }
@@ -657,16 +710,17 @@ public static class CAssemblyRefAnalyzer
     private static (string path, string source) ResolveAssemblyPath(
         string name,
         string publicKeyToken,
+        string version,
         DotNetAssemblyKind kind,
         CpuType cpuType,
         string referringDirectory)
     {
-        string cacheKey = $"{name}|{publicKeyToken}|{kind}|{cpuType}|{referringDirectory}";
+        string cacheKey = $"{name}|{publicKeyToken}|{version}|{kind}|{cpuType}|{referringDirectory}";
 
         if (_resolutionCache.TryGet(cacheKey, out var cachedResult))
             return cachedResult;
 
-        var result = ResolveAssemblyPathCore(name, publicKeyToken, kind, cpuType, referringDirectory);
+        (string path, string source) result = ResolveAssemblyPathCore(name, publicKeyToken, version, kind, cpuType, referringDirectory);
         _resolutionCache.Set(cacheKey, result);
 
         return result;
@@ -678,6 +732,7 @@ public static class CAssemblyRefAnalyzer
     private static (string path, string source) ResolveAssemblyPathCore(
         string name,
         string publicKeyToken,
+        string version,
         DotNetAssemblyKind kind,
         CpuType cpuType,
         string referringDirectory)
@@ -729,7 +784,7 @@ public static class CAssemblyRefAnalyzer
         // 2. For .NET Framework assemblies, check GAC
         if (kind == DotNetAssemblyKind.NetFramework)
         {
-            string gacPath = FindInGac(name, publicKeyToken, cpuType);
+            string gacPath = FindInGac(name, publicKeyToken, version, cpuType);
             if (!string.IsNullOrEmpty(gacPath) && File.Exists(gacPath) && IsValidArchitectureCached(gacPath, cpuType))
                 return (gacPath, "Global Assembly Cache");
 
@@ -747,9 +802,13 @@ public static class CAssemblyRefAnalyzer
         }
 
         // 5. Check for native DLLs in system directories
-        if (name.EndsWith(CConsts.DllFileExt, StringComparison.OrdinalIgnoreCase))
+        string baseName = Path.GetExtension(name).Equals(CConsts.DllFileExt, StringComparison.OrdinalIgnoreCase) ||
+                   Path.GetExtension(name).Equals(CConsts.ExeFileExt, StringComparison.OrdinalIgnoreCase)
+            ? Path.GetFileNameWithoutExtension(name)
+            : name;
+
+        if (!string.IsNullOrEmpty(baseName))
         {
-            string baseName = Path.GetFileNameWithoutExtension(name);
             string nativePath = FindNativeLibrary(baseName, cpuType);
             if (!string.IsNullOrEmpty(nativePath))
                 return (nativePath, "Native library");
@@ -873,7 +932,7 @@ public static class CAssemblyRefAnalyzer
         }
         catch
         {
-            return true;
+            return false;
         }
     }
 
@@ -989,15 +1048,16 @@ public static class CAssemblyRefAnalyzer
         }
         catch
         {
-            return true;
+            return false;
         }
+
         return false;
     }
 
     /// <summary>
     /// Searches for an assembly in the Global Assembly Cache (GAC)
     /// </summary>
-    public static string FindInGac(string assemblyName, string publicKeyToken, CpuType cpuType)
+    public static string FindInGac(string assemblyName, string publicKeyToken, string version, CpuType cpuType)
     {
         IAssemblyName nameObj = null;
         IAssemblyEnum enumObj = null;
@@ -1021,12 +1081,17 @@ public static class CAssemblyRefAnalyzer
                 try
                 {
                     int disp = 1024;
-                    var sb = new System.Text.StringBuilder(1024);
+                    StringBuilder sb = new System.Text.StringBuilder(1024);
                     foundName.GetDisplayName(sb, ref disp, 0x0);
                     string display = sb.ToString();
+                    string displayVersion = GetVersionFromDisplayName(display);
+
+                    bool versionMatches = string.IsNullOrEmpty(version) ||
+                                     string.Equals(displayVersion, version, StringComparison.OrdinalIgnoreCase);
 
                     if (display.StartsWith(assemblyName + ",", StringComparison.OrdinalIgnoreCase) &&
-                        display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase))
+                        display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase) &&
+                        versionMatches)
                     {
                         string path = GetAssemblyPathFromGacDisplay(display, cpuType);
                         if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitectureCached(path, cpuType))

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        28 May 2026
+*  DATE:        25 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -204,24 +204,38 @@ public partial class ConfigurationForm : Form
 
     private void ShowServerStatusAndSetControls()
     {
-        labelServerStatus.Font = new Font(labelServerStatus.Font, FontStyle.Bold);
+        if ((labelServerStatus.Font.Style & FontStyle.Bold) != FontStyle.Bold)
+        {
+            labelServerStatus.Font = new Font(labelServerStatus.Font, FontStyle.Bold);
+        }
 
         if (_coreClient == null || _coreClient.ClientConnection == null || !_coreClient.ClientConnection.Connected)
         {
-            labelServerStatus.Text = "Connection Error";
+            string statusText = _coreClient == null
+                ? "Connection Error"
+                : _coreClient.ErrorStatus switch
+                {
+                    ServerErrorStatus.ServerNeedRestart => "Server Need Restart",
+                    ServerErrorStatus.GeneralException => "Connection Error",
+                    ServerErrorStatus.NetworkStreamNotInitialized => "Network Stream Not Initialized",
+                    ServerErrorStatus.SocketException => "Socket Exception",
+                    _ => "Connection Error"
+                };
+
+            labelServerStatus.Text = statusText;
             labelServerStatus.ForeColor = Color.Red;
             labelSrvPid.Text = "-";
+            labelSrvPort.Text = "-";
             buttonServerConnect.Text = "Connect";
             return;
         }
 
-        var pid = _coreClient.ServerProcessId;
+        int pid = _coreClient.ServerProcessId;
         labelSrvPid.Text = (pid < 0) ? "-" : pid.ToString();
-
+        labelSrvPort.Text = _coreClient.Port.ToString();
         labelServerStatus.Text = "Connected";
         labelServerStatus.ForeColor = Color.Green;
         buttonServerConnect.Text = "Reconnect";
-        labelSrvPort.Text = _coreClient.Port.ToString();
     }
 
     private void ShowApiSetNamespaceInformation()
@@ -296,6 +310,7 @@ public partial class ConfigurationForm : Form
 
     private void ConfigurationForm_Load(object sender, EventArgs e)
     {
+        _coreClient.ServerStateChanged += CoreClient_ServerStateChanged;
         TVSettings.ExpandAll();
         PopulateGuiFontSizes();
 
@@ -1112,5 +1127,25 @@ public partial class ConfigurationForm : Form
                 }
             }
         }
+    }
+
+    private void CoreClient_ServerStateChanged(object? sender, EventArgs e)
+    {
+        if (IsDisposed || Disposing || !IsHandleCreated)
+            return;
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(new Action(ShowServerStatusAndSetControls));
+            return;
+        }
+
+        ShowServerStatusAndSetControls();
+    }
+
+    private void ConfigurationForm_FormClosed(object sender, FormClosedEventArgs e)
+    {
+        if (_coreClient != null)
+            _coreClient.ServerStateChanged -= CoreClient_ServerStateChanged;
     }
 }

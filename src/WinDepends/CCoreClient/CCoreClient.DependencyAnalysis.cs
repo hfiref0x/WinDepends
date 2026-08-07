@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        30 Jul 2026
 *  
 *  Module dependency/import/export analysis for 
 *  Core Server communication class.
@@ -25,7 +25,14 @@ public partial class CCoreClient
     private static readonly HashSet<string> s_forbiddenKernelLibs = new(StringComparer.OrdinalIgnoreCase)
     {
         CConsts.NtdllDll,
-        CConsts.Kernel32Dll
+        CConsts.Kernel32Dll,
+        CConsts.KernelBaseDll,
+        CConsts.User32Dll,
+        CConsts.Gdi32Dll,
+        CConsts.Advapi32Dll,
+        CConsts.Ole32Dll,
+        CConsts.Shell32Dll,
+        CConsts.ComBaseDll
     };
 
     private static readonly HashSet<string> s_requiredKernelLibs = new(StringComparer.OrdinalIgnoreCase)
@@ -33,7 +40,8 @@ public partial class CCoreClient
         CConsts.NtoskrnlExe,
         CConsts.HalDll,
         CConsts.KdComDll,
-        CConsts.BootVidDll
+        CConsts.BootVidDll,
+        CConsts.ClfsSys
     };
 
     /// <summary>
@@ -84,29 +92,26 @@ public partial class CCoreClient
         // Skip check if already determined to be a kernel module
         if (module.IsKernelModule ||
             module.ModuleData.Subsystem != NativeMethods.IMAGE_SUBSYSTEM_NATIVE)
+        {
             return;
+        }
 
-        bool hasForbiddenLibrary = false;
         bool hasRequiredLibrary = false;
 
         foreach (var entry in imports.Library)
         {
-            // Check for forbidden user-mode DLL's
-            if (!hasForbiddenLibrary && s_forbiddenKernelLibs.Contains(entry.Name))
+            if (s_forbiddenKernelLibs.Contains(entry.Name))
             {
-                hasForbiddenLibrary = true;
-                break;
+                return;
             }
 
-            // Check for required kernel-mode components
             if (!hasRequiredLibrary && s_requiredKernelLibs.Contains(entry.Name))
             {
                 hasRequiredLibrary = true;
             }
         }
 
-        // Module is kernel-mode if it has required libraries but no forbidden ones
-        if (!hasForbiddenLibrary && hasRequiredLibrary)
+        if (hasRequiredLibrary)
         {
             module.IsKernelModule = true;
         }

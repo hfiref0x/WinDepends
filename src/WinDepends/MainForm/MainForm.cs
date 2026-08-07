@@ -432,14 +432,12 @@ public partial class MainForm : Form
             case SymbolLoadState.Queued:
             case SymbolLoadState.Loading:
             case SymbolLoadState.Loaded:
+            case SymbolLoadState.Failed:
                 UpdateOperationStatus(e.Message);
                 break;
             case SymbolLoadState.Cancelled:
             case SymbolLoadState.Idle:
                 UpdateOperationStatus(string.Empty);
-                break;
-            case SymbolLoadState.Failed:
-                UpdateOperationStatus(e.Message);
                 break;
         }
     }
@@ -691,33 +689,36 @@ public partial class MainForm : Form
 
     public void RestoreWindowSettings()
     {
-        int? left = _configuration.WindowLeft;
-        int? top = _configuration.WindowTop;
-        int? height = _configuration.WindowHeight;
-        int? width = _configuration.WindowWidth;
-        int? state = _configuration.WindowState;
+        int left = _configuration.WindowLeft;
+        int top = _configuration.WindowTop;
+        int width = _configuration.WindowWidth;
+        int height = _configuration.WindowHeight;
+        int state = _configuration.WindowState;
 
-        bool hasValidDimensions = width.GetValueOrDefault() >= CConsts.MinValidWidth &&
-                             height.GetValueOrDefault() >= CConsts.MinValidHeight;
+        bool hasValidDimensions = width >= CConsts.MinValidWidth &&
+                             height >= CConsts.MinValidHeight;
 
-        bool hasValidPosition = left.HasValue && top.HasValue &&
-                                   CUtils.IsPointVisible(new Point(left.Value, top.Value));
+        bool hasValidPosition = CUtils.IsPointVisible(new Point(left, top));
 
-        if (left.HasValue && top.HasValue && hasValidDimensions && hasValidPosition)
+        if (hasValidDimensions && hasValidPosition)
         {
             this.StartPosition = FormStartPosition.Manual;
-            this.Bounds = CUtils.GetAdjustedBounds(new Rectangle(
-                left.Value, top.Value, width.Value, height.Value));
+            this.Bounds = CUtils.GetAdjustedBounds(new Rectangle(left, top, width, height));
         }
         else
         {
             this.StartPosition = FormStartPosition.CenterScreen;
         }
 
-        this.WindowState = (state.HasValue && state.Value != (int)FormWindowState.Minimized)
-            ? (FormWindowState)state.Value
-            : FormWindowState.Normal;
-
+        if (Enum.IsDefined(typeof(FormWindowState), state) &&
+            state != (int)FormWindowState.Minimized)
+        {
+            this.WindowState = (FormWindowState)state;
+        }
+        else
+        {
+            this.WindowState = FormWindowState.Normal;
+        }
     }
 
     private void SetDefaultStatusBarText()

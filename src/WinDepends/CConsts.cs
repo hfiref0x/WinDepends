@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        12 Jul 2026
+*  DATE:        30 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -37,7 +37,7 @@ public static class CConsts
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
-    public const uint VersionBuild = 2607;
+    public const uint VersionBuild = 2608;
 
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
@@ -204,9 +204,19 @@ public static class CConsts
     public const string NtoskrnlExe = "ntoskrnl.exe";
     public const string NtdllDll = "ntdll.dll";
     public const string Kernel32Dll = "kernel32.dll";
+
+    public const string KernelBaseDll = "kernelbase.dll";
+    public const string User32Dll = "user32.dll";
+    public const string Gdi32Dll = "gdi32.dll";
+    public const string Advapi32Dll = "advapi32.dll";
+    public const string Ole32Dll = "ole32.dll";
+    public const string Shell32Dll = "shell32.dll";
+    public const string ComBaseDll = "combase.dll";
+
     public const string KdComDll = "kdcom.dll";
     public const string BootVidDll = "bootvid.dll";
     public const string HalDll = "hal.dll";
+    public const string ClfsSys = "clfs.sys";
 
     public const string DbgHelpDll = "dbghelp.dll";
     public const string SymbolsDownloadLink = "*https://msdl.microsoft.com/download/symbols";

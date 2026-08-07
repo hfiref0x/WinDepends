@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        25 Jul 2026
 *  
 *  Server process lifecycle routines for Core Server communication class.
 *
@@ -107,7 +107,7 @@ public partial class CCoreClient
         }
         catch
         {
-            // Intentionally silent.
+            ErrorStatus = ServerErrorStatus.GeneralException;
         }
 
         _serverProcess = null;
@@ -117,8 +117,6 @@ public partial class CCoreClient
 
         _clientConnection?.Close();
         _clientConnection = null;
-
-        ErrorStatus = ServerErrorStatus.GeneralException;
     }
 
     /// <summary>
@@ -152,6 +150,7 @@ public partial class CCoreClient
 
         ErrorStatus = ServerErrorStatus.ServerNeedRestart;
         CleanupFailedConnection();
+        OnServerStateChanged();
     }
 
     /// <summary>
@@ -277,8 +276,8 @@ public partial class CCoreClient
             }
             else
             {
-                ErrorStatus = ServerErrorStatus.ServerNeedRestart;
                 _addLogMessage($"Server initialization failed, missing server HELLO", LogMessageType.ErrorOrWarning);
+                ErrorStatus = ServerErrorStatus.ServerNeedRestart;
                 CleanupFailedConnection();
                 return false;
             }
@@ -299,6 +298,7 @@ public partial class CCoreClient
             tempConnection?.Close();
             tempProcess?.Dispose();
 
+            ErrorStatus = ServerErrorStatus.GeneralException;
             CleanupFailedConnection();
             _addLogMessage($"Server failed to start: {errMessage}", LogMessageType.ErrorOrWarning);
             return false;
@@ -324,18 +324,24 @@ public partial class CCoreClient
     /// </remarks>
     public void DisconnectClient()
     {
+        Process process = _serverProcess;
+
         try
         {
-            if (_serverProcess != null && !_serverProcess.HasExited)
+            if (process != null)
             {
-                ShutdownRequest();
-                Thread.Sleep(SHUTDOWN_WAIT_MS);
-                if (!_consoleRun && _serverProcess != null)
-                    _serverProcess.Exited -= ServerProcess_Exited;
+                if (!_consoleRun)
+                    process.Exited -= ServerProcess_Exited;
 
-                if (!_serverProcess.HasExited)
+                if (!process.HasExited)
                 {
-                    _serverProcess.Kill();
+                    ShutdownRequest();
+                    Thread.Sleep(SHUTDOWN_WAIT_MS);
+
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                    }
                 }
             }
         }
@@ -356,11 +362,12 @@ public partial class CCoreClient
                 _clientConnection = null;
             }
 
-            if (_serverProcess != null)
+            if (process != null)
             {
-                _serverProcess.Dispose();
-                _serverProcess = null;
+                process.Dispose();
             }
+
+            _serverProcess = null;
         }
     }
 
@@ -380,5 +387,13 @@ public partial class CCoreClient
     public bool ShutdownRequest()
     {
         return SendRequest(CConsts.CMD_SHUTDOWN);
+    }
+
+    /// <summary>
+    /// Execute event callback when server state is changed.
+    /// </summary>
+    private void OnServerStateChanged()
+    {
+        ServerStateChanged?.Invoke(this, EventArgs.Empty);
     }
 }

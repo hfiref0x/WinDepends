@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        26 Jul 2026
 *  
 *  Core Server communication class.
 *
@@ -97,6 +97,8 @@ public partial class CCoreClient : IDisposable
     private readonly AddLogMessageCallback _addLogMessage;
     private string _serverApplication;
     private bool _consoleRun;
+
+    public event EventHandler ServerStateChanged;
 
     /// <summary>
     /// Gets the TCP client connection to the server.

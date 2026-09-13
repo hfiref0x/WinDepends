@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        13 Sep 2026
 *  
 *  Implementation of command-line interface handler.
 *
@@ -28,7 +28,7 @@ public class CliOptions
     public string InputFile { get; set; }
     public string OutputFile { get; set; }
     public ExportFormat Format { get; set; } = ExportFormat.Json;
-    public int MaxDepth { get; set; } = int.MaxValue;
+    public int MaxDepth { get; set; } = -1;
     public bool IncludeExports { get; set; } = true;
     public bool IncludeImports { get; set; } = true;
     public bool Quiet { get; set; } = false;
@@ -158,7 +158,8 @@ public static class CCliHandler
             }
             else if (lowerArg == "-d" || lowerArg == "--depth")
             {
-                if (i + 1 < args.Length && int.TryParse(args[++i], out int depth))
+                if (i + 1 < args.Length && int.TryParse(args[++i], out int depth) &&
+                    depth >= CConsts.ModuleNodeDepthMin)
                 {
                     options.MaxDepth = depth;
                 }
@@ -166,7 +167,8 @@ public static class CCliHandler
             }
             else if (lowerArg.StartsWith("--depth="))
             {
-                if (int.TryParse(arg.Substring(8), out int depth))
+                if (int.TryParse(arg.Substring(8), out int depth) &&
+                    depth >= CConsts.ModuleNodeDepthMin)
                 {
                     options.MaxDepth = depth;
                 }
@@ -321,6 +323,9 @@ public static class CCliHandler
         }
 
         var config = CConfigManager.LoadConfiguration();
+        int maxDepth = options.MaxDepth >= CConsts.ModuleNodeDepthMin
+            ? options.MaxDepth
+            : config.ModuleNodeDepthMax;
         config.ResolveAPIsets = options.ResolveApiSets;
         config.FullPaths = options.FullPaths;
 
@@ -433,7 +438,7 @@ public static class CCliHandler
                 parentImportsHashTable,
                 fileOpenSettings,
                 config,
-                options.MaxDepth,
+                maxDepth,
                 0,
                 processedModulesData,
                 options.Quiet,
@@ -449,7 +454,7 @@ public static class CCliHandler
                 IncludeExports = options.IncludeExports,
                 IncludeImports = options.IncludeImports,
                 FullPaths = options.FullPaths,
-                MaxDepth = options.MaxDepth
+                MaxDepth = maxDepth
             };
 
             if (CExporter.Export(session, options.OutputFile, options.Format, exportOptions))

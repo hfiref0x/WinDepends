@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Jul 2026
+*  DATE:        13 Sep 2026
 *  
 *  Server process lifecycle routines for Core Server communication class.
 *
@@ -211,7 +211,6 @@ public partial class CCoreClient
                 };
 
                 tempProcess = Process.Start(processInfo);
-
                 if (tempProcess == null)
                 {
                     throw new Exception("Core process start failure");
@@ -227,12 +226,16 @@ public partial class CCoreClient
 
                 if (tempProcess.HasExited)
                 {
-                    if (tempProcess.ExitCode != CConsts.SERVER_ERROR_INVALIDIP)
-                    {
-                        throw new Exception($"Server process exited with code {tempProcess.ExitCode}");
-                    }
+                    int exitCode = tempProcess.ExitCode;
                     tempProcess.Dispose();
                     tempProcess = null;
+
+                    if (exitCode != CConsts.SERVER_ERROR_BIND)
+                    {
+                        throw new Exception($"Server process exited with code {exitCode}");
+                    }
+
+                    continue;
                 }
                 else
                 {
@@ -253,6 +256,13 @@ public partial class CCoreClient
 
                     tempConnection.Dispose();
                     tempConnection = null;
+
+                    if (!tempProcess.HasExited)
+                    {
+                        tempProcess.Kill();
+                    }
+                    tempProcess.Dispose();
+                    tempProcess = null;
                 }
 
             } while (--startAttempts > 0);

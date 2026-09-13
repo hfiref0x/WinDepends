@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CEXPORTER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Nov 2025
+*  DATE:        13 Sep 2026
 *  
 *  Implementation of dependency export functionality. 
 *
@@ -18,6 +18,7 @@
 *******************************************************************************/
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace WinDepends;
@@ -274,7 +275,7 @@ public static class CExporter
             string nodeId = GetDotNodeId(kvp.Key);
             string label = Path.GetFileName(kvp.Key);
             string color = GetDotNodeColor(kvp.Value);
-            string tooltip = kvp.Key.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            string tooltip = EscapeDotLabel(kvp.Key);
 
             sb.AppendLine($"    {nodeId} [label=\"{EscapeDotLabel(label)}\", fillcolor=\"{color}\", tooltip=\"{tooltip}\"];");
         }
@@ -375,8 +376,7 @@ public static class CExporter
                 }).ToList();
             }
 
-            exportModule.Dependencies = module.Dependents?.Select(d => Path.GetFileName(d.FileName)).ToList() ?? [];
-
+            exportModule.Dependencies = module.Dependents?.Select(d => d.FileName).ToList() ?? [];
             data.Modules.Add(exportModule);
         }
 
@@ -566,8 +566,9 @@ public static class CExporter
 
     private static string GetDotNodeId(string fileName)
     {
-        string name = Path.GetFileName(fileName) ?? fileName;
-        return "n" + Math.Abs(name.GetHashCode(StringComparison.OrdinalIgnoreCase)).ToString();
+        byte[] input = Encoding.UTF8.GetBytes(fileName ?? string.Empty);
+        byte[] hash = SHA256.HashData(input);       
+        return "n" + Convert.ToHexString(hash);
     }
 
     private static string GetDotNodeColor(CModule module)
@@ -588,8 +589,10 @@ public static class CExporter
 
     private static string EscapeDotLabel(string value)
     {
-        if (string.IsNullOrEmpty(value)) return "";
-        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        return value.Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
     }
 
     private static string HtmlEncode(string value)
@@ -600,19 +603,22 @@ public static class CExporter
 
     private static string GetHtmlStyles()
     {
+        //
+        // Note: double check the HTML crap at any change.
+        //
         return @"
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; padding: 20px; }
         .header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 20px; }
         .header h1 { font-size: 24px; margin-bottom: 10px; }
-        .header.subtitle { font-size: 14px; opacity: 0.9; word-break: break-all; }
-        .header.meta { font-size: 12px; opacity: 0.7; margin-top: 10px; }
+        .header .subtitle { font-size: 14px; opacity: 0.9; word-break: break-all; }
+        .header .meta { font-size: 12px; opacity: 0.7; margin-top: 10px; }
         .summary { display: flex; gap: 20px; margin-bottom: 20px; }
         .summary-item { background: white; padding: 20px; border-radius: 8px; text-align: center; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .summary-item.count { display: block; font-size: 32px; font-weight: bold; color: #2d5a87; }
-        .summary-item.label { font-size: 12px; color: #666; text-transform: uppercase; }
-        .summary-item.missing.count { color: #dc3545; }
-        .summary-item.warning.count { color: #ffc107; }
+        .summary-item .count { display: block; font-size: 32px; font-weight: bold; color: #2d5a87; }
+        .summary-item .label { font-size: 12px; color: #666; text-transform: uppercase; }
+        .summary-item.missing .count { color: #dc3545; }
+        .summary-item.warning .count { color: #ffc107; }
         .controls { margin-bottom: 20px; }
         .controls button { padding: 8px 16px; margin-right: 10px; border: none; border-radius: 4px; background: #2d5a87; color: white; cursor: pointer; }
         .controls button:hover { background: #1e3a5f; }

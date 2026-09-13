@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 Jul 2026
+*  DATE:        13 Sep 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -15,7 +15,6 @@
 *
 *******************************************************************************/
 using System.Collections.Concurrent;
-using System.Data.Common;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
@@ -118,12 +117,24 @@ internal sealed class ExpiringCache<TValue>
     private void Prune()
     {
         long nowTicks = DateTime.UtcNow.Ticks;
+
         foreach (var kvp in _store)
         {
             if (kvp.Value.expirationTicks < nowTicks)
             {
                 ((ICollection<KeyValuePair<string, (TValue, long)>>)_store).Remove(kvp);
             }
+        }
+
+        int excess = _store.Count - _maxSize;
+        if (excess <= 0)
+            return;
+
+        foreach (var kvp in _store
+            .OrderBy(entry => entry.Value.expirationTicks)
+            .Take(excess))
+        {
+            ((ICollection<KeyValuePair<string, (TValue, long)>>)_store).Remove(kvp);
         }
     }
 }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Jul 2026
+*  DATE:        13 Sep 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -976,7 +976,7 @@ public partial class ConfigurationForm : Form
         if (view?.SelectedNode?.Tag is string text &&
             text.Equals(CConsts.SearchOrderUserValue, StringComparison.OrdinalIgnoreCase))
         {
-            view?.Nodes.Remove(view.SelectedNode);
+            view.SelectedNode.Remove();
         }
     }
 

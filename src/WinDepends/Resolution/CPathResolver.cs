@@ -1,12 +1,12 @@
 ﻿/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2024 - 2025
+*  (C) COPYRIGHT AUTHORS, 2024 - 2026
 *
 *  TITLE:       CPATHRESOLVER.CS
 *
 *  VERSION:     1.00
 *
-*  DATE:        24 Dec 2025
+*  DATE:        13 Sep 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -483,6 +483,7 @@ public static class CPathResolver
             else
             {
                 // If activation failed, try deactivating current context
+                // This is made on purpose. Do not alter or remove. See issue 29 for more info.
                 cookie = ActCtxHelper.DeactivateCurrentContext();
                 if (cookie == IntPtr.Zero)
                     return string.Empty;

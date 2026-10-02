@@ -17,13 +17,13 @@
 *
 *******************************************************************************/
 
-using System.Numerics;
 using System.Reflection.PortableExecutable;
 
 namespace WinDepends;
 
 internal sealed class CDependsAnalysisService
 {
+    private static readonly Action<CDependsAnalysisProgress> s_ignoreProgress = _ => { };
     private readonly CCoreClient _coreClient;
 
     public CDependsAnalysisService(CCoreClient coreClient)
@@ -34,9 +34,9 @@ internal sealed class CDependsAnalysisService
     }
 
     private static void ReportModuleProgress(
-    CDependsAnalysisContext context,
-    CDependsAnalysisProgressStage stage,
-    CModule module)
+        CDependsAnalysisContext context,
+        CDependsAnalysisProgressStage stage,
+        CModule module)
     {
         context.ReportProgress?.Invoke(new CDependsAnalysisProgress(
             stage,
@@ -44,8 +44,8 @@ internal sealed class CDependsAnalysisService
             -1));
     }
 
-    public CDependsAnalysisScope BeginAnalysis(
-        string rootFileName, 
+    private CDependsAnalysisScope BeginAnalysis(
+        string rootFileName,
         CDependsAnalysisContext context)
     {
         CActCtxHelper activationContext;
@@ -59,6 +59,34 @@ internal sealed class CDependsAnalysisService
         CPathResolver.ActCtxHelper = activationContext;
 
         return new CDependsAnalysisScope(activationContext, context);
+    }
+
+    public TreeNode? PopulateLiveAnalysis(
+        string rootFileName,
+        CModule rootModule,
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context,
+        CDependsModuleProcessor processModule)
+    {
+        Action<CDependsAnalysisProgress> reportProgress;
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(rootFileName);
+        ArgumentNullException.ThrowIfNull(rootModule);
+        ArgumentNullException.ThrowIfNull(fileOpenSettings);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(processModule);
+
+        reportProgress = context.ReportProgress ?? s_ignoreProgress;
+
+        using (BeginAnalysis(rootFileName, context))
+        {
+            return PopulateDependencyTree(
+                rootModule,
+                fileOpenSettings,
+                processModule,
+                context,
+                reportProgress);
+        }
     }
 
     public void ProcessModule(
@@ -119,11 +147,13 @@ internal sealed class CDependsAnalysisService
         CModule rootModule,
         CFileOpenSettings fileOpenSettings,
         CDependsModuleProcessor processModule,
+        CDependsAnalysisContext context,
         Action<CDependsAnalysisProgress> reportProgress)
     {
         ArgumentNullException.ThrowIfNull(rootModule);
         ArgumentNullException.ThrowIfNull(fileOpenSettings);
         ArgumentNullException.ThrowIfNull(processModule);
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(reportProgress);
 
         return PopulateTreeCore(
@@ -131,7 +161,8 @@ internal sealed class CDependsAnalysisService
             (module, parentNode) => processModule(
                 module,
                 parentNode,
-                fileOpenSettings),
+                fileOpenSettings,
+                context),
             reportProgress);
     }
 

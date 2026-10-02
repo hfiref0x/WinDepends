@@ -141,60 +141,42 @@ public partial class MainForm
 
             if (_depends.RootModule != null)
             {
-                CDependsAnalysisContext analysisContext = new(
-                    _configuration,
-                    _depends.RootModule,
-                    _parentImportsHashTable,
-                    AppLogger.LogExt,
-                    ReportAnalysisProgress);
+                CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
 
-                using (CDependsAnalysisScope analysisScope =
-                    _analysisService.BeginAnalysis(
-                        fileName,
-                        analysisContext))
+                TVModules.BeginUpdate();
+                try
                 {
-                    _analysisScope = analysisScope;
+                    _rootNode = _analysisService.PopulateLiveAnalysis(
+                        fileName,
+                        _depends.RootModule,
+                        fileOpenSettings,
+                        analysisContext,
+                        ProcessLiveModule);
 
-                    try
-                    {
-                        TVModules.BeginUpdate();
-                        try
-                        {
-                            PopulateObjectToLists(
-                                _depends.RootModule,
-                                false,
-                                fileOpenSettings);
-
-                            _rootNode?.Expand();
-                        }
-                        finally
-                        {
-                            TVModules.EndUpdate();
-                        }
-
-                        LVModules.BeginUpdate();
-                        try
-                        {
-                            LVModules.VirtualListSize = _loadedModulesList.Count;
-                            LVModulesSort(
-                                LVModules,
-                                _configuration.SortColumnModules,
-                                _lvModulesSortOrder,
-                                _loadedModulesList,
-                                DisplayCacheType.Modules);
-                        }
-                        finally
-                        {
-                            LVModules.EndUpdate();
-                        }
-
-                        bResult = true;
-                    }
-                    finally
-                    {
-                        _analysisScope = null;
-                    }
+                    _rootNode?.Expand();
                 }
+                finally
+                {
+                    TVModules.EndUpdate();
+                }
+
+                LVModules.BeginUpdate();
+                try
+                {
+                    LVModules.VirtualListSize = _loadedModulesList.Count;
+                    LVModulesSort(
+                        LVModules,
+                        _configuration.SortColumnModules,
+                        _lvModulesSortOrder,
+                        _loadedModulesList,
+                        DisplayCacheType.Modules);
+                }
+                finally
+                {
+                    LVModules.EndUpdate();
+                }
+
+                bResult = _rootNode != null;
             }
 
         }
@@ -261,7 +243,7 @@ public partial class MainForm
             TVModules.BeginUpdate();
             try
             {
-                PopulateObjectToLists(_depends.RootModule, true, null);
+                PopulateSessionObjectToLists(_depends.RootModule);
                 // Expand root module.
                 _rootNode?.Expand();
             }

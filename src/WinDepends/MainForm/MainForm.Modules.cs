@@ -24,8 +24,6 @@ namespace WinDepends;
 
 public partial class MainForm
 {
-    private CDependsAnalysisScope? _analysisScope;
-
     /// <summary>
     /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
@@ -281,21 +279,27 @@ public partial class MainForm
         return tvNode;
     }
 
+    private CDependsAnalysisContext CreateLiveAnalysisContext(CModule rootModule)
+    {
+        return new CDependsAnalysisContext(
+            _configuration,
+            rootModule,
+            _parentImportsHashTable,
+            AppLogger.LogExt,
+            ReportAnalysisProgress);
+    }
+
     private void ProcessNewModule(
         CModule module,
         CFileOpenSettings fileOpenSettings,
-        bool isRootModule)
+        bool isRootModule,
+        CDependsAnalysisContext context)
     {
-        if (_analysisScope == null)
-        {
-            throw new InvalidOperationException("Module analysis was requested outside an active analysis scope.");
-        }
-
         _analysisService.ProcessModule(
             module,
             fileOpenSettings,
             isRootModule,
-            _analysisScope.Context);
+            context);
 
         module.ModuleImageIndex = module.GetIconIndexForModule();
     }
@@ -304,7 +308,11 @@ public partial class MainForm
     /// Insert module entry to TVModules treeview.
     /// </summary>
     /// <returns>Tree node.</returns>
-    private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
+    private TreeNode AddModuleEntry(
+        CModule module, 
+        CFileOpenSettings fileOpenSettings, 
+        TreeNode parentNode,
+        CDependsAnalysisContext context)
     {
         bool isRootModule = (parentNode == null);
 
@@ -312,11 +320,12 @@ public partial class MainForm
         return AddModuleEntryCore(
             module,
             parentNode,
-            _configuration.ModuleNodeDepthMax,
+            context.Configuration.ModuleNodeDepthMax,
             mod => ProcessNewModule(
                 mod,
                 fileOpenSettings,
-                isRootModule)
+                isRootModule,
+                context)
             );
     }
 
@@ -338,12 +347,14 @@ public partial class MainForm
     private TreeNode? ProcessLiveModule(
         CModule module,
         TreeNode? parentNode,
-        CFileOpenSettings fileOpenSettings)
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context)
     {
         return AddModuleEntry(
             module,
             fileOpenSettings,
-            parentNode);
+            parentNode,
+            context);
     }
 
     private TreeNode? ProcessSessionModule(
@@ -364,59 +375,15 @@ public partial class MainForm
     }
 
     /// <summary>
-    /// Populates the tree and related lists for the root module and its dependencies.
+    /// Populates the module tree and related lists from a saved session.
     /// </summary>
-    /// <param name="module">The root module to populate.</param>
-    /// <param name="loadFromObject">If true, populates from a restored session object.</param>
-    /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
-    private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
+    /// <param name="module">The saved session root module to populate.</param>
+    private void PopulateSessionObjectToLists(CModule module)
     {
-        if (loadFromObject)
-        {
-            _rootNode = _analysisService.PopulateSessionTree(
-                module,
-                ProcessSessionModule,
-                ReportAnalysisProgress);
-
-        }
-        else
-        {
-            _rootNode = _analysisService.PopulateDependencyTree(
-                module,
-                fileOpenSettings,
-                ProcessLiveModule,
-                ReportAnalysisProgress);
-        }
-    }
-
-    /// <summary>
-    /// Populates dependent modules under the specified parent node, respecting the configured depth limit.
-    /// </summary>
-    /// <param name="module">The dependent module to populate.</param>
-    /// <param name="parentNode">The parent tree node.</param>
-    /// <param name="loadFromObject">If true, populates from a restored session object.</param>
-    /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
-    private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings)
-    {
-        TreeNode tvNode;
-
-        if (loadFromObject)
-        {
-            tvNode = AddSessionModuleEntry(module, parentNode);
-        }
-        else
-        {
-            tvNode = AddModuleEntry(module, fileOpenSettings, parentNode);
-        }
-
-        if (tvNode == null)
-            return;
-
-        foreach (CModule dependentModule in module.Dependents)
-        {
-            UpdateOperationStatus($"Populating {dependentModule.FileName}");
-            PopulateDependentObjectsToLists(dependentModule, tvNode, loadFromObject, fileOpenSettings);
-        }
+        _rootNode = _analysisService.PopulateSessionTree(
+            module,
+            ProcessSessionModule,
+            ReportAnalysisProgress);
     }
 
     /// <summary>

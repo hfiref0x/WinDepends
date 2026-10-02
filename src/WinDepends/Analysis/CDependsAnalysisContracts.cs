@@ -50,7 +50,8 @@ internal sealed class CDependsAnalysisContext
 internal delegate TreeNode? CDependsModuleProcessor(
     CModule module,
     TreeNode? parentNode,
-    CFileOpenSettings fileOpenSettings);
+    CFileOpenSettings fileOpenSettings,
+    CDependsAnalysisContext context);
 
 internal delegate TreeNode? CDependsSessionModuleProcessor(
     CModule module,

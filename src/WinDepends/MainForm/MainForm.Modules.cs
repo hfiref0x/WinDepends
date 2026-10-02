@@ -24,6 +24,8 @@ namespace WinDepends;
 
 public partial class MainForm
 {
+    private CDependsAnalysisScope? _analysisScope;
+
     /// <summary>
     /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
@@ -279,25 +281,21 @@ public partial class MainForm
         return tvNode;
     }
 
-    private CDependsAnalysisContext CreateAnalysisContext()
-    {
-        return new CDependsAnalysisContext(
-            _configuration,
-            _depends.RootModule,
-            _parentImportsHashTable,
-            AppLogger.LogExt);
-    }
-
     private void ProcessNewModule(
         CModule module,
         CFileOpenSettings fileOpenSettings,
         bool isRootModule)
     {
+        if (_analysisScope == null)
+        {
+            throw new InvalidOperationException("Module analysis was requested outside an active analysis scope.");
+        }
+
         _analysisService.ProcessModule(
             module,
             fileOpenSettings,
             isRootModule,
-            CreateAnalysisContext());
+            _analysisScope.Context);
 
         module.ModuleImageIndex = module.GetIconIndexForModule();
     }

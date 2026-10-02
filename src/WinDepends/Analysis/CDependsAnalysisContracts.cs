@@ -47,12 +47,17 @@ internal sealed class CDependsAnalysisContext
 internal sealed class CDependsAnalysisScope : IDisposable
 {
     private CActCtxHelper? _activationContext;
+    public CDependsAnalysisContext Context { get; }
 
-    internal CDependsAnalysisScope(CActCtxHelper activationContext)
+    internal CDependsAnalysisScope(
+        CActCtxHelper activationContext,
+        CDependsAnalysisContext context)
     {
         ArgumentNullException.ThrowIfNull(activationContext);
+        ArgumentNullException.ThrowIfNull(context);
 
         _activationContext = activationContext;
+        Context = context;
     }
 
     public void Dispose()

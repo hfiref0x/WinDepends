@@ -32,18 +32,21 @@ internal sealed class CDependsAnalysisService
         _coreClient = coreClient;
     }
 
-    public CDependsAnalysisScope BeginAnalysis(string rootFileName)
+    public CDependsAnalysisScope BeginAnalysis(
+        string rootFileName, 
+        CDependsAnalysisContext context)
     {
         CActCtxHelper activationContext;
 
         ArgumentException.ThrowIfNullOrWhiteSpace(rootFileName);
+        ArgumentNullException.ThrowIfNull(context);
 
         CPathResolver.Initialized = false;
 
         activationContext = new CActCtxHelper(rootFileName);
         CPathResolver.ActCtxHelper = activationContext;
 
-        return new CDependsAnalysisScope(activationContext);
+        return new CDependsAnalysisScope(activationContext, context);
     }
 
     public void ProcessModule(

@@ -283,7 +283,7 @@ public partial class MainForm
     {
         return new CDependsAnalysisContext(
             _configuration,
-            _depends,
+            _depends.RootModule,
             _parentImportsHashTable,
             AppLogger.LogExt);
     }

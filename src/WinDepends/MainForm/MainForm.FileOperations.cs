@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        02 Oct 2026
 *  
 *  File and session open/save routines for main form.
 *
@@ -141,11 +141,9 @@ public partial class MainForm
 
             if (_depends.RootModule != null)
             {
-                CPathResolver.Initialized = false;
-                using (CActCtxHelper sxsHelper = new(fileName))
+                using (CDependsAnalysisScope analysisScope = 
+                    _analysisService.BeginAnalysis(fileName))
                 {
-                    CPathResolver.ActCtxHelper = sxsHelper;
-
                     TVModules.BeginUpdate();
                     try
                     {
@@ -165,7 +163,7 @@ public partial class MainForm
                     finally { LVModules.EndUpdate(); }
 
                     bResult = true;
-                }//CActCtxHelper
+                }
             }
 
         }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Sep 2026
+*  DATE:        02 Oct 2026
 *
 *  CDepends analysis service.
 *
@@ -30,6 +30,20 @@ internal sealed class CDependsAnalysisService
         ArgumentNullException.ThrowIfNull(coreClient);
 
         _coreClient = coreClient;
+    }
+
+    public CDependsAnalysisScope BeginAnalysis(string rootFileName)
+    {
+        CActCtxHelper activationContext;
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(rootFileName);
+
+        CPathResolver.Initialized = false;
+
+        activationContext = new CActCtxHelper(rootFileName);
+        CPathResolver.ActCtxHelper = activationContext;
+
+        return new CDependsAnalysisScope(activationContext);
     }
 
     public void ProcessModule(
@@ -238,7 +252,7 @@ internal sealed class CDependsAnalysisService
 
         bool isCpuMismatch = IsCpuMismatchForAnalysis(
             module,
-            context.Depends.RootModule);
+            context.RootModule);
 
         if (isCpuMismatch)
         {

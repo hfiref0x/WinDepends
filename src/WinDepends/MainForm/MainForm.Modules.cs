@@ -24,22 +24,6 @@ namespace WinDepends;
 
 public partial class MainForm
 {
-    private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, CFileOpenSettings settings, bool currentModuleIsRoot)
-    {
-        CDependsAnalysisContext context = new(
-            _configuration,
-            _depends,
-            _parentImportsHashTable,
-            AppLogger.LogExt);
-
-        _analysisService.HandleModuleOpenStatus(
-            module,
-            openStatus,
-            settings,
-            currentModuleIsRoot,
-            context);
-    }
-
     /// <summary>
     /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
@@ -295,6 +279,29 @@ public partial class MainForm
         return tvNode;
     }
 
+    private CDependsAnalysisContext CreateAnalysisContext()
+    {
+        return new CDependsAnalysisContext(
+            _configuration,
+            _depends,
+            _parentImportsHashTable,
+            AppLogger.LogExt);
+    }
+
+    private void ProcessNewModule(
+        CModule module,
+        CFileOpenSettings fileOpenSettings,
+        bool isRootModule)
+    {
+        _analysisService.ProcessModule(
+            module,
+            fileOpenSettings,
+            isRootModule,
+            CreateAnalysisContext());
+
+        module.ModuleImageIndex = module.GetIconIndexForModule();
+    }
+
     /// <summary>
     /// Insert module entry to TVModules treeview.
     /// </summary>
@@ -303,38 +310,16 @@ public partial class MainForm
     {
         bool isRootModule = (parentNode == null);
 
-        // Define action processor (callback)
-        Action<CModule> processModule = (mod) =>
-        {
-            var effectiveSettings = new CFileOpenSettings(fileOpenSettings);
-
-            // If this is a dependency and propagation is disabled, reset to defaults
-            if (!isRootModule && !fileOpenSettings.PropagateSettingsOnDependencies)
-            {
-                effectiveSettings.ProcessRelocsForImage = false;
-                effectiveSettings.UseStats = false;
-                effectiveSettings.UseCustomImageBase = false;
-                effectiveSettings.CustomImageBase = 0;
-            }
-
-            // Open and process module
-            mod.InstanceId = mod.GetHashCode();
-            ModuleOpenStatus openStatus = _coreClient.OpenModule(
-                ref mod,
-                effectiveSettings);
-
-            HandleModuleOpenStatus(mod, openStatus, effectiveSettings, isRootModule);
-
-            // Set module icon index
-            mod.ModuleImageIndex = mod.GetIconIndexForModule();
-        };
-
         // Use shared implementation with our specific processor
         return AddModuleEntryCore(
             module,
             parentNode,
             _configuration.ModuleNodeDepthMax,
-            processModule);
+            mod => ProcessNewModule(
+                mod,
+                fileOpenSettings,
+                isRootModule)
+            );
     }
 
     /// <summary>

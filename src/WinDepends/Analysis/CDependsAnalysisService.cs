@@ -32,6 +32,47 @@ internal sealed class CDependsAnalysisService
         _coreClient = coreClient;
     }
 
+    public void ProcessModule(
+        CModule module,
+        CFileOpenSettings fileOpenSettings,
+        bool currentModuleIsRoot,
+        CDependsAnalysisContext context)
+    {
+        CFileOpenSettings effectiveSettings;
+        ModuleOpenStatus openStatus;
+
+        ArgumentNullException.ThrowIfNull(module);
+        ArgumentNullException.ThrowIfNull(fileOpenSettings);
+        ArgumentNullException.ThrowIfNull(context);
+
+        effectiveSettings = new CFileOpenSettings(fileOpenSettings);
+
+        //
+        // If this is a dependency and propagation is disabled, reset to defaults.
+        //
+        if (!currentModuleIsRoot &&
+            !fileOpenSettings.PropagateSettingsOnDependencies)
+        {
+            effectiveSettings.ProcessRelocsForImage = false;
+            effectiveSettings.UseStats = false;
+            effectiveSettings.UseCustomImageBase = false;
+            effectiveSettings.CustomImageBase = 0;
+        }
+
+        module.InstanceId = module.GetHashCode();
+
+        openStatus = _coreClient.OpenModule(
+            ref module,
+            effectiveSettings);
+
+        HandleModuleOpenStatus(
+            module,
+            openStatus,
+            effectiveSettings,
+            currentModuleIsRoot,
+            context);
+    }
+
     public void HandleModuleOpenStatus(
         CModule module,
         ModuleOpenStatus openStatus,

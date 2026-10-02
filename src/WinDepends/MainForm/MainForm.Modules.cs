@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        25 Sep 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -26,166 +26,18 @@ public partial class MainForm
 {
     private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, CFileOpenSettings settings, bool currentModuleIsRoot)
     {
-        switch (openStatus)
-        {
-            case ModuleOpenStatus.Okay:
+        CDependsAnalysisContext context = new(
+            _configuration,
+            _depends,
+            _parentImportsHashTable,
+            AppLogger.LogExt);
 
-                module.IsProcessed = _coreClient.GetModuleHeadersInformation(module);
-
-                //
-                // If this is root module, setup resolver.
-                //
-                if (currentModuleIsRoot)
-                {
-                    CPathResolver.QueryFileInformation(module);
-                }
-
-                _coreClient.GetModuleImportExportInformation(module,
-                    _configuration.SearchOrderListUM,
-                    _configuration.SearchOrderListKM,
-                    _parentImportsHashTable,
-                    settings.EnableExperimentalFeatures,
-                    settings.ExpandForwarders);
-
-                //
-                // Collect forwarders if exists.
-                // Has local settings priority over global.
-                //
-                if (settings.ExpandForwarders)
-                {
-                    _coreClient.ExpandAllForwarderModules(module, _configuration.SearchOrderListUM,
-                        _configuration.SearchOrderListKM,
-                        _parentImportsHashTable);
-
-                    // Validate forwarded exports after expansion
-                    _coreClient.ValidateForwardedExports(module);
-                }
-
-                CCoreCallStats stats = null;
-                if (settings.UseStats)
-                {
-                    stats = _coreClient.GetCoreCallStats();
-                }
-
-                _coreClient.CloseModule();
-
-                //
-                // Display statistics.
-                //
-                if (settings.UseStats && stats != null)
-                {
-                    LogModuleStats(stats, module.FileName);
-                }
-
-                if (module.ExportContainErrors)
-                {
-                    AppLogger.LogExt($"Module \"{module.FileName}\" contains export errors.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                // Add warning for modules with forwarding issues
-                if (module.OtherErrorsPresent && module.ForwarderEntries?.Count > 0)
-                {
-                    AppLogger.LogExt($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                bool isCpuMismatch = IsCpuMismatchForDisplay(module, _depends.RootModule);
-
-                if (isCpuMismatch)
-                {
-                    module.OtherErrorsPresent = true;
-                    AppLogger.LogExt($"Module \"{module.FileName}\" with different CPU type was found.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                // Skip this message for kernel modules, dotnet files, and when relocation processing is disabled
-                if (module.ModuleData.ImageFixed != 0 &&
-                    !module.IsKernelModule &&
-                    module.ModuleData.ImageDotNet != 1 &&
-                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested (as per issue #39)
-                {
-                    module.OtherErrorsPresent = true;
-                    AppLogger.LogExt($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                if (!module.IsProcessed)
-                {
-                    AppLogger.LogExt($"Module \"{module.FileName}\" was not fully processed.",
-                        LogMessageType.ErrorOrWarning,
-                        null, true, true, module);
-                }
-                break;
-
-            case ModuleOpenStatus.ErrorUnspecified:
-                AppLogger.LogExt($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorSendCommand:
-                AppLogger.LogExt($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorReceivedDataInvalid:
-                AppLogger.LogExt($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorFileNotMapped:
-                AppLogger.LogExt($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorCannotReadFileHeaders:
-                AppLogger.LogExt($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
-                if (module.IsDelayLoad)
-                {
-                    AppLogger.LogExt($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                        null, true, true, module);
-                }
-                else
-                {
-                    AppLogger.LogExt($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                        null, true, true, module);
-                }
-                break;
-
-            case ModuleOpenStatus.ErrorFileNotFound:
-
-                // In case if this is ApiSets failure.
-                // API-* are mandatory to load, while EXT-* are not.
-                bool bExtApiSet = module.IsApiSetContract && module.RawFileName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
-
-                string messageText;
-                LogMessageType messageType = bExtApiSet ? LogMessageType.Information : LogMessageType.ErrorOrWarning;
-
-                if (module.IsDelayLoad)
-                {
-                    if (bExtApiSet)
-                    {
-                        messageText = $"Delay-load extension apiset module \"{module.FileName}\" was not found.";
-                    }
-                    else
-                    {
-                        messageText = $"Delay-load dependency module \"{module.FileName}\" was not found.";
-                    }
-                }
-                else
-                {
-                    if (bExtApiSet)
-                    {
-                        messageText = $"Extension apiset module \"{module.FileName}\" was not found.";
-                    }
-                    else
-                    {
-                        messageText = $"Required implicit or forwarded dependency \"{module.FileName}\" was not found.";
-                    }
-                }
-
-                AppLogger.LogExt(messageText, messageType, null, true, true, module);
-                break;
-        }
+        _analysisService.HandleModuleOpenStatus(
+            module,
+            openStatus,
+            settings,
+            currentModuleIsRoot,
+            context);
     }
 
     /// <summary>

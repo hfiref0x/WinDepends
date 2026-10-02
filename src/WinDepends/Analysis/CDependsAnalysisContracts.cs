@@ -44,6 +44,15 @@ internal sealed class CDependsAnalysisContext
     }
 }
 
+internal delegate TreeNode? CDependsModuleProcessor(
+    CModule module,
+    TreeNode? parentNode,
+    CFileOpenSettings fileOpenSettings);
+
+internal delegate TreeNode? CDependsSessionModuleProcessor(
+    CModule module,
+    TreeNode? parentNode);
+
 internal sealed class CDependsAnalysisScope : IDisposable
 {
     private CActCtxHelper? _activationContext;

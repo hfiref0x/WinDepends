@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        25 Sep 2026
+*  DATE:        02 Oct 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -335,6 +335,26 @@ public partial class MainForm
             _depends.SessionNodeMaxDepth);
     }
 
+    private TreeNode? ProcessLiveModule(
+        CModule module,
+        TreeNode? parentNode,
+        CFileOpenSettings fileOpenSettings)
+    {
+        return AddModuleEntry(
+            module,
+            fileOpenSettings,
+            parentNode);
+    }
+
+    private TreeNode? ProcessSessionModule(
+        CModule module,
+        TreeNode? parentNode)
+    {
+        return AddSessionModuleEntry(
+            module,
+            parentNode);
+    }
+
     /// <summary>
     /// Populates the tree and related lists for the root module and its dependencies.
     /// </summary>
@@ -343,52 +363,22 @@ public partial class MainForm
     /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
     private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
     {
-        List<TreeNode> baseNodes = [];
-
-        UpdateOperationStatus($"Populating {module.FileName}");
-
         if (loadFromObject)
         {
-            // Add root session module.
-            _rootNode = AddSessionModuleEntry(module, null);
+            _rootNode = _analysisService.PopulateSessionTree(
+                module,
+                ProcessSessionModule,
+                UpdateOperationStatus);
 
-            // Add root session module dependencies.
-            foreach (var importModule in module.Dependents)
-            {
-                UpdateOperationStatus($"Populating {importModule.FileName}");
-                var addedNode = AddSessionModuleEntry(importModule, _rootNode);
-                if (addedNode != null)
-                    baseNodes.Add(addedNode);
-            }
         }
         else
         {
-            // Add root module.
-            _rootNode = AddModuleEntry(module, fileOpenSettings, null);
-
-            // Add root module dependencies.
-            foreach (var importModule in module.Dependents)
-            {
-                UpdateOperationStatus($"Populating {importModule.FileName}");
-                var addedNode = AddModuleEntry(importModule, fileOpenSettings, _rootNode);
-                if (addedNode != null)
-                    baseNodes.Add(addedNode);
-            }
+            _rootNode = _analysisService.PopulateDependencyTree(
+                module,
+                fileOpenSettings,
+                ProcessLiveModule,
+                UpdateOperationStatus);
         }
-
-        // Add sub dependencies.
-        foreach (var node in baseNodes)
-        {
-            if (node.Tag is not CModule nodeModule)
-                continue;
-
-            foreach (var dependent in nodeModule.Dependents)
-            {
-                UpdateOperationStatus($"Populating {dependent.FileName}");
-                PopulateDependentObjectsToLists(dependent, node, loadFromObject, fileOpenSettings);
-            }
-        }
-
     }
 
     /// <summary>

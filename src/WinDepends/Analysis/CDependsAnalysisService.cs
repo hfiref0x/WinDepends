@@ -90,6 +90,180 @@ internal sealed class CDependsAnalysisService
             context);
     }
 
+    public TreeNode? PopulateDependencyTree(
+        CModule rootModule,
+        CFileOpenSettings fileOpenSettings,
+        CDependsModuleProcessor processModule,
+        Action<string> updateOperationStatus)
+    {
+        List<TreeNode> baseNodes = [];
+
+        ArgumentNullException.ThrowIfNull(rootModule);
+        ArgumentNullException.ThrowIfNull(fileOpenSettings);
+        ArgumentNullException.ThrowIfNull(processModule);
+        ArgumentNullException.ThrowIfNull(updateOperationStatus);
+
+        updateOperationStatus($"Populating {rootModule.FileName}");
+
+        TreeNode? rootNode = processModule(
+            rootModule,
+            null,
+            fileOpenSettings);
+
+        if (rootNode == null)
+            return null;
+
+        foreach (CModule importModule in rootModule.Dependents)
+        {
+            TreeNode? addedNode;
+
+            updateOperationStatus($"Populating {importModule.FileName}");
+
+            addedNode = processModule(
+                importModule,
+                rootNode,
+                fileOpenSettings);
+
+            if (addedNode != null)
+            {
+                baseNodes.Add(addedNode);
+            }
+        }
+
+        foreach (TreeNode node in baseNodes)
+        {
+            if (node.Tag is not CModule nodeModule)
+                continue;
+
+            foreach (CModule dependent in nodeModule.Dependents)
+            {
+                updateOperationStatus($"Populating {dependent.FileName}");
+
+                PopulateDependentModules(
+                    dependent,
+                    node,
+                    fileOpenSettings,
+                    processModule,
+                    updateOperationStatus);
+            }
+        }
+
+        return rootNode;
+    }
+
+    private static void PopulateDependentModules(
+        CModule module,
+        TreeNode parentNode,
+        CFileOpenSettings fileOpenSettings,
+        CDependsModuleProcessor processModule,
+        Action<string> updateOperationStatus)
+    {
+        TreeNode? treeNode;
+
+        treeNode = processModule(
+            module,
+            parentNode,
+            fileOpenSettings);
+
+        if (treeNode == null)
+            return;
+
+        foreach (CModule dependentModule in module.Dependents)
+        {
+            updateOperationStatus($"Populating {dependentModule.FileName}");
+
+            PopulateDependentModules(
+                dependentModule,
+                treeNode,
+                fileOpenSettings,
+                processModule,
+                updateOperationStatus);
+        }
+    }
+
+    public TreeNode? PopulateSessionTree(
+        CModule rootModule,
+        CDependsSessionModuleProcessor processModule,
+        Action<string> updateOperationStatus)
+    {
+        List<TreeNode> baseNodes = [];
+
+        ArgumentNullException.ThrowIfNull(rootModule);
+        ArgumentNullException.ThrowIfNull(processModule);
+        ArgumentNullException.ThrowIfNull(updateOperationStatus);
+
+        updateOperationStatus($"Populating {rootModule.FileName}");
+
+        TreeNode? rootNode = processModule(
+            rootModule,
+            null);
+
+        if (rootNode == null)
+            return null;
+
+        foreach (CModule importModule in rootModule.Dependents)
+        {
+            TreeNode? addedNode;
+
+            updateOperationStatus($"Populating {importModule.FileName}");
+
+            addedNode = processModule(
+                importModule,
+                rootNode);
+
+            if (addedNode != null)
+            {
+                baseNodes.Add(addedNode);
+            }
+        }
+
+        foreach (TreeNode node in baseNodes)
+        {
+            if (node.Tag is not CModule nodeModule)
+                continue;
+
+            foreach (CModule dependent in nodeModule.Dependents)
+            {
+                updateOperationStatus($"Populating {dependent.FileName}");
+
+                PopulateSessionDependentModules(
+                    dependent,
+                    node,
+                    processModule,
+                    updateOperationStatus);
+            }
+        }
+
+        return rootNode;
+    }
+
+    private static void PopulateSessionDependentModules(
+        CModule module,
+        TreeNode parentNode,
+        CDependsSessionModuleProcessor processModule,
+        Action<string> updateOperationStatus)
+    {
+        TreeNode? treeNode;
+
+        treeNode = processModule(
+            module,
+            parentNode);
+
+        if (treeNode == null)
+            return;
+
+        foreach (CModule dependentModule in module.Dependents)
+        {
+            updateOperationStatus($"Populating {dependentModule.FileName}");
+
+            PopulateSessionDependentModules(
+                dependentModule,
+                treeNode,
+                processModule,
+                updateOperationStatus);
+        }
+    }
+
     public void HandleModuleOpenStatus(
         CModule module,
         ModuleOpenStatus openStatus,

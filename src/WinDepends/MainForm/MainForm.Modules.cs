@@ -24,6 +24,22 @@ namespace WinDepends;
 
 public partial class MainForm
 {
+    [System.Diagnostics.Conditional("DEBUG")]
+    private void ValidateDuplicateObservations()
+    {
+        CDependsDuplicateValidationResult validationResult =
+            _duplicateObserver.Validate();
+
+        if (validationResult.IsValid)
+            return;
+
+        foreach (CDependsDuplicateValidationIssue issue in validationResult.Issues)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[WinDepends][DuplicateObserver] {issue.Message}");
+        }
+    }
+
     /// <summary>
     /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
@@ -161,6 +177,62 @@ public partial class MainForm
         return secondSep < 0;
     }
 
+    private bool TryApplyExistingModuleState(
+        CModule module,
+        TreeNode parentNode)
+    {
+        CModule origInstance = CUtils.GetModuleByHash(
+            module.FileName,
+            _loadedModulesList);
+
+        if (origInstance == null)
+            return false;
+
+        module.OriginalInstanceId = origInstance.InstanceId;
+        module.FileNotFound = origInstance.FileNotFound;
+        module.ExportContainErrors = origInstance.ExportContainErrors;
+        module.IsInvalid = origInstance.IsInvalid;
+
+        // Do not copy OtherErrorsPresent from original instance, must set it directly.
+        // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+
+        module.IsDotNetModule = origInstance.IsDotNetModule;
+        module.ModuleData = new(origInstance.ModuleData);
+
+        _duplicateObserver.Record(module, origInstance);
+
+        // Propagate errors from duplicate to parent if this is not root.
+        if (parentNode?.Tag is CModule parent)
+        {
+            // Only propagate genuine errors, not from apiset contracts or stopped nodes.
+            bool shouldPropagate = origInstance.ExportContainErrors ||
+                                   origInstance.OtherErrorsPresent ||
+                                   origInstance.FileNotFound;
+
+            // Don't propagate from apiset contracts.
+            if (origInstance.IsApiSetContract)
+                shouldPropagate = false;
+
+            // Don't propagate from stopped/duplicate nodes that have forwarders
+            // (these are expected to have "unprocessed" forwarders).
+            if (shouldPropagate)
+            {
+                if (origInstance.IsStoppedNode)
+                    shouldPropagate = false;
+            }
+
+            if (shouldPropagate)
+            {
+                parent.OtherErrorsPresent = true;
+                parent.ModuleImageIndex = parent.GetIconIndexForModule();
+                parentNode.ImageIndex = parent.ModuleImageIndex;
+                parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// AddModuleEntry core implementation. Shared between normal and session files.
     /// </summary>
@@ -180,50 +252,9 @@ public partial class MainForm
             return null;
 
         // 2. Check if module already exists
-        bool isNewModule = true;
-        CModule origInstance = CUtils.GetModuleByHash(module.FileName, _loadedModulesList);
-
-        if (origInstance != null)
-        {
-            isNewModule = false;
-            module.OriginalInstanceId = origInstance.InstanceId;
-            module.FileNotFound = origInstance.FileNotFound;
-            module.ExportContainErrors = origInstance.ExportContainErrors;
-            module.IsInvalid = origInstance.IsInvalid;
-            // Do not copy OtherErrorsPresent from original instance, must set it directly
-            // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
-            module.IsDotNetModule = origInstance.IsDotNetModule;
-            module.ModuleData = new(origInstance.ModuleData);
-
-            // Propagate errors from duplicate to parent if this is not root
-            if (parentNode?.Tag is CModule parent)
-            {
-                // Only propagate genuine errors, not from apiset contracts or stopped nodes
-                bool shouldPropagate = origInstance.ExportContainErrors ||
-                                       origInstance.OtherErrorsPresent ||
-                                       origInstance.FileNotFound;
-
-                // Don't propagate from apiset contracts
-                if (origInstance.IsApiSetContract)
-                    shouldPropagate = false;
-
-                // Don't propagate from stopped/duplicate nodes that have forwarders
-                // (these are expected to have "unprocessed" forwarders)
-                if (shouldPropagate)
-                {
-                    if (origInstance.IsStoppedNode)
-                        shouldPropagate = false;
-                }
-
-                if (shouldPropagate)
-                {
-                    parent.OtherErrorsPresent = true;
-                    parent.ModuleImageIndex = parent.GetIconIndexForModule();
-                    parentNode.ImageIndex = parent.ModuleImageIndex;
-                    parentNode.SelectedImageIndex = parent.ModuleImageIndex;
-                }
-            }
-        }
+        bool isNewModule = !TryApplyExistingModuleState(
+            module,
+            parentNode);
 
         // 3. Run custom processing if this is a new module
         if (isNewModule && moduleProcessor != null)
@@ -274,6 +305,7 @@ public partial class MainForm
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
+            _duplicateObserver.RecordCanonical(module);
         }
 
         return tvNode;
@@ -309,8 +341,8 @@ public partial class MainForm
     /// </summary>
     /// <returns>Tree node.</returns>
     private TreeNode AddModuleEntry(
-        CModule module, 
-        CFileOpenSettings fileOpenSettings, 
+        CModule module,
+        CFileOpenSettings fileOpenSettings,
         TreeNode parentNode,
         CDependsAnalysisContext context)
     {
@@ -380,10 +412,13 @@ public partial class MainForm
     /// <param name="module">The saved session root module to populate.</param>
     private void PopulateSessionObjectToLists(CModule module)
     {
-        _rootNode = _analysisService.PopulateSessionTree(
+        CDependsSessionPopulationRequest sessionRequest = new(
             module,
             ProcessSessionModule,
             ReportAnalysisProgress);
+
+        CDependsPopulationResult populationResult = _analysisService.PopulateSessionTree(sessionRequest);
+        _rootNode = populationResult.RootNode;
     }
 
     /// <summary>
@@ -471,6 +506,7 @@ public partial class MainForm
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
         _loadedModulesList.Clear();
+        _duplicateObserver.Clear();
         LVModules.Invalidate();
     }
 

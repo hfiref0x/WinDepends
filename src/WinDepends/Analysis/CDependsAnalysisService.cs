@@ -21,8 +21,37 @@ using System.Reflection.PortableExecutable;
 
 namespace WinDepends;
 
+
 internal sealed class CDependsAnalysisService
 {
+    private sealed class CDependsPopulationMetrics
+    {
+        public int ProcessedModuleCount { get; private set; }
+
+        public int AcceptedModuleCount { get; private set; }
+
+        public TreeNode? ProcessModule(
+            CModule module,
+            TreeNode? parentNode,
+            Func<CModule, TreeNode?, TreeNode?> processModule)
+        {
+            TreeNode? node;
+
+            ProcessedModuleCount++;
+
+            node = processModule(
+                module,
+                parentNode);
+
+            if (node != null)
+            {
+                AcceptedModuleCount++;
+            }
+
+            return node;
+        }
+    }
+
     private static readonly Action<CDependsAnalysisProgress> s_ignoreProgress = _ => { };
     private readonly CCoreClient _coreClient;
 
@@ -61,32 +90,28 @@ internal sealed class CDependsAnalysisService
         return new CDependsAnalysisScope(activationContext, context);
     }
 
-    public TreeNode? PopulateLiveAnalysis(
-        string rootFileName,
-        CModule rootModule,
-        CFileOpenSettings fileOpenSettings,
-        CDependsAnalysisContext context,
-        CDependsModuleProcessor processModule)
+    public CDependsPopulationResult PopulateLiveAnalysis(
+        CDependsLiveAnalysisRequest request)
     {
         Action<CDependsAnalysisProgress> reportProgress;
+        CDependsPopulationMetrics metrics;
+        TreeNode? rootNode;
+        ArgumentNullException.ThrowIfNull(request);
+        reportProgress = request.Context.ReportProgress ?? s_ignoreProgress;
+        metrics = new CDependsPopulationMetrics();
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(rootFileName);
-        ArgumentNullException.ThrowIfNull(rootModule);
-        ArgumentNullException.ThrowIfNull(fileOpenSettings);
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(processModule);
-
-        reportProgress = context.ReportProgress ?? s_ignoreProgress;
-
-        using (BeginAnalysis(rootFileName, context))
+        using (BeginAnalysis(request.RootFileName, request.Context))
         {
-            return PopulateDependencyTree(
-                rootModule,
-                fileOpenSettings,
-                processModule,
-                context,
-                reportProgress);
+            rootNode = PopulateDependencyTree(
+                request.RootModule,
+                request.FileOpenSettings,
+                request.ProcessModule,
+                request.Context,
+                reportProgress,
+                metrics);
         }
+
+        return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
     }
 
     public void ProcessModule(
@@ -143,52 +168,62 @@ internal sealed class CDependsAnalysisService
             context);
     }
 
-    public TreeNode? PopulateDependencyTree(
+    private TreeNode? PopulateDependencyTree(
         CModule rootModule,
         CFileOpenSettings fileOpenSettings,
         CDependsModuleProcessor processModule,
         CDependsAnalysisContext context,
-        Action<CDependsAnalysisProgress> reportProgress)
+        Action<CDependsAnalysisProgress> reportProgress,
+        CDependsPopulationMetrics metrics)
     {
         ArgumentNullException.ThrowIfNull(rootModule);
         ArgumentNullException.ThrowIfNull(fileOpenSettings);
         ArgumentNullException.ThrowIfNull(processModule);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(reportProgress);
+        ArgumentNullException.ThrowIfNull(metrics);
 
         return PopulateTreeCore(
             rootModule,
-            (module, parentNode) => processModule(
+            (module, parentNode) => metrics.ProcessModule(
                 module,
                 parentNode,
-                fileOpenSettings,
-                context),
+                (currentModule, currentParentNode) => processModule(
+                    currentModule,
+                    currentParentNode,
+                    fileOpenSettings,
+                    context)),
             reportProgress);
     }
 
-    public TreeNode? PopulateSessionTree(
-        CModule rootModule,
-        CDependsSessionModuleProcessor processModule,
-        Action<CDependsAnalysisProgress> reportProgress)
+    public CDependsPopulationResult PopulateSessionTree(
+        CDependsSessionPopulationRequest request)
     {
-        ArgumentNullException.ThrowIfNull(rootModule);
-        ArgumentNullException.ThrowIfNull(processModule);
-        ArgumentNullException.ThrowIfNull(reportProgress);
+        CDependsPopulationMetrics metrics;
+        TreeNode? rootNode;
+        ArgumentNullException.ThrowIfNull(request);
 
-        return PopulateTreeCore(
-            rootModule,
-            (module, parentNode) => processModule(
+        metrics = new CDependsPopulationMetrics();
+
+        rootNode = PopulateTreeCore(
+            request.RootModule,
+            (module, parentNode) => metrics.ProcessModule(
                 module,
-                parentNode),
-            reportProgress);
+                parentNode,
+                (currentModule, currentParentNode) => request.ProcessModule(
+                    currentModule,
+                    currentParentNode)),
+             request.ReportProgress);
+
+        return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
     }
 
-    private static TreeNode? PopulateTreeCore(
+     private static TreeNode? PopulateTreeCore(
         CModule rootModule,
         Func<CModule, TreeNode?, TreeNode?> processModule,
         Action<CDependsAnalysisProgress> reportProgress)
     {
-        List<TreeNode> baseNodes = [];
+        List<(CModule Module, TreeNode Node)> baseModules = [];
 
         reportProgress(new CDependsAnalysisProgress(
             CDependsAnalysisProgressStage.Populating,
@@ -217,18 +252,16 @@ internal sealed class CDependsAnalysisService
 
             if (addedNode != null)
             {
-                baseNodes.Add(addedNode);
+                baseModules.Add((
+                    importModule,
+                    addedNode));
             }
         }
 
-        foreach (TreeNode node in baseNodes)
+        foreach ((CModule module, TreeNode node) in baseModules)
         {
-            if (node.Tag is not CModule nodeModule)
-                continue;
-
-            foreach (CModule dependent in nodeModule.Dependents)
+            foreach (CModule dependent in module.Dependents)
             {
-
                 PopulateDependentModulesCore(
                     dependent,
                     node,

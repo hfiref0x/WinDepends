@@ -152,6 +152,7 @@ public partial class MainForm : Form
     readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
     readonly List<CModule> _loadedModulesList = [];
+    readonly CDependsDuplicateObserver _duplicateObserver = new();
 
     SortOrder _lvImportsSortOrder = SortOrder.Ascending;
     SortOrder _lvExportsSortOrder = SortOrder.Ascending;

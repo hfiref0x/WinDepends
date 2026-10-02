@@ -142,18 +142,16 @@ public partial class MainForm
             if (_depends.RootModule != null)
             {
                 CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
+                CDependsLiveAnalysisRequest analysisRequest = new(fileName, _depends.RootModule, fileOpenSettings, analysisContext, ProcessLiveModule);
+                CDependsPopulationResult populationResult;
 
                 TVModules.BeginUpdate();
                 try
                 {
-                    _rootNode = _analysisService.PopulateLiveAnalysis(
-                        fileName,
-                        _depends.RootModule,
-                        fileOpenSettings,
-                        analysisContext,
-                        ProcessLiveModule);
-
+                    populationResult = _analysisService.PopulateLiveAnalysis(analysisRequest);
+                    _rootNode = populationResult.RootNode;
                     _rootNode?.Expand();
+                    ValidateDuplicateObservations();
                 }
                 finally
                 {
@@ -176,7 +174,7 @@ public partial class MainForm
                     LVModules.EndUpdate();
                 }
 
-                bResult = _rootNode != null;
+                bResult = populationResult.IsSuccess;
             }
 
         }
@@ -246,6 +244,7 @@ public partial class MainForm
                 PopulateSessionObjectToLists(_depends.RootModule);
                 // Expand root module.
                 _rootNode?.Expand();
+                ValidateDuplicateObservations();
             }
             finally { TVModules.EndUpdate(); }
 

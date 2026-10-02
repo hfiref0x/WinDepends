@@ -17,6 +17,7 @@
 *
 *******************************************************************************/
 
+using System.Numerics;
 using System.Reflection.PortableExecutable;
 
 namespace WinDepends;
@@ -30,6 +31,17 @@ internal sealed class CDependsAnalysisService
         ArgumentNullException.ThrowIfNull(coreClient);
 
         _coreClient = coreClient;
+    }
+
+    private static void ReportModuleProgress(
+    CDependsAnalysisContext context,
+    CDependsAnalysisProgressStage stage,
+    CModule module)
+    {
+        context.ReportProgress?.Invoke(new CDependsAnalysisProgress(
+            stage,
+            module.FileName,
+            -1));
     }
 
     public CDependsAnalysisScope BeginAnalysis(
@@ -78,9 +90,22 @@ internal sealed class CDependsAnalysisService
 
         module.InstanceId = module.GetHashCode();
 
+        ReportModuleProgress(
+            context,
+            CDependsAnalysisProgressStage.OpeningModule,
+            module);
+
         openStatus = _coreClient.OpenModule(
             ref module,
             effectiveSettings);
+
+        if (openStatus != ModuleOpenStatus.Okay)
+        {
+            ReportModuleProgress(
+                context,
+                CDependsAnalysisProgressStage.ModuleProcessingFailed,
+                module);
+        }
 
         HandleModuleOpenStatus(
             module,
@@ -94,105 +119,50 @@ internal sealed class CDependsAnalysisService
         CModule rootModule,
         CFileOpenSettings fileOpenSettings,
         CDependsModuleProcessor processModule,
-        Action<string> updateOperationStatus)
+        Action<CDependsAnalysisProgress> reportProgress)
     {
-        List<TreeNode> baseNodes = [];
-
         ArgumentNullException.ThrowIfNull(rootModule);
         ArgumentNullException.ThrowIfNull(fileOpenSettings);
         ArgumentNullException.ThrowIfNull(processModule);
-        ArgumentNullException.ThrowIfNull(updateOperationStatus);
+        ArgumentNullException.ThrowIfNull(reportProgress);
 
-        updateOperationStatus($"Populating {rootModule.FileName}");
-
-        TreeNode? rootNode = processModule(
+        return PopulateTreeCore(
             rootModule,
-            null,
-            fileOpenSettings);
-
-        if (rootNode == null)
-            return null;
-
-        foreach (CModule importModule in rootModule.Dependents)
-        {
-            TreeNode? addedNode;
-
-            updateOperationStatus($"Populating {importModule.FileName}");
-
-            addedNode = processModule(
-                importModule,
-                rootNode,
-                fileOpenSettings);
-
-            if (addedNode != null)
-            {
-                baseNodes.Add(addedNode);
-            }
-        }
-
-        foreach (TreeNode node in baseNodes)
-        {
-            if (node.Tag is not CModule nodeModule)
-                continue;
-
-            foreach (CModule dependent in nodeModule.Dependents)
-            {
-                updateOperationStatus($"Populating {dependent.FileName}");
-
-                PopulateDependentModules(
-                    dependent,
-                    node,
-                    fileOpenSettings,
-                    processModule,
-                    updateOperationStatus);
-            }
-        }
-
-        return rootNode;
-    }
-
-    private static void PopulateDependentModules(
-        CModule module,
-        TreeNode parentNode,
-        CFileOpenSettings fileOpenSettings,
-        CDependsModuleProcessor processModule,
-        Action<string> updateOperationStatus)
-    {
-        TreeNode? treeNode;
-
-        treeNode = processModule(
-            module,
-            parentNode,
-            fileOpenSettings);
-
-        if (treeNode == null)
-            return;
-
-        foreach (CModule dependentModule in module.Dependents)
-        {
-            updateOperationStatus($"Populating {dependentModule.FileName}");
-
-            PopulateDependentModules(
-                dependentModule,
-                treeNode,
-                fileOpenSettings,
-                processModule,
-                updateOperationStatus);
-        }
+            (module, parentNode) => processModule(
+                module,
+                parentNode,
+                fileOpenSettings),
+            reportProgress);
     }
 
     public TreeNode? PopulateSessionTree(
         CModule rootModule,
         CDependsSessionModuleProcessor processModule,
-        Action<string> updateOperationStatus)
+        Action<CDependsAnalysisProgress> reportProgress)
+    {
+        ArgumentNullException.ThrowIfNull(rootModule);
+        ArgumentNullException.ThrowIfNull(processModule);
+        ArgumentNullException.ThrowIfNull(reportProgress);
+
+        return PopulateTreeCore(
+            rootModule,
+            (module, parentNode) => processModule(
+                module,
+                parentNode),
+            reportProgress);
+    }
+
+    private static TreeNode? PopulateTreeCore(
+        CModule rootModule,
+        Func<CModule, TreeNode?, TreeNode?> processModule,
+        Action<CDependsAnalysisProgress> reportProgress)
     {
         List<TreeNode> baseNodes = [];
 
-        ArgumentNullException.ThrowIfNull(rootModule);
-        ArgumentNullException.ThrowIfNull(processModule);
-        ArgumentNullException.ThrowIfNull(updateOperationStatus);
-
-        updateOperationStatus($"Populating {rootModule.FileName}");
+        reportProgress(new CDependsAnalysisProgress(
+            CDependsAnalysisProgressStage.Populating,
+            rootModule.FileName,
+            0));
 
         TreeNode? rootNode = processModule(
             rootModule,
@@ -205,7 +175,10 @@ internal sealed class CDependsAnalysisService
         {
             TreeNode? addedNode;
 
-            updateOperationStatus($"Populating {importModule.FileName}");
+            reportProgress(new CDependsAnalysisProgress(
+                CDependsAnalysisProgressStage.Populating,
+                importModule.FileName,
+                1));
 
             addedNode = processModule(
                 importModule,
@@ -224,28 +197,32 @@ internal sealed class CDependsAnalysisService
 
             foreach (CModule dependent in nodeModule.Dependents)
             {
-                updateOperationStatus($"Populating {dependent.FileName}");
 
-                PopulateSessionDependentModules(
+                PopulateDependentModulesCore(
                     dependent,
                     node,
                     processModule,
-                    updateOperationStatus);
+                    reportProgress,
+                    2);
             }
         }
 
         return rootNode;
     }
 
-    private static void PopulateSessionDependentModules(
+    private static void PopulateDependentModulesCore(
         CModule module,
         TreeNode parentNode,
-        CDependsSessionModuleProcessor processModule,
-        Action<string> updateOperationStatus)
+        Func<CModule, TreeNode?, TreeNode?> processModule,
+        Action<CDependsAnalysisProgress> reportProgress,
+        int depth)
     {
-        TreeNode? treeNode;
+        reportProgress(new CDependsAnalysisProgress(
+            CDependsAnalysisProgressStage.Populating,
+            module.FileName,
+            depth));
 
-        treeNode = processModule(
+        TreeNode? treeNode = processModule(
             module,
             parentNode);
 
@@ -254,13 +231,12 @@ internal sealed class CDependsAnalysisService
 
         foreach (CModule dependentModule in module.Dependents)
         {
-            updateOperationStatus($"Populating {dependentModule.FileName}");
-
-            PopulateSessionDependentModules(
+            PopulateDependentModulesCore(
                 dependentModule,
                 treeNode,
                 processModule,
-                updateOperationStatus);
+                reportProgress,
+                depth + 1);
         }
     }
 
@@ -354,6 +330,8 @@ internal sealed class CDependsAnalysisService
     {
         CCoreCallStats? stats = null;
 
+        ReportModuleProgress(context, CDependsAnalysisProgressStage.ReadingHeaders, module);
+
         module.IsProcessed = _coreClient.GetModuleHeadersInformation(module);
 
         //
@@ -363,6 +341,8 @@ internal sealed class CDependsAnalysisService
         {
             CPathResolver.QueryFileInformation(module);
         }
+
+        ReportModuleProgress(context, CDependsAnalysisProgressStage.ReadingImportsAndExports, module);
 
         _coreClient.GetModuleImportExportInformation(
             module,
@@ -378,6 +358,8 @@ internal sealed class CDependsAnalysisService
         //
         if (settings.ExpandForwarders)
         {
+            ReportModuleProgress(context, CDependsAnalysisProgressStage.ExpandingForwarders, module);
+
             _coreClient.ExpandAllForwarderModules(
                 module,
                 context.Configuration.SearchOrderListUM,
@@ -390,6 +372,7 @@ internal sealed class CDependsAnalysisService
 
         if (settings.UseStats)
         {
+            ReportModuleProgress(context, CDependsAnalysisProgressStage.ReadingStatistics, module);
             stats = _coreClient.GetCoreCallStats();
         }
 

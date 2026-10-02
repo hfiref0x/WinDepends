@@ -355,6 +355,14 @@ public partial class MainForm
             parentNode);
     }
 
+    private void ReportAnalysisProgress(CDependsAnalysisProgress progress)
+    {
+        if (progress.Stage == CDependsAnalysisProgressStage.Populating)
+        {
+            UpdateOperationStatus($"Populating {progress.ModuleFileName}");
+        }
+    }
+
     /// <summary>
     /// Populates the tree and related lists for the root module and its dependencies.
     /// </summary>
@@ -368,7 +376,7 @@ public partial class MainForm
             _rootNode = _analysisService.PopulateSessionTree(
                 module,
                 ProcessSessionModule,
-                UpdateOperationStatus);
+                ReportAnalysisProgress);
 
         }
         else
@@ -377,7 +385,7 @@ public partial class MainForm
                 module,
                 fileOpenSettings,
                 ProcessLiveModule,
-                UpdateOperationStatus);
+                ReportAnalysisProgress);
         }
     }
 

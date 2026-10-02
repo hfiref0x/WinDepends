@@ -145,7 +145,8 @@ public partial class MainForm
                     _configuration,
                     _depends.RootModule,
                     _parentImportsHashTable,
-                    AppLogger.LogExt);
+                    AppLogger.LogExt,
+                    ReportAnalysisProgress);
 
                 using (CDependsAnalysisScope analysisScope =
                     _analysisService.BeginAnalysis(

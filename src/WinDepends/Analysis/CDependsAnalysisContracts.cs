@@ -25,12 +25,14 @@ internal sealed class CDependsAnalysisContext
     public CModule RootModule { get; }
     public Dictionary<int, FunctionHashObject> ParentImportsHashTable { get; }
     public AddLogMessageCallback AddLogMessage { get; }
+    public Action<CDependsAnalysisProgress>? ReportProgress { get; }
 
     public CDependsAnalysisContext(
         CConfiguration configuration,
         CModule rootModule,
         Dictionary<int, FunctionHashObject> parentImportsHashTable,
-        AddLogMessageCallback addLogMessage)
+        AddLogMessageCallback addLogMessage,
+        Action<CDependsAnalysisProgress>? reportProgress = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(rootModule);
@@ -41,6 +43,7 @@ internal sealed class CDependsAnalysisContext
         RootModule = rootModule;
         ParentImportsHashTable = parentImportsHashTable;
         AddLogMessage = addLogMessage;
+        ReportProgress = reportProgress;
     }
 }
 
@@ -52,6 +55,22 @@ internal delegate TreeNode? CDependsModuleProcessor(
 internal delegate TreeNode? CDependsSessionModuleProcessor(
     CModule module,
     TreeNode? parentNode);
+
+internal enum CDependsAnalysisProgressStage
+{
+    Populating,
+    OpeningModule,
+    ReadingHeaders,
+    ReadingImportsAndExports,
+    ExpandingForwarders,
+    ReadingStatistics,
+    ModuleProcessingFailed
+}
+
+internal sealed record CDependsAnalysisProgress(
+    CDependsAnalysisProgressStage Stage,
+    string ModuleFileName,
+    int Depth);
 
 internal sealed class CDependsAnalysisScope : IDisposable
 {

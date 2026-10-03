@@ -386,3 +386,32 @@ internal readonly struct CDependsTraversalVisitResult
             node != null);
     }
 }
+
+internal readonly struct CDependsModelTraversalVisitResult
+{
+    public bool ShouldTraverseDependents { get; }
+
+    private CDependsModelTraversalVisitResult(
+        bool shouldTraverseDependents)
+    {
+        ShouldTraverseDependents = shouldTraverseDependents;
+    }
+
+    public static CDependsModelTraversalVisitResult Continue()
+    {
+        return new CDependsModelTraversalVisitResult(true);
+    }
+
+    public static CDependsModelTraversalVisitResult Stop()
+    {
+        return new CDependsModelTraversalVisitResult(false);
+    }
+}
+
+internal delegate CDependsModelTraversalVisitResult
+    CDependsModelModuleProcessor(
+        CModule module,
+        CModule? parentModule,
+        int depth,
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context);

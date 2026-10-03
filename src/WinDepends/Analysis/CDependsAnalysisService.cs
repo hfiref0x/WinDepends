@@ -52,6 +52,43 @@ internal sealed class CDependsAnalysisService
         }
     }
 
+    private sealed class CDependsModelTraversalMetrics
+    {
+        private readonly int _maximumDepth;
+
+        public int ProcessedModuleCount { get; private set; }
+
+        public int AcceptedModuleCount { get; private set; }
+
+        public CDependsModelTraversalMetrics(int maximumDepth)
+        {
+            _maximumDepth = maximumDepth;
+        }
+
+        public CDependsModelTraversalVisitResult ProcessModule(
+            CModule module,
+            CModule? parentModule,
+            int depth,
+            CFileOpenSettings fileOpenSettings,
+            CDependsAnalysisContext context)
+        {
+            bool shouldTraverseDependents;
+
+            ProcessedModuleCount++;
+
+            shouldTraverseDependents = parentModule == null ||
+                parentModule.Depth <= _maximumDepth;
+
+            if (shouldTraverseDependents)
+            {
+                AcceptedModuleCount++;
+                return CDependsModelTraversalVisitResult.Continue();
+            }
+
+            return CDependsModelTraversalVisitResult.Stop();
+        }
+    }
+
     private static readonly Action<CDependsAnalysisProgress> s_ignoreProgress = _ => { };
     private readonly CCoreClient _coreClient;
 
@@ -111,6 +148,7 @@ internal sealed class CDependsAnalysisService
                 metrics);
         }
 
+        ValidateModelTraversalParity(request, metrics);
         return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
     }
 
@@ -320,6 +358,145 @@ internal sealed class CDependsAnalysisService
                 reportProgress,
                 depth + 1);
         }
+    }
+
+    private static void TraverseModelCore(
+        CModule rootModule,
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context,
+        CDependsModelModuleProcessor processModule,
+        Action<CDependsAnalysisProgress> reportProgress)
+    {
+        List<CModule> baseModules = [];
+        CDependsModelTraversalVisitResult rootVisit;
+
+        ArgumentNullException.ThrowIfNull(rootModule);
+        ArgumentNullException.ThrowIfNull(fileOpenSettings);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(processModule);
+        ArgumentNullException.ThrowIfNull(reportProgress);
+
+        reportProgress(new CDependsAnalysisProgress(
+            CDependsAnalysisProgressStage.Populating,
+            rootModule.FileName,
+            0));
+
+        rootVisit = processModule(
+            rootModule,
+            null,
+            0,
+            fileOpenSettings,
+            context);
+
+        if (!rootVisit.ShouldTraverseDependents)
+            return;
+
+        foreach (CModule importModule in rootModule.Dependents)
+        {
+            CDependsModelTraversalVisitResult importVisit;
+
+            reportProgress(new CDependsAnalysisProgress(
+                CDependsAnalysisProgressStage.Populating,
+                importModule.FileName,
+                1));
+
+            importVisit = processModule(
+                importModule,
+                rootModule,
+                1,
+                fileOpenSettings,
+                context);
+
+            if (importVisit.ShouldTraverseDependents)
+            {
+                baseModules.Add(importModule);
+            }
+        }
+
+        foreach (CModule baseModule in baseModules)
+        {
+            foreach (CModule dependentModule in baseModule.Dependents)
+            {
+                TraverseModelDependentModulesCore(
+                    dependentModule,
+                    baseModule,
+                    2,
+                    fileOpenSettings,
+                    context,
+                    processModule,
+                    reportProgress);
+            }
+        }
+    }
+
+    private static void TraverseModelDependentModulesCore(
+        CModule module,
+        CModule parentModule,
+        int depth,
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context,
+        CDependsModelModuleProcessor processModule,
+        Action<CDependsAnalysisProgress> reportProgress)
+    {
+        CDependsModelTraversalVisitResult moduleVisit;
+
+        reportProgress(new CDependsAnalysisProgress(
+            CDependsAnalysisProgressStage.Populating,
+            module.FileName,
+            depth));
+
+        moduleVisit = processModule(
+            module,
+            parentModule,
+            depth,
+            fileOpenSettings,
+            context);
+
+        if (!moduleVisit.ShouldTraverseDependents)
+            return;
+
+        foreach (CModule dependentModule in module.Dependents)
+        {
+            TraverseModelDependentModulesCore(
+                dependentModule,
+                module,
+                depth + 1,
+                fileOpenSettings,
+                context,
+                processModule,
+                reportProgress);
+        }
+    }
+
+    [System.Diagnostics.Conditional("DEBUG")]
+    private static void ValidateModelTraversalParity(
+        CDependsLiveAnalysisRequest request,
+        CDependsPopulationMetrics populationMetrics)
+    {
+        CDependsModelTraversalMetrics modelMetrics = new(
+            request.Context.Configuration.ModuleNodeDepthMax);
+
+        TraverseModelCore(
+            request.RootModule,
+            request.FileOpenSettings,
+            request.Context,
+            modelMetrics.ProcessModule,
+            s_ignoreProgress);
+
+        if (modelMetrics.ProcessedModuleCount ==
+            populationMetrics.ProcessedModuleCount &&
+            modelMetrics.AcceptedModuleCount ==
+            populationMetrics.AcceptedModuleCount)
+        {
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine(
+            "[WinDepends][ModelTraversal] Live/model traversal mismatch: " +
+            $"live processed={populationMetrics.ProcessedModuleCount}, " +
+            $"live accepted={populationMetrics.AcceptedModuleCount}, " +
+            $"model processed={modelMetrics.ProcessedModuleCount}, " +
+            $"model accepted={modelMetrics.AcceptedModuleCount}.");
     }
 
     public void HandleModuleOpenStatus(

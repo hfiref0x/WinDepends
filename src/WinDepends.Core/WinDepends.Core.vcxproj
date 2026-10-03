@@ -309,6 +309,7 @@
     </Link>
     <Manifest>
       <SuppressStartupBanner>false</SuppressStartupBanner>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <Xdcmake>
       <SuppressStartupBanner>false</SuppressStartupBanner>
@@ -348,6 +349,7 @@
     </Link>
     <Manifest>
       <SuppressStartupBanner>false</SuppressStartupBanner>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <Xdcmake>
       <SuppressStartupBanner>false</SuppressStartupBanner>

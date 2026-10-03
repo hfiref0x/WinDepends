@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        02 Oct 2026
 *  
 *  File and session open/save routines for main form.
 *
@@ -141,31 +141,40 @@ public partial class MainForm
 
             if (_depends.RootModule != null)
             {
-                CPathResolver.Initialized = false;
-                using (CActCtxHelper sxsHelper = new(fileName))
+                CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
+                CDependsLiveAnalysisRequest analysisRequest = new(fileName, _depends.RootModule, fileOpenSettings, analysisContext, ProcessLiveModule);
+                CDependsPopulationResult populationResult;
+
+                TVModules.BeginUpdate();
+                try
                 {
-                    CPathResolver.ActCtxHelper = sxsHelper;
+                    populationResult = _analysisService.PopulateLiveAnalysis(analysisRequest);
+                    _rootNode = populationResult.RootNode;
+                    _rootNode?.Expand();
+                    ValidateDuplicateObservations();
+                }
+                finally
+                {
+                    TVModules.EndUpdate();
+                }
 
-                    TVModules.BeginUpdate();
-                    try
-                    {
-                        PopulateObjectToLists(_depends.RootModule, false, fileOpenSettings);
-                        _rootNode?.Expand();
-                    }
-                    finally { TVModules.EndUpdate(); }
+                LVModules.BeginUpdate();
+                try
+                {
+                    LVModules.VirtualListSize = _loadedModulesList.Count;
+                    LVModulesSort(
+                        LVModules,
+                        _configuration.SortColumnModules,
+                        _lvModulesSortOrder,
+                        _loadedModulesList,
+                        DisplayCacheType.Modules);
+                }
+                finally
+                {
+                    LVModules.EndUpdate();
+                }
 
-                    LVModules.BeginUpdate();
-                    try
-                    {
-                        LVModules.VirtualListSize = _loadedModulesList.Count;
-                        LVModulesSort(LVModules, _configuration.SortColumnModules,
-                           _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
-
-                    }
-                    finally { LVModules.EndUpdate(); }
-
-                    bResult = true;
-                }//CActCtxHelper
+                bResult = populationResult.IsSuccess;
             }
 
         }
@@ -232,9 +241,10 @@ public partial class MainForm
             TVModules.BeginUpdate();
             try
             {
-                PopulateObjectToLists(_depends.RootModule, true, null);
+                PopulateSessionObjectToLists(_depends.RootModule);
                 // Expand root module.
                 _rootNode?.Expand();
+                ValidateDuplicateObservations();
             }
             finally { TVModules.EndUpdate(); }
 

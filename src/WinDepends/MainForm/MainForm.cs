@@ -51,6 +51,11 @@ public partial class MainForm : Form
     readonly CCoreClient _coreClient;
 
     /// <summary>
+    /// Module analysis service.
+    /// </summary>
+    readonly CDependsAnalysisService _analysisService;
+
+    /// <summary>
     /// Symbol resolver class.
     /// </summary>
     readonly CSymbolResolver _symbolResolver = new();
@@ -147,6 +152,7 @@ public partial class MainForm : Form
     readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
     readonly List<CModule> _loadedModulesList = [];
+    readonly CDependsDuplicateObserver _duplicateObserver = new();
 
     SortOrder _lvImportsSortOrder = SortOrder.Ascending;
     SortOrder _lvExportsSortOrder = SortOrder.Ascending;
@@ -219,6 +225,7 @@ public partial class MainForm : Form
         // Start server app.
         //       
         _coreClient = new(_configuration.CoreServerAppLocation, CConsts.CoreServerAddress, AppLogger.LogExt, false);
+        _analysisService = new(_coreClient);
         if (_coreClient.ConnectClient())
         {
             if (_coreClient.GetKnownDllsAll(CPathResolver.KnownDlls,

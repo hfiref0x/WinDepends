@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        02 Oct 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -24,167 +24,19 @@ namespace WinDepends;
 
 public partial class MainForm
 {
-    private void HandleModuleOpenStatus(CModule module, ModuleOpenStatus openStatus, CFileOpenSettings settings, bool currentModuleIsRoot)
+    [System.Diagnostics.Conditional("DEBUG")]
+    private void ValidateDuplicateObservations()
     {
-        switch (openStatus)
+        CDependsDuplicateValidationResult validationResult =
+            _duplicateObserver.Validate();
+
+        if (validationResult.IsValid)
+            return;
+
+        foreach (CDependsDuplicateValidationIssue issue in validationResult.Issues)
         {
-            case ModuleOpenStatus.Okay:
-
-                module.IsProcessed = _coreClient.GetModuleHeadersInformation(module);
-
-                //
-                // If this is root module, setup resolver.
-                //
-                if (currentModuleIsRoot)
-                {
-                    CPathResolver.QueryFileInformation(module);
-                }
-
-                _coreClient.GetModuleImportExportInformation(module,
-                    _configuration.SearchOrderListUM,
-                    _configuration.SearchOrderListKM,
-                    _parentImportsHashTable,
-                    settings.EnableExperimentalFeatures,
-                    settings.ExpandForwarders);
-
-                //
-                // Collect forwarders if exists.
-                // Has local settings priority over global.
-                //
-                if (settings.ExpandForwarders)
-                {
-                    _coreClient.ExpandAllForwarderModules(module, _configuration.SearchOrderListUM,
-                        _configuration.SearchOrderListKM,
-                        _parentImportsHashTable);
-
-                    // Validate forwarded exports after expansion
-                    _coreClient.ValidateForwardedExports(module);
-                }
-
-                CCoreCallStats stats = null;
-                if (settings.UseStats)
-                {
-                    stats = _coreClient.GetCoreCallStats();
-                }
-
-                _coreClient.CloseModule();
-
-                //
-                // Display statistics.
-                //
-                if (settings.UseStats && stats != null)
-                {
-                    LogModuleStats(stats, module.FileName);
-                }
-
-                if (module.ExportContainErrors)
-                {
-                    AppLogger.LogExt($"Module \"{module.FileName}\" contains export errors.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                // Add warning for modules with forwarding issues
-                if (module.OtherErrorsPresent && module.ForwarderEntries?.Count > 0)
-                {
-                    AppLogger.LogExt($"Module \"{Path.GetFileName(module.FileName)}\" has unresolved forwarded exports.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                bool isCpuMismatch = IsCpuMismatchForDisplay(module, _depends.RootModule);
-
-                if (isCpuMismatch)
-                {
-                    module.OtherErrorsPresent = true;
-                    AppLogger.LogExt($"Module \"{module.FileName}\" with different CPU type was found.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                // Skip this message for kernel modules, dotnet files, and when relocation processing is disabled
-                if (module.ModuleData.ImageFixed != 0 &&
-                    !module.IsKernelModule &&
-                    module.ModuleData.ImageDotNet != 1 &&
-                    settings.ProcessRelocsForImage)  // Only warn if relocation processing was requested (as per issue #39)
-                {
-                    module.OtherErrorsPresent = true;
-                    AppLogger.LogExt($"Module \"{Path.GetFileName(module.FileName)}\" has no relocations.",
-                        LogMessageType.ErrorOrWarning, null, true, true, module);
-                }
-
-                if (!module.IsProcessed)
-                {
-                    AppLogger.LogExt($"Module \"{module.FileName}\" was not fully processed.",
-                        LogMessageType.ErrorOrWarning,
-                        null, true, true, module);
-                }
-                break;
-
-            case ModuleOpenStatus.ErrorUnspecified:
-                AppLogger.LogExt($"Module \"{module.FileName}\" analysis failed.", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorSendCommand:
-                AppLogger.LogExt($"Send command has failed for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorReceivedDataInvalid:
-                AppLogger.LogExt($"Received invalid data for module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorFileNotMapped:
-                AppLogger.LogExt($"Server failed to map input module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorCannotReadFileHeaders:
-                AppLogger.LogExt($"Server failed to read headers of module \"{module.FileName}\".", LogMessageType.ErrorOrWarning,
-                    null, true, true, module);
-                break;
-            case ModuleOpenStatus.ErrorInvalidHeadersOrSignatures:
-                if (module.IsDelayLoad)
-                {
-                    AppLogger.LogExt($"Delay-load module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                        null, true, true, module);
-                }
-                else
-                {
-                    AppLogger.LogExt($"Module \"{module.FileName}\" has invalid headers or signatures.", LogMessageType.ErrorOrWarning,
-                        null, true, true, module);
-                }
-                break;
-
-            case ModuleOpenStatus.ErrorFileNotFound:
-
-                // In case if this is ApiSets failure.
-                // API-* are mandatory to load, while EXT-* are not.
-                bool bExtApiSet = module.IsApiSetContract && module.RawFileName.StartsWith("EXT-", StringComparison.OrdinalIgnoreCase);
-
-                string messageText;
-                LogMessageType messageType = bExtApiSet ? LogMessageType.Information : LogMessageType.ErrorOrWarning;
-
-                if (module.IsDelayLoad)
-                {
-                    if (bExtApiSet)
-                    {
-                        messageText = $"Delay-load extension apiset module \"{module.FileName}\" was not found.";
-                    }
-                    else
-                    {
-                        messageText = $"Delay-load dependency module \"{module.FileName}\" was not found.";
-                    }
-                }
-                else
-                {
-                    if (bExtApiSet)
-                    {
-                        messageText = $"Extension apiset module \"{module.FileName}\" was not found.";
-                    }
-                    else
-                    {
-                        messageText = $"Required implicit or forwarded dependency \"{module.FileName}\" was not found.";
-                    }
-                }
-
-                AppLogger.LogExt(messageText, messageType, null, true, true, module);
-                break;
+            System.Diagnostics.Debug.WriteLine(
+                $"[WinDepends][DuplicateObserver] {issue.Message}");
         }
     }
 
@@ -325,6 +177,62 @@ public partial class MainForm
         return secondSep < 0;
     }
 
+    private bool TryApplyExistingModuleState(
+        CModule module,
+        TreeNode parentNode)
+    {
+        CModule origInstance = CUtils.GetModuleByHash(
+            module.FileName,
+            _loadedModulesList);
+
+        if (origInstance == null)
+            return false;
+
+        module.OriginalInstanceId = origInstance.InstanceId;
+        module.FileNotFound = origInstance.FileNotFound;
+        module.ExportContainErrors = origInstance.ExportContainErrors;
+        module.IsInvalid = origInstance.IsInvalid;
+
+        // Do not copy OtherErrorsPresent from original instance, must set it directly.
+        // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
+
+        module.IsDotNetModule = origInstance.IsDotNetModule;
+        module.ModuleData = new(origInstance.ModuleData);
+
+        _duplicateObserver.Record(module, origInstance);
+
+        // Propagate errors from duplicate to parent if this is not root.
+        if (parentNode?.Tag is CModule parent)
+        {
+            // Only propagate genuine errors, not from apiset contracts or stopped nodes.
+            bool shouldPropagate = origInstance.ExportContainErrors ||
+                                   origInstance.OtherErrorsPresent ||
+                                   origInstance.FileNotFound;
+
+            // Don't propagate from apiset contracts.
+            if (origInstance.IsApiSetContract)
+                shouldPropagate = false;
+
+            // Don't propagate from stopped/duplicate nodes that have forwarders
+            // (these are expected to have "unprocessed" forwarders).
+            if (shouldPropagate)
+            {
+                if (origInstance.IsStoppedNode)
+                    shouldPropagate = false;
+            }
+
+            if (shouldPropagate)
+            {
+                parent.OtherErrorsPresent = true;
+                parent.ModuleImageIndex = parent.GetIconIndexForModule();
+                parentNode.ImageIndex = parent.ModuleImageIndex;
+                parentNode.SelectedImageIndex = parent.ModuleImageIndex;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// AddModuleEntry core implementation. Shared between normal and session files.
     /// </summary>
@@ -344,50 +252,9 @@ public partial class MainForm
             return null;
 
         // 2. Check if module already exists
-        bool isNewModule = true;
-        CModule origInstance = CUtils.GetModuleByHash(module.FileName, _loadedModulesList);
-
-        if (origInstance != null)
-        {
-            isNewModule = false;
-            module.OriginalInstanceId = origInstance.InstanceId;
-            module.FileNotFound = origInstance.FileNotFound;
-            module.ExportContainErrors = origInstance.ExportContainErrors;
-            module.IsInvalid = origInstance.IsInvalid;
-            // Do not copy OtherErrorsPresent from original instance, must set it directly
-            // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
-            module.IsDotNetModule = origInstance.IsDotNetModule;
-            module.ModuleData = new(origInstance.ModuleData);
-
-            // Propagate errors from duplicate to parent if this is not root
-            if (parentNode?.Tag is CModule parent)
-            {
-                // Only propagate genuine errors, not from apiset contracts or stopped nodes
-                bool shouldPropagate = origInstance.ExportContainErrors ||
-                                       origInstance.OtherErrorsPresent ||
-                                       origInstance.FileNotFound;
-
-                // Don't propagate from apiset contracts
-                if (origInstance.IsApiSetContract)
-                    shouldPropagate = false;
-
-                // Don't propagate from stopped/duplicate nodes that have forwarders
-                // (these are expected to have "unprocessed" forwarders)
-                if (shouldPropagate)
-                {
-                    if (origInstance.IsStoppedNode)
-                        shouldPropagate = false;
-                }
-
-                if (shouldPropagate)
-                {
-                    parent.OtherErrorsPresent = true;
-                    parent.ModuleImageIndex = parent.GetIconIndexForModule();
-                    parentNode.ImageIndex = parent.ModuleImageIndex;
-                    parentNode.SelectedImageIndex = parent.ModuleImageIndex;
-                }
-            }
-        }
+        bool isNewModule = !TryApplyExistingModuleState(
+            module,
+            parentNode);
 
         // 3. Run custom processing if this is a new module
         if (isNewModule && moduleProcessor != null)
@@ -438,51 +305,60 @@ public partial class MainForm
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
+            _duplicateObserver.RecordCanonical(module);
         }
 
         return tvNode;
+    }
+
+    private CDependsAnalysisContext CreateLiveAnalysisContext(CModule rootModule)
+    {
+        return new CDependsAnalysisContext(
+            _configuration,
+            rootModule,
+            _parentImportsHashTable,
+            AppLogger.LogExt,
+            ReportAnalysisProgress);
+    }
+
+    private void ProcessNewModule(
+        CModule module,
+        CFileOpenSettings fileOpenSettings,
+        bool isRootModule,
+        CDependsAnalysisContext context)
+    {
+        _analysisService.ProcessModule(
+            module,
+            fileOpenSettings,
+            isRootModule,
+            context);
+
+        module.ModuleImageIndex = module.GetIconIndexForModule();
     }
 
     /// <summary>
     /// Insert module entry to TVModules treeview.
     /// </summary>
     /// <returns>Tree node.</returns>
-    private TreeNode AddModuleEntry(CModule module, CFileOpenSettings fileOpenSettings, TreeNode parentNode = null)
+    private TreeNode AddModuleEntry(
+        CModule module,
+        CFileOpenSettings fileOpenSettings,
+        TreeNode parentNode,
+        CDependsAnalysisContext context)
     {
         bool isRootModule = (parentNode == null);
-
-        // Define action processor (callback)
-        Action<CModule> processModule = (mod) =>
-        {
-            var effectiveSettings = new CFileOpenSettings(fileOpenSettings);
-
-            // If this is a dependency and propagation is disabled, reset to defaults
-            if (!isRootModule && !fileOpenSettings.PropagateSettingsOnDependencies)
-            {
-                effectiveSettings.ProcessRelocsForImage = false;
-                effectiveSettings.UseStats = false;
-                effectiveSettings.UseCustomImageBase = false;
-                effectiveSettings.CustomImageBase = 0;
-            }
-
-            // Open and process module
-            mod.InstanceId = mod.GetHashCode();
-            ModuleOpenStatus openStatus = _coreClient.OpenModule(
-                ref mod,
-                effectiveSettings);
-
-            HandleModuleOpenStatus(mod, openStatus, effectiveSettings, isRootModule);
-
-            // Set module icon index
-            mod.ModuleImageIndex = mod.GetIconIndexForModule();
-        };
 
         // Use shared implementation with our specific processor
         return AddModuleEntryCore(
             module,
             parentNode,
-            _configuration.ModuleNodeDepthMax,
-            processModule);
+            context.Configuration.ModuleNodeDepthMax,
+            mod => ProcessNewModule(
+                mod,
+                fileOpenSettings,
+                isRootModule,
+                context)
+            );
     }
 
     /// <summary>
@@ -500,90 +376,49 @@ public partial class MainForm
             _depends.SessionNodeMaxDepth);
     }
 
-    /// <summary>
-    /// Populates the tree and related lists for the root module and its dependencies.
-    /// </summary>
-    /// <param name="module">The root module to populate.</param>
-    /// <param name="loadFromObject">If true, populates from a restored session object.</param>
-    /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
-    private void PopulateObjectToLists(CModule module, bool loadFromObject, CFileOpenSettings fileOpenSettings)
+    private TreeNode? ProcessLiveModule(
+        CModule module,
+        TreeNode? parentNode,
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context)
     {
-        List<TreeNode> baseNodes = [];
+        return AddModuleEntry(
+            module,
+            fileOpenSettings,
+            parentNode,
+            context);
+    }
 
-        UpdateOperationStatus($"Populating {module.FileName}");
+    private TreeNode? ProcessSessionModule(
+        CModule module,
+        TreeNode? parentNode)
+    {
+        return AddSessionModuleEntry(
+            module,
+            parentNode);
+    }
 
-        if (loadFromObject)
+    private void ReportAnalysisProgress(CDependsAnalysisProgress progress)
+    {
+        if (progress.Stage == CDependsAnalysisProgressStage.Populating)
         {
-            // Add root session module.
-            _rootNode = AddSessionModuleEntry(module, null);
-
-            // Add root session module dependencies.
-            foreach (var importModule in module.Dependents)
-            {
-                UpdateOperationStatus($"Populating {importModule.FileName}");
-                var addedNode = AddSessionModuleEntry(importModule, _rootNode);
-                if (addedNode != null)
-                    baseNodes.Add(addedNode);
-            }
+            UpdateOperationStatus($"Populating {progress.ModuleFileName}");
         }
-        else
-        {
-            // Add root module.
-            _rootNode = AddModuleEntry(module, fileOpenSettings, null);
-
-            // Add root module dependencies.
-            foreach (var importModule in module.Dependents)
-            {
-                UpdateOperationStatus($"Populating {importModule.FileName}");
-                var addedNode = AddModuleEntry(importModule, fileOpenSettings, _rootNode);
-                if (addedNode != null)
-                    baseNodes.Add(addedNode);
-            }
-        }
-
-        // Add sub dependencies.
-        foreach (var node in baseNodes)
-        {
-            if (node.Tag is not CModule nodeModule)
-                continue;
-
-            foreach (var dependent in nodeModule.Dependents)
-            {
-                UpdateOperationStatus($"Populating {dependent.FileName}");
-                PopulateDependentObjectsToLists(dependent, node, loadFromObject, fileOpenSettings);
-            }
-        }
-
     }
 
     /// <summary>
-    /// Populates dependent modules under the specified parent node, respecting the configured depth limit.
+    /// Populates the module tree and related lists from a saved session.
     /// </summary>
-    /// <param name="module">The dependent module to populate.</param>
-    /// <param name="parentNode">The parent tree node.</param>
-    /// <param name="loadFromObject">If true, populates from a restored session object.</param>
-    /// <param name="fileOpenSettings">Specific file open settings from the program configuration.</param>
-    private void PopulateDependentObjectsToLists(CModule module, TreeNode parentNode, bool loadFromObject, CFileOpenSettings fileOpenSettings)
+    /// <param name="module">The saved session root module to populate.</param>
+    private void PopulateSessionObjectToLists(CModule module)
     {
-        TreeNode tvNode;
+        CDependsSessionPopulationRequest sessionRequest = new(
+            module,
+            ProcessSessionModule,
+            ReportAnalysisProgress);
 
-        if (loadFromObject)
-        {
-            tvNode = AddSessionModuleEntry(module, parentNode);
-        }
-        else
-        {
-            tvNode = AddModuleEntry(module, fileOpenSettings, parentNode);
-        }
-
-        if (tvNode == null)
-            return;
-
-        foreach (CModule dependentModule in module.Dependents)
-        {
-            UpdateOperationStatus($"Populating {dependentModule.FileName}");
-            PopulateDependentObjectsToLists(dependentModule, tvNode, loadFromObject, fileOpenSettings);
-        }
+        CDependsPopulationResult populationResult = _analysisService.PopulateSessionTree(sessionRequest);
+        _rootNode = populationResult.RootNode;
     }
 
     /// <summary>
@@ -671,6 +506,7 @@ public partial class MainForm
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
         _loadedModulesList.Clear();
+        _duplicateObserver.Clear();
         LVModules.Invalidate();
     }
 

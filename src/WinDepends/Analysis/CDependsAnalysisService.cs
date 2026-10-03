@@ -185,14 +185,15 @@ internal sealed class CDependsAnalysisService
 
         return PopulateTreeCore(
             rootModule,
-            (module, parentNode) => metrics.ProcessModule(
-                module,
-                parentNode,
-                (currentModule, currentParentNode) => processModule(
-                    currentModule,
-                    currentParentNode,
-                    fileOpenSettings,
-                    context)),
+            (module, parentNode) => CDependsTraversalVisitResult.FromNode(
+                metrics.ProcessModule(
+                    module,
+                    parentNode,
+                    (currentModule, currentParentNode) => processModule(
+                        currentModule,
+                        currentParentNode,
+                        fileOpenSettings,
+                        context))),
             reportProgress);
     }
 
@@ -207,54 +208,63 @@ internal sealed class CDependsAnalysisService
 
         rootNode = PopulateTreeCore(
             request.RootModule,
-            (module, parentNode) => metrics.ProcessModule(
-                module,
-                parentNode,
-                (currentModule, currentParentNode) => request.ProcessModule(
-                    currentModule,
-                    currentParentNode)),
+                (module, parentNode) => CDependsTraversalVisitResult.FromNode(
+                    metrics.ProcessModule(
+                        module,
+                        parentNode,
+                        (currentModule, currentParentNode) => request.ProcessModule(
+                            currentModule,
+                            currentParentNode))),
              request.ReportProgress);
 
         return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
     }
 
-     private static TreeNode? PopulateTreeCore(
-        CModule rootModule,
-        Func<CModule, TreeNode?, TreeNode?> processModule,
-        Action<CDependsAnalysisProgress> reportProgress)
+    private static TreeNode? PopulateTreeCore(
+       CModule rootModule,
+       Func<CModule, TreeNode?, CDependsTraversalVisitResult> processModule,
+       Action<CDependsAnalysisProgress> reportProgress)
     {
         List<(CModule Module, TreeNode Node)> baseModules = [];
+        CDependsTraversalVisitResult rootVisit;
+        TreeNode? rootNode;
 
         reportProgress(new CDependsAnalysisProgress(
             CDependsAnalysisProgressStage.Populating,
             rootModule.FileName,
             0));
 
-        TreeNode? rootNode = processModule(
+        rootVisit = processModule(
             rootModule,
             null);
 
-        if (rootNode == null)
-            return null;
+        rootNode = rootVisit.Node;
+
+        if (rootNode == null || !rootVisit.ShouldTraverseDependents)
+            return rootNode;
 
         foreach (CModule importModule in rootModule.Dependents)
         {
-            TreeNode? addedNode;
+            CDependsTraversalVisitResult importVisit;
+            TreeNode? importNode;
 
             reportProgress(new CDependsAnalysisProgress(
                 CDependsAnalysisProgressStage.Populating,
                 importModule.FileName,
                 1));
 
-            addedNode = processModule(
+            importVisit = processModule(
                 importModule,
                 rootNode);
 
-            if (addedNode != null)
+            importNode = importVisit.Node;
+
+            if (importNode != null &&
+                importVisit.ShouldTraverseDependents)
             {
                 baseModules.Add((
                     importModule,
-                    addedNode));
+                    importNode));
             }
         }
 
@@ -277,21 +287,29 @@ internal sealed class CDependsAnalysisService
     private static void PopulateDependentModulesCore(
         CModule module,
         TreeNode parentNode,
-        Func<CModule, TreeNode?, TreeNode?> processModule,
+        Func<CModule, TreeNode?, CDependsTraversalVisitResult> processModule,
         Action<CDependsAnalysisProgress> reportProgress,
         int depth)
     {
+        CDependsTraversalVisitResult moduleVisit;
+        TreeNode? treeNode;
+
         reportProgress(new CDependsAnalysisProgress(
             CDependsAnalysisProgressStage.Populating,
             module.FileName,
             depth));
 
-        TreeNode? treeNode = processModule(
+        moduleVisit = processModule(
             module,
             parentNode);
 
-        if (treeNode == null)
+        treeNode = moduleVisit.Node;
+
+        if (treeNode == null ||
+            !moduleVisit.ShouldTraverseDependents)
+        {
             return;
+        }
 
         foreach (CModule dependentModule in module.Dependents)
         {

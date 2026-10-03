@@ -364,3 +364,25 @@ internal sealed class CDependsModelAnalysisResult
         DuplicateModuleCount = duplicateModuleCount;
     }
 }
+
+internal readonly struct CDependsTraversalVisitResult
+{
+    public TreeNode? Node { get; }
+
+    public bool ShouldTraverseDependents { get; }
+
+    private CDependsTraversalVisitResult(
+        TreeNode? node,
+        bool shouldTraverseDependents)
+    {
+        Node = node;
+        ShouldTraverseDependents = shouldTraverseDependents;
+    }
+
+    public static CDependsTraversalVisitResult FromNode(TreeNode? node)
+    {
+        return new CDependsTraversalVisitResult(
+            node,
+            node != null);
+    }
+}

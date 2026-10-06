@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Sep 2026
+*  DATE:        03 Oct 2026
 *  
 *  Server process lifecycle routines for Core Server communication class.
 *
@@ -334,7 +334,9 @@ public partial class CCoreClient
     /// </remarks>
     public void DisconnectClient()
     {
-        Process process = _serverProcess;
+        Process process = Interlocked.Exchange(ref _serverProcess, null);
+        var dataStream = Interlocked.Exchange(ref _dataStream, null);
+        var clientConnection = Interlocked.Exchange(ref _clientConnection, null);
 
         try
         {
@@ -345,12 +347,20 @@ public partial class CCoreClient
 
                 if (!process.HasExited)
                 {
-                    ShutdownRequest();
-                    Thread.Sleep(SHUTDOWN_WAIT_MS);
-
-                    if (!process.HasExited)
+                    try
                     {
-                        process.Kill();
+                        SendRequestCore(CCoreProtocolMapper.CreateRequest(CConsts.CMD_SHUTDOWN));
+                    }
+                    catch (Exception ex)
+                    {
+                        _addLogMessage($"Shutdown request failed: {ex.Message}", LogMessageType.ErrorOrWarning);
+                    }
+
+                    // Returns as soon as the process exits.
+                    if (!process.WaitForExit(SHUTDOWN_WAIT_MS))
+                    {
+                        process.Kill(entireProcessTree: true);
+                        process.WaitForExit(SERVER_SHUTDOWN_FINAL_WAIT_MS);
                     }
                 }
             }
@@ -361,23 +371,9 @@ public partial class CCoreClient
         }
         finally
         {
-            if (_dataStream != null)
-            {
-                _dataStream.Close();
-                _dataStream = null;
-            }
-            if (_clientConnection != null)
-            {
-                _clientConnection.Close();
-                _clientConnection = null;
-            }
-
-            if (process != null)
-            {
-                process.Dispose();
-            }
-
-            _serverProcess = null;
+            try { dataStream?.Close(); } catch { /* shutdown: nothing to report */ }
+            try { clientConnection?.Close(); } catch { /* shutdown: nothing to report */ }
+            try { process?.Dispose(); } catch { /* shutdown: nothing to report */ }
         }
     }
 

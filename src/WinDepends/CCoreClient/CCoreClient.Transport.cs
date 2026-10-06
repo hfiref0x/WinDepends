@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        03 Oct 2026
 *  
 *  Transport and reply handling routines for Core Server communication class.
 *
@@ -142,6 +142,13 @@ public partial class CCoreClient
         return DeserializeDataJSON(module?.FileName, objectType, payloadResponse.Value);
     }
 
+    private bool SendRequestCore(CCoreBackendRequest request)
+    {
+        bool result = _transportAdapter.TrySend(request, out var status);
+        ErrorStatus = status;
+        return result;
+    }
+
     /// <summary>
     /// Sends a typed request message to the server.
     /// </summary>
@@ -151,10 +158,7 @@ public partial class CCoreClient
     private bool SendRequest(CCoreBackendRequest request)
     {
         ThrowIfDisposed();
-        
-        bool result = _transportAdapter.TrySend(request, out var status);
-        ErrorStatus = status;
-        return result;
+        return SendRequestCore(request);
     }
 
     /// <summary>

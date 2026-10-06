@@ -364,3 +364,54 @@ internal sealed class CDependsModelAnalysisResult
         DuplicateModuleCount = duplicateModuleCount;
     }
 }
+
+internal readonly struct CDependsTraversalVisitResult
+{
+    public TreeNode? Node { get; }
+
+    public bool ShouldTraverseDependents { get; }
+
+    private CDependsTraversalVisitResult(
+        TreeNode? node,
+        bool shouldTraverseDependents)
+    {
+        Node = node;
+        ShouldTraverseDependents = shouldTraverseDependents;
+    }
+
+    public static CDependsTraversalVisitResult FromNode(TreeNode? node)
+    {
+        return new CDependsTraversalVisitResult(
+            node,
+            node != null);
+    }
+}
+
+internal readonly struct CDependsModelTraversalVisitResult
+{
+    public bool ShouldTraverseDependents { get; }
+
+    private CDependsModelTraversalVisitResult(
+        bool shouldTraverseDependents)
+    {
+        ShouldTraverseDependents = shouldTraverseDependents;
+    }
+
+    public static CDependsModelTraversalVisitResult Continue()
+    {
+        return new CDependsModelTraversalVisitResult(true);
+    }
+
+    public static CDependsModelTraversalVisitResult Stop()
+    {
+        return new CDependsModelTraversalVisitResult(false);
+    }
+}
+
+internal delegate CDependsModelTraversalVisitResult
+    CDependsModelModuleProcessor(
+        CModule module,
+        CModule? parentModule,
+        int depth,
+        CFileOpenSettings fileOpenSettings,
+        CDependsAnalysisContext context);

@@ -122,6 +122,7 @@ public partial class CCoreClient : IDisposable
     private const int SERVER_START_ATTEMPTS = 5;
     private const int SERVER_START_DELAY_MS = 100;
     private const int SHUTDOWN_WAIT_MS = 100;
+    private const int SERVER_SHUTDOWN_FINAL_WAIT_MS = 1000;
 
     /// <summary>
     /// Gets or sets the current error status of server communication.

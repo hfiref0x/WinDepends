@@ -24,24 +24,48 @@ namespace WinDepends;
 
 internal sealed class CDependsAnalysisService
 {
+    private sealed record CDependsTraversalObservation(
+        CModule Module,
+        CModule? ParentModule,
+        int Depth,
+        bool WasAccepted);
+
+    private sealed record CDependsModelDuplicateObservation(
+        CModule Module,
+        int OriginalInstanceId);
+
     private sealed class CDependsPopulationMetrics
     {
+        private readonly List<CDependsTraversalObservation> _observations = [];
         public int ProcessedModuleCount { get; private set; }
 
         public int AcceptedModuleCount { get; private set; }
+        public IReadOnlyList<CDependsTraversalObservation> Observations => _observations;
 
         public TreeNode? ProcessModule(
             CModule module,
             TreeNode? parentNode,
             Func<CModule, TreeNode?, TreeNode?> processModule)
         {
+            CModule? parentModule;
+            int traversalDepth;
             TreeNode? node;
 
             ProcessedModuleCount++;
+            parentModule = parentNode?.Tag as CModule;
+            traversalDepth = parentNode == null
+                ? 0
+                : parentNode.Level + 1;
 
             node = processModule(
                 module,
                 parentNode);
+
+            _observations.Add(new CDependsTraversalObservation(
+                module,
+                parentModule,
+                traversalDepth,
+                node != null));
 
             if (node != null)
             {
@@ -55,10 +79,16 @@ internal sealed class CDependsAnalysisService
     private sealed class CDependsModelTraversalMetrics
     {
         private readonly int _maximumDepth;
+        private readonly List<CModule> _canonicalModules = [];
+        private readonly List<CDependsModelDuplicateObservation> _duplicateObservations = [];
+        private readonly List<CDependsTraversalObservation> _observations = [];
 
         public int ProcessedModuleCount { get; private set; }
 
         public int AcceptedModuleCount { get; private set; }
+
+        public IReadOnlyList<CDependsTraversalObservation> Observations => _observations;
+        public IReadOnlyList<CDependsModelDuplicateObservation> DuplicateObservations => _duplicateObservations;
 
         public CDependsModelTraversalMetrics(int maximumDepth)
         {
@@ -72,6 +102,8 @@ internal sealed class CDependsAnalysisService
             CFileOpenSettings fileOpenSettings,
             CDependsAnalysisContext context)
         {
+            CModule originalModule;
+            int originalInstanceId;
             bool shouldTraverseDependents;
 
             ProcessedModuleCount++;
@@ -79,13 +111,33 @@ internal sealed class CDependsAnalysisService
             shouldTraverseDependents = parentModule == null ||
                 parentModule.Depth <= _maximumDepth;
 
-            if (shouldTraverseDependents)
+            _observations.Add(new CDependsTraversalObservation(
+                module,
+                parentModule,
+                depth,
+                shouldTraverseDependents));
+
+            if (!shouldTraverseDependents)
+                return CDependsModelTraversalVisitResult.Stop();
+
+            originalModule = CUtils.GetModuleByHash(
+                module.FileName,
+                _canonicalModules);
+            
+            originalInstanceId = originalModule?.InstanceId ?? 0;
+            
+            _duplicateObservations.Add(
+                new CDependsModelDuplicateObservation(
+                    module,
+                    originalInstanceId));
+
+            if (originalModule == null)
             {
-                AcceptedModuleCount++;
-                return CDependsModelTraversalVisitResult.Continue();
+                _canonicalModules.Add(module);
             }
 
-            return CDependsModelTraversalVisitResult.Stop();
+            AcceptedModuleCount++;
+            return CDependsModelTraversalVisitResult.Continue();
         }
     }
 
@@ -483,12 +535,17 @@ internal sealed class CDependsAnalysisService
             modelMetrics.ProcessModule,
             s_ignoreProgress);
 
-        if (modelMetrics.ProcessedModuleCount ==
-            populationMetrics.ProcessedModuleCount &&
-            modelMetrics.AcceptedModuleCount ==
-            populationMetrics.AcceptedModuleCount)
+        if (!TryFindTraversalMismatch(
+            populationMetrics.Observations,
+            modelMetrics.Observations,
+            out string mismatchMessage))
         {
-            return;
+            if (!TryFindModelDuplicateMismatch(
+                modelMetrics.DuplicateObservations,
+                out mismatchMessage))
+            {
+                return;
+            }
         }
 
         System.Diagnostics.Debug.WriteLine(
@@ -496,7 +553,112 @@ internal sealed class CDependsAnalysisService
             $"live processed={populationMetrics.ProcessedModuleCount}, " +
             $"live accepted={populationMetrics.AcceptedModuleCount}, " +
             $"model processed={modelMetrics.ProcessedModuleCount}, " +
-            $"model accepted={modelMetrics.AcceptedModuleCount}.");
+            $"model accepted={modelMetrics.AcceptedModuleCount}. " +
+            mismatchMessage);
+    }
+
+    private static bool TryFindModelDuplicateMismatch(
+        IReadOnlyList<CDependsModelDuplicateObservation> observations,
+        out string message)
+    {
+        foreach (CDependsModelDuplicateObservation observation in observations)
+        {
+            int liveOriginalInstanceId =
+                observation.Module.OriginalInstanceId;
+
+            if (liveOriginalInstanceId == 0 &&
+                observation.OriginalInstanceId == 0)
+            {
+                continue;
+            }
+
+            if (liveOriginalInstanceId == observation.OriginalInstanceId)
+                continue;
+
+            message =
+                $"Duplicate classification differs for " +
+                $"\"{observation.Module.FileName}\"; " +
+                $"live original={liveOriginalInstanceId}, " +
+                $"model original={observation.OriginalInstanceId}.";
+            return true;
+        }
+
+        message = string.Empty;
+        return false;
+    }
+
+    private static bool TryFindTraversalMismatch(
+        IReadOnlyList<CDependsTraversalObservation> liveObservations,
+        IReadOnlyList<CDependsTraversalObservation> modelObservations,
+        out string message)
+    {
+        int comparisonCount = Math.Min(
+            liveObservations.Count,
+            modelObservations.Count);
+
+        for (int index = 0; index < comparisonCount; index++)
+        {
+            CDependsTraversalObservation liveObservation =
+                liveObservations[index];
+
+            CDependsTraversalObservation modelObservation =
+                modelObservations[index];
+
+            if (!ReferenceEquals(
+                    liveObservation.Module,
+                    modelObservation.Module))
+            {
+                message =
+                    $"Visit {index}: module differs; " +
+                    $"live=\"{liveObservation.Module.FileName}\", " +
+                    $"model=\"{modelObservation.Module.FileName}\".";
+                return true;
+            }
+
+            if (!ReferenceEquals(
+                    liveObservation.ParentModule,
+                    modelObservation.ParentModule))
+            {
+                message =
+                    $"Visit {index}: parent differs for " +
+                    $"\"{liveObservation.Module.FileName}\"; " +
+                    $"live parent=\"{liveObservation.ParentModule?.FileName ?? "<root>"}\", " +
+                    $"model parent=\"{modelObservation.ParentModule?.FileName ?? "<root>"}\".";
+                return true;
+            }
+
+            if (liveObservation.Depth != modelObservation.Depth)
+            {
+                message =
+                    $"Visit {index}: depth differs for " +
+                    $"\"{liveObservation.Module.FileName}\"; " +
+                    $"live={liveObservation.Depth}, " +
+                    $"model={modelObservation.Depth}.";
+                return true;
+            }
+
+            if (liveObservation.WasAccepted != modelObservation.WasAccepted)
+            {
+                message =
+                    $"Visit {index}: acceptance differs for " +
+                    $"\"{liveObservation.Module.FileName}\"; " +
+                    $"live={liveObservation.WasAccepted}, " +
+                    $"model={modelObservation.WasAccepted}.";
+                return true;
+            }
+        }
+
+        if (liveObservations.Count != modelObservations.Count)
+        {
+            message =
+                $"Observation count differs; " +
+                $"live={liveObservations.Count}, " +
+                $"model={modelObservations.Count}.";
+            return true;
+        }
+
+        message = string.Empty;
+        return false;
     }
 
     public void HandleModuleOpenStatus(

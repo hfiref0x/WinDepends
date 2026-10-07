@@ -123,9 +123,9 @@ internal sealed class CDependsAnalysisService
             originalModule = CUtils.GetModuleByHash(
                 module.FileName,
                 _canonicalModules);
-            
+
             originalInstanceId = originalModule?.InstanceId ?? 0;
-            
+
             _duplicateObservations.Add(
                 new CDependsModelDuplicateObservation(
                     module,
@@ -137,6 +137,80 @@ internal sealed class CDependsAnalysisService
             }
 
             AcceptedModuleCount++;
+            return CDependsModelTraversalVisitResult.Continue();
+        }
+    }
+
+    private sealed class CDependsModelAnalysisMetrics
+    {
+        private readonly CDependsAnalysisService _analysisService;
+        private readonly int _maximumDepth;
+        private readonly List<CModule> _canonicalModules = [];
+
+        public int ProcessedModuleCount { get; private set; }
+
+        public int DuplicateModuleCount { get; private set; }
+
+        public CDependsModelAnalysisMetrics(
+            CDependsAnalysisService analysisService,
+            int maximumDepth)
+        {
+            ArgumentNullException.ThrowIfNull(analysisService);
+
+            _analysisService = analysisService;
+            _maximumDepth = maximumDepth;
+        }
+
+        public CDependsModelTraversalVisitResult ProcessModule(
+            CModule module,
+            CModule? parentModule,
+            int depth,
+            CFileOpenSettings fileOpenSettings,
+            CDependsAnalysisContext context)
+        {
+            CModule? originalModule;
+            bool shouldTraverseDependents;
+
+            ProcessedModuleCount++;
+
+            shouldTraverseDependents = parentModule == null ||
+                parentModule.Depth <= _maximumDepth;
+
+            if (!shouldTraverseDependents)
+                return CDependsModelTraversalVisitResult.Stop();
+
+            originalModule = CUtils.GetModuleByHash(
+                module.FileName,
+                _canonicalModules);
+
+            if (originalModule != null)
+            {
+                CDependsDuplicateModuleState.Apply(
+                    module,
+                    originalModule);
+
+                if (parentModule != null &&
+                    CDependsDuplicateModuleState.ShouldPropagateErrors(
+                        originalModule))
+                {
+                    parentModule.OtherErrorsPresent = true;
+                }
+
+                module.Depth = depth;
+                DuplicateModuleCount++;
+
+                return CDependsModelTraversalVisitResult.Continue();
+            }
+
+            _analysisService.ProcessModule(
+                module,
+                fileOpenSettings,
+                parentModule == null,
+                context);
+
+            module.Depth = depth;
+            _canonicalModules.Add(module);
+
             return CDependsModelTraversalVisitResult.Continue();
         }
     }
@@ -202,6 +276,38 @@ internal sealed class CDependsAnalysisService
 
         ValidateModelTraversalParity(request, metrics);
         return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
+    }
+
+    public CDependsModelAnalysisResult AnalyzeModel(
+        CDependsModelAnalysisRequest request)
+    {
+        Action<CDependsAnalysisProgress> reportProgress;
+        CDependsModelAnalysisMetrics metrics;
+
+        ArgumentNullException.ThrowIfNull(request);
+
+        reportProgress = request.Context.ReportProgress ?? s_ignoreProgress;
+
+        metrics = new CDependsModelAnalysisMetrics(
+            this,
+            request.Context.Configuration.ModuleNodeDepthMax);
+
+        using (BeginAnalysis(
+            request.RootFileName,
+            request.Context))
+        {
+            TraverseModelCore(
+                request.Depends.RootModule,
+                request.FileOpenSettings,
+                request.Context,
+                metrics.ProcessModule,
+                reportProgress);
+        }
+
+        return new CDependsModelAnalysisResult(
+            request.Depends,
+            metrics.ProcessedModuleCount,
+            metrics.DuplicateModuleCount);
     }
 
     public void ProcessModule(

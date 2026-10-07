@@ -188,40 +188,13 @@ public partial class MainForm
         if (origInstance == null)
             return false;
 
-        module.OriginalInstanceId = origInstance.InstanceId;
-        module.FileNotFound = origInstance.FileNotFound;
-        module.ExportContainErrors = origInstance.ExportContainErrors;
-        module.IsInvalid = origInstance.IsInvalid;
-
-        // Do not copy OtherErrorsPresent from original instance, must set it directly.
-        // module.OtherErrorsPresent = origInstance.OtherErrorsPresent;
-
-        module.IsDotNetModule = origInstance.IsDotNetModule;
-        module.ModuleData = new(origInstance.ModuleData);
-
+        CDependsDuplicateModuleState.Apply(module, origInstance);
         _duplicateObserver.Record(module, origInstance);
 
         // Propagate errors from duplicate to parent if this is not root.
         if (parentNode?.Tag is CModule parent)
         {
-            // Only propagate genuine errors, not from apiset contracts or stopped nodes.
-            bool shouldPropagate = origInstance.ExportContainErrors ||
-                                   origInstance.OtherErrorsPresent ||
-                                   origInstance.FileNotFound;
-
-            // Don't propagate from apiset contracts.
-            if (origInstance.IsApiSetContract)
-                shouldPropagate = false;
-
-            // Don't propagate from stopped/duplicate nodes that have forwarders
-            // (these are expected to have "unprocessed" forwarders).
-            if (shouldPropagate)
-            {
-                if (origInstance.IsStoppedNode)
-                    shouldPropagate = false;
-            }
-
-            if (shouldPropagate)
+            if (CDependsDuplicateModuleState.ShouldPropagateErrors(origInstance))
             {
                 parent.OtherErrorsPresent = true;
                 parent.ModuleImageIndex = parent.GetIconIndexForModule();

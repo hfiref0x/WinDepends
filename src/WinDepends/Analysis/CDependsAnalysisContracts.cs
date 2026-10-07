@@ -323,20 +323,28 @@ internal sealed class CDependsPopulationResult
 
 internal sealed class CDependsModelAnalysisRequest
 {
+    public CDepends Depends { get; }
     public string RootFileName { get; }
     public CFileOpenSettings FileOpenSettings { get; }
     public CDependsAnalysisContext Context { get; }
 
     public CDependsModelAnalysisRequest(
-        string rootFileName,
+        CDepends depends,
         CFileOpenSettings fileOpenSettings,
         CDependsAnalysisContext context)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(rootFileName);
+        ArgumentNullException.ThrowIfNull(depends);
+        ArgumentNullException.ThrowIfNull(depends.RootModule);
         ArgumentNullException.ThrowIfNull(fileOpenSettings);
         ArgumentNullException.ThrowIfNull(context);
 
-        RootFileName = rootFileName;
+        if (!ReferenceEquals(depends.RootModule, context.RootModule))
+        {
+            throw new ArgumentException("The analysis context root module must belong to the supplied model.", nameof(context));
+        }
+
+        Depends = depends;
+        RootFileName = depends.RootModule.FileName;
         FileOpenSettings = fileOpenSettings;
         Context = context;
     }

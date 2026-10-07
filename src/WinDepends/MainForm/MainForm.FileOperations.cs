@@ -142,15 +142,18 @@ public partial class MainForm
             if (_depends.RootModule != null)
             {
                 CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
-                CDependsLiveAnalysisRequest analysisRequest = new(fileName, _depends.RootModule, fileOpenSettings, analysisContext, ProcessLiveModule);
+                CDependsModelAnalysisRequest analysisRequest = new(_depends, fileOpenSettings, analysisContext);
+                CDependsModelAnalysisResult analysisResult;
                 CDependsPopulationResult populationResult;
 
+                analysisResult = _analysisService.AnalyzeModel(analysisRequest);
                 TVModules.BeginUpdate();
                 try
                 {
-                    populationResult = _analysisService.PopulateLiveAnalysis(analysisRequest);
+                    populationResult = RenderAnalyzedModel(analysisResult.Depends);
                     _rootNode = populationResult.RootNode;
                     _rootNode?.Expand();
+
                     ValidateDuplicateObservations();
                 }
                 finally

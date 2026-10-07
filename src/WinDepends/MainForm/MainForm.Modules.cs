@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        02 Oct 2026
+*  DATE:        07 Oct 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -362,6 +362,85 @@ public partial class MainForm
             context);
     }
 
+    private TreeNode? RenderAnalyzedModule(
+        CModule module,
+        TreeNode? parentNode,
+        Dictionary<int, CModule> canonicalModules)
+    {
+        string moduleDisplayName;
+        TreeNode treeNode;
+
+        ArgumentNullException.ThrowIfNull(module);
+        ArgumentNullException.ThrowIfNull(canonicalModules);
+
+        if (!ValidateTreeDepth(parentNode, 
+            _configuration.ModuleNodeDepthMax))
+        {
+            return null;
+        }
+
+        moduleDisplayName = BuildModuleDisplayName(
+            module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets),
+            _configuration.FullPaths,
+            _configuration.UpperCaseModuleNames);
+
+        module.ModuleImageIndex = module.GetIconIndexForModule();
+
+        treeNode = new TreeNode(moduleDisplayName)
+        {
+            Tag = module,
+            ImageIndex = module.ModuleImageIndex,
+            SelectedImageIndex = module.ModuleImageIndex,
+            ForeColor = module.IsApiSetContract &&
+                _configuration.HighlightApiSet
+                    ? Color.Blue
+                    : Color.Black
+        };
+
+        if (parentNode != null)
+        {
+            parentNode.Nodes.Add(treeNode);
+        }
+        else
+        {
+            TVModules.Nodes.Add(treeNode);
+        }
+
+        if (module.OriginalInstanceId == 0)
+        {
+            _loadedModulesList.Add(module);
+            canonicalModules.TryAdd(module.InstanceId, module);
+            _duplicateObserver.RecordCanonical(module);
+        }
+        else if (canonicalModules.TryGetValue(module.OriginalInstanceId,
+            out CModule? originalModule))
+        {
+            _duplicateObserver.Record(module, originalModule);
+        }
+
+        return treeNode;
+    }
+
+    private CDependsPopulationResult RenderAnalyzedModel(
+        CDepends depends)
+    {
+        Dictionary<int, CModule> canonicalModules = [];
+
+        ArgumentNullException.ThrowIfNull(depends);
+        ArgumentNullException.ThrowIfNull(depends.RootModule);
+
+        CDependsSessionPopulationRequest renderRequest = new(
+            depends.RootModule,
+            (module, parentNode) => RenderAnalyzedModule(
+                module,
+                parentNode,
+                canonicalModules),
+            ReportAnalysisProgress);
+
+        return _analysisService.PopulateSessionTree(
+            renderRequest);
+    }
+
     private TreeNode? ProcessSessionModule(
         CModule module,
         TreeNode? parentNode)
@@ -373,6 +452,17 @@ public partial class MainForm
 
     private void ReportAnalysisProgress(CDependsAnalysisProgress progress)
     {
+        if (IsDisposed || Disposing || !IsHandleCreated)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(new Action<CDependsAnalysisProgress>(ReportAnalysisProgress), progress);
+            return;
+        }
+
         if (progress.Stage == CDependsAnalysisProgressStage.Populating)
         {
             UpdateOperationStatus($"Populating {progress.ModuleFileName}");

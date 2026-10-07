@@ -196,21 +196,28 @@ internal sealed class CDependsAnalysisService
                     parentModule.OtherErrorsPresent = true;
                 }
 
-                module.Depth = depth;
                 DuplicateModuleCount++;
 
-                return CDependsModelTraversalVisitResult.Continue();
+            }
+            else
+            {
+                _analysisService.ProcessModule(
+                    module,
+                    fileOpenSettings,
+                    parentModule == null,
+                    context);
+
+                _canonicalModules.Add(module);
             }
 
-            _analysisService.ProcessModule(
-                module,
-                fileOpenSettings,
-                parentModule == null,
-                context);
+            if (parentModule != null &&
+                module.IsForward &&
+                module.FileNotFound)
+            {
+                parentModule.OtherErrorsPresent = true;
+            }
 
             module.Depth = depth;
-            _canonicalModules.Add(module);
-
             return CDependsModelTraversalVisitResult.Continue();
         }
     }

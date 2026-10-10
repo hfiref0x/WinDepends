@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        05 Oct 2026
+*  DATE:        10 Oct 2026
 *  
 *  Core Server communication class.
 *
@@ -180,7 +180,6 @@ public partial class CCoreClient : IDisposable
             () => _clientConnection,
             () => _dataStream,
             _addLogMessage);
-        _consoleRun = consoleRun;
     }
 
     /// <summary>

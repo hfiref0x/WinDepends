@@ -302,6 +302,7 @@ internal sealed record CDependsCanonicalModuleObservation(
     bool IsApiSetContract,
     bool IsStoppedNode);
 
+#if DEBUG
 /// <summary>
 /// Collects observations of canonical and duplicate modules during analysis and
 /// checks that they are consistent with each other.
@@ -454,6 +455,8 @@ internal sealed class CDependsDuplicateObserver
     }
 }
 
+#endif
+
 /// <summary>
 /// A single inconsistency found by <see cref="CDependsDuplicateObserver.Validate"/>.
 /// </summary>
@@ -556,7 +559,7 @@ internal sealed class CDependsLiveAnalysisRequest
 /// <summary>
 /// Describes a request to populate the module tree from an existing session.
 /// </summary>
-internal sealed class CDependsSessionPopulationRequest
+internal sealed class CDependsTreePopulationRequest
 {
     /// <summary>Gets the root module of the session.</summary>
     public CModule RootModule { get; }
@@ -570,7 +573,7 @@ internal sealed class CDependsSessionPopulationRequest
     public Action<CDependsAnalysisProgress> ReportProgress { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CDependsSessionPopulationRequest"/> class.
+    /// Initializes a new instance of the <see cref="CDependsTreePopulationRequest"/> class.
     /// </summary>
     /// <param name="rootModule">The root module of the session.</param>
     /// <param name="processModule">The per-module processing delegate.</param>
@@ -579,7 +582,7 @@ internal sealed class CDependsSessionPopulationRequest
     /// Any argument is <see langword="null"/>. Unlike
     /// <see cref="CDependsAnalysisContext"/>, the progress callback is required here.
     /// </exception>
-    public CDependsSessionPopulationRequest(
+    public CDependsTreePopulationRequest(
         CModule rootModule,
         CDependsSessionModuleProcessor processModule,
         Action<CDependsAnalysisProgress> reportProgress)

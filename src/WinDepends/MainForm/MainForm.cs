@@ -110,6 +110,7 @@ public partial class MainForm : Form
     private bool _openInputFileInProgress;
     private CancellationTokenSource? _openCts;
     private bool _closeRequested;
+    private int _sessionRenderCounter;
 
     /// <summary>
     /// Flag to let the others know when WinDepends application is shutting down.
@@ -159,8 +160,10 @@ public partial class MainForm : Form
     readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
     readonly List<CModule> _loadedModulesList = [];
-    readonly CDependsDuplicateObserver _duplicateObserver = new();
 
+#if DEBUG
+    readonly CDependsDuplicateObserver _duplicateObserver = new();
+#endif
     SortOrder _lvImportsSortOrder = SortOrder.Ascending;
     SortOrder _lvExportsSortOrder = SortOrder.Ascending;
     SortOrder _lvModulesSortOrder = SortOrder.Ascending;

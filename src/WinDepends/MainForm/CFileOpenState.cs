@@ -23,7 +23,7 @@ namespace WinDepends;
 /// Represents the state of a single file or session open operation,
 /// carrying both the input parameters and the outcome of the operation.
 /// Instances are created before the operation begins and mutated as it
-/// progresses through <see cref="CFileOpenOrchestrationService.Execute"/>.
+/// progresses through <see cref="CFileOpenOrchestrationService.ExecuteAsync"/>.
 /// </summary>
 internal sealed class CFileOpenState
 {
@@ -155,7 +155,7 @@ internal sealed class CFileOpenOrchestrationService
     /// <exception cref="ArgumentNullException">
     /// Thrown when any required parameter is <c>null</c>.
     /// </exception>
-    public bool Execute(
+   /* public bool Execute(
         CFileOpenState state,
         Func<string?, FileOpenResult> openInputFileInternal,
         Action<string> updateOperationStatus,
@@ -219,7 +219,7 @@ internal sealed class CFileOpenOrchestrationService
             focusTreeView();
         }
         return state.IsSuccess;
-    }
+    }*/
 
     public async Task<bool> ExecuteAsync(
         CFileOpenState state,
@@ -236,29 +236,48 @@ internal sealed class CFileOpenOrchestrationService
 
         try
         {
+            // Lock the UI for the duration of the (potentially expensive)
+            // file-open operation.
             setUiEnabled(false);
+
+            // If the caller supplied a .lnk file, transparently follow the
+            // shortcut to its real target before handing the path on.
             state.ResolvedFileName = ResolveShortcut(state.OriginalFileName);
+
+            // Delegate actual parsing/loading to the caller-provided function.
             state.Result = await openInputFile(state.ResolvedFileName);
 
+            // Treat both a plain file success and a session-file success as
+            // overall success.
             state.IsSuccess = state.Result == FileOpenResult.Success ||
                               state.Result == FileOpenResult.SuccessSession;
 
+            // Build the log message that matches the result code.
             PopulateResultMessage(state);
             AppLogger.Log(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);
         }
         catch (Exception e)
         {
+            // An unexpected exception occurred (e.g. I/O error, access
+            // denied).  Mark the operation as failed and surface a generic
+            // error message; the original exception is intentionally swallowed
+            // here because the caller communicates failure through the state
+            // object rather than via exceptions.
             state.IsSuccess = false;
             state.Result = FileOpenResult.Failure;
             state.LogMessage = $"There is an error while processing \"{state.OriginalFileName}\" file.";
             state.LogMessageType = LogMessageType.ErrorOrWarning;
             AppLogger.Log(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);
+
+            // Print exception log.
             AppLogger.Log(e.ToString(), state.LogMessageType);
         }
         finally
         {
+            // Always re-enable the UI and restore focus, regardless of
+            // whether the operation succeeded, failed, or threw.
             setUiEnabled(true);
             focusTreeView();
         }

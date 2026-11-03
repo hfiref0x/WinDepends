@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Oct 2026
+*  DATE:        03 Nov 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -24,6 +24,7 @@ namespace WinDepends;
 
 public partial class MainForm
 {
+#if DEBUG
     [System.Diagnostics.Conditional("DEBUG")]
     private void ValidateDuplicateObservations()
     {
@@ -39,7 +40,7 @@ public partial class MainForm
                 $"[WinDepends][DuplicateObserver] {issue.Message}");
         }
     }
-
+#endif
     /// <summary>
     /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
@@ -189,8 +190,9 @@ public partial class MainForm
             return false;
 
         CDependsDuplicateModuleState.Apply(module, origInstance);
+#if DEBUG
         _duplicateObserver.Record(module, origInstance);
-
+#endif
         // Propagate errors from duplicate to parent if this is not root.
         if (parentNode?.Tag is CModule parent)
         {
@@ -278,20 +280,11 @@ public partial class MainForm
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
+#if DEBUG
             _duplicateObserver.RecordCanonical(module);
+#endif
         }
-
         return tvNode;
-    }
-
-    private CDependsAnalysisContext CreateLiveAnalysisContext(CModule rootModule)
-    {
-        return new CDependsAnalysisContext(
-            _configuration,
-            rootModule,
-            _parentImportsHashTable,
-            AppLogger.LogExt,
-            ReportAnalysisProgress);
     }
 
     private void ProcessNewModule(
@@ -410,14 +403,17 @@ public partial class MainForm
         {
             _loadedModulesList.Add(module);
             canonicalModules.TryAdd(module.InstanceId, module);
+#if DEBUG
             _duplicateObserver.RecordCanonical(module);
+#endif
         }
+#if DEBUG
         else if (canonicalModules.TryGetValue(module.OriginalInstanceId,
             out CModule? originalModule))
         {
             _duplicateObserver.Record(module, originalModule);
         }
-
+#endif
         return treeNode;
     }
 
@@ -429,7 +425,7 @@ public partial class MainForm
         ArgumentNullException.ThrowIfNull(depends);
         ArgumentNullException.ThrowIfNull(depends.RootModule);
 
-        CDependsSessionPopulationRequest renderRequest = new(
+        CDependsTreePopulationRequest renderRequest = new(
             depends.RootModule,
             (module, parentNode) => RenderAnalyzedModule(
                 module,
@@ -437,14 +433,20 @@ public partial class MainForm
                 canonicalModules),
             ReportAnalysisProgress);
 
-        return _analysisService.PopulateSessionTree(
-            renderRequest);
+        return _analysisService.PopulateModuleTree(renderRequest);
     }
 
     private TreeNode? ProcessSessionModule(
         CModule module,
         TreeNode? parentNode)
     {
+        if ((++_sessionRenderCounter & 0xFF) == 0)
+        {
+            Application.DoEvents();
+        }
+
+        _openCts?.Token.ThrowIfCancellationRequested();
+
         return AddSessionModuleEntry(
             module,
             parentNode);
@@ -528,12 +530,12 @@ public partial class MainForm
     /// <param name="module">The saved session root module to populate.</param>
     private void PopulateSessionObjectToLists(CModule module)
     {
-        CDependsSessionPopulationRequest sessionRequest = new(
+        CDependsTreePopulationRequest sessionRequest = new(
             module,
             ProcessSessionModule,
             ReportAnalysisProgress);
 
-        CDependsPopulationResult populationResult = _analysisService.PopulateSessionTree(sessionRequest);
+        CDependsPopulationResult populationResult = _analysisService.PopulateModuleTree(sessionRequest);
         _rootNode = populationResult.RootNode;
     }
 
@@ -622,7 +624,9 @@ public partial class MainForm
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
         _loadedModulesList.Clear();
+#if DEBUG
         _duplicateObserver.Clear();
+#endif
         LVModules.Invalidate();
     }
 

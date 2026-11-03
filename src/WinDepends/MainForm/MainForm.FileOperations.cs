@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Oct 2026
+*  DATE:        03 Nov 2026
 *  
 *  File and session open/save routines for main form.
 *
@@ -186,7 +186,9 @@ public partial class MainForm
                     _rootNode = populationResult.RootNode;
                     _rootNode?.Expand();
 
+#if DEBUG
                     ValidateDuplicateObservations();
+#endif
                 }
                 finally
                 {
@@ -287,6 +289,7 @@ public partial class MainForm
         bool isCompressed = _configuration.CompressSessionFiles;
 
         CloseInputFile();
+        _sessionRenderCounter = 0;
 
         loadedDepends = await Task.Run(() => LoadSessionObjectFromFile(fileName, isCompressed));
 
@@ -307,34 +310,43 @@ public partial class MainForm
 
         if (_depends.RootModule != null)
         {
-            // Insert tree modules from session file.
-            TVModules.BeginUpdate();
             try
             {
-                PopulateSessionObjectToLists(_depends.RootModule);
-                // Expand root module.
-                _rootNode?.Expand();
-                ValidateDuplicateObservations();
-            }
-            finally { TVModules.EndUpdate(); }
+                // Insert tree modules from session file.
+                TVModules.BeginUpdate();
+                try
+                {
+                    PopulateSessionObjectToLists(_depends.RootModule);
+                    // Expand root module.
+                    _rootNode?.Expand();
+#if DEBUG
+                    ValidateDuplicateObservations();
+#endif
+                }
+                finally { TVModules.EndUpdate(); }
 
-            // Insert list modules from session file.
-            LVModules.BeginUpdate();
-            try
+                // Insert list modules from session file.
+                LVModules.BeginUpdate();
+                try
+                {
+                    LVModules.VirtualListSize = _loadedModulesList.Count;
+                    LVModulesSort(LVModules, _configuration.SortColumnModules,
+                        _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+                }
+                finally { LVModules.EndUpdate(); }
+
+                // Restore important module related warnings/errors in the log.
+                foreach (var entry in _depends.ModuleAnalysisLog)
+                {
+                    AppLogger.LogExt(entry.LoggedMessage, LogMessageType.ContentDefined,
+                        entry.EntryColor, true, false);
+                }
+            }
+            catch (OperationCanceledException)
             {
-                LVModules.VirtualListSize = _loadedModulesList.Count;
-                LVModulesSort(LVModules, _configuration.SortColumnModules,
-                    _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+                CloseInputFile();
+                return false;
             }
-            finally { LVModules.EndUpdate(); }
-
-            // Restore important module related warnings/errors in the log.
-            foreach (var entry in _depends.ModuleAnalysisLog)
-            {
-                AppLogger.LogExt(entry.LoggedMessage, LogMessageType.ContentDefined,
-                    entry.EntryColor, true, false);
-            }
-
         }
         else
         {

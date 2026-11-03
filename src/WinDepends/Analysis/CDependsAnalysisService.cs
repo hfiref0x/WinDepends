@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Oct 2026
+*  DATE:        03 Nov 2026
 *
 *  CDepends analysis service.
 *
@@ -30,8 +30,8 @@ namespace WinDepends;
 /// <para>
 /// Three entry points build on the same traversal order:
 /// <see cref="PopulateLiveAnalysis"/> analyzes modules and builds the tree at the
-/// same time, <see cref="PopulateSessionTree"/> builds the tree from modules that
-/// are already loaded, and <see cref="AnalyzeModel"/> analyzes modules into a
+/// same time, <see cref="PopulateModuleTree"/> builds the tree from modules, 
+/// and <see cref="AnalyzeModel"/> analyzes modules into a
 /// <see cref="CDepends"/> model without building a tree.
 /// </para>
 /// <para>
@@ -517,7 +517,9 @@ internal sealed class CDependsAnalysisService
                     metrics);
             }
 
+#if DEBUG
             ValidateModelTraversalParity(request, metrics);
+#endif
             return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
         }
     }
@@ -551,9 +553,7 @@ internal sealed class CDependsAnalysisService
         using (EnterAnalysis())
         {
 
-            using (BeginAnalysis(
-            request.RootFileName,
-            request.Context))
+            using (BeginAnalysis(request.RootFileName, request.Context))
             {
                 TraverseModelCore(
                     request.Depends.RootModule,
@@ -693,8 +693,7 @@ internal sealed class CDependsAnalysisService
     }
 
     /// <summary>
-    /// Builds the dependency tree from modules that are already loaded, for example
-    /// when restoring a session.
+    /// Builds the dependency tree from modules.
     /// </summary>
     /// <param name="request">The population request.</param>
     /// <returns>
@@ -706,8 +705,8 @@ internal sealed class CDependsAnalysisService
     /// Unlike <see cref="PopulateLiveAnalysis"/>, no files are opened and no
     /// analysis scope is created.
     /// </remarks>
-    public CDependsPopulationResult PopulateSessionTree(
-        CDependsSessionPopulationRequest request)
+    public CDependsPopulationResult PopulateModuleTree(
+        CDependsTreePopulationRequest request)
     {
         CDependsPopulationMetrics metrics;
         TreeNode? rootNode;

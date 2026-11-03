@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Oct 2026
+*  DATE:        29 Oct 2026
 *
 *  CDepends analysis service.
 *
@@ -51,6 +51,32 @@ namespace WinDepends;
 /// </remarks>
 internal sealed class CDependsAnalysisService
 {
+    private static int s_analysisInProgress;
+
+    private sealed class CDependsAnalysisGuard : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                Interlocked.Exchange(ref s_analysisInProgress, 0);
+            }
+        }
+    }
+
+    private static CDependsAnalysisGuard EnterAnalysis()
+    {
+        if (Interlocked.CompareExchange(ref s_analysisInProgress, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "A dependency analysis is already in progress.");
+        }
+
+        return new CDependsAnalysisGuard();
+    }
+
     /// <summary>
     /// A single module visit recorded during a traversal, used to compare the
     /// live and model traversals.
@@ -325,6 +351,8 @@ internal sealed class CDependsAnalysisService
             CModule? originalModule;
             bool shouldTraverseDependents;
 
+            context.CancellationToken.ThrowIfCancellationRequested();
+
             ProcessedModuleCount++;
 
             shouldTraverseDependents = parentModule == null ||
@@ -476,19 +504,22 @@ internal sealed class CDependsAnalysisService
         reportProgress = request.Context.ReportProgress ?? s_ignoreProgress;
         metrics = new CDependsPopulationMetrics();
 
-        using (BeginAnalysis(request.RootFileName, request.Context))
+        using (EnterAnalysis())
         {
-            rootNode = PopulateDependencyTree(
-                request.RootModule,
-                request.FileOpenSettings,
-                request.ProcessModule,
-                request.Context,
-                reportProgress,
-                metrics);
-        }
+            using (BeginAnalysis(request.RootFileName, request.Context))
+            {
+                rootNode = PopulateDependencyTree(
+                    request.RootModule,
+                    request.FileOpenSettings,
+                    request.ProcessModule,
+                    request.Context,
+                    reportProgress,
+                    metrics);
+            }
 
-        ValidateModelTraversalParity(request, metrics);
-        return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
+            ValidateModelTraversalParity(request, metrics);
+            return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
+        }
     }
 
     /// <summary>
@@ -517,22 +548,27 @@ internal sealed class CDependsAnalysisService
             this,
             request.Context.Configuration.ModuleNodeDepthMax);
 
-        using (BeginAnalysis(
+        using (EnterAnalysis())
+        {
+
+            using (BeginAnalysis(
             request.RootFileName,
             request.Context))
-        {
-            TraverseModelCore(
-                request.Depends.RootModule,
-                request.FileOpenSettings,
-                request.Context,
-                metrics.ProcessModule,
-                reportProgress);
-        }
+            {
+                TraverseModelCore(
+                    request.Depends.RootModule,
+                    request.FileOpenSettings,
+                    request.Context,
+                    metrics.ProcessModule,
+                    reportProgress);
+            }
 
-        return new CDependsModelAnalysisResult(
-            request.Depends,
-            metrics.ProcessedModuleCount,
-            metrics.DuplicateModuleCount);
+            return new CDependsModelAnalysisResult(
+                request.Depends,
+                metrics.ProcessedModuleCount,
+                metrics.DuplicateModuleCount);
+
+        }
     }
 
     /// <summary>

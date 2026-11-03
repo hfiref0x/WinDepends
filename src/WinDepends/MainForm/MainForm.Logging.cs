@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        30 Oct 2026
 *  
 *  Log view rendering, interaction, and search routines for main form.
 *
@@ -64,13 +64,38 @@ public partial class MainForm
 {
     private void AppLogger_OnLogMessage(LogMessageEventArgs e)
     {
+        if (_shutdownInProgress)
+            return;
+
+        if (InvokeRequired)
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated)
+                return;
+
+            try
+            {
+                BeginInvoke(
+                    new Action<LogMessageEventArgs>(AppLogger_OnLogMessage),
+                    e);
+            }
+            catch (InvalidOperationException)
+            {
+                if (!_shutdownInProgress &&
+                    !IsDisposed &&
+                    !Disposing &&
+                    IsHandleCreated)
+                {
+                    throw;
+                }
+            }
+
+            return;
+        }
+
         RichTextBox? richTextBox = e.RichTextBox;
 
         Color outputColor = Color.Black;
         bool boldText = false;
-
-        if (_shutdownInProgress)
-            return;
 
         switch (e.MessageType)
         {
@@ -100,17 +125,11 @@ public partial class MainForm
 
         if (e.ModuleMessage)
         {
-            _depends.ModuleAnalysisLog.Add(new LogEntry(e.Message, outputColor));
+            _depends?.ModuleAnalysisLog.Add(new LogEntry(e.Message, outputColor));
         }
 
         if (richTextBox != null && !richTextBox.IsDisposed)
         {
-            if (richTextBox.InvokeRequired)
-            {
-                richTextBox.BeginInvoke(() => AppLogger_OnLogMessage(e));
-                return;
-            }
-
             richTextBox.SuspendLayout();
 
             int startPosition = richTextBox.TextLength;
@@ -119,14 +138,7 @@ public partial class MainForm
             richTextBox.SelectionColor = outputColor;
 
             var baseFont = richTextBox.Font;
-            if (boldText)
-            {
-                richTextBox.SelectionFont = new Font(baseFont, FontStyle.Bold);
-            }
-            else
-            {
-                richTextBox.SelectionFont = baseFont;
-            }
+            richTextBox.SelectionFont = boldText ? new Font(baseFont, FontStyle.Bold) : baseFont;
 
             richTextBox.SelectedText = e.Message + Environment.NewLine;
 
@@ -142,30 +154,30 @@ public partial class MainForm
                 foreach (var pattern in patternsToCheck)
                 {
                     int moduleNameIndex = e.Message.IndexOf(pattern);
-                    if (moduleNameIndex >= 0)
+                    if (moduleNameIndex < 0)
+                        continue;
+
+                    // Calculate the exact position in the RichTextBox
+                    int linkStart = startPosition + moduleNameIndex;
+                    int linkLength = pattern.Length;
+
+                    // Apply ONLY underline to the module name, preserving the color
+                    richTextBox.Select(linkStart, linkLength);
+                    Font currentFont = richTextBox.SelectionFont ?? baseFont;
+                    richTextBox.SelectionFont = new Font(
+                        currentFont.FontFamily,
+                        currentFont.Size,
+                        currentFont.Style | FontStyle.Underline);
+                    richTextBox.SelectionColor = outputColor;
+
+                    // Store the link information
+                    _moduleLinks.Add(new ModuleLinkInfo
                     {
-                        // Calculate the exact position in the RichTextBox
-                        int linkStart = startPosition + moduleNameIndex;
-                        int linkLength = pattern.Length;
-
-                        // Apply ONLY underline to the module name, preserving the color
-                        richTextBox.Select(linkStart, linkLength);
-                        Font currentFont = richTextBox.SelectionFont ?? baseFont;
-                        richTextBox.SelectionFont = new Font(
-                            currentFont.FontFamily,
-                            currentFont.Size,
-                            currentFont.Style | FontStyle.Underline);
-                        richTextBox.SelectionColor = outputColor;
-
-                        // Store the link information
-                        _moduleLinks.Add(new ModuleLinkInfo
-                        {
-                            Start = linkStart,
-                            Length = linkLength,
-                            InstanceId = e.RelatedModule.InstanceId
-                        });
-                        break;
-                    }
+                        Start = linkStart,
+                        Length = linkLength,
+                        InstanceId = e.RelatedModule.InstanceId
+                    });
+                    break;
                 }
             }
 

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        08 Oct 2026
+*  DATE:        29 Oct 2026
 *
 *  CDepends analysis service contracts.
 *
@@ -29,6 +29,8 @@ namespace WinDepends;
 /// </remarks>
 internal sealed class CDependsAnalysisContext
 {
+    public CancellationToken CancellationToken { get; }
+
     /// <summary>
     /// Gets the configuration that controls how the analysis is performed.
     /// </summary>
@@ -77,7 +79,8 @@ internal sealed class CDependsAnalysisContext
         CModule rootModule,
         Dictionary<int, FunctionHashObject> parentImportsHashTable,
         AddLogMessageCallback addLogMessage,
-        Action<CDependsAnalysisProgress>? reportProgress = null)
+        Action<CDependsAnalysisProgress>? reportProgress = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(rootModule);
@@ -89,6 +92,7 @@ internal sealed class CDependsAnalysisContext
         ParentImportsHashTable = parentImportsHashTable;
         AddLogMessage = addLogMessage;
         ReportProgress = reportProgress;
+        CancellationToken = cancellationToken;
     }
 }
 

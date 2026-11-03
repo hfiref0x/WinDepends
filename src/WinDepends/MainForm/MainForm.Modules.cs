@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        07 Oct 2026
+*  DATE:        29 Oct 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -452,21 +452,74 @@ public partial class MainForm
 
     private void ReportAnalysisProgress(CDependsAnalysisProgress progress)
     {
-        if (IsDisposed || Disposing || !IsHandleCreated)
+        if (progress.Stage != CDependsAnalysisProgressStage.Populating ||
+            _shutdownInProgress ||
+            IsDisposed ||
+            Disposing ||
+            !IsHandleCreated)
         {
             return;
         }
 
-        if (InvokeRequired)
-        {
-            BeginInvoke(new Action<CDependsAnalysisProgress>(ReportAnalysisProgress), progress);
-            return;
-        }
-
-        if (progress.Stage == CDependsAnalysisProgressStage.Populating)
+        if (!InvokeRequired)
         {
             UpdateOperationStatus($"Populating {progress.ModuleFileName}");
+            return;
         }
+
+        lock (_analysisProgressLock)
+        {
+            _pendingAnalysisProgress = progress;
+
+            if (_analysisProgressDispatchPending)
+                return;
+
+            _analysisProgressDispatchPending = true;
+        }
+
+        try
+        {
+            BeginInvoke((MethodInvoker)DrainAnalysisProgress);
+        }
+        catch (InvalidOperationException)
+        {
+            lock (_analysisProgressLock)
+            {
+                _pendingAnalysisProgress = null;
+                _analysisProgressDispatchPending = false;
+            }
+
+            if (!_shutdownInProgress &&
+                !IsDisposed &&
+                !Disposing &&
+                IsHandleCreated)
+            {
+                throw;
+            }
+        }
+    }
+
+    private void DrainAnalysisProgress()
+    {
+        CDependsAnalysisProgress? progress;
+
+        lock (_analysisProgressLock)
+        {
+            progress = _pendingAnalysisProgress;
+            _pendingAnalysisProgress = null;
+            _analysisProgressDispatchPending = false;
+        }
+
+        if (progress == null ||
+            _shutdownInProgress ||
+            IsDisposed ||
+            Disposing ||
+            !IsHandleCreated)
+        {
+            return;
+        }
+
+        UpdateOperationStatus($"Populating {progress.ModuleFileName}");
     }
 
     /// <summary>

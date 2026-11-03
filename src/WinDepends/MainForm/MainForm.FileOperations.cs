@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        02 Oct 2026
+*  DATE:        29 Oct 2026
 *  
 *  File and session open/save routines for main form.
 *
@@ -63,7 +63,7 @@ public partial class MainForm
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private FileOpenResult OpenInputFileInternal(string? fileName)
+    private async Task<FileOpenResult> OpenInputFileInternalAsync(string? fileName)
     {
         bool bResult = false;
 
@@ -130,6 +130,11 @@ public partial class MainForm
                 RichEditLog_ClearLog();
             }
 
+            CConfiguration analysisConfiguration = new(_configuration);
+            CFileOpenSettings analysisFileOpenSettings = new(fileOpenSettings);
+            Dictionary<int, FunctionHashObject> analysisImportsHashTable = [];
+            CancellationToken cancellationToken = _openCts?.Token ?? CancellationToken.None;
+
             _parentImportsHashTable.Clear();
 
             // Create new root object and output it submodules.
@@ -143,10 +148,27 @@ public partial class MainForm
             {
                 CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
                 CDependsModelAnalysisRequest analysisRequest = new(_depends, fileOpenSettings, analysisContext);
+
                 CDependsModelAnalysisResult analysisResult;
+
+                try
+                {
+                    analysisResult = await Task.Run(() => _analysisService.AnalyzeModel(analysisRequest),
+                        cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    CloseInputFile();
+                    return FileOpenResult.Cancelled;
+                }
+
+                foreach (KeyValuePair<int, FunctionHashObject> entry in analysisImportsHashTable)
+                {
+                    _parentImportsHashTable.Add(entry.Key, entry.Value);
+                }
+
                 CDependsPopulationResult populationResult;
 
-                analysisResult = _analysisService.AnalyzeModel(analysisRequest);
                 TVModules.BeginUpdate();
                 try
                 {
@@ -210,15 +232,39 @@ public partial class MainForm
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenInputFile(string? fileName)
+    private async Task<bool> OpenInputFileAsync(string? fileName)
     {
-        CFileOpenState state = new(fileName);
-        return _fileOpenOrchestrationService.Execute(
-             state,
-             OpenInputFileInternal,
-             UpdateOperationStatus,
-             SetOpenInputUiEnabled,
-             () => TVModules.Focus());
+        if (_openInputFileInProgress)
+        {
+            AppLogger.LogExt(
+                "An open operation is already in progress.",
+                LogMessageType.ErrorOrWarning);
+            return false;
+        }
+
+        _openInputFileInProgress = true;
+        _openCts = new CancellationTokenSource();
+
+        try
+        {
+            CFileOpenState state = new(fileName);
+            return await _fileOpenOrchestrationService.ExecuteAsync(
+                       state,
+                       OpenInputFileInternalAsync,
+                       UpdateOperationStatus,
+                       SetOpenInputUiEnabled,
+                       () => TVModules.Focus());
+        }
+        finally
+        {
+            _openCts.Dispose();
+            _openCts = null;
+            _openInputFileInProgress = false;
+            if (_closeRequested && !IsDisposed)
+            {
+                BeginInvoke(new Action(Close));
+            }
+        }
     }
 
     /// <summary>
@@ -424,23 +470,23 @@ public partial class MainForm
         SaveSessionObjectToFile(true, _configuration.CompressSessionFiles);
     }
 
-    private void OpenFileHandler(object sender, EventArgs e)
+    private async void OpenFileHandler(object sender, EventArgs e)
     {
         OpenDialog1.Filter = CConsts.HandledFileExtensionsMsg +
             string.Join(";", InternalFileHandledExtensions.ExtensionList.Select(ext => "*." + ext.Name)) + CConsts.WinDependsFilter;
 
         if (OpenDialog1.ShowDialog() == DialogResult.OK)
         {
-            OpenInputFile(OpenDialog1.FileName);
+            await OpenInputFileAsync(OpenDialog1.FileName);
         }
     }
 
-    private void ViewRefreshItem_Click(object sender, EventArgs e)
+    private async void ViewRefreshItem_Click(object sender, EventArgs e)
     {
         if (_depends != null)
         {
             var fName = _depends.RootModule.RawFileName;
-            OpenInputFile(fName);
+            await OpenInputFileAsync(fName);
         }
     }
     private void SetOpenInputUiEnabled(bool isEnabled)

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        29 Oct 2026
 *
 *  File/Session open state class.
 *
@@ -218,6 +218,51 @@ internal sealed class CFileOpenOrchestrationService
             setUiEnabled(true);
             focusTreeView();
         }
+        return state.IsSuccess;
+    }
+
+    public async Task<bool> ExecuteAsync(
+        CFileOpenState state,
+        Func<string?, Task<FileOpenResult>> openInputFile,
+        Action<string> updateOperationStatus,
+        Action<bool> setUiEnabled,
+        Action focusTreeView)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(openInputFile);
+        ArgumentNullException.ThrowIfNull(updateOperationStatus);
+        ArgumentNullException.ThrowIfNull(setUiEnabled);
+        ArgumentNullException.ThrowIfNull(focusTreeView);
+
+        try
+        {
+            setUiEnabled(false);
+            state.ResolvedFileName = ResolveShortcut(state.OriginalFileName);
+            state.Result = await openInputFile(state.ResolvedFileName);
+
+            state.IsSuccess = state.Result == FileOpenResult.Success ||
+                              state.Result == FileOpenResult.SuccessSession;
+
+            PopulateResultMessage(state);
+            AppLogger.Log(state.LogMessage, state.LogMessageType);
+            updateOperationStatus(state.LogMessage);
+        }
+        catch (Exception e)
+        {
+            state.IsSuccess = false;
+            state.Result = FileOpenResult.Failure;
+            state.LogMessage = $"There is an error while processing \"{state.OriginalFileName}\" file.";
+            state.LogMessageType = LogMessageType.ErrorOrWarning;
+            AppLogger.Log(state.LogMessage, state.LogMessageType);
+            updateOperationStatus(state.LogMessage);
+            AppLogger.Log(e.ToString(), state.LogMessageType);
+        }
+        finally
+        {
+            setUiEnabled(true);
+            focusTreeView();
+        }
+
         return state.IsSuccess;
     }
 

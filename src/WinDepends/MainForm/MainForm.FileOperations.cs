@@ -70,6 +70,7 @@ public partial class MainForm
         string fileExt = Path.GetExtension(fileName);
 
         bool bSessionFile = fileExt.Equals(CConsts.WinDependsSessionFileExt, StringComparison.OrdinalIgnoreCase);
+        CancellationToken cancellationToken = _openCts?.Token ?? CancellationToken.None;
 
         if (bSessionFile)
         {
@@ -77,7 +78,11 @@ public partial class MainForm
             {
                 RichEditLog_ClearLog();
             }
-            bResult = OpenSessionFile(fileName);
+            bResult = await OpenSessionFileAsync(fileName, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return FileOpenResult.Cancelled;
+            }
         }
         else
         {
@@ -133,7 +138,6 @@ public partial class MainForm
             CConfiguration analysisConfiguration = new(_configuration);
             CFileOpenSettings analysisFileOpenSettings = new(fileOpenSettings);
             Dictionary<int, FunctionHashObject> analysisImportsHashTable = [];
-            CancellationToken cancellationToken = _openCts?.Token ?? CancellationToken.None;
 
             _parentImportsHashTable.Clear();
 
@@ -146,7 +150,13 @@ public partial class MainForm
 
             if (_depends.RootModule != null)
             {
-                CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
+                CDependsAnalysisContext analysisContext = new(analysisConfiguration,
+                    _depends.RootModule,
+                    analysisImportsHashTable,
+                    AppLogger.LogExt,
+                    ReportAnalysisProgress,
+                    cancellationToken);
+
                 CDependsModelAnalysisRequest analysisRequest = new(_depends, fileOpenSettings, analysisContext);
 
                 CDependsModelAnalysisResult analysisResult;
@@ -271,11 +281,22 @@ public partial class MainForm
     /// Opens WinDepends serialized session file.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenSessionFile(string? fileName)
+    private async Task<bool> OpenSessionFileAsync(string? fileName, CancellationToken cancellationToken)
     {
+        CDepends? loadedDepends;
+        bool isCompressed = _configuration.CompressSessionFiles;
+
         CloseInputFile();
 
-        _depends = LoadSessionObjectFromFile(fileName, _configuration.CompressSessionFiles);
+        loadedDepends = await Task.Run(() => LoadSessionObjectFromFile(fileName, isCompressed));
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            UpdateOperationStatus(string.Empty);
+            return false;
+        }
+
+        _depends = loadedDepends;
         if (_depends == null)
         {
             // Deserialization failed, leaving.

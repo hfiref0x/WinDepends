@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Oct 2026
+*  DATE:        03 Nov 2026
 *
 *  File/Session open state class.
 *
@@ -356,8 +356,8 @@ internal sealed class CFileOpenOrchestrationService
             default:
                 // The user cancelled the dialog, or an unrecognised result
                 // code was returned — treat both as a no-op.
-                state.LogMessage = "Operation has been cancelled.";
-                state.LogMessageType = LogMessageType.Normal;
+                state.LogMessage = $"Analysis of \"{state.ResolvedFileName}\" has been cancelled.";
+                state.LogMessageType = LogMessageType.Information;
                 break;
         }
     }

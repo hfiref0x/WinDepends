@@ -287,46 +287,6 @@ public partial class MainForm
         return tvNode;
     }
 
-    private void ProcessNewModule(
-        CModule module,
-        CFileOpenSettings fileOpenSettings,
-        bool isRootModule,
-        CDependsAnalysisContext context)
-    {
-        _analysisService.ProcessModule(
-            module,
-            fileOpenSettings,
-            isRootModule,
-            context);
-
-        module.ModuleImageIndex = module.GetIconIndexForModule();
-    }
-
-    /// <summary>
-    /// Insert module entry to TVModules treeview.
-    /// </summary>
-    /// <returns>Tree node.</returns>
-    private TreeNode AddModuleEntry(
-        CModule module,
-        CFileOpenSettings fileOpenSettings,
-        TreeNode parentNode,
-        CDependsAnalysisContext context)
-    {
-        bool isRootModule = (parentNode == null);
-
-        // Use shared implementation with our specific processor
-        return AddModuleEntryCore(
-            module,
-            parentNode,
-            context.Configuration.ModuleNodeDepthMax,
-            mod => ProcessNewModule(
-                mod,
-                fileOpenSettings,
-                isRootModule,
-                context)
-            );
-    }
-
     /// <summary>
     /// Adds module entry from loaded session object (saved session view).
     /// </summary>
@@ -342,19 +302,6 @@ public partial class MainForm
             _depends.SessionNodeMaxDepth);
     }
 
-    private TreeNode? ProcessLiveModule(
-        CModule module,
-        TreeNode? parentNode,
-        CFileOpenSettings fileOpenSettings,
-        CDependsAnalysisContext context)
-    {
-        return AddModuleEntry(
-            module,
-            fileOpenSettings,
-            parentNode,
-            context);
-    }
-
     private TreeNode? RenderAnalyzedModule(
         CModule module,
         TreeNode? parentNode,
@@ -366,7 +313,7 @@ public partial class MainForm
         ArgumentNullException.ThrowIfNull(module);
         ArgumentNullException.ThrowIfNull(canonicalModules);
 
-        if (!ValidateTreeDepth(parentNode, 
+        if (!ValidateTreeDepth(parentNode,
             _configuration.ModuleNodeDepthMax))
         {
             return null;

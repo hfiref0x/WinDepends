@@ -403,6 +403,7 @@ public partial class MainForm : Form
                 _configuration.MRUList.AddRange(_mruList.GetCurrentItems());
                 CConfigManager.SaveConfiguration(_configuration);
             }
+            _mruList?.Dispose();
 
         }
         finally

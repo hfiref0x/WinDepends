@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 Oct 2026
+*  DATE:        03 Nov 2026
 *  
 *  Log view rendering, interaction, and search routines for main form.
 *
@@ -288,26 +288,6 @@ public partial class MainForm
     private void RichEditLog_SelectionChanged(object sender, EventArgs e)
     {
         CopyToolButton.Enabled = (reLog.SelectionLength > 0);
-    }
-
-    private static string FormatByteSize(UInt64 bytes)
-    {
-        return bytes switch
-        {
-            >= 1024 * 1024 => $"{bytes / (1024 * 1024)} MB",
-            >= 1024 => $"{bytes / 1024} KB",
-            _ => $"{bytes} byte"
-        };
-    }
-
-    private void LogModuleStats(CCoreCallStats stats, string moduleFileName)
-    {
-        if (stats == null)
-            return;
-
-        var statsData = $"[STATS {Path.GetFileName(moduleFileName)}] Received: {FormatByteSize(stats.TotalBytesSent)}, " +
-                        $"\"send\" calls: {stats.TotalSendCalls}, \"send\" time spent (\u00B5s): {stats.TotalTimeSpent}";
-        AppLogger.LogExt(statsData, LogMessageType.ContentDefined, Color.Purple, true, false);
     }
 
     private void ClearModuleLinks()

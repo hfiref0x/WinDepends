@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        17 Jul 2026
+*  DATE:        04 Nov 2026
 *
 *  MS Symbols resolver support class.
 *
@@ -222,8 +222,6 @@ public sealed class CSymbolResolver : IDisposable
     string _pendingModuleFileName = string.Empty;
     UInt64 _pendingModuleBaseAddress;
     int _pendingRequestId;
-
-    string _activeModuleFileName = string.Empty;
 
     string _nativeLoadedModuleFileName = string.Empty;
     IntPtr _nativeLoadedModuleBase = IntPtr.Zero;
@@ -452,7 +450,6 @@ public sealed class CSymbolResolver : IDisposable
                 string.Equals(loadedFileName, fileName, StringComparison.OrdinalIgnoreCase) &&
                 string.IsNullOrEmpty(_pendingModuleFileName))
             {
-                _activeModuleFileName = fileName;
                 return;
             }
 
@@ -561,15 +558,6 @@ public sealed class CSymbolResolver : IDisposable
 
                 lock (_stateLock)
                 {
-                    if (string.Equals(nativeLoadedName, fileName, StringComparison.OrdinalIgnoreCase) &&
-                        loadedBase != IntPtr.Zero)
-                    {
-                        _activeModuleFileName = fileName;
-                    }
-                }
-
-                lock (_stateLock)
-                {
                     bool isCancelled;
 
                     lock (_stateLock)
@@ -668,11 +656,6 @@ public sealed class CSymbolResolver : IDisposable
             result = ClearLoadedModuleNative();
         }
 
-        lock (_stateLock)
-        {
-            _activeModuleFileName = string.Empty;
-        }
-
         return result;
     }
 
@@ -711,7 +694,6 @@ public sealed class CSymbolResolver : IDisposable
             _pendingModuleFileName = string.Empty;
             _pendingModuleBaseAddress = 0;
             _pendingRequestId = 0;
-            _activeModuleFileName = string.Empty;
         }
 
         return bResult;

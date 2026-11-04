@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        03 Nov 2026
 *
 *  File/Session open state class.
 *
@@ -23,7 +23,7 @@ namespace WinDepends;
 /// Represents the state of a single file or session open operation,
 /// carrying both the input parameters and the outcome of the operation.
 /// Instances are created before the operation begins and mutated as it
-/// progresses through <see cref="CFileOpenOrchestrationService.Execute"/>.
+/// progresses through <see cref="CFileOpenOrchestrationService.ExecuteAsync"/>.
 /// </summary>
 internal sealed class CFileOpenState
 {
@@ -114,59 +114,15 @@ internal sealed class CFileOpenState
 /// </summary>
 internal sealed class CFileOpenOrchestrationService
 {
-    /// <summary>
-    /// Executes the file-open workflow described in the class summary.
-    /// </summary>
-    /// <param name="state">
-    /// A pre-created <see cref="CFileOpenState"/> whose
-    /// <see cref="CFileOpenState.OriginalFileName"/> identifies the file to
-    /// open.  The remaining properties are populated by this method.
-    /// Must not be <c>null</c>.
-    /// </param>
-    /// <param name="openInputFileInternal">
-    /// The core open function provided by the caller.  Receives the resolved
-    /// file path and returns a <see cref="FileOpenResult"/> that reflects
-    /// whether the file was opened successfully, whether it was a session
-    /// file, or whether it failed.
-    /// Must not be <c>null</c>.
-    /// </param>
-    /// <param name="updateOperationStatus">
-    /// Callback that pushes a short status string to the UI status bar
-    /// (or equivalent).
-    /// Must not be <c>null</c>.
-    /// </param>
-    /// <param name="setUiEnabled">
-    /// Callback that enables (<c>true</c>) or disables (<c>false</c>) the
-    /// interactive portions of the UI.  Called with <c>false</c> at the start
-    /// and with <c>true</c> in the <c>finally</c> block, guaranteeing
-    /// re-enablement even when an exception is thrown.
-    /// Must not be <c>null</c>.
-    /// </param>
-    /// <param name="focusTreeView">
-    /// Callback that returns keyboard focus to the dependency tree-view after
-    /// the operation completes.  Called in the <c>finally</c> block.
-    /// Must not be <c>null</c>.
-    /// </param>
-    /// <returns>
-    /// <c>true</c> when the file was opened successfully (i.e.
-    /// <see cref="CFileOpenState.IsSuccess"/> is <c>true</c>);
-    /// <c>false</c> for any other outcome including cancellation and errors.
-    /// </returns>
-    /// <exception cref="ArgumentNullException">
-    /// Thrown when any required parameter is <c>null</c>.
-    /// </exception>
-    public bool Execute(
+    public static async Task<bool> ExecuteAsync(
         CFileOpenState state,
-        Func<string?, FileOpenResult> openInputFileInternal,
+        Func<string?, Task<FileOpenResult>> openInputFile,
         Action<string> updateOperationStatus,
         Action<bool> setUiEnabled,
         Action focusTreeView)
     {
-        // Validate all required delegates up-front so that callers receive
-        // a clear exception rather than a NullReferenceException deep inside
-        // the workflow.
         ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(openInputFileInternal);
+        ArgumentNullException.ThrowIfNull(openInputFile);
         ArgumentNullException.ThrowIfNull(updateOperationStatus);
         ArgumentNullException.ThrowIfNull(setUiEnabled);
         ArgumentNullException.ThrowIfNull(focusTreeView);
@@ -182,14 +138,22 @@ internal sealed class CFileOpenOrchestrationService
             state.ResolvedFileName = ResolveShortcut(state.OriginalFileName);
 
             // Delegate actual parsing/loading to the caller-provided function.
-            state.Result = openInputFileInternal(state.ResolvedFileName);
+            state.Result = await openInputFile(state.ResolvedFileName);
 
             // Treat both a plain file success and a session-file success as
             // overall success.
-            state.IsSuccess = state.Result == FileOpenResult.Success
-                           || state.Result == FileOpenResult.SuccessSession;
+            state.IsSuccess = state.Result == FileOpenResult.Success ||
+                              state.Result == FileOpenResult.SuccessSession;
 
             // Build the log message that matches the result code.
+            PopulateResultMessage(state);
+            AppLogger.Log(state.LogMessage, state.LogMessageType);
+            updateOperationStatus(state.LogMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            state.IsSuccess = false;
+            state.Result = FileOpenResult.Cancelled;
             PopulateResultMessage(state);
             AppLogger.Log(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);
@@ -218,6 +182,7 @@ internal sealed class CFileOpenOrchestrationService
             setUiEnabled(true);
             focusTreeView();
         }
+
         return state.IsSuccess;
     }
 
@@ -311,8 +276,8 @@ internal sealed class CFileOpenOrchestrationService
             default:
                 // The user cancelled the dialog, or an unrecognised result
                 // code was returned — treat both as a no-op.
-                state.LogMessage = "Operation has been cancelled.";
-                state.LogMessageType = LogMessageType.Normal;
+                state.LogMessage = $"Analysis of \"{state.ResolvedFileName}\" has been cancelled.";
+                state.LogMessageType = LogMessageType.Information;
                 break;
         }
     }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        19 Sep 2026
+*  DATE:        03 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -39,7 +39,7 @@ public sealed class CMRUList : IDisposable
     public int MaxEntries { get; private set; }
     public bool ShowFullPath { get; set; }
 
-    public delegate bool SelectedFileEventCallback(string fileName);
+    public delegate Task<bool> SelectedFileEventCallback(string fileName);
     public delegate void UpdateOperationStatusCallback(string status);
     public event SelectedFileEventCallback selectedFileCallback;
     public event UpdateOperationStatusCallback updateOperationStatusCallback;
@@ -274,7 +274,7 @@ public sealed class CMRUList : IDisposable
         item.MouseLeave -= HandleMouseLeave;
     }
 
-    private void HandleFileClick(object sender, EventArgs e)
+    private async void HandleFileClick(object sender, EventArgs e)
     {
         if (sender is ToolStripMenuItem { Tag: FileInfo fi })
         {
@@ -285,7 +285,7 @@ public sealed class CMRUList : IDisposable
                 {
                     try
                     {
-                        callback(fi.FullName);
+                        await callback(fi.FullName);
                     }
                     catch (Exception ex)
                     {

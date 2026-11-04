@@ -128,7 +128,7 @@ public partial class CCoreClient
     }
 
     /// <summary>
-    /// Gets the data directories for the specified module.
+    /// Gets the data directories for the specified module (currently unused, future use).
     /// </summary>
     /// <param name="module">The module to query.</param>
     /// <returns>A list of data directory entries, or null if the request fails.</returns>

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Feb 2026
+*  DATE:        04 Nov 2026
 *  
 *  Implementation of base CModule and CModuleComparer classes.
 *
@@ -998,18 +998,6 @@ public class CModule
     /// when sorting and displaying modules.
     /// </remarks>
     internal string _cachedFileName;
-
-    /// <summary>
-    /// Resets cached data in the module.
-    /// </summary>
-    /// <remarks>
-    /// Call this method when the module's filename or other key data changes to ensure
-    /// that cached values are regenerated when next accessed.
-    /// </remarks>
-    public void ResetCache()
-    {
-        _cachedFileName = null;
-    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CModule"/> class.

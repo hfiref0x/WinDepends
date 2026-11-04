@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        07 Oct 2026
+*  DATE:        03 Nov 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -24,6 +24,7 @@ namespace WinDepends;
 
 public partial class MainForm
 {
+#if DEBUG
     [System.Diagnostics.Conditional("DEBUG")]
     private void ValidateDuplicateObservations()
     {
@@ -39,14 +40,14 @@ public partial class MainForm
                 $"[WinDepends][DuplicateObserver] {issue.Message}");
         }
     }
-
+#endif
     /// <summary>
     /// Validates whether a module can be added based on tree depth settings.
     /// </summary>
     /// <param name="parentNode">The parent node to check depth against.</param>
     /// <param name="maxDepth">The maximum allowed depth.</param>
     /// <returns>true if the node is within the depth limit; otherwise, false.</returns>
-    private bool ValidateTreeDepth(TreeNode parentNode, int maxDepth)
+    private static bool ValidateTreeDepth(TreeNode parentNode, int maxDepth)
     {
         if (parentNode == null)
             return true; // Root node is always valid
@@ -181,16 +182,14 @@ public partial class MainForm
         CModule module,
         TreeNode parentNode)
     {
-        CModule origInstance = CUtils.GetModuleByHash(
-            module.FileName,
-            _loadedModulesList);
-
-        if (origInstance == null)
+        CModule origInstance;
+        if (!_loadedModulesByName.TryGetValue(module.FileName, out origInstance))
             return false;
 
         CDependsDuplicateModuleState.Apply(module, origInstance);
+#if DEBUG
         _duplicateObserver.Record(module, origInstance);
-
+#endif
         // Propagate errors from duplicate to parent if this is not root.
         if (parentNode?.Tag is CModule parent)
         {
@@ -217,8 +216,7 @@ public partial class MainForm
     private TreeNode AddModuleEntryCore(
         CModule module,
         TreeNode parentNode,
-        int maxDepth,
-        Action<CModule> moduleProcessor = null)
+        int maxDepth)
     {
         // 1. Validate tree depth
         if (!ValidateTreeDepth(parentNode, maxDepth))
@@ -229,19 +227,13 @@ public partial class MainForm
             module,
             parentNode);
 
-        // 3. Run custom processing if this is a new module
-        if (isNewModule && moduleProcessor != null)
-        {
-            moduleProcessor(module);
-        }
-
-        // 4. Format display name
+        // 3. Format display name
         string moduleDisplayName = BuildModuleDisplayName(
                    module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets),
                    _configuration.FullPaths,
                    _configuration.UpperCaseModuleNames);
 
-        // Mark forward user as red if there is no forward module.
+        // 4. Mark forward user as red if there is no forward module.
         if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parentMod)
         {
             parentMod.OtherErrorsPresent = true;
@@ -278,60 +270,12 @@ public partial class MainForm
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
+            _loadedModulesByName.TryAdd(module.FileName, module);
+#if DEBUG
             _duplicateObserver.RecordCanonical(module);
+#endif
         }
-
         return tvNode;
-    }
-
-    private CDependsAnalysisContext CreateLiveAnalysisContext(CModule rootModule)
-    {
-        return new CDependsAnalysisContext(
-            _configuration,
-            rootModule,
-            _parentImportsHashTable,
-            AppLogger.LogExt,
-            ReportAnalysisProgress);
-    }
-
-    private void ProcessNewModule(
-        CModule module,
-        CFileOpenSettings fileOpenSettings,
-        bool isRootModule,
-        CDependsAnalysisContext context)
-    {
-        _analysisService.ProcessModule(
-            module,
-            fileOpenSettings,
-            isRootModule,
-            context);
-
-        module.ModuleImageIndex = module.GetIconIndexForModule();
-    }
-
-    /// <summary>
-    /// Insert module entry to TVModules treeview.
-    /// </summary>
-    /// <returns>Tree node.</returns>
-    private TreeNode AddModuleEntry(
-        CModule module,
-        CFileOpenSettings fileOpenSettings,
-        TreeNode parentNode,
-        CDependsAnalysisContext context)
-    {
-        bool isRootModule = (parentNode == null);
-
-        // Use shared implementation with our specific processor
-        return AddModuleEntryCore(
-            module,
-            parentNode,
-            context.Configuration.ModuleNodeDepthMax,
-            mod => ProcessNewModule(
-                mod,
-                fileOpenSettings,
-                isRootModule,
-                context)
-            );
     }
 
     /// <summary>
@@ -342,24 +286,11 @@ public partial class MainForm
     /// <returns>Tree node entry.</returns>
     private TreeNode AddSessionModuleEntry(CModule module, TreeNode parentNode = null)
     {
-        // Just use the shared implementation without any specific processor set
+        // Just use the shared implementation
         return AddModuleEntryCore(
             module,
             parentNode,
             _depends.SessionNodeMaxDepth);
-    }
-
-    private TreeNode? ProcessLiveModule(
-        CModule module,
-        TreeNode? parentNode,
-        CFileOpenSettings fileOpenSettings,
-        CDependsAnalysisContext context)
-    {
-        return AddModuleEntry(
-            module,
-            fileOpenSettings,
-            parentNode,
-            context);
     }
 
     private TreeNode? RenderAnalyzedModule(
@@ -373,7 +304,7 @@ public partial class MainForm
         ArgumentNullException.ThrowIfNull(module);
         ArgumentNullException.ThrowIfNull(canonicalModules);
 
-        if (!ValidateTreeDepth(parentNode, 
+        if (!ValidateTreeDepth(parentNode,
             _configuration.ModuleNodeDepthMax))
         {
             return null;
@@ -410,14 +341,17 @@ public partial class MainForm
         {
             _loadedModulesList.Add(module);
             canonicalModules.TryAdd(module.InstanceId, module);
+#if DEBUG
             _duplicateObserver.RecordCanonical(module);
+#endif
         }
+#if DEBUG
         else if (canonicalModules.TryGetValue(module.OriginalInstanceId,
             out CModule? originalModule))
         {
             _duplicateObserver.Record(module, originalModule);
         }
-
+#endif
         return treeNode;
     }
 
@@ -429,7 +363,7 @@ public partial class MainForm
         ArgumentNullException.ThrowIfNull(depends);
         ArgumentNullException.ThrowIfNull(depends.RootModule);
 
-        CDependsSessionPopulationRequest renderRequest = new(
+        CDependsTreePopulationRequest renderRequest = new(
             depends.RootModule,
             (module, parentNode) => RenderAnalyzedModule(
                 module,
@@ -437,14 +371,20 @@ public partial class MainForm
                 canonicalModules),
             ReportAnalysisProgress);
 
-        return _analysisService.PopulateSessionTree(
-            renderRequest);
+        return _analysisService.PopulateModuleTree(renderRequest);
     }
 
     private TreeNode? ProcessSessionModule(
         CModule module,
         TreeNode? parentNode)
     {
+        if ((++_sessionRenderCounter & 0xFF) == 0)
+        {
+            Application.DoEvents();
+        }
+
+        _openCts?.Token.ThrowIfCancellationRequested();
+
         return AddSessionModuleEntry(
             module,
             parentNode);
@@ -452,21 +392,74 @@ public partial class MainForm
 
     private void ReportAnalysisProgress(CDependsAnalysisProgress progress)
     {
-        if (IsDisposed || Disposing || !IsHandleCreated)
+        if (progress.Stage != CDependsAnalysisProgressStage.Populating ||
+            _shutdownInProgress ||
+            IsDisposed ||
+            Disposing ||
+            !IsHandleCreated)
         {
             return;
         }
 
-        if (InvokeRequired)
-        {
-            BeginInvoke(new Action<CDependsAnalysisProgress>(ReportAnalysisProgress), progress);
-            return;
-        }
-
-        if (progress.Stage == CDependsAnalysisProgressStage.Populating)
+        if (!InvokeRequired)
         {
             UpdateOperationStatus($"Populating {progress.ModuleFileName}");
+            return;
         }
+
+        lock (_analysisProgressLock)
+        {
+            _pendingAnalysisProgress = progress;
+
+            if (_analysisProgressDispatchPending)
+                return;
+
+            _analysisProgressDispatchPending = true;
+        }
+
+        try
+        {
+            BeginInvoke((MethodInvoker)DrainAnalysisProgress);
+        }
+        catch (InvalidOperationException)
+        {
+            lock (_analysisProgressLock)
+            {
+                _pendingAnalysisProgress = null;
+                _analysisProgressDispatchPending = false;
+            }
+
+            if (!_shutdownInProgress &&
+                !IsDisposed &&
+                !Disposing &&
+                IsHandleCreated)
+            {
+                throw;
+            }
+        }
+    }
+
+    private void DrainAnalysisProgress()
+    {
+        CDependsAnalysisProgress? progress;
+
+        lock (_analysisProgressLock)
+        {
+            progress = _pendingAnalysisProgress;
+            _pendingAnalysisProgress = null;
+            _analysisProgressDispatchPending = false;
+        }
+
+        if (progress == null ||
+            _shutdownInProgress ||
+            IsDisposed ||
+            Disposing ||
+            !IsHandleCreated)
+        {
+            return;
+        }
+
+        UpdateOperationStatus($"Populating {progress.ModuleFileName}");
     }
 
     /// <summary>
@@ -475,12 +468,12 @@ public partial class MainForm
     /// <param name="module">The saved session root module to populate.</param>
     private void PopulateSessionObjectToLists(CModule module)
     {
-        CDependsSessionPopulationRequest sessionRequest = new(
+        CDependsTreePopulationRequest sessionRequest = new(
             module,
             ProcessSessionModule,
             ReportAnalysisProgress);
 
-        CDependsPopulationResult populationResult = _analysisService.PopulateSessionTree(sessionRequest);
+        CDependsPopulationResult populationResult = _analysisService.PopulateModuleTree(sessionRequest);
         _rootNode = populationResult.RootNode;
     }
 
@@ -569,7 +562,10 @@ public partial class MainForm
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
         _loadedModulesList.Clear();
+        _loadedModulesByName.Clear();
+#if DEBUG
         _duplicateObserver.Clear();
+#endif
         LVModules.Invalidate();
     }
 

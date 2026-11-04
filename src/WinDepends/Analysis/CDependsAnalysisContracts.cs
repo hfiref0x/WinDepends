@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *  
-*  DATE:        08 Oct 2026
+*  DATE:        29 Oct 2026
 *
 *  CDepends analysis service contracts.
 *
@@ -29,6 +29,8 @@ namespace WinDepends;
 /// </remarks>
 internal sealed class CDependsAnalysisContext
 {
+    public CancellationToken CancellationToken { get; }
+
     /// <summary>
     /// Gets the configuration that controls how the analysis is performed.
     /// </summary>
@@ -77,7 +79,8 @@ internal sealed class CDependsAnalysisContext
         CModule rootModule,
         Dictionary<int, FunctionHashObject> parentImportsHashTable,
         AddLogMessageCallback addLogMessage,
-        Action<CDependsAnalysisProgress>? reportProgress = null)
+        Action<CDependsAnalysisProgress>? reportProgress = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(rootModule);
@@ -89,6 +92,7 @@ internal sealed class CDependsAnalysisContext
         ParentImportsHashTable = parentImportsHashTable;
         AddLogMessage = addLogMessage;
         ReportProgress = reportProgress;
+        CancellationToken = cancellationToken;
     }
 }
 
@@ -298,6 +302,7 @@ internal sealed record CDependsCanonicalModuleObservation(
     bool IsApiSetContract,
     bool IsStoppedNode);
 
+#if DEBUG
 /// <summary>
 /// Collects observations of canonical and duplicate modules during analysis and
 /// checks that they are consistent with each other.
@@ -450,6 +455,8 @@ internal sealed class CDependsDuplicateObserver
     }
 }
 
+#endif
+
 /// <summary>
 /// A single inconsistency found by <see cref="CDependsDuplicateObserver.Validate"/>.
 /// </summary>
@@ -552,7 +559,7 @@ internal sealed class CDependsLiveAnalysisRequest
 /// <summary>
 /// Describes a request to populate the module tree from an existing session.
 /// </summary>
-internal sealed class CDependsSessionPopulationRequest
+internal sealed class CDependsTreePopulationRequest
 {
     /// <summary>Gets the root module of the session.</summary>
     public CModule RootModule { get; }
@@ -566,7 +573,7 @@ internal sealed class CDependsSessionPopulationRequest
     public Action<CDependsAnalysisProgress> ReportProgress { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CDependsSessionPopulationRequest"/> class.
+    /// Initializes a new instance of the <see cref="CDependsTreePopulationRequest"/> class.
     /// </summary>
     /// <param name="rootModule">The root module of the session.</param>
     /// <param name="processModule">The per-module processing delegate.</param>
@@ -575,7 +582,7 @@ internal sealed class CDependsSessionPopulationRequest
     /// Any argument is <see langword="null"/>. Unlike
     /// <see cref="CDependsAnalysisContext"/>, the progress callback is required here.
     /// </exception>
-    public CDependsSessionPopulationRequest(
+    public CDependsTreePopulationRequest(
         CModule rootModule,
         CDependsSessionModuleProcessor processModule,
         Action<CDependsAnalysisProgress> reportProgress)

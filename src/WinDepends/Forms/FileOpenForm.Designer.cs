@@ -56,7 +56,7 @@
             // 
             buttonOK.AutoSize = true;
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(124, 438);
+            buttonOK.Location = new Point(161, 438);
             buttonOK.Name = "buttonOK";
             buttonOK.Size = new Size(75, 25);
             buttonOK.TabIndex = 0;
@@ -68,7 +68,7 @@
             // 
             buttonCancel.AutoSize = true;
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(205, 438);
+            buttonCancel.Location = new Point(242, 438);
             buttonCancel.Name = "buttonCancel";
             buttonCancel.Size = new Size(75, 25);
             buttonCancel.TabIndex = 1;
@@ -84,7 +84,7 @@
             groupBox1.Controls.Add(chBoxProcessRelocs);
             groupBox1.Location = new Point(12, 44);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(378, 164);
+            groupBox1.Size = new Size(435, 164);
             groupBox1.TabIndex = 2;
             groupBox1.TabStop = false;
             groupBox1.Text = "Loader Options";
@@ -147,7 +147,7 @@
             groupBox2.Controls.Add(chBoxAnalysisDefaultEnabled);
             groupBox2.Location = new Point(12, 277);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(378, 155);
+            groupBox2.Size = new Size(435, 155);
             groupBox2.TabIndex = 3;
             groupBox2.TabStop = false;
             groupBox2.Text = "Analysis Options";
@@ -157,10 +157,10 @@
             chBoxEnableExperimentalFeatures.AutoSize = true;
             chBoxEnableExperimentalFeatures.Location = new Point(9, 72);
             chBoxEnableExperimentalFeatures.Name = "chBoxEnableExperimentalFeatures";
-            chBoxEnableExperimentalFeatures.Size = new Size(178, 19);
+            chBoxEnableExperimentalFeatures.Size = new Size(321, 19);
             chBoxEnableExperimentalFeatures.TabIndex = 20;
             chBoxEnableExperimentalFeatures.Tag = "606";
-            chBoxEnableExperimentalFeatures.Text = "Enable experimental features";
+            chBoxEnableExperimentalFeatures.Text = "Enable experimental features (.NET assembly resolution)";
             chBoxEnableExperimentalFeatures.UseVisualStyleBackColor = true;
             // 
             // chBoxExpandForwarders
@@ -210,7 +210,7 @@
             groupBox13.Controls.Add(chBoxUseStats);
             groupBox13.Location = new Point(12, 214);
             groupBox13.Name = "groupBox13";
-            groupBox13.Size = new Size(378, 57);
+            groupBox13.Size = new Size(435, 57);
             groupBox13.TabIndex = 9;
             groupBox13.TabStop = false;
             groupBox13.Text = "Statistics";
@@ -240,7 +240,7 @@
             textBoxFileName.Location = new Point(85, 12);
             textBoxFileName.Name = "textBoxFileName";
             textBoxFileName.ReadOnly = true;
-            textBoxFileName.Size = new Size(305, 23);
+            textBoxFileName.Size = new Size(362, 23);
             textBoxFileName.TabIndex = 11;
             // 
             // FileOpenForm
@@ -248,7 +248,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
-            ClientSize = new Size(402, 475);
+            ClientSize = new Size(459, 475);
             Controls.Add(textBoxFileName);
             Controls.Add(label2);
             Controls.Add(groupBox13);

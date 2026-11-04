@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        14 Jul 2026
+*  DATE:        29 Oct 2026
 *  
 *  Codename:    VasilEk
 *
@@ -76,11 +76,6 @@ public partial class MainForm : Form
     CConfiguration _configuration;
 
     /// <summary>
-    /// FileOpen dedicated class.
-    /// </summary>
-    readonly CFileOpenOrchestrationService _fileOpenOrchestrationService = new();
-
-    /// <summary>
     /// Workaround for WinForms glitches.
     /// </summary>
     Control? _focusedControl;
@@ -103,6 +98,14 @@ public partial class MainForm : Form
     UInt32 _searchOrdinal;
 
     readonly string[] _commandLineArgs;
+
+    private readonly object _analysisProgressLock = new();
+    private CDependsAnalysisProgress? _pendingAnalysisProgress;
+    private bool _analysisProgressDispatchPending;
+    private bool _openInputFileInProgress;
+    private CancellationTokenSource? _openCts;
+    private bool _closeRequested;
+    private int _sessionRenderCounter;
 
     /// <summary>
     /// Flag to let the others know when WinDepends application is shutting down.
@@ -152,8 +155,11 @@ public partial class MainForm : Form
     readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
     readonly List<CModule> _loadedModulesList = [];
-    readonly CDependsDuplicateObserver _duplicateObserver = new();
+    readonly Dictionary<string, CModule> _loadedModulesByName = new(StringComparer.OrdinalIgnoreCase);
 
+#if DEBUG
+    readonly CDependsDuplicateObserver _duplicateObserver = new();
+#endif
     SortOrder _lvImportsSortOrder = SortOrder.Ascending;
     SortOrder _lvExportsSortOrder = SortOrder.Ascending;
     SortOrder _lvModulesSortOrder = SortOrder.Ascending;
@@ -181,12 +187,6 @@ public partial class MainForm : Form
         AppLogger.Initialize(this.reLog);
 
         reLog.Font = new Font(reLog.Font.FontFamily, CConsts.DefaultGuiFontSize, reLog.Font.Style, GraphicsUnit.Point);
-
-        /*toolBarStatusLabel.TextChanged += (_, _) =>
-        {
-            Debug.WriteLine(
-                $"Status changed: '{toolBarStatusLabel.Text}'\n{Environment.StackTrace}");
-        };*/
 
         AppLogger.OnLogMessage += AppLogger_OnLogMessage;
 
@@ -279,7 +279,7 @@ public partial class MainForm : Form
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void MainForm_Load(object sender, EventArgs e)
+    private async void MainForm_Load(object sender, EventArgs e)
     {
         ApplyConfiguredGuiFontSize();
         RestoreColumnWidthsFromConfiguration();
@@ -306,7 +306,7 @@ public partial class MainForm : Form
             _configuration.MRUList,
             _configuration.HistoryDepth,
             _configuration.HistoryShowFullPath,
-            OpenInputFile,
+            OpenInputFileAsync,
             UpdateOperationStatus,
             toolBarStatusLabel);
 
@@ -371,7 +371,7 @@ public partial class MainForm : Form
             var fName = _commandLineArgs[1];
             if (!string.IsNullOrEmpty(fName) && File.Exists(fName))
             {
-                fileOpened = OpenInputFile(fName);
+                fileOpened = await OpenInputFileAsync(fName);
             }
         }
 
@@ -399,13 +399,14 @@ public partial class MainForm : Form
                 _configuration.MRUList.AddRange(_mruList.GetCurrentItems());
                 CConfigManager.SaveConfiguration(_configuration);
             }
-
         }
         finally
         {
+            _mruList?.Dispose();
             _symbolResolver.SymbolLoadStatusChanged -= SymbolResolver_SymbolLoadStatusChanged;
             _symbolResolver.Dispose();
             _coreClient?.Dispose();
+            CAssemblyRefAnalyzer.Cleanup();
             AppLogger.OnLogMessage -= AppLogger_OnLogMessage;
         }
     }
@@ -664,11 +665,11 @@ public partial class MainForm : Form
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void MainForm_ElevatedDragDrop(object? sender, ElevatedDragDropEventArgs e)
+    private async void MainForm_ElevatedDragDrop(object? sender, ElevatedDragDropEventArgs e)
     {
         if (e.Files.Count > 0 && !string.IsNullOrEmpty(e.Files[0]))
         {
-            OpenInputFile(e.Files[0]);
+            await OpenInputFileAsync(e.Files[0]);
         }
     }
 
@@ -1800,6 +1801,14 @@ public partial class MainForm : Form
 
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
+        if (_openInputFileInProgress)
+        {
+            _closeRequested = true;
+            _openCts?.Cancel();
+            e.Cancel = true;
+            return;
+        }
+
         _shutdownInProgress = true;
 
         if (_findDialog != null && !_findDialog.IsDisposed)
@@ -1998,6 +2007,20 @@ public partial class MainForm : Form
         }
 
         return null;
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Escape &&
+            _openCts != null &&
+            !_openCts.IsCancellationRequested)
+        {
+            _openCts.Cancel();
+            UpdateOperationStatus("Cancelling analysis...");
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
 }

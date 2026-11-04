@@ -6,7 +6,9 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Sep 2026
+*  DATE:        04 Nov 2026
+*  
+*  Support class for path resolution of analyzed binaries.
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -109,7 +111,7 @@ public static class CPathResolver
 
     static CSxsEntries ManifestSxsDependencies = [];
     public static CActCtxHelper ActCtxHelper { get; set; }
-    static bool AutoElevate { get; set; }
+    static bool AutoElevate { get; set; } // Future use, do not remove.
 
     /// <summary>
     /// Synchronizes the internal HashSet with the public List for KnownDlls.

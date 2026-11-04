@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        10 Oct 2026
+*  DATE:        03 Nov 2026
 *
 *  CDepends analysis service.
 *
@@ -28,10 +28,9 @@ namespace WinDepends;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Three entry points build on the same traversal order:
-/// <see cref="PopulateLiveAnalysis"/> analyzes modules and builds the tree at the
-/// same time, <see cref="PopulateSessionTree"/> builds the tree from modules that
-/// are already loaded, and <see cref="AnalyzeModel"/> analyzes modules into a
+/// Two entry points build on the same traversal order:
+/// <see cref="PopulateModuleTree"/> builds the tree from modules, 
+/// and <see cref="AnalyzeModel"/> analyzes modules into a
 /// <see cref="CDepends"/> model without building a tree.
 /// </para>
 /// <para>
@@ -44,13 +43,38 @@ namespace WinDepends;
 /// </para>
 /// <para>
 /// <b>Thread safety.</b> Analysis entry points that open files
-/// (<see cref="PopulateLiveAnalysis"/> and <see cref="AnalyzeModel"/>) change
-/// process-wide state on <see cref="CPathResolver"/> for the duration of the
-/// run, so analyses must not run concurrently.
+/// <see cref="AnalyzeModel"/>) change process-wide state on <see cref="CPathResolver"/> 
+/// for the duration of the run, so analyses must not run concurrently.
 /// </para>
 /// </remarks>
 internal sealed class CDependsAnalysisService
 {
+    private static int s_analysisInProgress;
+
+    private sealed class CDependsAnalysisGuard : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                Interlocked.Exchange(ref s_analysisInProgress, 0);
+            }
+        }
+    }
+
+    private static CDependsAnalysisGuard EnterAnalysis()
+    {
+        if (Interlocked.CompareExchange(ref s_analysisInProgress, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "A dependency analysis is already in progress.");
+        }
+
+        return new CDependsAnalysisGuard();
+    }
+
     /// <summary>
     /// A single module visit recorded during a traversal, used to compare the
     /// live and model traversals.
@@ -152,7 +176,7 @@ internal sealed class CDependsAnalysisService
     private sealed class CDependsModelTraversalMetrics
     {
         private readonly int _maximumDepth;
-        private readonly List<CModule> _canonicalModules = [];
+        private readonly Dictionary<string, CModule> _canonicalModules = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<CDependsModelDuplicateObservation> _duplicateObservations = [];
         private readonly List<CDependsTraversalObservation> _observations = [];
 
@@ -227,9 +251,7 @@ internal sealed class CDependsAnalysisService
             if (!shouldTraverseDependents)
                 return CDependsModelTraversalVisitResult.Stop();
 
-            originalModule = CUtils.GetModuleByHash(
-                module.FileName,
-                _canonicalModules);
+            _canonicalModules.TryGetValue(module.FileName, out originalModule);
 
             originalInstanceId = originalModule?.InstanceId ?? 0;
 
@@ -240,7 +262,7 @@ internal sealed class CDependsAnalysisService
 
             if (originalModule == null)
             {
-                _canonicalModules.Add(module);
+                _canonicalModules.TryAdd(module.FileName, module);
             }
 
             AcceptedModuleCount++;
@@ -257,7 +279,7 @@ internal sealed class CDependsAnalysisService
     {
         private readonly CDependsAnalysisService _analysisService;
         private readonly int _maximumDepth;
-        private readonly List<CModule> _canonicalModules = [];
+        private readonly Dictionary<string, CModule> _canonicalModules = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Gets the number of modules visited, including those skipped by the depth limit.</summary>
         public int ProcessedModuleCount { get; private set; }
@@ -325,6 +347,8 @@ internal sealed class CDependsAnalysisService
             CModule? originalModule;
             bool shouldTraverseDependents;
 
+            context.CancellationToken.ThrowIfCancellationRequested();
+
             ProcessedModuleCount++;
 
             shouldTraverseDependents = parentModule == null ||
@@ -333,9 +357,7 @@ internal sealed class CDependsAnalysisService
             if (!shouldTraverseDependents)
                 return CDependsModelTraversalVisitResult.Stop();
 
-            originalModule = CUtils.GetModuleByHash(
-                module.FileName,
-                _canonicalModules);
+            _canonicalModules.TryGetValue(module.FileName, out originalModule);
 
             if (originalModule != null)
             {
@@ -361,7 +383,7 @@ internal sealed class CDependsAnalysisService
                     parentModule == null,
                     context);
 
-                _canonicalModules.Add(module);
+                _canonicalModules.TryAdd(module.FileName, module);
             }
 
             if (parentModule != null &&
@@ -438,57 +460,12 @@ internal sealed class CDependsAnalysisService
         ArgumentNullException.ThrowIfNull(context);
 
         CPathResolver.Initialized = false;
+        CAssemblyRefAnalyzer.ClearCache();
 
         activationContext = new CActCtxHelper(rootFileName);
         CPathResolver.ActCtxHelper = activationContext;
 
         return new CDependsAnalysisScope(activationContext, context);
-    }
-
-    /// <summary>
-    /// Analyzes the root module and its dependencies and builds the dependency tree in one pass.
-    /// </summary>
-    /// <param name="request">The analysis request.</param>
-    /// <returns>
-    /// The population result, containing the root node (or <see langword="null"/>
-    /// if the root was rejected) and the processed/accepted module counts.
-    /// </returns>
-    /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
-    /// <remarks>
-    /// <para>
-    /// The tree is built inside an analysis scope (see <see cref="BeginAnalysis"/>);
-    /// the scope is disposed before this method returns.
-    /// </para>
-    /// <para>
-    /// In DEBUG builds, the finished tree is then re-traversed with the model
-    /// traversal and compared against the live traversal
-    /// (see <see cref="ValidateModelTraversalParity"/>). Mismatches are written
-    /// to the debug output only.
-    /// </para>
-    /// </remarks>
-    public CDependsPopulationResult PopulateLiveAnalysis(
-        CDependsLiveAnalysisRequest request)
-    {
-        Action<CDependsAnalysisProgress> reportProgress;
-        CDependsPopulationMetrics metrics;
-        TreeNode? rootNode;
-        ArgumentNullException.ThrowIfNull(request);
-        reportProgress = request.Context.ReportProgress ?? s_ignoreProgress;
-        metrics = new CDependsPopulationMetrics();
-
-        using (BeginAnalysis(request.RootFileName, request.Context))
-        {
-            rootNode = PopulateDependencyTree(
-                request.RootModule,
-                request.FileOpenSettings,
-                request.ProcessModule,
-                request.Context,
-                reportProgress,
-                metrics);
-        }
-
-        ValidateModelTraversalParity(request, metrics);
-        return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
     }
 
     /// <summary>
@@ -517,22 +494,25 @@ internal sealed class CDependsAnalysisService
             this,
             request.Context.Configuration.ModuleNodeDepthMax);
 
-        using (BeginAnalysis(
-            request.RootFileName,
-            request.Context))
+        using (EnterAnalysis())
         {
-            TraverseModelCore(
-                request.Depends.RootModule,
-                request.FileOpenSettings,
-                request.Context,
-                metrics.ProcessModule,
-                reportProgress);
-        }
 
-        return new CDependsModelAnalysisResult(
-            request.Depends,
-            metrics.ProcessedModuleCount,
-            metrics.DuplicateModuleCount);
+            using (BeginAnalysis(request.RootFileName, request.Context))
+            {
+                TraverseModelCore(
+                    request.Depends.RootModule,
+                    request.FileOpenSettings,
+                    request.Context,
+                    metrics.ProcessModule,
+                    reportProgress);
+            }
+
+            return new CDependsModelAnalysisResult(
+                request.Depends,
+                metrics.ProcessedModuleCount,
+                metrics.DuplicateModuleCount);
+
+        }
     }
 
     /// <summary>
@@ -616,49 +596,7 @@ internal sealed class CDependsAnalysisService
     }
 
     /// <summary>
-    /// Builds the dependency tree for a live analysis, routing each module through
-    /// <paramref name="metrics"/> so visits are counted and recorded.
-    /// </summary>
-    /// <param name="rootModule">The root module.</param>
-    /// <param name="fileOpenSettings">The settings used when opening module files.</param>
-    /// <param name="processModule">The processor that analyzes a module and creates its tree node.</param>
-    /// <param name="context">The shared analysis context.</param>
-    /// <param name="reportProgress">The progress callback.</param>
-    /// <param name="metrics">The collector that counts and records visits.</param>
-    /// <returns>The root node, or <see langword="null"/> if the root was rejected.</returns>
-    /// <exception cref="ArgumentNullException">Any argument is <see langword="null"/>.</exception>
-    private TreeNode? PopulateDependencyTree(
-        CModule rootModule,
-        CFileOpenSettings fileOpenSettings,
-        CDependsModuleProcessor processModule,
-        CDependsAnalysisContext context,
-        Action<CDependsAnalysisProgress> reportProgress,
-        CDependsPopulationMetrics metrics)
-    {
-        ArgumentNullException.ThrowIfNull(rootModule);
-        ArgumentNullException.ThrowIfNull(fileOpenSettings);
-        ArgumentNullException.ThrowIfNull(processModule);
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(reportProgress);
-        ArgumentNullException.ThrowIfNull(metrics);
-
-        return PopulateTreeCore(
-            rootModule,
-            (module, parentNode) => CDependsTraversalVisitResult.FromNode(
-                metrics.ProcessModule(
-                    module,
-                    parentNode,
-                    (currentModule, currentParentNode) => processModule(
-                        currentModule,
-                        currentParentNode,
-                        fileOpenSettings,
-                        context))),
-            reportProgress);
-    }
-
-    /// <summary>
-    /// Builds the dependency tree from modules that are already loaded, for example
-    /// when restoring a session.
+    /// Builds the dependency tree from modules.
     /// </summary>
     /// <param name="request">The population request.</param>
     /// <returns>
@@ -667,11 +605,10 @@ internal sealed class CDependsAnalysisService
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
     /// <remarks>
-    /// Unlike <see cref="PopulateLiveAnalysis"/>, no files are opened and no
-    /// analysis scope is created.
+    /// No files are opened and no analysis scope is created.
     /// </remarks>
-    public CDependsPopulationResult PopulateSessionTree(
-        CDependsSessionPopulationRequest request)
+    public CDependsPopulationResult PopulateModuleTree(
+        CDependsTreePopulationRequest request)
     {
         CDependsPopulationMetrics metrics;
         TreeNode? rootNode;

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        04 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -32,7 +32,6 @@ using static WinDepends.NativeMethods;
 namespace WinDepends;
 
 public delegate void UpdateLoadStatusCallback(string status);
-public delegate void UpdateSymbolsStatus(bool enabled);
 public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
     Color? color = null, bool useBold = false, bool moduleMessage = false,
     CModule? relatedModule = null, RichTextBox? richTextBox = null);
@@ -661,25 +660,6 @@ public static class CUtils
         if (node?.Tag is CModule obj && obj.OriginalInstanceId != 0 && moduleList != null)
         {
             return CUtils.InstanceIdToModule(obj.OriginalInstanceId, moduleList);
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Finds a module by its name hash in a collection of modules.
-    /// </summary>
-    /// <param name="moduleName">The name of the module to find</param>
-    /// <param name="moduleList">The collection of modules to search</param>
-    /// <returns>The matching module if found; otherwise, null</returns>
-    static internal CModule? GetModuleByHash(string moduleName, List<CModule> moduleList)
-    {
-        var hash = moduleName.GetHashCode(StringComparison.OrdinalIgnoreCase);
-        var moduleDict = moduleList.ToDictionary(m => m.FileName.GetHashCode(StringComparison.OrdinalIgnoreCase), m => m);
-
-        if (moduleDict.TryGetValue(hash, out var module))
-        {
-            return module;
         }
 
         return null;

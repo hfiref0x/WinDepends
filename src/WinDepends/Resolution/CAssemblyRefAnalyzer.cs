@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Sep 2026
+*  DATE:        04 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -453,7 +453,7 @@ public static class CAssemblyRefAnalyzer
                     cpuType,
                     referringDirectory);
             }
-
+            asmRef.IsNative = string.Equals(asmRef.ResolutionSource, "Native library", StringComparison.Ordinal);
             resolvedRefs[i] = asmRef;
         });
 
@@ -1072,9 +1072,14 @@ public static class CAssemblyRefAnalyzer
     {
         IAssemblyName nameObj = null;
         IAssemblyEnum enumObj = null;
+        string namePrefix;
+        string tokenFragment;
 
         if (string.IsNullOrEmpty(publicKeyToken) || publicKeyToken == "null")
             return null;
+        
+        namePrefix = assemblyName + ",";
+        tokenFragment = "PublicKeyToken=" + publicKeyToken;
 
         int hr = CreateAssemblyNameObject(out nameObj, assemblyName, 0, IntPtr.Zero);
         if (hr != 0 || nameObj == null)
@@ -1095,18 +1100,20 @@ public static class CAssemblyRefAnalyzer
                     StringBuilder sb = new System.Text.StringBuilder(1024);
                     foundName.GetDisplayName(sb, ref disp, 0x0);
                     string display = sb.ToString();
-                    string displayVersion = GetVersionFromDisplayName(display);
 
-                    bool versionMatches = string.IsNullOrEmpty(version) ||
-                                     string.Equals(displayVersion, version, StringComparison.OrdinalIgnoreCase);
-
-                    if (display.StartsWith(assemblyName + ",", StringComparison.OrdinalIgnoreCase) &&
-                        display.Contains("PublicKeyToken=" + publicKeyToken, StringComparison.OrdinalIgnoreCase) &&
-                        versionMatches)
+                    if (display.StartsWith(namePrefix, StringComparison.OrdinalIgnoreCase) &&
+                        display.Contains(tokenFragment, StringComparison.OrdinalIgnoreCase))
                     {
-                        string path = GetAssemblyPathFromGacDisplay(display, cpuType);
-                        if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitectureCached(path, cpuType))
-                            return path;
+                        string displayVersion = GetVersionFromDisplayName(display);
+                        bool versionMatches = string.IsNullOrEmpty(version) ||
+                            string.Equals(displayVersion, version, StringComparison.OrdinalIgnoreCase);
+
+                        if (versionMatches)
+                        {
+                            string path = GetAssemblyPathFromGacDisplay(display, cpuType);
+                            if (!string.IsNullOrEmpty(path) && File.Exists(path) && IsValidArchitectureCached(path, cpuType))
+                                return path;
+                        }
                     }
                 }
                 finally

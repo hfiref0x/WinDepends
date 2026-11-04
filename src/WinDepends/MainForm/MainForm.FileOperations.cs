@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        02 Oct 2026
+*  DATE:        03 Nov 2026
 *  
 *  File and session open/save routines for main form.
 *
@@ -63,13 +63,14 @@ public partial class MainForm
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private FileOpenResult OpenInputFileInternal(string? fileName)
+    private async Task<FileOpenResult> OpenInputFileInternalAsync(string? fileName)
     {
         bool bResult = false;
 
         string fileExt = Path.GetExtension(fileName);
 
         bool bSessionFile = fileExt.Equals(CConsts.WinDependsSessionFileExt, StringComparison.OrdinalIgnoreCase);
+        CancellationToken cancellationToken = _openCts?.Token ?? CancellationToken.None;
 
         if (bSessionFile)
         {
@@ -77,7 +78,11 @@ public partial class MainForm
             {
                 RichEditLog_ClearLog();
             }
-            bResult = OpenSessionFile(fileName);
+            bResult = await OpenSessionFileAsync(fileName, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return FileOpenResult.Cancelled;
+            }
         }
         else
         {
@@ -130,6 +135,9 @@ public partial class MainForm
                 RichEditLog_ClearLog();
             }
 
+            CConfiguration analysisConfiguration = new(_configuration);
+            Dictionary<int, FunctionHashObject> analysisImportsHashTable = [];
+
             _parentImportsHashTable.Clear();
 
             // Create new root object and output it submodules.
@@ -141,12 +149,35 @@ public partial class MainForm
 
             if (_depends.RootModule != null)
             {
-                CDependsAnalysisContext analysisContext = CreateLiveAnalysisContext(_depends.RootModule);
+                CDependsAnalysisContext analysisContext = new(analysisConfiguration,
+                    _depends.RootModule,
+                    analysisImportsHashTable,
+                    AppLogger.LogExt,
+                    ReportAnalysisProgress,
+                    cancellationToken);
+
                 CDependsModelAnalysisRequest analysisRequest = new(_depends, fileOpenSettings, analysisContext);
+
                 CDependsModelAnalysisResult analysisResult;
+
+                try
+                {
+                    analysisResult = await Task.Run(() => _analysisService.AnalyzeModel(analysisRequest),
+                        cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    CloseInputFile();
+                    return FileOpenResult.Cancelled;
+                }
+
+                foreach (KeyValuePair<int, FunctionHashObject> entry in analysisImportsHashTable)
+                {
+                    _parentImportsHashTable.Add(entry.Key, entry.Value);
+                }
+
                 CDependsPopulationResult populationResult;
 
-                analysisResult = _analysisService.AnalyzeModel(analysisRequest);
                 TVModules.BeginUpdate();
                 try
                 {
@@ -154,7 +185,9 @@ public partial class MainForm
                     _rootNode = populationResult.RootNode;
                     _rootNode?.Expand();
 
+#if DEBUG
                     ValidateDuplicateObservations();
+#endif
                 }
                 finally
                 {
@@ -210,26 +243,62 @@ public partial class MainForm
     /// Opens input file from file system.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenInputFile(string? fileName)
+    private async Task<bool> OpenInputFileAsync(string? fileName)
     {
-        CFileOpenState state = new(fileName);
-        return _fileOpenOrchestrationService.Execute(
-             state,
-             OpenInputFileInternal,
-             UpdateOperationStatus,
-             SetOpenInputUiEnabled,
-             () => TVModules.Focus());
+        if (_openInputFileInProgress)
+        {
+            AppLogger.LogExt(
+                "An open operation is already in progress.",
+                LogMessageType.ErrorOrWarning);
+            return false;
+        }
+
+        _openInputFileInProgress = true;
+        _openCts = new CancellationTokenSource();
+
+        try
+        {
+            CFileOpenState state = new(fileName);
+            return await CFileOpenOrchestrationService.ExecuteAsync(
+                       state,
+                       OpenInputFileInternalAsync,
+                       UpdateOperationStatus,
+                       SetOpenInputUiEnabled,
+                       () => TVModules.Focus());
+        }
+        finally
+        {
+            _openCts.Dispose();
+            _openCts = null;
+            _openInputFileInProgress = false;
+            if (_closeRequested && !IsDisposed)
+            {
+                BeginInvoke(new Action(Close));
+            }
+        }
     }
 
     /// <summary>
     /// Opens WinDepends serialized session file.
     /// </summary>
     /// <param name="fileName"></param>
-    private bool OpenSessionFile(string? fileName)
+    private async Task<bool> OpenSessionFileAsync(string? fileName, CancellationToken cancellationToken)
     {
-        CloseInputFile();
+        CDepends? loadedDepends;
+        bool isCompressed = _configuration.CompressSessionFiles;
 
-        _depends = LoadSessionObjectFromFile(fileName, _configuration.CompressSessionFiles);
+        CloseInputFile();
+        _sessionRenderCounter = 0;
+
+        loadedDepends = await Task.Run(() => LoadSessionObjectFromFile(fileName, isCompressed));
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            UpdateOperationStatus(string.Empty);
+            return false;
+        }
+
+        _depends = loadedDepends;
         if (_depends == null)
         {
             // Deserialization failed, leaving.
@@ -240,34 +309,43 @@ public partial class MainForm
 
         if (_depends.RootModule != null)
         {
-            // Insert tree modules from session file.
-            TVModules.BeginUpdate();
             try
             {
-                PopulateSessionObjectToLists(_depends.RootModule);
-                // Expand root module.
-                _rootNode?.Expand();
-                ValidateDuplicateObservations();
-            }
-            finally { TVModules.EndUpdate(); }
+                // Insert tree modules from session file.
+                TVModules.BeginUpdate();
+                try
+                {
+                    PopulateSessionObjectToLists(_depends.RootModule);
+                    // Expand root module.
+                    _rootNode?.Expand();
+#if DEBUG
+                    ValidateDuplicateObservations();
+#endif
+                }
+                finally { TVModules.EndUpdate(); }
 
-            // Insert list modules from session file.
-            LVModules.BeginUpdate();
-            try
+                // Insert list modules from session file.
+                LVModules.BeginUpdate();
+                try
+                {
+                    LVModules.VirtualListSize = _loadedModulesList.Count;
+                    LVModulesSort(LVModules, _configuration.SortColumnModules,
+                        _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+                }
+                finally { LVModules.EndUpdate(); }
+
+                // Restore important module related warnings/errors in the log.
+                foreach (var entry in _depends.ModuleAnalysisLog)
+                {
+                    AppLogger.LogExt(entry.LoggedMessage, LogMessageType.ContentDefined,
+                        entry.EntryColor, true, false);
+                }
+            }
+            catch (OperationCanceledException)
             {
-                LVModules.VirtualListSize = _loadedModulesList.Count;
-                LVModulesSort(LVModules, _configuration.SortColumnModules,
-                    _lvModulesSortOrder, _loadedModulesList, DisplayCacheType.Modules);
+                CloseInputFile();
+                return false;
             }
-            finally { LVModules.EndUpdate(); }
-
-            // Restore important module related warnings/errors in the log.
-            foreach (var entry in _depends.ModuleAnalysisLog)
-            {
-                AppLogger.LogExt(entry.LoggedMessage, LogMessageType.ContentDefined,
-                    entry.EntryColor, true, false);
-            }
-
         }
         else
         {
@@ -424,23 +502,23 @@ public partial class MainForm
         SaveSessionObjectToFile(true, _configuration.CompressSessionFiles);
     }
 
-    private void OpenFileHandler(object sender, EventArgs e)
+    private async void OpenFileHandler(object sender, EventArgs e)
     {
         OpenDialog1.Filter = CConsts.HandledFileExtensionsMsg +
             string.Join(";", InternalFileHandledExtensions.ExtensionList.Select(ext => "*." + ext.Name)) + CConsts.WinDependsFilter;
 
         if (OpenDialog1.ShowDialog() == DialogResult.OK)
         {
-            OpenInputFile(OpenDialog1.FileName);
+            await OpenInputFileAsync(OpenDialog1.FileName);
         }
     }
 
-    private void ViewRefreshItem_Click(object sender, EventArgs e)
+    private async void ViewRefreshItem_Click(object sender, EventArgs e)
     {
         if (_depends != null)
         {
             var fName = _depends.RootModule.RawFileName;
-            OpenInputFile(fName);
+            await OpenInputFileAsync(fName);
         }
     }
     private void SetOpenInputUiEnabled(bool isEnabled)

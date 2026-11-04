@@ -176,7 +176,7 @@ internal sealed class CDependsAnalysisService
     private sealed class CDependsModelTraversalMetrics
     {
         private readonly int _maximumDepth;
-        private readonly List<CModule> _canonicalModules = [];
+        private readonly Dictionary<string, CModule> _canonicalModules = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<CDependsModelDuplicateObservation> _duplicateObservations = [];
         private readonly List<CDependsTraversalObservation> _observations = [];
 
@@ -251,9 +251,7 @@ internal sealed class CDependsAnalysisService
             if (!shouldTraverseDependents)
                 return CDependsModelTraversalVisitResult.Stop();
 
-            originalModule = CUtils.GetModuleByHash(
-                module.FileName,
-                _canonicalModules);
+            _canonicalModules.TryGetValue(module.FileName, out originalModule);
 
             originalInstanceId = originalModule?.InstanceId ?? 0;
 
@@ -264,7 +262,7 @@ internal sealed class CDependsAnalysisService
 
             if (originalModule == null)
             {
-                _canonicalModules.Add(module);
+                _canonicalModules.TryAdd(module.FileName, module);
             }
 
             AcceptedModuleCount++;
@@ -281,7 +279,7 @@ internal sealed class CDependsAnalysisService
     {
         private readonly CDependsAnalysisService _analysisService;
         private readonly int _maximumDepth;
-        private readonly List<CModule> _canonicalModules = [];
+        private readonly Dictionary<string, CModule> _canonicalModules = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Gets the number of modules visited, including those skipped by the depth limit.</summary>
         public int ProcessedModuleCount { get; private set; }
@@ -359,9 +357,7 @@ internal sealed class CDependsAnalysisService
             if (!shouldTraverseDependents)
                 return CDependsModelTraversalVisitResult.Stop();
 
-            originalModule = CUtils.GetModuleByHash(
-                module.FileName,
-                _canonicalModules);
+            _canonicalModules.TryGetValue(module.FileName, out originalModule);
 
             if (originalModule != null)
             {
@@ -387,7 +383,7 @@ internal sealed class CDependsAnalysisService
                     parentModule == null,
                     context);
 
-                _canonicalModules.Add(module);
+                _canonicalModules.TryAdd(module.FileName, module);
             }
 
             if (parentModule != null &&
@@ -464,6 +460,7 @@ internal sealed class CDependsAnalysisService
         ArgumentNullException.ThrowIfNull(context);
 
         CPathResolver.Initialized = false;
+        CAssemblyRefAnalyzer.ClearCache();
 
         activationContext = new CActCtxHelper(rootFileName);
         CPathResolver.ActCtxHelper = activationContext;

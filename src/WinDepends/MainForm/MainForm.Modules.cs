@@ -182,11 +182,8 @@ public partial class MainForm
         CModule module,
         TreeNode parentNode)
     {
-        CModule origInstance = CUtils.GetModuleByHash(
-            module.FileName,
-            _loadedModulesList);
-
-        if (origInstance == null)
+        CModule origInstance;
+        if (!_loadedModulesByName.TryGetValue(module.FileName, out origInstance))
             return false;
 
         CDependsDuplicateModuleState.Apply(module, origInstance);
@@ -273,6 +270,7 @@ public partial class MainForm
         if (isNewModule)
         {
             _loadedModulesList.Add(module);
+            _loadedModulesByName.TryAdd(module.FileName, module);
 #if DEBUG
             _duplicateObserver.RecordCanonical(module);
 #endif
@@ -564,6 +562,7 @@ public partial class MainForm
         ResetDisplayCache(DisplayCacheType.Modules);
         LVModules.VirtualListSize = 0;
         _loadedModulesList.Clear();
+        _loadedModulesByName.Clear();
 #if DEBUG
         _duplicateObserver.Clear();
 #endif

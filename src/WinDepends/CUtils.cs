@@ -666,25 +666,6 @@ public static class CUtils
     }
 
     /// <summary>
-    /// Finds a module by its name hash in a collection of modules.
-    /// </summary>
-    /// <param name="moduleName">The name of the module to find</param>
-    /// <param name="moduleList">The collection of modules to search</param>
-    /// <returns>The matching module if found; otherwise, null</returns>
-    static internal CModule? GetModuleByHash(string moduleName, List<CModule> moduleList)
-    {
-        var hash = moduleName.GetHashCode(StringComparison.OrdinalIgnoreCase);
-        var moduleDict = moduleList.ToDictionary(m => m.FileName.GetHashCode(StringComparison.OrdinalIgnoreCase), m => m);
-
-        if (moduleDict.TryGetValue(hash, out var module))
-        {
-            return module;
-        }
-
-        return null;
-    }
-
-    /// <summary>
     /// Finds a TreeView node representing a specific module.
     /// </summary>
     /// <param name="lookupModule">The module to search for</param>

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        30 Jul 2026
+*  DATE:        04 Nov 2026
 *  
 *  Module dependency/import/export analysis for 
 *  Core Server communication class.
@@ -192,7 +192,6 @@ public partial class CCoreClient
             module.Dependents.Add(netDependent);
         }
 
-        CAssemblyRefAnalyzer.ClearCache();
     }
 
     /// <summary>
@@ -236,8 +235,12 @@ public partial class CCoreClient
                         bool collectForwarders,
                         CCoreExports rawExports)
     {
+        HashSet<CForwarderEntry> forwarderSet;
+
         if (module == null || rawExports?.Library == null)
             return;
+
+        forwarderSet = new HashSet<CForwarderEntry>(module.ForwarderEntries);
 
         foreach (var entry in rawExports.Library.Function)
         {
@@ -270,7 +273,8 @@ public partial class CCoreClient
                                 TargetFunctionName = (targetOrd == CConsts.OrdinalNotPresent) ? targetFn : string.Empty,
                                 TargetOrdinal = (targetOrd == CConsts.OrdinalNotPresent) ? CConsts.OrdinalNotPresent : targetOrd
                             };
-                            if (!module.ForwarderEntries.Contains(fe))
+
+                            if (forwarderSet.Add(fe))
                                 module.ForwarderEntries.Add(fe);
                         }
                     }

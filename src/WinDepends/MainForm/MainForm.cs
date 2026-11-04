@@ -155,6 +155,7 @@ public partial class MainForm : Form
     readonly Dictionary<int, FunctionHashObject> _parentImportsHashTable = [];
 
     readonly List<CModule> _loadedModulesList = [];
+    readonly Dictionary<string, CModule> _loadedModulesByName = new(StringComparer.OrdinalIgnoreCase);
 
 #if DEBUG
     readonly CDependsDuplicateObserver _duplicateObserver = new();
@@ -398,14 +399,14 @@ public partial class MainForm : Form
                 _configuration.MRUList.AddRange(_mruList.GetCurrentItems());
                 CConfigManager.SaveConfiguration(_configuration);
             }
-            _mruList?.Dispose();
-
         }
         finally
         {
+            _mruList?.Dispose();
             _symbolResolver.SymbolLoadStatusChanged -= SymbolResolver_SymbolLoadStatusChanged;
             _symbolResolver.Dispose();
             _coreClient?.Dispose();
+            CAssemblyRefAnalyzer.Cleanup();
             AppLogger.OnLogMessage -= AppLogger_OnLogMessage;
         }
     }

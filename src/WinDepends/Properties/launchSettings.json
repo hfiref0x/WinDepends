@@ -1,7 +1,8 @@
 {
   "profiles": {
     "WinDepends": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Windows\\System32\\calc.exe -q -o C:\\makeexe\\d0.json"
     }
   }
 }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Sep 2026
+*  DATE:        04 Nov 2026
 *  
 *  Implementation of command-line interface handler.
 *
@@ -328,6 +328,11 @@ public static class CCliHandler
             : config.ModuleNodeDepthMax;
         config.ResolveAPIsets = options.ResolveApiSets;
         config.FullPaths = options.FullPaths;
+        config.ModuleNodeDepthMax = maxDepth - 1;
+        if (options.UseKernelSearchOrder)
+        {
+            config.SearchOrderListUM = new List<SearchOrderType>(config.SearchOrderListKM);
+        }
 
         string serverApp = ResolveCoreServerPath(config);
 
@@ -363,7 +368,13 @@ public static class CCliHandler
             return 1;
         }
 
-        CActCtxHelper actCtxHelper = null;
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler cancelHandler = (sender, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += cancelHandler;
 
         try
         {
@@ -382,67 +393,40 @@ public static class CCliHandler
 
             var session = new CDepends(options.InputFile);
             var rootModule = session.RootModule;
-
-            var searchOrderUM = options.UseKernelSearchOrder ? config.SearchOrderListKM : config.SearchOrderListUM;
-            var searchOrderKM = config.SearchOrderListKM;
-
             var fileOpenSettings = new CFileOpenSettings(config);
-
-            var status = coreClient.OpenModule(ref rootModule, fileOpenSettings);
-            if (status != ModuleOpenStatus.Okay)
-            {
-                if (!options.Quiet)
-                {
-                    Console.WriteLine($"Warning: Module open status: {status}");
-                }
-
-                if (rootModule.FileNotFound)
-                {
-                    Console.Error.WriteLine($"Error: File not found or inaccessible: {options.InputFile}");
-                    return 1;
-                }
-            }
-
-            coreClient.GetModuleHeadersInformation(rootModule);
-
-            actCtxHelper = new CActCtxHelper(rootModule.FileName);
-            CPathResolver.ActCtxHelper = actCtxHelper;
-            CPathResolver.Initialized = false;
-            CPathResolver.QueryFileInformation(rootModule);
-
             var parentImportsHashTable = new Dictionary<int, FunctionHashObject>();
-            coreClient.GetModuleImportExportInformation(
-                rootModule,
-                searchOrderUM.ToList(),
-                searchOrderKM.ToList(),
-                parentImportsHashTable,
-                config.EnableExperimentalFeatures,
-                config.ExpandForwarders);
+            int processedCount = 0;
 
-            coreClient.CloseModule();
-
+            Action<CDependsAnalysisProgress> reportProgress = null;
             if (!options.Quiet)
             {
-                Console.WriteLine("Processing dependencies...");
+                reportProgress = progress =>
+                {
+                    if (progress.Stage == CDependsAnalysisProgressStage.OpeningModule)
+                    {
+                        processedCount++;
+                        Console.WriteLine($"  [{processedCount}] Analyzing: {Path.GetFileName(progress.ModuleFileName)}");
+                    }
+                };
             }
 
-            var processedModulesData = new Dictionary<string, CModule>(StringComparer.OrdinalIgnoreCase);
-            processedModulesData[rootModule.FileName.ToLowerInvariant()] = rootModule;
-
-            int processedCount = 0;
-            ProcessDependentsRecursive(
-                coreClient,
-                rootModule,
-                searchOrderUM.ToList(),
-                searchOrderKM.ToList(),
-                parentImportsHashTable,
-                fileOpenSettings,
+            var context = new CDependsAnalysisContext(
                 config,
-                maxDepth,
-                0,
-                processedModulesData,
-                options.Quiet,
-                ref processedCount);
+                rootModule,
+                parentImportsHashTable,
+                LogMessage,
+                reportProgress,
+                cts.Token);
+
+            var analysisService = new CDependsAnalysisService(coreClient);
+            analysisService.AnalyzeModel(
+                new CDependsModelAnalysisRequest(session, fileOpenSettings, context));
+
+            if (rootModule.FileNotFound)
+            {
+                Console.Error.WriteLine($"Error: File not found or inaccessible: {options.InputFile}");
+                return 1;
+            }
 
             if (!options.Quiet)
             {
@@ -471,6 +455,11 @@ public static class CCliHandler
                 return 1;
             }
         }
+        catch (OperationCanceledException)
+        {
+            Console.Error.WriteLine("Analysis cancelled.");
+            return 130;
+        }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
@@ -478,103 +467,8 @@ public static class CCliHandler
         }
         finally
         {
-            actCtxHelper?.Dispose();
-            CPathResolver.ActCtxHelper = null;
+            Console.CancelKeyPress -= cancelHandler;
             coreClient.DisconnectClient();
-        }
-    }
-
-    private static void ProcessDependentsRecursive(
-        CCoreClient coreClient,
-        CModule parentModule,
-        List<SearchOrderType> searchOrderUM,
-        List<SearchOrderType> searchOrderKM,
-        Dictionary<int, FunctionHashObject> parentImportsHashTable,
-        CFileOpenSettings fileOpenSettings,
-        CConfiguration config,
-        int maxDepth,
-        int currentDepth,
-        Dictionary<string, CModule> processedModulesData,
-        bool quiet,
-        ref int processedCount)
-    {
-        if (currentDepth >= maxDepth || parentModule.Dependents == null)
-            return;
-
-        for (int i = 0; i < parentModule.Dependents.Count; i++)
-        {
-            var dep = parentModule.Dependents[i];
-            string key = dep.FileName?.ToLowerInvariant() ?? "";
-
-            if (string.IsNullOrEmpty(key))
-                continue;
-
-            if (processedModulesData.TryGetValue(key, out CModule existingModule))
-            {
-                dep.ModuleData = new CModuleData(existingModule.ModuleData);
-                dep.FileNotFound = existingModule.FileNotFound;
-                dep.IsInvalid = existingModule.IsInvalid;
-                dep.ExportContainErrors = existingModule.ExportContainErrors;
-                dep.OtherErrorsPresent = existingModule.OtherErrorsPresent;
-                dep.IsDotNetModule = existingModule.IsDotNetModule;
-                dep.OriginalInstanceId = existingModule.InstanceId;
-                parentModule.Dependents[i] = dep;
-                continue;
-            }
-
-            if (dep.FileNotFound || dep.IsInvalid)
-            {
-                processedModulesData[key] = dep;
-                continue;
-            }
-
-            if (!quiet)
-            {
-                processedCount++;
-                Console.WriteLine($"  [{processedCount}] Analyzing: {Path.GetFileName(dep.FileName)}");
-            }
-
-            var status = coreClient.OpenModule(ref dep, fileOpenSettings);
-            if (status == ModuleOpenStatus.Okay)
-            {
-                coreClient.GetModuleHeadersInformation(dep);
-
-                coreClient.GetModuleImportExportInformation(
-                    dep,
-                    searchOrderUM,
-                    searchOrderKM,
-                    parentImportsHashTable,
-                    config.EnableExperimentalFeatures,
-                    config.ExpandForwarders);
-
-                coreClient.CloseModule();
-            }
-            else if (status == ModuleOpenStatus.ErrorFileNotFound)
-            {
-                dep.FileNotFound = true;
-            }
-            else
-            {
-                dep.IsInvalid = true;
-            }
-
-            dep.InstanceId = dep.GetHashCode();
-            processedModulesData[key] = dep;
-            parentModule.Dependents[i] = dep;
-
-            ProcessDependentsRecursive(
-                coreClient,
-                dep,
-                searchOrderUM,
-                searchOrderKM,
-                parentImportsHashTable,
-                fileOpenSettings,
-                config,
-                maxDepth,
-                currentDepth + 1,
-                processedModulesData,
-                quiet,
-                ref processedCount);
         }
     }
 

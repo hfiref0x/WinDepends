@@ -388,6 +388,9 @@ public static class CExporter
         if (module == null || currentDepth > maxDepth)
             return;
 
+        if (module.OriginalInstanceId != 0)
+            return;
+
         string key = module.FileName?.ToLowerInvariant() ?? "";
         if (!visited.Add(key))
             return;
@@ -406,6 +409,9 @@ public static class CExporter
     private static void CollectGraphData(CModule module, Dictionary<string, CModule> nodes, HashSet<string> edges, HashSet<string> visited, int maxDepth, int currentDepth)
     {
         if (module == null || currentDepth > maxDepth)
+            return;
+
+        if (module.OriginalInstanceId != 0)
             return;
 
         string key = module.FileName?.ToLowerInvariant() ?? "";
@@ -440,7 +446,7 @@ public static class CExporter
             return;
 
         string key = module.FileName?.ToLowerInvariant() ?? "";
-        bool isDuplicate = !visited.Add(key);
+        bool isDuplicate = module.OriginalInstanceId != 0 || !visited.Add(key);
 
         string fileName = Path.GetFileName(module.FileName);
         string statusClass = module.FileNotFound ? "missing" : (module.ExportContainErrors || module.OtherErrorsPresent ? "warning" : "");
@@ -482,7 +488,7 @@ public static class CExporter
             return;
 
         string key = module.FileName?.ToLowerInvariant() ?? "";
-        bool isDuplicate = !visited.Add(key);
+        bool isDuplicate = module.OriginalInstanceId != 0 || !visited.Add(key);
 
         string connector = isLast ? "└── " : "├── ";
         string fileName = Path.GetFileName(module.FileName);

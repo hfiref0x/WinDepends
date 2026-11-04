@@ -150,6 +150,14 @@ internal sealed class CFileOpenOrchestrationService
             AppLogger.Log(state.LogMessage, state.LogMessageType);
             updateOperationStatus(state.LogMessage);
         }
+        catch (OperationCanceledException)
+        {
+            state.IsSuccess = false;
+            state.Result = FileOpenResult.Cancelled;
+            PopulateResultMessage(state);
+            AppLogger.Log(state.LogMessage, state.LogMessageType);
+            updateOperationStatus(state.LogMessage);
+        }
         catch (Exception e)
         {
             // An unexpected exception occurred (e.g. I/O error, access

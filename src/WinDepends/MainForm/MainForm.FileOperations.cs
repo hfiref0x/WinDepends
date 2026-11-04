@@ -136,7 +136,6 @@ public partial class MainForm
             }
 
             CConfiguration analysisConfiguration = new(_configuration);
-            CFileOpenSettings analysisFileOpenSettings = new(fileOpenSettings);
             Dictionary<int, FunctionHashObject> analysisImportsHashTable = [];
 
             _parentImportsHashTable.Clear();

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        17 Jul 2026
+*  DATE:        04 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -32,7 +32,6 @@ using static WinDepends.NativeMethods;
 namespace WinDepends;
 
 public delegate void UpdateLoadStatusCallback(string status);
-public delegate void UpdateSymbolsStatus(bool enabled);
 public delegate void AddLogMessageCallback(string message, LogMessageType messageType,
     Color? color = null, bool useBold = false, bool moduleMessage = false,
     CModule? relatedModule = null, RichTextBox? richTextBox = null);

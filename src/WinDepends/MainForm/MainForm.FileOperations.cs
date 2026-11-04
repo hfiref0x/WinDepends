@@ -260,7 +260,7 @@ public partial class MainForm
         try
         {
             CFileOpenState state = new(fileName);
-            return await _fileOpenOrchestrationService.ExecuteAsync(
+            return await CFileOpenOrchestrationService.ExecuteAsync(
                        state,
                        OpenInputFileInternalAsync,
                        UpdateOperationStatus,

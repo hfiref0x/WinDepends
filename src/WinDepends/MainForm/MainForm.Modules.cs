@@ -47,7 +47,7 @@ public partial class MainForm
     /// <param name="parentNode">The parent node to check depth against.</param>
     /// <param name="maxDepth">The maximum allowed depth.</param>
     /// <returns>true if the node is within the depth limit; otherwise, false.</returns>
-    private bool ValidateTreeDepth(TreeNode parentNode, int maxDepth)
+    private static bool ValidateTreeDepth(TreeNode parentNode, int maxDepth)
     {
         if (parentNode == null)
             return true; // Root node is always valid
@@ -219,8 +219,7 @@ public partial class MainForm
     private TreeNode AddModuleEntryCore(
         CModule module,
         TreeNode parentNode,
-        int maxDepth,
-        Action<CModule> moduleProcessor = null)
+        int maxDepth)
     {
         // 1. Validate tree depth
         if (!ValidateTreeDepth(parentNode, maxDepth))
@@ -231,19 +230,13 @@ public partial class MainForm
             module,
             parentNode);
 
-        // 3. Run custom processing if this is a new module
-        if (isNewModule && moduleProcessor != null)
-        {
-            moduleProcessor(module);
-        }
-
-        // 4. Format display name
+        // 3. Format display name
         string moduleDisplayName = BuildModuleDisplayName(
                    module.GetModuleNameRespectApiSet(_configuration.ResolveAPIsets),
                    _configuration.FullPaths,
                    _configuration.UpperCaseModuleNames);
 
-        // Mark forward user as red if there is no forward module.
+        // 4. Mark forward user as red if there is no forward module.
         if (module.IsForward && module.FileNotFound && parentNode?.Tag is CModule parentMod)
         {
             parentMod.OtherErrorsPresent = true;
@@ -295,7 +288,7 @@ public partial class MainForm
     /// <returns>Tree node entry.</returns>
     private TreeNode AddSessionModuleEntry(CModule module, TreeNode parentNode = null)
     {
-        // Just use the shared implementation without any specific processor set
+        // Just use the shared implementation
         return AddModuleEntryCore(
             module,
             parentNode,

@@ -76,11 +76,6 @@ public partial class MainForm : Form
     CConfiguration _configuration;
 
     /// <summary>
-    /// FileOpen dedicated class.
-    /// </summary>
-    readonly CFileOpenOrchestrationService _fileOpenOrchestrationService = new();
-
-    /// <summary>
     /// Workaround for WinForms glitches.
     /// </summary>
     Control? _focusedControl;

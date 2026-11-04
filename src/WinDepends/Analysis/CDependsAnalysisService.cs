@@ -28,9 +28,8 @@ namespace WinDepends;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Three entry points build on the same traversal order:
-/// <see cref="PopulateLiveAnalysis"/> analyzes modules and builds the tree at the
-/// same time, <see cref="PopulateModuleTree"/> builds the tree from modules, 
+/// Two entry points build on the same traversal order:
+/// <see cref="PopulateModuleTree"/> builds the tree from modules, 
 /// and <see cref="AnalyzeModel"/> analyzes modules into a
 /// <see cref="CDepends"/> model without building a tree.
 /// </para>
@@ -44,9 +43,8 @@ namespace WinDepends;
 /// </para>
 /// <para>
 /// <b>Thread safety.</b> Analysis entry points that open files
-/// (<see cref="PopulateLiveAnalysis"/> and <see cref="AnalyzeModel"/>) change
-/// process-wide state on <see cref="CPathResolver"/> for the duration of the
-/// run, so analyses must not run concurrently.
+/// <see cref="AnalyzeModel"/>) change process-wide state on <see cref="CPathResolver"/> 
+/// for the duration of the run, so analyses must not run concurrently.
 /// </para>
 /// </remarks>
 internal sealed class CDependsAnalysisService
@@ -474,57 +472,6 @@ internal sealed class CDependsAnalysisService
     }
 
     /// <summary>
-    /// Analyzes the root module and its dependencies and builds the dependency tree in one pass.
-    /// </summary>
-    /// <param name="request">The analysis request.</param>
-    /// <returns>
-    /// The population result, containing the root node (or <see langword="null"/>
-    /// if the root was rejected) and the processed/accepted module counts.
-    /// </returns>
-    /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
-    /// <remarks>
-    /// <para>
-    /// The tree is built inside an analysis scope (see <see cref="BeginAnalysis"/>);
-    /// the scope is disposed before this method returns.
-    /// </para>
-    /// <para>
-    /// In DEBUG builds, the finished tree is then re-traversed with the model
-    /// traversal and compared against the live traversal
-    /// (see <see cref="ValidateModelTraversalParity"/>). Mismatches are written
-    /// to the debug output only.
-    /// </para>
-    /// </remarks>
-    public CDependsPopulationResult PopulateLiveAnalysis(
-        CDependsLiveAnalysisRequest request)
-    {
-        Action<CDependsAnalysisProgress> reportProgress;
-        CDependsPopulationMetrics metrics;
-        TreeNode? rootNode;
-        ArgumentNullException.ThrowIfNull(request);
-        reportProgress = request.Context.ReportProgress ?? s_ignoreProgress;
-        metrics = new CDependsPopulationMetrics();
-
-        using (EnterAnalysis())
-        {
-            using (BeginAnalysis(request.RootFileName, request.Context))
-            {
-                rootNode = PopulateDependencyTree(
-                    request.RootModule,
-                    request.FileOpenSettings,
-                    request.ProcessModule,
-                    request.Context,
-                    reportProgress,
-                    metrics);
-            }
-
-#if DEBUG
-            ValidateModelTraversalParity(request, metrics);
-#endif
-            return new CDependsPopulationResult(rootNode, metrics.ProcessedModuleCount, metrics.AcceptedModuleCount);
-        }
-    }
-
-    /// <summary>
     /// Analyzes the model's root module and its dependencies, updating the modules
     /// in place without building a tree.
     /// </summary>
@@ -652,47 +599,6 @@ internal sealed class CDependsAnalysisService
     }
 
     /// <summary>
-    /// Builds the dependency tree for a live analysis, routing each module through
-    /// <paramref name="metrics"/> so visits are counted and recorded.
-    /// </summary>
-    /// <param name="rootModule">The root module.</param>
-    /// <param name="fileOpenSettings">The settings used when opening module files.</param>
-    /// <param name="processModule">The processor that analyzes a module and creates its tree node.</param>
-    /// <param name="context">The shared analysis context.</param>
-    /// <param name="reportProgress">The progress callback.</param>
-    /// <param name="metrics">The collector that counts and records visits.</param>
-    /// <returns>The root node, or <see langword="null"/> if the root was rejected.</returns>
-    /// <exception cref="ArgumentNullException">Any argument is <see langword="null"/>.</exception>
-    private TreeNode? PopulateDependencyTree(
-        CModule rootModule,
-        CFileOpenSettings fileOpenSettings,
-        CDependsModuleProcessor processModule,
-        CDependsAnalysisContext context,
-        Action<CDependsAnalysisProgress> reportProgress,
-        CDependsPopulationMetrics metrics)
-    {
-        ArgumentNullException.ThrowIfNull(rootModule);
-        ArgumentNullException.ThrowIfNull(fileOpenSettings);
-        ArgumentNullException.ThrowIfNull(processModule);
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(reportProgress);
-        ArgumentNullException.ThrowIfNull(metrics);
-
-        return PopulateTreeCore(
-            rootModule,
-            (module, parentNode) => CDependsTraversalVisitResult.FromNode(
-                metrics.ProcessModule(
-                    module,
-                    parentNode,
-                    (currentModule, currentParentNode) => processModule(
-                        currentModule,
-                        currentParentNode,
-                        fileOpenSettings,
-                        context))),
-            reportProgress);
-    }
-
-    /// <summary>
     /// Builds the dependency tree from modules.
     /// </summary>
     /// <param name="request">The population request.</param>
@@ -702,8 +608,7 @@ internal sealed class CDependsAnalysisService
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
     /// <remarks>
-    /// Unlike <see cref="PopulateLiveAnalysis"/>, no files are opened and no
-    /// analysis scope is created.
+    /// No files are opened and no analysis scope is created.
     /// </remarks>
     public CDependsPopulationResult PopulateModuleTree(
         CDependsTreePopulationRequest request)

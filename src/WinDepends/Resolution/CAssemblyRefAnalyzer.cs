@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Sep 2026
+*  DATE:        04 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -453,7 +453,7 @@ public static class CAssemblyRefAnalyzer
                     cpuType,
                     referringDirectory);
             }
-
+            asmRef.IsNative = string.Equals(asmRef.ResolutionSource, "Native library", StringComparison.Ordinal);
             resolvedRefs[i] = asmRef;
         });
 

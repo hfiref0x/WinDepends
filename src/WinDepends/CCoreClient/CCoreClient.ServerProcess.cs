@@ -378,24 +378,6 @@ public partial class CCoreClient
     }
 
     /// <summary>
-    /// Sends an exit request to the server.
-    /// </summary>
-    /// <returns>true if the exit command was sent successfully; otherwise, false.</returns>
-    public bool ExitRequest()
-    {
-        return SendRequest(CConsts.CMD_EXIT);
-    }
-
-    /// <summary>
-    /// Sends a shutdown request to the server.
-    /// </summary>
-    /// <returns>true if the shutdown command was sent successfully; otherwise, false.</returns>
-    public bool ShutdownRequest()
-    {
-        return SendRequest(CConsts.CMD_SHUTDOWN);
-    }
-
-    /// <summary>
     /// Execute event callback when server state is changed.
     /// </summary>
     private void OnServerStateChanged()

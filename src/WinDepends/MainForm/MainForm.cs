@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        29 Oct 2026
+*  DATE:        07 Nov 2026
 *  
 *  Codename:    VasilEk
 *
@@ -789,7 +789,7 @@ public partial class MainForm : Form
     /// the changed settings or do nothing.
     /// </summary>
     /// <param name="pageIndex">An index of page to be selected.</param>
-    private void ShowConfigurationForm(int pageIndex)
+    private void ShowConfigurationForm(ConfigurationTabIndex pageIndex)
     {
         bool is64bitFile = true;
         string currentFileName = string.Empty;
@@ -891,7 +891,7 @@ public partial class MainForm : Form
 
     private void ConfigureMenuItem_Click(object sender, EventArgs e)
     {
-        ShowConfigurationForm(CConsts.IdxTabMain);
+        ShowConfigurationForm(ConfigurationTabIndex.TabMain);
     }
 
     /// <summary>
@@ -1760,7 +1760,7 @@ public partial class MainForm : Form
     {
         if (sender is ToolStripMenuItem menuItem)
         {
-            ShowConfigurationForm(Convert.ToInt32(menuItem.Tag));
+            ShowConfigurationForm((ConfigurationTabIndex)Convert.ToInt32(menuItem.Tag));
         }
     }
 
@@ -1776,7 +1776,7 @@ public partial class MainForm : Form
 
     private void ToolBarSymStatus_DoubleClick(object sender, EventArgs e)
     {
-        ShowConfigurationForm(CConsts.IdxTabSymbols);
+        ShowConfigurationForm(ConfigurationTabIndex.TabSymbols);
     }
 
     private void ToolBarSymStatus_MouseDown(object sender, MouseEventArgs e)

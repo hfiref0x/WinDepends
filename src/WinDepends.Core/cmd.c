@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 30, 2024
 *
-*  Modified on: Feb 11, 2026
+*  Modified on: Nov 05, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -327,7 +327,7 @@ void cmd_apisetnamespace_info(
                     L"file",
                     TRUE,
                     file_name,
-                    (ULONG)sz,
+                    (ULONG)(sz / sizeof(WCHAR)),
                     &param_length))
                 {
                     TempApiSetMap = load_apiset_namespace(file_name, &hTempModule);
@@ -635,7 +635,7 @@ pmodule_ctx cmd_open(
             L"file",
             TRUE,
             file_name,
-            (ULONG)sz,
+            (ULONG)(sz / sizeof(WCHAR)),
             &param_length))
         {
             sz = (1 + wcslen(file_name)) * sizeof(WCHAR);

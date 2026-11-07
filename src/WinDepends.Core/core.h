@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Oct 02, 2026
+*  Modified on: Nov 05, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -40,7 +40,7 @@
 #define WINDEPENDS_SERVER_MAJOR_VERSION     1
 #define WINDEPENDS_SERVER_MINOR_VERSION     0
 #define WINDEPENDS_SERVER_REVISION          0
-#define WINDEPENDS_SERVER_BUILD             2610
+#define WINDEPENDS_SERVER_BUILD             2611
 
 #define SERVER_ERROR_SUCCESS        0
 #define SERVER_ERROR_WSASTARTUP     1
@@ -78,7 +78,6 @@ typedef struct {
     int custom_image_base;
     DWORD allocation_granularity;
 
-    LARGE_INTEGER start_count;
     DWORD64 total_bytes_sent;
     DWORD64 total_send_calls;
     DWORD64 total_time_spent;

@@ -3,7 +3,7 @@
 *
 *  Created on: Nov 08, 2024
 *
-*  Modified on: Aug 16, 2025
+*  Modified on: Nov 05, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -79,11 +79,11 @@ BOOL mlist_traverse(
 )
 {
     BOOL bAnyError = FALSE;
+    BOOL sendSucceeded = TRUE;
     PLIST_ENTRY entry, nextEntry;
     message_node* node = NULL;
     PWCHAR pchBuffer = NULL; //cumulative buffer
-    SIZE_T cchTotalSize = 128;
-    SIZE_T position = 0;
+    SIZE_T cchTotalSize = 0, position = 0, msgLen;
 
     // Early exit for single-node send
     if (action == mlist_send &&
@@ -92,16 +92,15 @@ BOOL mlist_traverse(
     {
         entry = head->Flink;
         node = CONTAINING_RECORD(entry, message_node, ListEntry);
-        if (node->message) {
-            sendstring_plaintext(s, node->message, context);
-        }
+        if (node->message)
+            sendSucceeded = sendstring_plaintext(s, node->message, context) != SOCKET_ERROR;
 
-        if (!node->isStaticBuffer && node->message) {
+        if (!node->isStaticBuffer && node->message)
             heap_free(NULL, node->message);
-        }
+
         heap_free(NULL, node);
         InitializeListHead(head);
-        return TRUE;
+        return sendSucceeded;
     }
 
     if (action == mlist_send) {
@@ -109,20 +108,28 @@ BOOL mlist_traverse(
         entry = head->Flink;
         while (entry != head) {
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
-            if (node->messageLength) {
-                if (cchTotalSize > SIZE_MAX - node->messageLength) {
-                    bAnyError = TRUE;
-                    break;
-                }
-                cchTotalSize += node->messageLength;
+            if (node->messageLength > SIZE_MAX - cchTotalSize)
+            {
+                bAnyError = TRUE;
+                break;
             }
+
+            cchTotalSize += node->messageLength;
             entry = entry->Flink;
+        }
+
+        // Check overflow
+        if (!bAnyError &&
+            cchTotalSize > (SIZE_MAX / sizeof(WCHAR)) - 1)
+        {
+            bAnyError = TRUE;
         }
 
         // Allocate buffer if no errors
         if (!bAnyError) {
             pchBuffer = (PWCHAR)heap_calloc(NULL, (cchTotalSize + 1) * sizeof(WCHAR));
-            if (!pchBuffer) bAnyError = TRUE;
+            if (!pchBuffer) 
+                bAnyError = TRUE;
         }
 
         // Pass 2: Process nodes with safe traversal
@@ -131,31 +138,39 @@ BOOL mlist_traverse(
             nextEntry = entry->Flink;
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
 
-            // Copy data if buffer available and within bounds
-            if (!bAnyError && pchBuffer && node->message) {
-                SIZE_T msgLen = node->messageLength;
-                if (position <= cchTotalSize &&
-                    msgLen <= cchTotalSize - position)
-                {
-                    memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
-                    position += msgLen;
-                }
-                else {
+            if (!bAnyError) {
+
+                if (!node->message && node->messageLength) {
                     bAnyError = TRUE;
+                } else {
+                    // Copy data if buffer available and within bounds
+                    msgLen = node->messageLength;
+                    if (position <= cchTotalSize &&
+                        msgLen <= cchTotalSize - position)
+                    {
+                        if (msgLen)
+                            memcpy(pchBuffer + position, node->message, msgLen * sizeof(WCHAR));
+
+                        position += msgLen;
+                    } else {
+                        bAnyError = TRUE;
+                    }
                 }
             }
 
-            if (!node->isStaticBuffer && node->message) {
+            if (!node->isStaticBuffer && node->message) 
                 heap_free(NULL, node->message);
-            }
+            
             heap_free(NULL, node);
-
             entry = nextEntry;
         }
 
-        // Send if successful
         if (!bAnyError && pchBuffer) {
-            sendstring_plaintext(s, pchBuffer, context);
+            if (position != cchTotalSize ||
+                sendstring_plaintext(s, pchBuffer, context) == SOCKET_ERROR)
+            {
+                bAnyError = TRUE;
+            }
         }
 
         // Cleanup
@@ -169,13 +184,13 @@ BOOL mlist_traverse(
             nextEntry = entry->Flink;
             node = CONTAINING_RECORD(entry, message_node, ListEntry);
 
-            if (!node->isStaticBuffer && node->message) {
+            if (!node->isStaticBuffer && node->message) 
                 heap_free(NULL, node->message);
-            }
+            
             heap_free(NULL, node);
-
             entry = nextEntry;
         }
+
         InitializeListHead(head);
         return TRUE;
     }

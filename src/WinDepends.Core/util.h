@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Dec 21, 2025
+*  Modified on: Nov 05, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -93,6 +93,18 @@ InsertTailList(
     return;
 }
 
+FORCEINLINE wchar_t locase_w(_In_ wchar_t c)
+{
+    if ((c >= 'A') && (c <= 'Z'))
+        return c + 0x20;
+    else
+        return c;
+}
+
+FORCEINLINE int _isdigit_w(_In_ wchar_t x) {
+    return ((x >= L'0') && (x <= L'9'));
+}
+
 extern SUP_CONTEXT gsup;
 
 void utils_init();
@@ -153,7 +165,6 @@ _Success_(return) BOOL get_params_option(
     _Out_opt_ PULONG param_length
 );
 
-LPVOID heap_malloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
 LPVOID heap_calloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
 BOOL heap_free(_In_opt_ HANDLE heap, _In_ LPVOID memory);
 

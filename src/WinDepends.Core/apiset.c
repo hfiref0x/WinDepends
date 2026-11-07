@@ -3,7 +3,7 @@
 *
 *  Created on: Dec 06, 2024
 *
-*  Modified on: Mar 21, 2025
+*  Modified on: Nov 05, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -11,14 +11,6 @@
 */
 
 #include "core.h"
-
-__forceinline wchar_t locase_w(wchar_t c)
-{
-    if ((c >= 'A') && (c <= 'Z'))
-        return c + 0x20;
-    else
-        return c;
-}
 
 BOOL
 NTAPI

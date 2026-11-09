@@ -3,7 +3,7 @@
 *
 *  Created on: Dec 06, 2024
 *
-*  Modified on: Mar 21, 2025
+*  Modified on: Nov 05, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -12,30 +12,22 @@
 
 #include "core.h"
 
-__forceinline wchar_t locase_w(wchar_t c)
-{
-    if ((c >= 'A') && (c <= 'Z'))
-        return c + 0x20;
-    else
-        return c;
-}
-
 BOOL
 NTAPI
 ApiSetpValidateNameToResolve(
     _In_ PCUNICODE_STRING ApiSetNameToResolve
 )
 {
-    WCHAR* ApiSetNameBuffer;
-    ULONGLONG ApiSetNameBufferPrefix;
+    WCHAR* nameBuffer;
+    ULONGLONG nameBufferPrefix;
 
     if (ApiSetNameToResolve->Length < API_SET_PREFIX_NAME_U_LENGTH) {
         return FALSE;
     }
 
-    ApiSetNameBuffer = ApiSetNameToResolve->Buffer;
-    ApiSetNameBufferPrefix = API_SET_TO_UPPER_PREFIX(((ULONG64*)ApiSetNameBuffer)[0]);
-    if (ApiSetNameBufferPrefix != API_SET_PREFIX_API && ApiSetNameBufferPrefix != API_SET_PREFIX_EXT) {
+    nameBuffer = ApiSetNameToResolve->Buffer;
+    nameBufferPrefix = API_SET_TO_UPPER_PREFIX(((ULONG64*)nameBuffer)[0]);
+    if (nameBufferPrefix != API_SET_PREFIX_API && nameBufferPrefix != API_SET_PREFIX_EXT) {
         return FALSE;
     }
 
@@ -54,8 +46,8 @@ ApiSetpSearchForApiSetV6(
     USHORT i;
     ULONG entryHash;
     LONG low, middle, high;
-    PAPI_SET_HASH_ENTRY_V6 HashEntry;
-    PAPI_SET_NAMESPACE_ENTRY_V6 FoundEntry;
+    PAPI_SET_HASH_ENTRY_V6 hashEntry;
+    PAPI_SET_NAMESPACE_ENTRY_V6 foundEntry;
 
     if (!ApiSetNameToResolveLength) {
         return NULL;
@@ -68,7 +60,7 @@ ApiSetpSearchForApiSetV6(
         entryHash = entryHash * ApiSetNamespace->HashMultiplier + wch;
     }
 
-    FoundEntry = NULL;
+    foundEntry = NULL;
     low = 0;
     middle = 0;
     high = (LONG)ApiSetNamespace->Count - 1;
@@ -76,31 +68,31 @@ ApiSetpSearchForApiSetV6(
     while (high >= low) {
         middle = (low + high) >> 1;
 
-        HashEntry = API_SET_HASH_ENTRY_V6(ApiSetNamespace, middle);
+        hashEntry = API_SET_HASH_ENTRY_V6(ApiSetNamespace, middle);
 
-        if (entryHash < HashEntry->Hash) {
+        if (entryHash < hashEntry->Hash) {
             high = middle - 1;
         }
-        else if (entryHash > HashEntry->Hash) {
+        else if (entryHash > hashEntry->Hash) {
             low = middle + 1;
         }
         else {
-            FoundEntry = API_SET_NAMESPACE_ENTRY_V6(ApiSetNamespace, HashEntry);
+            foundEntry = API_SET_NAMESPACE_ENTRY_V6(ApiSetNamespace, hashEntry);
             break;
         }
     }
 
-    if (high < low || FoundEntry == NULL) {
+    if (high < low || foundEntry == NULL) {
         return NULL;
     }
 
     if (0 == gsup.RtlCompareUnicodeStrings(ApiSetNameToResolve,
         ApiSetNameToResolveLength,
-        API_SET_NAMESPACE_ENTRY_NAME_V6(ApiSetNamespace, FoundEntry),
-        FoundEntry->HashNameLength / sizeof(WCHAR),
+        API_SET_NAMESPACE_ENTRY_NAME_V6(ApiSetNamespace, foundEntry),
+        foundEntry->HashNameLength / sizeof(WCHAR),
         TRUE))
     {
-        return FoundEntry;
+        return foundEntry;
     }
 
     return NULL;
@@ -116,26 +108,26 @@ ApiSetpSearchForApiSetHostV6(
 )
 {
     LONG result, low, middle, high;
-    PAPI_SET_VALUE_ENTRY_V6 FoundEntry;
-    PAPI_SET_VALUE_ENTRY_V6 ApiSetHostEntry;
+    PAPI_SET_VALUE_ENTRY_V6 foundEntry;
+    PAPI_SET_VALUE_ENTRY_V6 hostEntry;
 
-    FoundEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace, Entry, 0);
+    foundEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace, Entry, 0);
 
     high = (LONG)(Entry->Count - 1);
     if (!high) {
-        return FoundEntry;
+        return foundEntry;
     }
 
     low = 1;
     while (low <= high) {
         middle = (low + high) >> 1;
 
-        ApiSetHostEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace, Entry, middle);
+        hostEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace, Entry, middle);
 
         result = gsup.RtlCompareUnicodeStrings(ApiSetNameToResolve,
             ApiSetNameToResolveLength,
-            API_SET_VALUE_NAME_V6(ApiSetNamespace, ApiSetHostEntry),
-            ApiSetHostEntry->NameLength / sizeof(WCHAR),
+            API_SET_VALUE_NAME_V6(ApiSetNamespace, hostEntry),
+            hostEntry->NameLength / sizeof(WCHAR),
             TRUE);
 
         if (result < 0) {
@@ -145,12 +137,12 @@ ApiSetpSearchForApiSetHostV6(
             low = middle + 1;
         }
         else {
-            FoundEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace, Entry, middle);
+            foundEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace, Entry, middle);
             break;
         }
     }
 
-    return FoundEntry;
+    return foundEntry;
 }
 
 NTSTATUS
@@ -162,73 +154,73 @@ ApiSetResolveToHostV6(
     _Out_ PUNICODE_STRING Output
 )
 {
-    BOOLEAN Resolved = FALSE;
-    USHORT ApiSetEffectiveLength;
-    WCHAR* ApiSetNameBuffer, * pwch;
-    ULONG ApiSetNameBufferLength;
+    BOOLEAN resolved = FALSE;
+    USHORT effectiveLength;
+    WCHAR* nameBuffer, * pwch;
+    ULONG nameBufferLength;
 
-    PAPI_SET_NAMESPACE_ENTRY_V6 ResolvedNamespaceEntry;
-    PAPI_SET_VALUE_ENTRY_V6 HostLibraryEntry;
+    PAPI_SET_NAMESPACE_ENTRY_V6 resolvedNamespaceEntry;
+    PAPI_SET_VALUE_ENTRY_V6 hostEntry;
 
     do {
 
         if (!ApiSetpValidateNameToResolve(ApiSetNameToResolve))
             break;
 
-        ApiSetNameBuffer = ApiSetNameToResolve->Buffer;
-        ApiSetNameBufferLength = (ULONG)ApiSetNameToResolve->Length;
-        pwch = (WCHAR*)((ULONG_PTR)ApiSetNameBuffer + ApiSetNameBufferLength);
+        nameBuffer = ApiSetNameToResolve->Buffer;
+        nameBufferLength = (ULONG)ApiSetNameToResolve->Length;
+        pwch = (WCHAR*)((ULONG_PTR)nameBuffer + nameBufferLength);
         do {
-            if (ApiSetNameBufferLength <= 1)
+            if (nameBufferLength <= 1)
                 break;
-            ApiSetNameBufferLength -= sizeof(WCHAR);
+            nameBufferLength -= sizeof(WCHAR);
             --pwch;
         } while (*pwch != L'-');
 
-        ApiSetEffectiveLength = (USHORT)(ApiSetNameBufferLength / sizeof(WCHAR));
-        if (!ApiSetEffectiveLength) {
+        effectiveLength = (USHORT)(nameBufferLength / sizeof(WCHAR));
+        if (!effectiveLength) {
             break;
         }
 
-        ResolvedNamespaceEntry = ApiSetpSearchForApiSetV6((PAPI_SET_NAMESPACE_V6)ApiSetNamespace,
-            ApiSetNameBuffer,
-            ApiSetEffectiveLength);
+        resolvedNamespaceEntry = ApiSetpSearchForApiSetV6((PAPI_SET_NAMESPACE_V6)ApiSetNamespace,
+            nameBuffer,
+            effectiveLength);
 
-        if (!ResolvedNamespaceEntry) {
+        if (!resolvedNamespaceEntry) {
             break;
         }
 
-        if (ResolvedNamespaceEntry->Count > 1 && ParentName) {
+        if (resolvedNamespaceEntry->Count > 1 && ParentName) {
 
-            HostLibraryEntry = ApiSetpSearchForApiSetHostV6(ResolvedNamespaceEntry,
+            hostEntry = ApiSetpSearchForApiSetHostV6(resolvedNamespaceEntry,
                 ParentName->Buffer,
                 ParentName->Length / sizeof(WCHAR),
                 (PAPI_SET_NAMESPACE_V6)ApiSetNamespace);
 
         }
-        else if (ResolvedNamespaceEntry->Count > 0) {
+        else if (resolvedNamespaceEntry->Count > 0) {
 
-            HostLibraryEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace,
-                ResolvedNamespaceEntry,
+            hostEntry = API_SET_VALUE_ENTRY_V6(ApiSetNamespace,
+                resolvedNamespaceEntry,
                 0);
         }
         else {
             break;
         }
 
-        if (IS_API_SET_EMPTY_VALUE_ENTRY_V6(HostLibraryEntry)) {
+        if (IS_API_SET_EMPTY_VALUE_ENTRY_V6(hostEntry)) {
             return STATUS_APISET_NOT_HOSTED;
         }
 
-        Output->Length = (USHORT)HostLibraryEntry->ValueLength;
+        Output->Length = (USHORT)hostEntry->ValueLength;
         Output->MaximumLength = Output->Length;
-        Output->Buffer = API_SET_VALUE_ENTRY_VALUE_V6(ApiSetNamespace, HostLibraryEntry);
+        Output->Buffer = API_SET_VALUE_ENTRY_VALUE_V6(ApiSetNamespace, hostEntry);
 
-        Resolved = TRUE;
+        resolved = TRUE;
 
     } while (FALSE);
 
-    return Resolved ? STATUS_SUCCESS : STATUS_APISET_NOT_PRESENT;
+    return resolved ? STATUS_SUCCESS : STATUS_APISET_NOT_PRESENT;
 }
 
 PAPI_SET_NAMESPACE_ENTRY_V4
@@ -239,24 +231,24 @@ ApiSetpSearchForApiSetV4(
 )
 {
     LONG result, low, middle, high;
-    PAPI_SET_NAMESPACE_ARRAY_V4 ApiSetNamespace;
-    PAPI_SET_NAMESPACE_ENTRY_V4 ApiSetNamespaceEntry;
-    UNICODE_STRING NamespaceEntry;
+    PAPI_SET_NAMESPACE_ARRAY_V4 namespaceArray;
+    PAPI_SET_NAMESPACE_ENTRY_V4 namespaceEntry;
+    UNICODE_STRING entryName;
 
-    ApiSetNamespace = (PAPI_SET_NAMESPACE_ARRAY_V4)Namespace;
+    namespaceArray = (PAPI_SET_NAMESPACE_ARRAY_V4)Namespace;
 
     low = 0;
-    high = (LONG)(ApiSetNamespace->Count - 1);
+    high = (LONG)(namespaceArray->Count - 1);
     while (high >= low) {
 
         middle = (high + low) >> 1;
 
-        ApiSetNamespaceEntry = API_SET_NAMESPACE_ENTRY_V4(ApiSetNamespace, middle);
+        namespaceEntry = API_SET_NAMESPACE_ENTRY_V4(namespaceArray, middle);
 
-        NamespaceEntry.Length = NamespaceEntry.MaximumLength = (USHORT)ApiSetNamespaceEntry->NameLength;
-        NamespaceEntry.Buffer = API_SET_NAMESPACE_ENTRY_NAME_V4(ApiSetNamespace, ApiSetNamespaceEntry);
+        entryName.Length = entryName.MaximumLength = (USHORT)namespaceEntry->NameLength;
+        entryName.Buffer = API_SET_NAMESPACE_ENTRY_NAME_V4(namespaceArray, namespaceEntry);
 
-        result = gsup.RtlCompareUnicodeString(ApiSetNameToResolve, &NamespaceEntry, TRUE);
+        result = gsup.RtlCompareUnicodeString(ApiSetNameToResolve, &entryName, TRUE);
 
         if (result < 0) {
             high = middle - 1;
@@ -265,7 +257,7 @@ ApiSetpSearchForApiSetV4(
             low = middle + 1;
         }
         else {
-            return ApiSetNamespaceEntry;
+            return namespaceEntry;
         }
     }
 
@@ -281,20 +273,20 @@ ApiSetpSearchForApiSetHostV4(
 )
 {
     LONG result, low, middle, high;
-    PAPI_SET_VALUE_ENTRY_V4 ApiSetHostEntry;
-    UNICODE_STRING NamespaceEntry;
+    PAPI_SET_VALUE_ENTRY_V4 hostEntry;
+    UNICODE_STRING entryName;
 
     low = 1;
     high = (LONG)(ApiSetValueArray->Count - 1);
     while (high >= low) {
         middle = (high + low) >> 1;
 
-        ApiSetHostEntry = API_SET_VALUE_ENTRY_V4(ApiSetNamespace, ApiSetValueArray, middle);
+        hostEntry = API_SET_VALUE_ENTRY_V4(ApiSetNamespace, ApiSetValueArray, middle);
 
-        NamespaceEntry.Length = NamespaceEntry.MaximumLength = (USHORT)ApiSetHostEntry->NameLength;
-        NamespaceEntry.Buffer = API_SET_VALUE_ENTRY_NAME_V4(ApiSetNamespace, ApiSetHostEntry);
+        entryName.Length = entryName.MaximumLength = (USHORT)hostEntry->NameLength;
+        entryName.Buffer = API_SET_VALUE_ENTRY_NAME_V4(ApiSetNamespace, hostEntry);
 
-        result = gsup.RtlCompareUnicodeString(ApiSetNameToResolve, &NamespaceEntry, TRUE);
+        result = gsup.RtlCompareUnicodeString(ApiSetNameToResolve, &entryName, TRUE);
 
         if (result < 0) {
             high = middle - 1;
@@ -303,7 +295,7 @@ ApiSetpSearchForApiSetHostV4(
             low = middle + 1;
         }
         else {
-            return ApiSetHostEntry;
+            return hostEntry;
         }
     }
 
@@ -319,68 +311,51 @@ ApiSetResolveToHostV4(
     _Out_ PUNICODE_STRING Output
 )
 {
-    BOOLEAN Resolved = FALSE;
-    PAPI_SET_NAMESPACE_ENTRY_V4 ResolvedNamespaceEntry;
-    PAPI_SET_VALUE_ARRAY_V4 ResolvedValueArray;
-    PAPI_SET_VALUE_ENTRY_V4 HostLibraryEntry;
-    UNICODE_STRING ApiSetNameNoExtString;
-    USHORT PrefixLength = sizeof(ULONGLONG);
+    PAPI_SET_NAMESPACE_ARRAY_V4 namespaceArray;
+    PAPI_SET_NAMESPACE_ENTRY_V4 namespaceEntry;
+    PAPI_SET_VALUE_ARRAY_V4 valueArray;
+    PAPI_SET_VALUE_ENTRY_V4 hostEntry;
+    UNICODE_STRING nameWithoutExtension;
+    USHORT prefixLength = sizeof(ULONGLONG);
 
-    do {
+    if (!ApiSetpValidateNameToResolve(ApiSetNameToResolve))
+        return STATUS_APISET_NOT_PRESENT;
 
-        if (!ApiSetpValidateNameToResolve(ApiSetNameToResolve))
-            break;
+    nameWithoutExtension.Length = ApiSetNameToResolve->Length - prefixLength;
+    nameWithoutExtension.MaximumLength = nameWithoutExtension.Length;
+    nameWithoutExtension.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNameToResolve->Buffer + prefixLength);
 
-        ApiSetNameNoExtString.Length = ApiSetNameToResolve->Length - PrefixLength;
-        ApiSetNameNoExtString.MaximumLength = ApiSetNameNoExtString.Length;
-        ApiSetNameNoExtString.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNameToResolve->Buffer +
-            PrefixLength);
+    if (nameWithoutExtension.Length >= prefixLength &&
+        nameWithoutExtension.Buffer[(USHORT)(nameWithoutExtension.Length - prefixLength) / sizeof(WCHAR)] == L'.')
+    {
+        nameWithoutExtension.Length -= prefixLength;
+    }
 
-        if (ApiSetNameNoExtString.Length >= PrefixLength &&
-            ApiSetNameNoExtString.Buffer[(USHORT)(ApiSetNameNoExtString.Length - PrefixLength) / sizeof(WCHAR)] == L'.')
-        {
-            ApiSetNameNoExtString.Length -= PrefixLength;
-        }
+    namespaceArray = (PAPI_SET_NAMESPACE_ARRAY_V4)ApiSetNamespace;
+    namespaceEntry = ApiSetpSearchForApiSetV4(namespaceArray, &nameWithoutExtension);
+    if (!namespaceEntry)
+        return STATUS_APISET_NOT_PRESENT;
 
-        ResolvedNamespaceEntry = ApiSetpSearchForApiSetV4(ApiSetNamespace,
-            &ApiSetNameNoExtString);
+    valueArray = API_SET_NAMESPACE_ENTRY_DATA_V4(namespaceArray, namespaceEntry);
+    if (valueArray->Count == 0)
+        return STATUS_APISET_NOT_PRESENT;
 
-        if (!ResolvedNamespaceEntry) {
-            break;
-        }
+    hostEntry = NULL;
 
-        ResolvedValueArray = API_SET_NAMESPACE_ENTRY_DATA_V4(ApiSetNamespace,
-            ResolvedNamespaceEntry);
+    if (ParentName && valueArray->Count > 1)
+        hostEntry = ApiSetpSearchForApiSetHostV4(valueArray, ParentName, namespaceArray);
 
-        if (ResolvedValueArray->Count > 1 && ParentName) {
+    if (!hostEntry)
+        hostEntry = API_SET_VALUE_ENTRY_V4(namespaceArray, valueArray, 0);
 
-            HostLibraryEntry = ApiSetpSearchForApiSetHostV4(ResolvedValueArray,
-                ParentName,
-                (PAPI_SET_NAMESPACE_ARRAY_V4)ApiSetNamespace);
+    if (IS_API_SET_EMPTY_VALUE_ENTRY_V4(hostEntry))
+        return STATUS_APISET_NOT_HOSTED;
 
-        }
-        else if (ResolvedValueArray->Count > 0) {
+    Output->Length = (USHORT)hostEntry->ValueLength;
+    Output->MaximumLength = Output->Length;
+    Output->Buffer = API_SET_VALUE_ENTRY_VALUE_V4(namespaceArray, hostEntry);
 
-            HostLibraryEntry = API_SET_VALUE_ENTRY_V4(ApiSetNamespace, ResolvedValueArray, 0);
-
-        }
-        else {
-            break;
-        }
-
-        if (HostLibraryEntry == NULL || IS_API_SET_EMPTY_VALUE_ENTRY_V4(HostLibraryEntry)) {
-            return STATUS_APISET_NOT_HOSTED;
-        }
-
-        Output->Length = (USHORT)HostLibraryEntry->ValueLength;
-        Output->MaximumLength = Output->Length;
-        Output->Buffer = API_SET_VALUE_ENTRY_VALUE_V4(ApiSetNamespace, HostLibraryEntry);
-
-        Resolved = TRUE;
-
-    } while (FALSE);
-
-    return Resolved ? STATUS_SUCCESS : STATUS_APISET_NOT_PRESENT;
+    return STATUS_SUCCESS;
 }
 
 PAPI_SET_VALUE_ENTRY_V2
@@ -392,8 +367,8 @@ ApiSetpSearchForApiSetHostV2(
 )
 {
     LONG low, middle, high, result;
-    UNICODE_STRING ApiSetHostName;
-    PAPI_SET_VALUE_ENTRY_V2 ApiSetValueEntry;
+    UNICODE_STRING hostName;
+    PAPI_SET_VALUE_ENTRY_V2 valueEntry;
 
     low = 1;
     high = ApiSetValueArray->Count - 1;
@@ -401,12 +376,12 @@ ApiSetpSearchForApiSetHostV2(
     while (high >= low) {
         middle = (high + low) >> 1;
 
-        ApiSetValueEntry = &ApiSetValueArray->Array[middle];
-        ApiSetHostName.Length = (USHORT)ApiSetValueEntry->NameLength;
-        ApiSetHostName.MaximumLength = ApiSetHostName.Length;
-        ApiSetHostName.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNamespace + ApiSetValueEntry->NameOffset);
+        valueEntry = &ApiSetValueArray->Array[middle];
+        hostName.Length = (USHORT)valueEntry->NameLength;
+        hostName.MaximumLength = hostName.Length;
+        hostName.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNamespace + valueEntry->NameOffset);
 
-        result = gsup.RtlCompareUnicodeString(ApiToResolve, &ApiSetHostName, TRUE);
+        result = gsup.RtlCompareUnicodeString(ApiToResolve, &hostName, TRUE);
 
         if (result < 0) {
             high = middle - 1;
@@ -415,7 +390,7 @@ ApiSetpSearchForApiSetHostV2(
             low = middle + 1;
         }
         else {
-            return ApiSetValueEntry;
+            return valueEntry;
         }
     }
 
@@ -433,45 +408,44 @@ ApiSetResolveToHostV2(
 {
     BOOLEAN Resolved = FALSE;
     LONG result, low, middle, high;
-    PAPI_SET_NAMESPACE_ARRAY_V2 ApiSetNamespaceArray;
-    PAPI_SET_NAMESPACE_ENTRY_V2 ApiSetNamespaceEntry;
-    PAPI_SET_VALUE_ARRAY_V2 ApiSetValueArray;
-    PAPI_SET_VALUE_ENTRY_V2 HostLibraryEntry;
-    UNICODE_STRING ApiSetNamespaceString;
-    UNICODE_STRING ApiSetNameNoExtString;
-    USHORT PrefixLength = sizeof(ULONGLONG);
+    PAPI_SET_NAMESPACE_ARRAY_V2 namespaceArray;
+    PAPI_SET_NAMESPACE_ENTRY_V2 namespaceEntry;
+    PAPI_SET_VALUE_ARRAY_V2 valueArray;
+    PAPI_SET_VALUE_ENTRY_V2 hostEntry;
+    UNICODE_STRING namespaceName;
+    UNICODE_STRING nameWithoutExtension;
+    USHORT prefixLength = sizeof(ULONGLONG);
 
     do {
 
         if (!ApiSetpValidateNameToResolve(ApiSetNameToResolve))
             break;
 
-        ApiSetNameNoExtString.Length = ApiSetNameToResolve->Length - PrefixLength;
-        ApiSetNameNoExtString.MaximumLength = ApiSetNameNoExtString.Length;
-        ApiSetNameNoExtString.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNameToResolve->Buffer +
-            PrefixLength);
+        nameWithoutExtension.Length = ApiSetNameToResolve->Length - prefixLength;
+        nameWithoutExtension.MaximumLength = nameWithoutExtension.Length;
+        nameWithoutExtension.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNameToResolve->Buffer + prefixLength);
 
-        if (ApiSetNameNoExtString.Length >= PrefixLength &&
-            ApiSetNameNoExtString.Buffer[(USHORT)(ApiSetNameNoExtString.Length - PrefixLength) / sizeof(WCHAR)] == L'.')
+        if (nameWithoutExtension.Length >= prefixLength &&
+            nameWithoutExtension.Buffer[(USHORT)(nameWithoutExtension.Length - prefixLength) / sizeof(WCHAR)] == L'.')
         {
-            ApiSetNameNoExtString.Length -= PrefixLength;
+            nameWithoutExtension.Length -= prefixLength;
         }
 
-        ApiSetNamespaceArray = (PAPI_SET_NAMESPACE_ARRAY_V2)ApiSetNamespace;
-        ApiSetNamespaceEntry = NULL;
+        namespaceArray = (PAPI_SET_NAMESPACE_ARRAY_V2)ApiSetNamespace;
+        namespaceEntry = NULL;
 
         low = 0;
-        high = (LONG)(ApiSetNamespaceArray->Count - 1);
+        high = (LONG)(namespaceArray->Count - 1);
 
         while (high >= low) {
 
             middle = (low + high) >> 1;
-            ApiSetNamespaceEntry = API_SET_NAMESPACE_ENTRY_V2(ApiSetNamespace, middle);
-            ApiSetNamespaceString.Length = (USHORT)ApiSetNamespaceEntry->NameLength;
-            ApiSetNamespaceString.MaximumLength = ApiSetNamespaceString.Length;
-            ApiSetNamespaceString.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNamespace + ApiSetNamespaceEntry->NameOffset);
+            namespaceEntry = API_SET_NAMESPACE_ENTRY_V2(ApiSetNamespace, middle);
+            namespaceName.Length = (USHORT)namespaceEntry->NameLength;
+            namespaceName.MaximumLength = namespaceName.Length;
+            namespaceName.Buffer = (WCHAR*)((ULONG_PTR)ApiSetNamespace + namespaceEntry->NameOffset);
 
-            result = gsup.RtlCompareUnicodeString(&ApiSetNameNoExtString, &ApiSetNamespaceString, TRUE);
+            result = gsup.RtlCompareUnicodeString(&nameWithoutExtension, &namespaceName, TRUE);
 
             if (result < 0) {
                 high = middle - 1;
@@ -488,26 +462,25 @@ ApiSetResolveToHostV2(
             break;
         }
 
-        ApiSetValueArray = (PAPI_SET_VALUE_ARRAY_V2)((ULONG_PTR)ApiSetNamespace +
-            ApiSetNamespaceEntry->DataOffset);
+        valueArray = (PAPI_SET_VALUE_ARRAY_V2)((ULONG_PTR)ApiSetNamespace + namespaceEntry->DataOffset);
 
-        if (ApiSetValueArray->Count > 1 && ParentName) {
+        if (valueArray->Count > 1 && ParentName) {
 
-            HostLibraryEntry = ApiSetpSearchForApiSetHostV2(ApiSetValueArray,
+            hostEntry = ApiSetpSearchForApiSetHostV2(valueArray,
                 ParentName,
                 ApiSetNamespace);
         }
         else {
-            HostLibraryEntry = NULL;
+            hostEntry = NULL;
         }
 
-        if (HostLibraryEntry == NULL) {
-            HostLibraryEntry = ApiSetValueArray->Array;
+        if (hostEntry == NULL) {
+            hostEntry = valueArray->Array;
         }
 
-        Output->Length = (USHORT)HostLibraryEntry->ValueLength;
+        Output->Length = (USHORT)hostEntry->ValueLength;
         Output->MaximumLength = Output->Length;
-        Output->Buffer = (WCHAR*)((ULONG_PTR)ApiSetNamespace + HostLibraryEntry->ValueOffset);
+        Output->Buffer = (WCHAR*)((ULONG_PTR)ApiSetNamespace + hostEntry->ValueOffset);
 
         Resolved = TRUE;
 

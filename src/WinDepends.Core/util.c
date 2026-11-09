@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Feb 11, 2026
+*  Modified on: Nov 08, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -142,8 +142,8 @@ BOOL ex_write_dump(
 }
 
 int ex_filter_dbg(
-    _In_ WCHAR *fileName, 
-    _In_ unsigned int code, 
+    _In_ WCHAR* fileName,
+    _In_ unsigned int code,
     _In_ struct _EXCEPTION_POINTERS* ep
 )
 {
@@ -159,7 +159,7 @@ int ex_filter_dbg(
 }
 
 int ex_filter(
-    _In_ unsigned int code, 
+    _In_ unsigned int code,
     _In_ struct _EXCEPTION_POINTERS* ep
 )
 {
@@ -173,13 +173,6 @@ int ex_filter(
     {
         return EXCEPTION_CONTINUE_SEARCH;
     };
-}
-
-LPVOID heap_malloc(_In_opt_ HANDLE heap, _In_ SIZE_T size)
-{
-    HANDLE hHeap = (heap == NULL) ? GetProcessHeap() : heap;
-
-    return HeapAlloc(hHeap, 0, size);
 }
 
 LPVOID heap_calloc(_In_opt_ HANDLE heap, _In_ SIZE_T size)
@@ -196,56 +189,101 @@ BOOL heap_free(_In_opt_ HANDLE heap, _In_ LPVOID memory)
     return HeapFree(hHeap, 0, memory);
 }
 
+static BOOL send_buffer(
+    _In_ SOCKET s,
+    _In_reads_bytes_(length) const char* buffer,
+    _In_ SIZE_T length,
+    _Out_opt_ PSIZE_T bytesSent)
+{
+    int chunk;
+    int result;
+    SIZE_T offset = 0;
+    SIZE_T remaining;
+
+    while (offset < length) {
+
+        remaining = length - offset;
+        chunk = (remaining > INT_MAX) ? INT_MAX : (int)remaining;
+
+        result = send(s, buffer + offset, chunk, 0);
+        if (result == SOCKET_ERROR) {
+
+            if (WSAGetLastError() == WSAEINTR)
+                continue;
+
+            if (bytesSent)
+                *bytesSent = offset;
+            return FALSE;
+        }
+
+        if (result == 0) {
+            if (bytesSent)
+                *bytesSent = offset;
+            return FALSE;
+        }
+
+        offset += (SIZE_T)result;
+    }
+
+    if (bytesSent)
+        *bytesSent = offset;
+
+    return TRUE;
+}
+
 int sendstring_plaintext_no_track(
-    _In_ SOCKET s, 
+    _In_ SOCKET s,
     _In_ const wchar_t* Buffer
 )
 {
-    return (send(s, (const char*)Buffer, (int)wcslen(Buffer) * sizeof(wchar_t), 0) >= 0);
+    SIZE_T length;
+
+    length = wcslen(Buffer);
+    if (length > SIZE_MAX / sizeof(WCHAR))
+        return FALSE;
+
+    length *= sizeof(WCHAR);
+    return send_buffer(s, (const char*)Buffer, length, NULL);
 }
 
 int sendstring_plaintext(
-    _In_ SOCKET s, 
+    _In_ SOCKET s,
     _In_ const wchar_t* Buffer,
     _In_opt_ pmodule_ctx context
 )
 {
-    int result;
-    LARGE_INTEGER endCount;
+    SIZE_T length;
+    SIZE_T bytesSent = 0;
+    LARGE_INTEGER startCount, endCount;
     LONG64 timeTaken;
-    BOOL enableStats;
+    BOOL enableStats, sendSucceeded;
 
-    int bufferLength = (int)wcslen(Buffer) * sizeof(wchar_t);
+    length = wcslen(Buffer);
+    if (length > SIZE_MAX / sizeof(WCHAR))
+        return SOCKET_ERROR;
+
+    length *= sizeof(WCHAR);
     enableStats = ((context != NULL) && context->enable_call_stats);
 
+    startCount.QuadPart = 0;
+    if (enableStats)
+        QueryPerformanceCounter(&startCount);
+
+    sendSucceeded = send_buffer(s, (const char*)Buffer, length, &bytesSent);
+
     if (enableStats) {
-        QueryPerformanceCounter(&context->start_count);
-    }
-
-    result = send(s, (const char*)Buffer, bufferLength, 0);
-
-    if (enableStats && result != SOCKET_ERROR) {
         QueryPerformanceCounter(&endCount);
-        timeTaken = (LONG64)((endCount.QuadPart - context->start_count.QuadPart) * 1000000 / gsup.PerformanceFrequency.QuadPart);
+        timeTaken = (LONG64)((endCount.QuadPart - startCount.QuadPart) *
+            1000000 / gsup.PerformanceFrequency.QuadPart);
 
-        context->total_bytes_sent += result;
+        context->total_bytes_sent += bytesSent;
         context->total_send_calls += 1;
         context->total_time_spent += timeTaken;
     }
 
-    return result;
-}
-
-__forceinline wchar_t locase_w(_In_ wchar_t c)
-{
-    if ((c >= 'A') && (c <= 'Z'))
-        return c + 0x20;
-    else
-        return c;
-}
-
-__forceinline int _isdigit_w(_In_ wchar_t x) {
-    return ((x >= L'0') && (x <= L'9'));
+    if (!sendSucceeded)
+        return SOCKET_ERROR;
+    return (bytesSent > INT_MAX) ? INT_MAX : (int)bytesSent;;
 }
 
 unsigned long strtoul_w(
@@ -273,7 +311,7 @@ unsigned long strtoul_w(
 }
 
 wchar_t* _filepath_w(
-    _In_ const wchar_t* fname, 
+    _In_ const wchar_t* fname,
     _Out_ wchar_t* fpath)
 {
     wchar_t* p = (wchar_t*)fname, * p0 = (wchar_t*)fname, * p1 = (wchar_t*)fpath;
@@ -298,8 +336,8 @@ wchar_t* _filepath_w(
 }
 
 USHORT chk_sum(
-    _In_ ULONG partial_sum, 
-    _In_ PUSHORT source, 
+    _In_ ULONG partial_sum,
+    _In_ PUSHORT source,
     _In_ ULONG length)
 {
     while (length--)
@@ -638,7 +676,7 @@ void utils_init()
         gsup.NtQuerySymbolicLinkObject == NULL ||
         gsup.RtlInitUnicodeString == NULL ||
         gsup.RtlCompareUnicodeStrings == NULL ||
-        gsup.RtlCompareUnicodeString  == NULL ||
+        gsup.RtlCompareUnicodeString == NULL ||
         gsup.RtlImageNtHeader == NULL ||
         gsup.NtClose == NULL)
     {
@@ -732,10 +770,10 @@ LPWSTR resolve_apiset_name(
             ResolvedNameBuffer = (LPWSTR)heap_calloc(NULL, NameBufferSize);
             if (ResolvedNameBuffer) {
 
-                if (S_OK == StringCbCopyN(ResolvedNameBuffer, 
+                if (S_OK == StringCbCopyN(ResolvedNameBuffer,
                     NameBufferSize,
-                    ResolvedName.Buffer, 
-                    ResolvedName.Length)) 
+                    ResolvedName.Buffer,
+                    ResolvedName.Length))
                 {
                     *name_length = ResolvedName.Length;
                     return ResolvedNameBuffer;
@@ -846,7 +884,8 @@ LPVOID get_manifest_base64(
 * Query tokens from parameters string.
 *
 */
-_Success_(return) BOOL get_params_token(
+_Success_(return) 
+BOOL get_params_token(
     _In_ LPCWSTR params,
     _In_ ULONG token_index,
     _Out_ LPWSTR buffer,
@@ -925,7 +964,8 @@ zero_term_exit:
 * Query parameters options by name and type.
 *
 */
-_Success_(return) BOOL get_params_option(
+_Success_(return) 
+BOOL get_params_option(
     _In_ LPCWSTR params,
     _In_ LPCWSTR option_name,
     _In_ BOOL is_parametric,
@@ -981,6 +1021,59 @@ _Success_(return) BOOL get_params_option(
 }
 
 /*
+* next_command_line_token
+*
+* Purpose:
+*
+* Query next token from the command line.
+*
+*/
+BOOL next_command_line_token(
+    _Inout_ LPCWSTR* cursor,
+    _Out_ LPCWSTR* tokenStart,
+    _Out_ PSIZE_T tokenLength)
+{
+    LPCWSTR current;
+
+    current = *cursor;
+    while (*current == L' ' || *current == L'\t')
+        ++current;
+
+    if (*current == L'\0')
+    {
+        *cursor = current;
+        *tokenStart = current;
+        *tokenLength = 0;
+        return FALSE;
+    }
+
+    if (*current == L'"')
+    {
+        *tokenStart = ++current;
+        while (*current != L'\0' && *current != L'"')
+            ++current;
+
+        *tokenLength = (SIZE_T)(current - *tokenStart);
+        if (*current == L'"')
+            ++current;
+    }
+    else
+    {
+        *tokenStart = current;
+        while (*current != L'\0' &&
+            *current != L' ' && *current != L'\t')
+        {
+            ++current;
+        }
+
+        *tokenLength = (SIZE_T)(current - *tokenStart);
+    }
+
+    *cursor = current;
+    return TRUE;
+}
+
+/*
 * report_exception_to_client
 *
 * Purpose:
@@ -1010,14 +1103,14 @@ VOID report_exception_to_client(
 * ansi_to_wide_copy
 *
 * Purpose:
-* 
+*
 * Copies a NUL-terminated ANSI (assumed 8-bit) string to a wide string buffer
 * performing a simple zero-extended widening (no codepage conversion).
-* 
+*
 */
 SIZE_T ansi_to_wide_copy(
     _In_z_ const char* src,
-    _Out_writes_(dest_cch) _Post_z_ WCHAR* dest,
+    _Out_writes_(dest_cch) _Post_z_ WCHAR * dest,
     _In_ SIZE_T dest_cch
 )
 {
@@ -1044,7 +1137,7 @@ SIZE_T ansi_to_wide_copy(
 * Escape JSON special characters.
 *
 */
-_Success_(return) 
+_Success_(return)
 BOOL json_escape_string(
     _In_z_ LPCWSTR src,
     _Out_writes_to_(dest_cch, *out_len) _Post_z_ LPWSTR dest,
@@ -1112,5 +1205,69 @@ BOOL json_escape_string(
     if (used >= dest_cch) return FALSE;
     dest[used] = 0;
     if (out_len) *out_len = used;
+    return TRUE;
+}
+
+/*
+* select_server_port
+*
+* Purpose:
+*
+* Parse server port from command line or return default.
+*
+*/
+BOOL select_server_port(
+    _Out_ u_short* serverPort
+)
+{
+    LPCWSTR commandLine;
+    LPCWSTR tokenStart;
+    LPCWSTR valueStart;
+    SIZE_T tokenLength, valueLength;
+    SIZE_T i;
+    ULONG port;
+    ULONG digit;
+
+    if (!serverPort)
+        return FALSE;
+
+    *serverPort = APP_PORT_DEFAULT;
+    commandLine = GetCommandLineW();
+
+    while (next_command_line_token(&commandLine, &tokenStart, &tokenLength)) {
+        if (tokenLength != 4 ||
+            wcsncmp(tokenStart, L"port", tokenLength) != 0)
+        {
+            continue;
+        }
+
+        // A present option with no value is invalid, not the default.
+        if (!next_command_line_token(&commandLine,
+            &valueStart, &valueLength) || valueLength == 0)
+        {
+            return FALSE;
+        }
+
+        port = 0;
+        for (i = 0; i < valueLength; ++i) {
+            if (valueStart[i] < L'0' || valueStart[i] > L'9')
+                return FALSE;
+
+            digit = (ULONG)(valueStart[i] - L'0');
+            if (port > (65535u - digit) / 10u)
+                return FALSE;
+
+            port = port * 10u + digit;
+        }
+
+        // Port zero requests an OS-assigned ephemeral port, which this
+        // server does not support because clients expect a fixed port.
+        if (port == 0)
+            return FALSE;
+
+        *serverPort = (u_short)port;
+        return TRUE;
+    }
+
     return TRUE;
 }

@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        13 Sep 2026
+*  DATE:        07 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -29,11 +29,11 @@ public partial class ConfigurationForm : Form
     readonly CConfiguration _config;
     TreeNode m_UserDefinedDirectoryNodeUM;
     TreeNode m_UserDefinedDirectoryNodeKM;
-    readonly int m_CurrentPageIndex;
+    readonly ConfigurationTabIndex m_CurrentPageIndex;
 
     public ConfigurationForm(string currentFileName, bool is64bitFile,
         CConfiguration currentConfiguration, CCoreClient coreClient,
-        int pageIndex = 0)
+        ConfigurationTabIndex pageIndex = ConfigurationTabIndex.TabMain)
     {
         InitializeComponent();
         m_CurrentFileName = currentFileName;
@@ -451,7 +451,7 @@ public partial class ConfigurationForm : Form
         ShowServerStatusAndSetControls();
         ShowApiSetNamespaceInformation();
 
-        settingsTabControl.SelectedIndex = m_CurrentPageIndex;
+        settingsTabControl.SelectedIndex = (int)m_CurrentPageIndex;
         if (m_CurrentPageIndex != 0 && settingsTabControl.SelectedTab != null)
         {
             var tagValue = settingsTabControl.SelectedTab.Tag;

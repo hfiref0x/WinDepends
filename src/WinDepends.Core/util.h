@@ -3,7 +3,7 @@
 *
 *  Created on: Aug 04, 2024
 *
-*  Modified on: Dec 21, 2025
+*  Modified on: Nov 08, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -93,6 +93,18 @@ InsertTailList(
     return;
 }
 
+FORCEINLINE wchar_t locase_w(_In_ wchar_t c)
+{
+    if ((c >= 'A') && (c <= 'Z'))
+        return c + 0x20;
+    else
+        return c;
+}
+
+FORCEINLINE int _isdigit_w(_In_ wchar_t x) {
+    return ((x >= L'0') && (x <= L'9'));
+}
+
 extern SUP_CONTEXT gsup;
 
 void utils_init();
@@ -136,24 +148,28 @@ DWORD calc_mapped_file_chksum(
 LPVOID get_manifest_base64(
     _In_ HMODULE module);
 
-_Success_(return) BOOL get_params_token(
+_Success_(return) BOOL 
+get_params_token(
     _In_ LPCWSTR params,
     _In_ ULONG token_index,
     _Out_ LPWSTR buffer,
     _In_ ULONG buffer_length, //in chars
-    _Out_ PULONG token_len
-);
+    _Out_ PULONG token_len);
 
-_Success_(return) BOOL get_params_option(
+_Success_(return) 
+BOOL get_params_option(
     _In_ LPCWSTR params,
     _In_ LPCWSTR option_name,
     _In_ BOOL is_parametric,
     _Out_opt_ LPWSTR value,
     _In_ ULONG value_length, //in chars
-    _Out_opt_ PULONG param_length
-);
+    _Out_opt_ PULONG param_length);
 
-LPVOID heap_malloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
+BOOL next_command_line_token(
+    _Inout_ LPCWSTR* cursor,
+    _Out_ LPCWSTR* tokenStart,
+    _Out_ PSIZE_T tokenLength);
+
 LPVOID heap_calloc(_In_opt_ HANDLE heap, _In_ SIZE_T size);
 BOOL heap_free(_In_opt_ HANDLE heap, _In_ LPVOID memory);
 
@@ -183,5 +199,8 @@ BOOL json_escape_string(
     _Out_writes_to_(dest_cch, *out_len) _Post_z_ LPWSTR dest,
     _In_ SIZE_T dest_cch,
     _Out_opt_ SIZE_T * out_len);
+
+BOOL select_server_port(
+    _Out_ u_short* serverPort);
 
 #endif /* _UTIL_H_ */

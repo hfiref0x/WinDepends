@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 17, 2024
 *
-*  Modified on: Oct 02, 2026
+*  Modified on: Nov 08, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -40,7 +40,7 @@
 #define WINDEPENDS_SERVER_MAJOR_VERSION     1
 #define WINDEPENDS_SERVER_MINOR_VERSION     0
 #define WINDEPENDS_SERVER_REVISION          0
-#define WINDEPENDS_SERVER_BUILD             2610
+#define WINDEPENDS_SERVER_BUILD             2611
 
 #define SERVER_ERROR_SUCCESS        0
 #define SERVER_ERROR_WSASTARTUP     1
@@ -48,6 +48,7 @@
 #define SERVER_ERROR_INVALIDIP      3
 #define SERVER_ERROR_BIND           4
 #define SERVER_ERROR_LISTEN         5
+#define SERVER_ERROR_INVALIDPORT    6
 
 #define DEFAULT_APP_ADDRESS_64  0x1000000
 #define DEFAULT_APP_ADDRESS_32  0x400000
@@ -58,6 +59,12 @@
 #define WDEP_MSG_LENGTH_SMALL   1024
 #define WDEP_MSG_LENGTH_MEDIUM  2048
 #define WDEP_MSG_LENGTH_BIG     4096
+
+#define APP_PORT_DEFAULT    8209
+#define APP_ADDR            "127.0.0.1"
+#define APP_MAXUSERS        1
+#define APP_KEEPALIVE       1
+#define MIN_WCHAR_CMD_BYTES 4
 
 typedef struct {
     unsigned char* module;
@@ -78,7 +85,6 @@ typedef struct {
     int custom_image_base;
     DWORD allocation_granularity;
 
-    LARGE_INTEGER start_count;
     DWORD64 total_bytes_sent;
     DWORD64 total_send_calls;
     DWORD64 total_time_spent;

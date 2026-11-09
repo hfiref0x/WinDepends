@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Nov 2026
+*  DATE:        07 Nov 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -21,36 +21,26 @@ public static class CConsts
     public const string ProgramName = "Windows Dependencies";
     public const string ShortProgramName = "WinDepends";
     public const string CopyrightString = "© 2024 - 2026 WinDepends Project Authors";
-
     public const string NotAvailableMsg = "N/A";
     public const string NotBoundMsg = "Not bound";
     public const string NoneMsg = "None";
-
     public const string AdminMsg = " (Administrator)";
     public const string Admin64Msg = " (Administrator, 64-bit)";
     public const string SixtyFourBitsMsg = " (64-bit)";
-
     public const string DateTimeFormat24Hours = "dd/MM/yyyy HH:mm:ss";
-
     public const uint DefaultAppStartAddress = 0x1000000;
-
     public const uint VersionMajor = 1;
     public const uint VersionMinor = 0;
     public const uint VersionRevision = 0;
     public const uint VersionBuild = 2611;
-
     public const int HistoryDepthMax = 32;
     public const int HistoryDepthDefault = 10;
-
     public const int ModuleNodeDepthMin = 0;
     public const int ModuleNodeDepthDefault = 2;
-
     public const int MinPortNumber = 49152;
     public const int MaxPortNumber = ushort.MaxValue;
-
     public const int MinValidWidth = 480;
     public const int MinValidHeight = 640;
-
     public const int TagUseESC = 100;
     public const int TagAutoExpand = 120;
     public const int TagFullPaths = 121;
@@ -73,60 +63,26 @@ public static class CConsts
     public const int TagUseCustomImageBase = 605;
     public const int TagEnableExperimentalFeatures = 606;
     public const int TagExpandForwarders = 607;
-
     public const int TagTbUseClassic = 1000;
     public const int TagTbUseModern = 1001;
-
     public const int ModuleIconsAllHeight = 15;
     public const int ModuleIconsAllWidth = 26;
     public const int FunctionIconsHeight = 14;
     public const int FunctionIconsWidth = 30;
     public const int ModuleIconsHeight = 15;
     public const int ModuleIconsWidth = 26;
-
     public const int ToolBarIconsHeigth = 48;
     public const int ToolBarIconsWidth = 48;
-
     public const int ToolBarIconsHeigthClassic = 15;
     public const int ToolBarIconsWidthClassic = 16;
-
     public const int SearchOrderIconsWidth = 18;
     public const int SearchOrderIconsHeigth = 17;
-
     public const int ToolBarImageMax = 11;
-
     public const float DefaultDPIValue = 96f;
     public const float DpiScaleFactor150 = 1.5f;
-
     public const string SearchOrderUserValue = "SearchOrderUserValue";
-
-    /// <summary>
-    /// Configuration tabs indexes.
-    /// </summary>
-    public const int IdxTabMain = 0;
-    public const int IdxTabHistory = 1;
-    public const int IdxTabAnalysis = 2;
-    public const int IdxTabApiset = 3;
-    public const int IdxTabExtHelpViewer = 4;
-    public const int IdxTabExtModuleViewer = 5;
-    public const int IdxTabHandledFileExtensions = 6;
-    public const int IdxTabSearchOrder = 7;
-    public const int IdxTabSearchOrderDrivers = 8;
-    public const int IdxTabServer = 9;
-    public const int IdxTabSymbols = 10;
-
-    /// <summary>
-    /// Count of LVImports, LVExports columns.
-    /// </summary>
-    public const int FunctionsColumnsCount = 4;
-    /// <summary>
-    /// Count of LVModules columns.
-    /// </summary>
-    public const int ModuleColumnsCount = 20;
-
     public const int FindDialogVerticalOffset = 100;
     public const int MaxTreeNodeStackSize = 1024;
-
     public const float DefaultGuiFontSize = 9f;
     public static readonly float[] AvailableGuiFontSizes = [8f, 9f, 10f, 11f, 12f];
 
@@ -164,7 +120,7 @@ public static class CConsts
     public const string CMD_CALLSTATS = "callstats\r\n";
     public const string CMD_APISETNINFO = "apisetnsinfo\r\n";
     public const string CMD_CLOSE = "close\r\n";
-    public const string CMD_EXIT = "exit\r\n";
+    //public const string CMD_EXIT = "exit\r\n";
     public const string CMD_SHUTDOWN = "shutdown\r\n";
 
     //
@@ -256,11 +212,11 @@ public static class CConsts
     /// </summary>
     public const string WDEP_STATUS_200 = "WDEP/1.0 200 OK\r\n";
     /// <summary>
-    /// Msg: Unknown data format
+    /// Msg: Unknown data format (for server references only, unused here)
     /// </summary>
     public const string WDEP_STATUS_208 = "WDEP/1.0 208 Unknown data format\r\n";
     /// <summary>
-    /// Msg: Invalid parameters received
+    /// Msg: Invalid parameters received (for server references only, unused here)
     /// </summary>
     public const string WDEP_STATUS_400 = "WDEP/1.0 400 Invalid parameters received\r\n";
     /// <summary>
@@ -276,11 +232,11 @@ public static class CConsts
     /// </summary>
     public const string WDEP_STATUS_415 = "WDEP/1.0 415 Invalid file headers or signatures\r\n";
     /// <summary>
-    /// Msg: Can not allocate resources
+    /// Msg: Can not allocate resources (for server references only, unused here)
     /// </summary>
     public const string WDEP_STATUS_500 = "WDEP/1.0 500 Can not allocate resources\r\n";
     /// <summary>
-    /// Context not allocated
+    /// Context not allocated (for server references only, unused here)
     /// </summary>
     public const string WDEP_STATUS_501 = "WDEP/1.0 501 Context not allocated\r\n";
     /// <summary>
@@ -458,4 +414,22 @@ public enum ExceptionLocation : uint
     DataDirectories,
     Imports,
     Exports
+}
+
+/// <summary>
+/// Configuration tab indexes.
+/// </summary>
+public enum ConfigurationTabIndex : int
+{
+    TabMain = 0,
+    TabHistory,
+    TabAnalysis,
+    TabApiset,
+    TabExtHelpViewer,
+    TabExtModuleViewer,
+    TabHandledFileExtensions,
+    TabSearchOrder,
+    TabSearchOrderDrivers,
+    TabServer,
+    TabSymbols
 }

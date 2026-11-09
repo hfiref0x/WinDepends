@@ -3,7 +3,7 @@
 *
 *  Created on: Jul 8, 2024
 *
-*  Modified on: Dec 20, 2025
+*  Modified on: Nov 08, 2026
 *
 *      Project: WinDepends.Core
 *
@@ -12,12 +12,6 @@
 
 #include "core.h"
 #include "pe32plus.h"
-
-#define APP_PORT_DEFAULT    8209
-#define APP_ADDR            "127.0.0.1"
-#define APP_MAXUSERS        1
-#define APP_KEEPALIVE       1
-#define MIN_WCHAR_CMD_BYTES 4
 
 #define cmd_debug_log   L"cmd %s, param: %s\r\n"
 
@@ -373,11 +367,12 @@ void connect_loop(
     _Inout_ PSERVER_CONTEXT ctx
 )
 {
-    DWORD   tid;
-    HANDLE  client_handle = NULL;
-    int     inaddr_size;
-    SOCKET  client_socket = 0;
-    struct  sockaddr_in client_saddr = { 0 };
+    DWORD tid;
+    HANDLE client_handle = NULL;
+    int inaddr_size;
+    LONG activeCount;
+    SOCKET client_socket = 0;
+    struct sockaddr_in client_saddr = { 0 };
     PCLIENT_THREAD_PARAM thread_param;
 
     while ((ctx->app_socket != INVALID_SOCKET) &&
@@ -391,9 +386,19 @@ void connect_loop(
 
         InterlockedIncrement64(&ctx->sockets_created);
 
-        if (InterlockedCompareExchange(&ctx->threads, 0, 0) < APP_MAXUSERS)
-        {
-            thread_param = (PCLIENT_THREAD_PARAM)heap_calloc(NULL, sizeof(CLIENT_THREAD_PARAM));
+        // Reserve a client slot before creating the worker. The reservation
+        // prevents concurrent accepts from exceeding APP_MAXUSERS.
+        activeCount = InterlockedIncrement(&ctx->threads);
+        if (activeCount > APP_MAXUSERS) {
+            InterlockedDecrement(&ctx->threads);
+            printf("Maximum allowed clients connected.\r\n");
+            closesocket(client_socket);
+            InterlockedIncrement64(&ctx->sockets_closed);
+        }
+        else {
+            thread_param = (PCLIENT_THREAD_PARAM)heap_calloc(
+                NULL, sizeof(CLIENT_THREAD_PARAM));
+
             if (thread_param) {
                 thread_param->client_socket = client_socket;
                 thread_param->server_ctx = ctx;
@@ -401,27 +406,25 @@ void connect_loop(
                 if (APP_KEEPALIVE)
                     socket_set_keepalive(client_socket);
 
-                client_handle = CreateThread(NULL, 0, client_thread, thread_param, 0, &tid);
+                client_handle = CreateThread(NULL, 0, client_thread,
+                    thread_param, 0, &tid);
                 if (client_handle) {
                     CloseHandle(client_handle);
+                    // The worker owns the slot and releases it on exit.
                 }
                 else {
                     printf("Error starting client thread.\r\n");
                     heap_free(NULL, thread_param);
                     closesocket(client_socket);
                     InterlockedIncrement64(&ctx->sockets_closed);
+                    InterlockedDecrement(&ctx->threads);
                 }
             }
             else {
                 closesocket(client_socket);
                 InterlockedIncrement64(&ctx->sockets_closed);
+                InterlockedDecrement(&ctx->threads);
             }
-        }
-        else
-        {
-            printf("Maximum allowed clients connected.\r\n");
-            closesocket(client_socket);
-            InterlockedIncrement64(&ctx->sockets_closed);
         }
 
         printf("MAIN LOOP stats: threads=%i, max_users=%i, sockets_created=%lli, sockets_closed=%lli\r\n",
@@ -483,36 +486,6 @@ DWORD WINAPI server_watchdog_thread(
     return 0;
 }
 
-/*
-* select_server_port
-*
-* Purpose:
-*
-* Parse server port from command line or return default.
-*
-*/
-u_short select_server_port(
-    VOID
-)
-{
-    ULONG   param_length = 0;
-    WCHAR   option_buffer[32];
-    LPCWSTR params = GetCommandLineW();
-
-    if (get_params_option(
-        params,
-        L"port",
-        TRUE,
-        option_buffer,
-        ARRAYSIZE(option_buffer),
-        &param_length))
-    {
-        return (u_short)strtoul_w(option_buffer);
-    }
-
-    return APP_PORT_DEFAULT;
-}
-
 #if defined _DEBUG || defined _CONSOLE
 void main()
 {
@@ -550,7 +523,10 @@ int CALLBACK WinMain(
 
     utils_init();
 
-    server_port = select_server_port();
+    if (!select_server_port(&server_port)) {
+        printf("Invalid server port. Expected an integer from 1 to 65535.\r\n");
+        ExitProcess(SERVER_ERROR_INVALIDPORT);
+    }
 
     th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)server_watchdog_thread, &server_ctx, 0, &tid);
     if (th) {

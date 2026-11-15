@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.00
 *
-*  DATE:        03 Nov 2026
+*  DATE:        11 Nov 2026
 *  
 *  Module tree, list, and navigation routines for main form.
 *
@@ -362,6 +362,7 @@ public partial class MainForm
 
         ArgumentNullException.ThrowIfNull(depends);
         ArgumentNullException.ThrowIfNull(depends.RootModule);
+        UpdateOperationStatus("Populating module tree...");
 
         CDependsTreePopulationRequest renderRequest = new(
             depends.RootModule,
@@ -369,7 +370,7 @@ public partial class MainForm
                 module,
                 parentNode,
                 canonicalModules),
-            ReportAnalysisProgress);
+             _ => { });
 
         return _analysisService.PopulateModuleTree(renderRequest);
     }
